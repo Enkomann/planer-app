@@ -2,6 +2,7 @@ from flask import Flask, request, redirect, render_template_string, session
 import sqlite3
 import os
 from datetime import datetime, timedelta
+
 app = Flask(__name__)
 app.secret_key = "luxmann_secret_key"
 
@@ -70,6 +71,7 @@ def login():
     </form>
     """
 
+# ---------------- LOGOUT ----------------
 @app.route("/logout")
 def logout():
     session.clear()
@@ -121,7 +123,7 @@ def index():
     <form method="post" action="/add_shift">
         <input name="worker" placeholder="Radnik">
         <input name="client" placeholder="Klijent">
-        <input name="date" placeholder="Datum">
+        <input name="date" type="date">
         <input name="time" placeholder="Vrijeme">
         <button>Dodaj</button>
     </form>
@@ -148,7 +150,9 @@ def index():
     <br><br>
     <a href="/week">📅 Sedmični kalendar</a>
     """, shifts=shifts)
-    @app.route("/week")
+
+# ---------------- WEEK VIEW ----------------
+@app.route("/week")
 def week_view():
 
     if "user" not in session:
@@ -160,7 +164,10 @@ def week_view():
     today = datetime.today()
     start_week = today - timedelta(days=today.weekday())
 
-    week_days = [(start_week + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
+    week_days = [
+        (start_week + timedelta(days=i)).strftime("%Y-%m-%d")
+        for i in range(7)
+    ]
 
     shifts = c.execute("SELECT * FROM shifts").fetchall()
 
@@ -180,7 +187,8 @@ def week_view():
             {% for s in shifts %}
                 {% if s[3] == day %}
                     <div style="background:#dff0ff; margin:5px; padding:5px;">
-                        {{s[1]}} → {{s[2]}}<br>
+                        <b>{{s[1]}}</b><br>
+                        {{s[2]}}<br>
                         {{s[4]}}
                     </div>
                 {% endif %}
@@ -190,6 +198,7 @@ def week_view():
 
     </div>
     """, week_days=week_days, shifts=shifts)
+
 # ---------------- ADD WORKER ----------------
 @app.route("/add_worker", methods=["POST"])
 def add_worker():
