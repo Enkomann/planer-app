@@ -85,7 +85,15 @@ def index():
     conn = sqlite3.connect("db.sqlite")
     c = conn.cursor()
 
-    shifts = c.execute("SELECT * FROM shifts").fetchall()
+    date_filter = request.args.get("date")
+
+if date_filter:
+    shifts = c.execute(
+        "SELECT * FROM shifts WHERE date = ?",
+        (date_filter,)
+    ).fetchall()
+else:
+    shifts = c.execute("SELECT * FROM shifts ORDER BY date").fetchall()
 
     conn.close()
 
@@ -119,7 +127,16 @@ def index():
     </form>
 
     <hr>
+<h2>Filter po datumu</h2>
 
+<form method="get">
+    <input type="date" name="date">
+    <button>Filtriraj</button>
+</form>
+
+<a href="/">Reset</a>
+
+<hr>
     <h2>PLAN</h2>
     <ul>
     {% for s in shifts %}
