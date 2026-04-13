@@ -78,48 +78,7 @@ def logout():
 # ---------------- HOME ----------------
 @app.route("/")
 def index():
-@app.route("/week")
-def week_view():
 
-    if "user" not in session:
-        return redirect("/login")
-
-    conn = sqlite3.connect("db.sqlite")
-    c = conn.cursor()
-
-    today = datetime.today()
-    start_week = today - timedelta(days=today.weekday())
-
-    week_days = [(start_week + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
-
-    shifts = c.execute("SELECT * FROM shifts").fetchall()
-
-    conn.close()
-
-    return render_template_string("""
-    <h1>📅 Sedmični plan</h1>
-
-    <a href="/">← Nazad</a>
-
-    <div style="display:flex; gap:10px;">
-
-    {% for day in week_days %}
-        <div style="border:1px solid #ccc; padding:10px; width:150px;">
-            <h3>{{day}}</h3>
-
-            {% for s in shifts %}
-                {% if s[3] == day %}
-                    <div style="background:#dff0ff; margin:5px; padding:5px;">
-                        {{s[1]}} → {{s[2]}}<br>
-                        {{s[4]}}
-                    </div>
-                {% endif %}
-            {% endfor %}
-        </div>
-    {% endfor %}
-
-    </div>
-    """, week_days=week_days, shifts=shifts)
     if "user" not in session:
         return redirect("/login")
 
@@ -189,6 +148,48 @@ def week_view():
     <br><br>
     <a href="/week">📅 Sedmični kalendar</a>
     """, shifts=shifts)
+    @app.route("/week")
+def week_view():
+
+    if "user" not in session:
+        return redirect("/login")
+
+    conn = sqlite3.connect("db.sqlite")
+    c = conn.cursor()
+
+    today = datetime.today()
+    start_week = today - timedelta(days=today.weekday())
+
+    week_days = [(start_week + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
+
+    shifts = c.execute("SELECT * FROM shifts").fetchall()
+
+    conn.close()
+
+    return render_template_string("""
+    <h1>📅 Sedmični plan</h1>
+
+    <a href="/">← Nazad</a>
+
+    <div style="display:flex; gap:10px;">
+
+    {% for day in week_days %}
+        <div style="border:1px solid #ccc; padding:10px; width:150px;">
+            <h3>{{day}}</h3>
+
+            {% for s in shifts %}
+                {% if s[3] == day %}
+                    <div style="background:#dff0ff; margin:5px; padding:5px;">
+                        {{s[1]}} → {{s[2]}}<br>
+                        {{s[4]}}
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    {% endfor %}
+
+    </div>
+    """, week_days=week_days, shifts=shifts)
 # ---------------- ADD WORKER ----------------
 @app.route("/add_worker", methods=["POST"])
 def add_worker():
