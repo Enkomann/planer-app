@@ -1,4 +1,39 @@
 from flask import Flask, request, redirect, render_template_string
+USERS = {
+    "admin": {"password": "admin123", "role": "admin"},
+    "worker1": {"password": "1234", "role": "worker"}
+}
+from flask import session, redirect, url_for
+
+app.secret_key = "supersecretkey"
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
+
+        user = USERS.get(username)
+
+        if user and user["password"] == password:
+            session["user"] = username
+            session["role"] = user["role"]
+            return redirect("/")
+        
+        return "Login failed"
+
+    return """
+    <form method="post">
+        <input name="username" placeholder="Username">
+        <input name="password" placeholder="Password" type="password">
+        <button type="submit">Login</button>
+    </form>
+    """
+    if "user" not in session:
+    return redirect("/login")
+    @app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/login")
 import sqlite3
 
 app = Flask(__name__)
