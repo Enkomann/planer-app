@@ -87,13 +87,13 @@ def index():
 
     date_filter = request.args.get("date")
 
-if date_filter:
-    shifts = c.execute(
-        "SELECT * FROM shifts WHERE date = ?",
-        (date_filter,)
-    ).fetchall()
-else:
-    shifts = c.execute("SELECT * FROM shifts ORDER BY date").fetchall()
+    if date_filter:
+        shifts = c.execute(
+            "SELECT * FROM shifts WHERE date = ?",
+            (date_filter,)
+        ).fetchall()
+    else:
+        shifts = c.execute("SELECT * FROM shifts ORDER BY date").fetchall()
 
     conn.close()
 
@@ -127,25 +127,25 @@ else:
     </form>
 
     <hr>
-<h2>Filter po datumu</h2>
 
-<form method="get">
-    <input type="date" name="date">
-    <button>Filtriraj</button>
-</form>
+    <h2>Filter po datumu</h2>
 
-<a href="/">Reset</a>
+    <form method="get">
+        <input type="date" name="date">
+        <button>Filtriraj</button>
+    </form>
 
-<hr>
+    <a href="/">Reset</a>
+
+    <hr>
+
     <h2>PLAN</h2>
     <ul>
     {% for s in shifts %}
         <li>{{s[3]}} | {{s[4]}} | {{s[1]}} → {{s[2]}}</li>
     {% endfor %}
     </ul>
-
     """, shifts=shifts)
-
 # ---------------- ADD WORKER ----------------
 @app.route("/add_worker", methods=["POST"])
 def add_worker():
