@@ -87,6 +87,10 @@ def index():
     conn = sqlite3.connect("db.sqlite")
     c = conn.cursor()
 
+    # dropdown data
+    workers = c.execute("SELECT name FROM workers").fetchall()
+    clients = c.execute("SELECT name FROM clients").fetchall()
+
     date_filter = request.args.get("date")
 
     user = session["user"]
@@ -136,8 +140,19 @@ def index():
 
     <h2>Dodaj smjenu</h2>
     <form method="post" action="/add_shift">
-        <input name="worker" placeholder="Radnik">
-        <input name="client" placeholder="Klijent">
+        
+        <select name="worker">
+            {% for w in workers %}
+                <option value="{{w[0]}}">{{w[0]}}</option>
+            {% endfor %}
+        </select>
+
+        <select name="client">
+            {% for c in clients %}
+                <option value="{{c[0]}}">{{c[0]}}</option>
+            {% endfor %}
+        </select>
+
         <input name="date" type="date">
         <input name="time" placeholder="Vrijeme">
         <button>Dodaj</button>
@@ -164,7 +179,8 @@ def index():
 
     <br><br>
     <a href="/week">📅 Sedmični kalendar</a>
-    """, shifts=shifts)
+    """, shifts=shifts, workers=workers, clients=clients)
+
 # ---------------- WEEK VIEW ----------------
 @app.route("/week")
 def week_view():
@@ -235,6 +251,23 @@ def week_view():
 
     </div>
     """, week_days=week_days, shifts=shifts)
+
+# ---------------- ADD WORKER ----------------
+@app.route("/add_worker", methods=["POST"])
+def add_worker():
+    if "user" not in session:
+        return redirect("/login")
+
+    conn = sqlite3.connect("db.sqlite")
+    c = conn.cursor()
+
+    c.execute("INSERT INTO workers (name) VALUES (?)", (request.form["name"],))
+
+    conn.commit()
+    conn.close()
+
+    return redirect("/")
+
 # ---------------- ADD CLIENT ----------------
 @app.route("/add_client", methods=["POST"])
 def add_client():
