@@ -105,6 +105,8 @@ def index():
     clients = c.execute("SELECT name FROM clients ORDER BY name").fetchall()
 
     date_filter = request.args.get("date")
+    selected_date = request.args.get("selected_date", "")
+
     user = session["user"]
     role = session["role"]
 
@@ -235,7 +237,7 @@ def index():
                     {% endfor %}
                 </select>
 
-                <input name="date" type="date" required>
+                <input name="date" type="date" value="{{ selected_date }}" required>
                 <input name="time" placeholder="Vrijeme, npr. 08:00-12:00" required>
                 <button>Dodaj smjenu</button>
             </form>
@@ -271,7 +273,7 @@ def index():
 
         <a class="week-link" href="/week">📅 Sedmični kalendar</a>
     </div>
-    """, shifts=shifts, workers=workers, clients=clients)
+    """, shifts=shifts, workers=workers, clients=clients, selected_date=selected_date)
 
 @app.route("/delete_shift/<int:id>")
 def delete_shift(id):
@@ -405,6 +407,13 @@ def week_view():
             width:180px;
             box-shadow:0 4px 14px rgba(0,0,0,0.06);
         }
+        .day-link {
+            text-decoration:none;
+            color:#1f4f82;
+            font-weight:bold;
+            display:block;
+            margin-bottom:8px;
+        }
         .shift {
             background:#e8f1fb;
             margin-top:8px;
@@ -420,7 +429,7 @@ def week_view():
     <div class="week-wrap">
         {% for day in week_days %}
             <div class="day-card">
-                <b>{{ day }}</b>
+                <a class="day-link" href="/?selected_date={{ day }}">{{ day }}</a>
                 {% for s in shifts %}
                     {% if s[3] == day %}
                         <div class="shift">
