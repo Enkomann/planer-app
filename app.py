@@ -173,7 +173,10 @@ def index():
     <h2>PLAN</h2>
     <ul>
     {% for s in shifts %}
-        <li>{{s[3]}} | {{s[4]}} | {{s[1]}} → {{s[2]}}</li>
+        <li>
+    {{s[3]}} | {{s[4]}} | {{s[1]}} → {{s[2]}}
+    <a href="/delete_shift/{{s[0]}}" style="color:red; margin-left:10px;">❌</a>
+</li>
     {% endfor %}
     </ul>
 
@@ -285,23 +288,16 @@ def add_client():
     return redirect("/")
 
 # ---------------- ADD SHIFT ----------------
-@app.route("/add_shift", methods=["POST"])
-def add_shift():
-    if "user" not in session:
+@app.route("/delete_shift/<int:id>")
+def delete_shift(id):
+
+    if "user" not in session or session["role"] != "admin":
         return redirect("/login")
 
     conn = sqlite3.connect("db.sqlite")
     c = conn.cursor()
 
-    c.execute("""
-        INSERT INTO shifts (worker, client, date, time)
-        VALUES (?, ?, ?, ?)
-    """, (
-        request.form["worker"],
-        request.form["client"],
-        request.form["date"],
-        request.form["time"]
-    ))
+    c.execute("DELETE FROM shifts WHERE id = ?", (id,))
 
     conn.commit()
     conn.close()
