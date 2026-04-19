@@ -89,6 +89,10 @@ def index():
 
     date_filter = request.args.get("date")
 
+    user = session["user"]
+role = session["role"]
+
+if role == "admin":
     if date_filter:
         shifts = c.execute(
             "SELECT * FROM shifts WHERE date = ?",
@@ -96,6 +100,17 @@ def index():
         ).fetchall()
     else:
         shifts = c.execute("SELECT * FROM shifts ORDER BY date").fetchall()
+else:
+    if date_filter:
+        shifts = c.execute(
+            "SELECT * FROM shifts WHERE worker = ? AND date = ?",
+            (user, date_filter)
+        ).fetchall()
+    else:
+        shifts = c.execute(
+            "SELECT * FROM shifts WHERE worker = ? ORDER BY date",
+            (user,)
+        ).fetchall()
 
     conn.close()
 
@@ -169,7 +184,16 @@ def week_view():
         for i in range(7)
     ]
 
+   user = session["user"]
+role = session["role"]
+
+if role == "admin":
     shifts = c.execute("SELECT * FROM shifts").fetchall()
+else:
+    shifts = c.execute(
+        "SELECT * FROM shifts WHERE worker = ?",
+        (user,)
+    ).fetchall()
 
     conn.close()
 
