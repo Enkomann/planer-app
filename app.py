@@ -1,7 +1,20 @@
-from flask import Flask, request, redirect, render_template_string, session
+from flask import Flask, request, redirect, render_template_string, session, send_file
 import sqlite3
 import os
+import io
 from datetime import datetime, timedelta
+
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import cm
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Paragraph,
+    Spacer,
+    Table,
+    TableStyle
+)
 
 app = Flask(__name__)
 app.secret_key = "luxmann_secret_key"
@@ -54,8 +67,8 @@ init_db()
 def login():
     error = ""
     if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
+        username = request.form["username"].strip()
+        password = request.form["password"].strip()
 
         user = USERS.get(username)
         if user and user["password"] == password:
@@ -67,19 +80,47 @@ def login():
 
     return render_template_string("""
     <style>
-        body { font-family: Arial, sans-serif; margin: 40px; background:#f4f6f8; }
-        .box { max-width: 400px; margin:auto; background:white; padding:30px; border-radius:12px; box-shadow:0 4px 14px rgba(0,0,0,0.08); }
-        h2 { margin-top:0; }
-        input, button { width:100%; padding:12px; margin-top:10px; box-sizing:border-box; }
-        button { background:#1f4f82; color:white; border:none; border-radius:8px; cursor:pointer; }
-        .error { color:#b00020; margin-top:10px; }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background: #f4f6f8;
+        }
+        .box {
+            max-width: 400px;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+        }
+        h2 { margin-top: 0; }
+        input, button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+            box-sizing: border-box;
+            border-radius: 8px;
+        }
+        input {
+            border: 1px solid #cbd5e1;
+        }
+        button {
+            background: #1f4f82;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        .error {
+            color: #b00020;
+            margin-top: 10px;
+        }
     </style>
 
     <div class="box">
         <h2>Prijava</h2>
         <form method="post">
-            <input name="username" placeholder="Username">
-            <input name="password" type="password" placeholder="Password">
+            <input name="username" placeholder="Username" required>
+            <input name="password" type="password" placeholder="Password" required>
             <button type="submit">Login</button>
         </form>
         {% if error %}
@@ -104,8 +145,8 @@ def index():
     workers = c.execute("SELECT name FROM workers ORDER BY name").fetchall()
     clients = c.execute("SELECT name FROM clients ORDER BY name").fetchall()
 
-    date_filter = request.args.get("date")
-    selected_date = request.args.get("selected_date", "")
+    date_filter = request.args.get("date", "").strip()
+    selected_date = request.args.get("selected_date", "").strip()
 
     user = session["user"]
     role = session["role"]
@@ -136,54 +177,76 @@ def index():
 
     return render_template_string("""
     <style>
-        body { font-family: Arial, sans-serif; margin: 24px; background:#f4f6f8; color:#1f2937; }
-        h1 { color:#1f4f82; margin-bottom:8px; }
-        .topbar { margin-bottom:20px; }
-        .topbar a { color:#1f4f82; text-decoration:none; font-weight:bold; }
-        .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px; }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 24px;
+            background: #f4f6f8;
+            color: #1f2937;
+        }
+        h1 {
+            color: #1f4f82;
+            margin-bottom: 8px;
+        }
+        .topbar {
+            margin-bottom: 20px;
+        }
+        .topbar a {
+            color: #1f4f82;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+        }
         .card {
-            background:white;
-            border-radius:12px;
-            padding:18px;
-            box-shadow:0 4px 14px rgba(0,0,0,0.06);
+            background: white;
+            border-radius: 12px;
+            padding: 18px;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.06);
         }
         input, select, button {
-            padding:10px;
-            margin:6px 0;
-            width:100%;
-            box-sizing:border-box;
-            border:1px solid #cbd5e1;
-            border-radius:8px;
+            padding: 10px;
+            margin: 6px 0;
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
         }
         button {
-            background:#1f4f82;
-            color:white;
-            border:none;
-            cursor:pointer;
+            background: #1f4f82;
+            color: white;
+            border: none;
+            cursor: pointer;
         }
         .shift {
-            background:white;
-            border-left:5px solid #1f4f82;
-            padding:12px;
-            margin:10px 0;
-            border-radius:10px;
-            box-shadow:0 2px 8px rgba(0,0,0,0.05);
+            background: white;
+            border-left: 5px solid #1f4f82;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
         .action-link {
-            text-decoration:none;
-            margin-left:10px;
-            font-weight:bold;
+            text-decoration: none;
+            margin-left: 10px;
+            font-weight: bold;
         }
-        .edit-link { color:#1f4f82; }
-        .delete-link { color:#c62828; }
-        .week-link {
-            display:inline-block;
-            margin-top:12px;
-            text-decoration:none;
-            color:#1f4f82;
-            font-weight:bold;
+        .edit-link { color: #1f4f82; }
+        .delete-link { color: #c62828; }
+        .week-link, .pdf-link {
+            display: inline-block;
+            margin-top: 12px;
+            margin-right: 12px;
+            text-decoration: none;
+            color: #1f4f82;
+            font-weight: bold;
         }
-        .muted { color:#64748b; font-size:14px; }
+        .muted {
+            color: #64748b;
+            font-size: 14px;
+        }
     </style>
 
     <h1>PLAN RADNIKA</h1>
@@ -197,7 +260,7 @@ def index():
         <div class="card">
             <h3>Dodaj radnika</h3>
             <form method="post" action="/add_worker">
-                <input name="name" placeholder="Ime radnika">
+                <input name="name" placeholder="Ime radnika" required>
                 <button>Dodaj</button>
             </form>
         </div>
@@ -205,7 +268,7 @@ def index():
         <div class="card">
             <h3>Dodaj klijenta</h3>
             <form method="post" action="/add_client">
-                <input name="name" placeholder="Klijent">
+                <input name="name" placeholder="Klijent" required>
                 <button>Dodaj</button>
             </form>
         </div>
@@ -246,7 +309,7 @@ def index():
         <div class="card">
             <h3>Filter po datumu</h3>
             <form method="get">
-                <input type="date" name="date">
+                <input type="date" name="date" value="{{ request.args.get('date', '') }}">
                 <button>Filtriraj</button>
             </form>
             <a href="/">Reset</a>
@@ -272,6 +335,7 @@ def index():
         {% endfor %}
 
         <a class="week-link" href="/week">📅 Sedmični kalendar</a>
+        <a class="pdf-link" href="/export_pdf{% if request.args.get('date') %}?date={{ request.args.get('date') }}{% endif %}" target="_blank">📄 PDF raspored</a>
     </div>
     """, shifts=shifts, workers=workers, clients=clients, selected_date=selected_date)
 
@@ -443,6 +507,100 @@ def week_view():
         {% endfor %}
     </div>
     """, week_days=week_days, shifts=shifts)
+
+@app.route("/export_pdf")
+def export_pdf():
+    if "user" not in session:
+        return redirect("/login")
+
+    conn = get_conn()
+    c = conn.cursor()
+
+    date_filter = request.args.get("date", "").strip()
+    user = session["user"]
+    role = session["role"]
+
+    if role == "admin":
+        if date_filter:
+            shifts = c.execute(
+                "SELECT * FROM shifts WHERE date = ? ORDER BY date, time",
+                (date_filter,)
+            ).fetchall()
+        else:
+            shifts = c.execute(
+                "SELECT * FROM shifts ORDER BY date, time"
+            ).fetchall()
+    else:
+        if date_filter:
+            shifts = c.execute(
+                "SELECT * FROM shifts WHERE worker = ? AND date = ? ORDER BY date, time",
+                (user, date_filter)
+            ).fetchall()
+        else:
+            shifts = c.execute(
+                "SELECT * FROM shifts WHERE worker = ? ORDER BY date, time",
+                (user,)
+            ).fetchall()
+
+    conn.close()
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=1.5 * cm,
+        leftMargin=1.5 * cm,
+        topMargin=1.5 * cm,
+        bottomMargin=1.5 * cm
+    )
+
+    styles = getSampleStyleSheet()
+    elements = []
+
+    title = "Raspored radnika"
+    if date_filter:
+        title += f" - {date_filter}"
+
+    elements.append(Paragraph(title, styles["Title"]))
+    elements.append(Spacer(1, 12))
+    elements.append(Paragraph(f"Korisnik: {session['user']} ({session['role']})", styles["Normal"]))
+    elements.append(Spacer(1, 12))
+
+    table_data = [["Datum", "Vrijeme", "Radnik", "Klijent"]]
+
+    if shifts:
+        for s in shifts:
+            table_data.append([s[3], s[4], s[1], s[2]])
+    else:
+        table_data.append(["-", "-", "-", "Nema smjena"])
+
+    table = Table(table_data, colWidths=[3.2 * cm, 3.2 * cm, 4.5 * cm, 6.0 * cm])
+
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1f4f82")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.whitesmoke, colors.HexColor("#eaf2fb")]),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
+        ("TOPPADDING", (0, 0), (-1, 0), 8),
+    ]))
+
+    elements.append(table)
+    doc.build(elements)
+
+    buffer.seek(0)
+    filename = "raspored_radnika.pdf" if not date_filter else f"raspored_{date_filter}.pdf"
+
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/pdf"
+    )
 
 @app.route("/add_worker", methods=["POST"])
 def add_worker():
