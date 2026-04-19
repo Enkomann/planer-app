@@ -24,6 +24,171 @@ USERS = {
     "worker1": {"password": "1234", "role": "worker"}
 }
 
+TRANSLATIONS = {
+    "fr": {
+        "login_title": "Connexion",
+        "username": "Nom d'utilisateur",
+        "password": "Mot de passe",
+        "login_btn": "Connexion",
+        "login_error": "Nom d'utilisateur ou mot de passe incorrect",
+        "title": "PLAN DE TRAVAIL",
+        "logged_as": "Connecté comme",
+        "logout": "Déconnexion",
+        "add_worker": "Ajouter employé",
+        "add_client": "Ajouter client",
+        "add_shift": "Ajouter mission",
+        "worker_name": "Nom de l'employé",
+        "client_name": "Nom du client",
+        "choose_worker": "Choisir employé",
+        "choose_client": "Choisir client",
+        "date_filter": "Filtrer par date",
+        "filter_btn": "Filtrer",
+        "reset": "Réinitialiser",
+        "plan": "PLANNING",
+        "no_workers": "Aucun employé dans la base.",
+        "no_clients": "Aucun client dans la base.",
+        "no_shifts": "Aucune mission enregistrée.",
+        "edit": "Modifier",
+        "delete": "Supprimer",
+        "week_calendar": "Calendrier hebdomadaire",
+        "pdf": "PDF planning",
+        "back": "← Retour",
+        "edit_shift": "Modifier mission",
+        "save": "Enregistrer",
+        "time_placeholder": "Horaire, ex. 08:00-12:00",
+        "pdf_title": "Planning des employés",
+        "pdf_user": "Utilisateur",
+        "pdf_date": "Date",
+        "pdf_time": "Heure",
+        "pdf_worker": "Employé",
+        "pdf_client": "Client",
+        "pdf_no_shifts": "Aucune mission",
+    },
+    "en": {
+        "login_title": "Login",
+        "username": "Username",
+        "password": "Password",
+        "login_btn": "Login",
+        "login_error": "Wrong username or password",
+        "title": "WORK SCHEDULE",
+        "logged_as": "Logged in as",
+        "logout": "Logout",
+        "add_worker": "Add worker",
+        "add_client": "Add client",
+        "add_shift": "Add shift",
+        "worker_name": "Worker name",
+        "client_name": "Client name",
+        "choose_worker": "Choose worker",
+        "choose_client": "Choose client",
+        "date_filter": "Filter by date",
+        "filter_btn": "Filter",
+        "reset": "Reset",
+        "plan": "SCHEDULE",
+        "no_workers": "No workers in database.",
+        "no_clients": "No clients in database.",
+        "no_shifts": "No shifts entered.",
+        "edit": "Edit",
+        "delete": "Delete",
+        "week_calendar": "Weekly calendar",
+        "pdf": "Schedule PDF",
+        "back": "← Back",
+        "edit_shift": "Edit shift",
+        "save": "Save",
+        "time_placeholder": "Time, e.g. 08:00-12:00",
+        "pdf_title": "Worker schedule",
+        "pdf_user": "User",
+        "pdf_date": "Date",
+        "pdf_time": "Time",
+        "pdf_worker": "Worker",
+        "pdf_client": "Client",
+        "pdf_no_shifts": "No shifts",
+    },
+    "bos": {
+        "login_title": "Prijava",
+        "username": "Korisničko ime",
+        "password": "Lozinka",
+        "login_btn": "Prijava",
+        "login_error": "Pogrešno korisničko ime ili lozinka",
+        "title": "PLAN RADNIKA",
+        "logged_as": "Logovan kao",
+        "logout": "Odjava",
+        "add_worker": "Dodaj radnika",
+        "add_client": "Dodaj klijenta",
+        "add_shift": "Dodaj smjenu",
+        "worker_name": "Ime radnika",
+        "client_name": "Naziv klijenta",
+        "choose_worker": "Izaberi radnika",
+        "choose_client": "Izaberi klijenta",
+        "date_filter": "Filter po datumu",
+        "filter_btn": "Filtriraj",
+        "reset": "Reset",
+        "plan": "PLAN",
+        "no_workers": "Nema radnika u bazi.",
+        "no_clients": "Nema klijenata u bazi.",
+        "no_shifts": "Trenutno nema unesenih smjena.",
+        "edit": "Izmijeni",
+        "delete": "Obriši",
+        "week_calendar": "Sedmični kalendar",
+        "pdf": "PDF raspored",
+        "back": "← Nazad",
+        "edit_shift": "Izmijeni smjenu",
+        "save": "Sačuvaj",
+        "time_placeholder": "Vrijeme, npr. 08:00-12:00",
+        "pdf_title": "Raspored radnika",
+        "pdf_user": "Korisnik",
+        "pdf_date": "Datum",
+        "pdf_time": "Vrijeme",
+        "pdf_worker": "Radnik",
+        "pdf_client": "Klijent",
+        "pdf_no_shifts": "Nema smjena",
+    },
+    "de": {
+        "login_title": "Anmeldung",
+        "username": "Benutzername",
+        "password": "Passwort",
+        "login_btn": "Anmelden",
+        "login_error": "Falscher Benutzername oder falsches Passwort",
+        "title": "ARBEITSPLAN",
+        "logged_as": "Angemeldet als",
+        "logout": "Abmelden",
+        "add_worker": "Mitarbeiter hinzufügen",
+        "add_client": "Kunde hinzufügen",
+        "add_shift": "Einsatz hinzufügen",
+        "worker_name": "Name des Mitarbeiters",
+        "client_name": "Name des Kunden",
+        "choose_worker": "Mitarbeiter wählen",
+        "choose_client": "Kunden wählen",
+        "date_filter": "Nach Datum filtern",
+        "filter_btn": "Filtern",
+        "reset": "Zurücksetzen",
+        "plan": "PLANUNG",
+        "no_workers": "Keine Mitarbeiter in der Datenbank.",
+        "no_clients": "Keine Kunden in der Datenbank.",
+        "no_shifts": "Keine Einsätze vorhanden.",
+        "edit": "Bearbeiten",
+        "delete": "Löschen",
+        "week_calendar": "Wochenkalender",
+        "pdf": "PDF Plan",
+        "back": "← Zurück",
+        "edit_shift": "Einsatz bearbeiten",
+        "save": "Speichern",
+        "time_placeholder": "Zeit, z. B. 08:00-12:00",
+        "pdf_title": "Mitarbeiterplan",
+        "pdf_user": "Benutzer",
+        "pdf_date": "Datum",
+        "pdf_time": "Zeit",
+        "pdf_worker": "Mitarbeiter",
+        "pdf_client": "Kunde",
+        "pdf_no_shifts": "Keine Einsätze",
+    }
+}
+
+def get_lang():
+    return session.get("lang", "fr")
+
+def t():
+    return TRANSLATIONS.get(get_lang(), TRANSLATIONS["fr"])
+
 def get_conn():
     return sqlite3.connect("db.sqlite")
 
@@ -63,9 +228,17 @@ def init_db():
 
 init_db()
 
+@app.route("/set_lang/<lang>")
+def set_lang(lang):
+    if lang in TRANSLATIONS:
+        session["lang"] = lang
+    return redirect(request.referrer or "/")
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    tr = t()
     error = ""
+
     if request.method == "POST":
         username = request.form["username"].strip()
         password = request.form["password"].strip()
@@ -76,7 +249,7 @@ def login():
             session["role"] = user["role"]
             return redirect("/")
 
-        error = "Pogrešan username ili password"
+        error = tr["login_error"]
 
     return render_template_string("""
     <style>
@@ -85,49 +258,67 @@ def login():
             margin: 40px;
             background: #f4f6f8;
         }
+        .langbar {
+            max-width: 400px;
+            margin: 0 auto 12px auto;
+            text-align: right;
+        }
+        .langbar a {
+            text-decoration: none;
+            margin-left: 8px;
+            font-weight: bold;
+            color: #1f4f82;
+        }
         .box {
             max-width: 400px;
-            margin: auto;
-            background: white;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+            margin:auto;
+            background:white;
+            padding:30px;
+            border-radius:12px;
+            box-shadow:0 4px 14px rgba(0,0,0,0.08);
         }
-        h2 { margin-top: 0; }
+        h2 { margin-top:0; }
         input, button {
-            width: 100%;
-            padding: 12px;
-            margin-top: 10px;
-            box-sizing: border-box;
-            border-radius: 8px;
+            width:100%;
+            padding:12px;
+            margin-top:10px;
+            box-sizing:border-box;
+            border-radius:8px;
         }
         input {
             border: 1px solid #cbd5e1;
         }
         button {
-            background: #1f4f82;
-            color: white;
-            border: none;
-            cursor: pointer;
+            background:#1f4f82;
+            color:white;
+            border:none;
+            cursor:pointer;
         }
         .error {
-            color: #b00020;
-            margin-top: 10px;
+            color:#b00020;
+            margin-top:10px;
         }
     </style>
 
+    <div class="langbar">
+        <a href="/set_lang/fr">FR</a>
+        <a href="/set_lang/en">EN</a>
+        <a href="/set_lang/bos">BOS</a>
+        <a href="/set_lang/de">DE</a>
+    </div>
+
     <div class="box">
-        <h2>Prijava</h2>
+        <h2>{{ tr["login_title"] }}</h2>
         <form method="post">
-            <input name="username" placeholder="Username" required>
-            <input name="password" type="password" placeholder="Password" required>
-            <button type="submit">Login</button>
+            <input name="username" placeholder="{{ tr['username'] }}" required>
+            <input name="password" type="password" placeholder="{{ tr['password'] }}" required>
+            <button type="submit">{{ tr["login_btn"] }}</button>
         </form>
         {% if error %}
             <div class="error">{{ error }}</div>
         {% endif %}
     </div>
-    """, error=error)
+    """, error=error, tr=tr)
 
 @app.route("/logout")
 def logout():
@@ -138,6 +329,8 @@ def logout():
 def index():
     if "user" not in session:
         return redirect("/login")
+
+    tr = t()
 
     conn = get_conn()
     c = conn.cursor()
@@ -195,6 +388,15 @@ def index():
             text-decoration: none;
             font-weight: bold;
         }
+        .langbar {
+            margin-bottom: 14px;
+        }
+        .langbar a {
+            text-decoration: none;
+            margin-right: 10px;
+            font-weight: bold;
+            color: #1f4f82;
+        }
         .grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -249,78 +451,85 @@ def index():
         }
     </style>
 
-    <h1>PLAN RADNIKA</h1>
+    <div class="langbar">
+        <a href="/set_lang/fr">FR</a>
+        <a href="/set_lang/en">EN</a>
+        <a href="/set_lang/bos">BOS</a>
+        <a href="/set_lang/de">DE</a>
+    </div>
+
+    <h1>{{ tr["title"] }}</h1>
     <div class="topbar">
-        Logovan kao: <b>{{ session['user'] }}</b> ({{ session['role'] }})<br><br>
-        <a href="/logout">Logout</a>
+        {{ tr["logged_as"] }}: <b>{{ session['user'] }}</b> ({{ session['role'] }})<br><br>
+        <a href="/logout">{{ tr["logout"] }}</a>
     </div>
 
     <div class="grid">
         {% if session['role'] == 'admin' %}
         <div class="card">
-            <h3>Dodaj radnika</h3>
+            <h3>{{ tr["add_worker"] }}</h3>
             <form method="post" action="/add_worker">
-                <input name="name" placeholder="Ime radnika" required>
-                <button>Dodaj</button>
+                <input name="name" placeholder="{{ tr['worker_name'] }}" required>
+                <button>{{ tr["add_worker"] }}</button>
             </form>
         </div>
 
         <div class="card">
-            <h3>Dodaj klijenta</h3>
+            <h3>{{ tr["add_client"] }}</h3>
             <form method="post" action="/add_client">
-                <input name="name" placeholder="Klijent" required>
-                <button>Dodaj</button>
+                <input name="name" placeholder="{{ tr['client_name'] }}" required>
+                <button>{{ tr["add_client"] }}</button>
             </form>
         </div>
         {% endif %}
 
         <div class="card">
-            <h3>Dodaj smjenu</h3>
+            <h3>{{ tr["add_shift"] }}</h3>
 
             {% if workers|length == 0 %}
-                <div class="muted">Nema radnika u bazi.</div>
+                <div class="muted">{{ tr["no_workers"] }}</div>
             {% endif %}
 
             {% if clients|length == 0 %}
-                <div class="muted">Nema klijenata u bazi.</div>
+                <div class="muted">{{ tr["no_clients"] }}</div>
             {% endif %}
 
             <form method="post" action="/add_shift">
                 <select name="worker" required>
-                    <option value="">Izaberi radnika</option>
+                    <option value="">{{ tr["choose_worker"] }}</option>
                     {% for w in workers %}
                         <option value="{{ w[0] }}">{{ w[0] }}</option>
                     {% endfor %}
                 </select>
 
                 <select name="client" required>
-                    <option value="">Izaberi klijenta</option>
+                    <option value="">{{ tr["choose_client"] }}</option>
                     {% for c in clients %}
                         <option value="{{ c[0] }}">{{ c[0] }}</option>
                     {% endfor %}
                 </select>
 
                 <input name="date" type="date" value="{{ selected_date }}" required>
-                <input name="time" placeholder="Vrijeme, npr. 08:00-12:00" required>
-                <button>Dodaj smjenu</button>
+                <input name="time" placeholder="{{ tr['time_placeholder'] }}" required>
+                <button>{{ tr["add_shift"] }}</button>
             </form>
         </div>
 
         <div class="card">
-            <h3>Filter po datumu</h3>
+            <h3>{{ tr["date_filter"] }}</h3>
             <form method="get">
                 <input type="date" name="date" value="{{ request.args.get('date', '') }}">
-                <button>Filtriraj</button>
+                <button>{{ tr["filter_btn"] }}</button>
             </form>
-            <a href="/">Reset</a>
+            <a href="/">{{ tr["reset"] }}</a>
         </div>
     </div>
 
     <div class="card" style="margin-top:20px;">
-        <h2>PLAN</h2>
+        <h2>{{ tr["plan"] }}</h2>
 
         {% if shifts|length == 0 %}
-            <div class="muted">Trenutno nema unesenih smjena.</div>
+            <div class="muted">{{ tr["no_shifts"] }}</div>
         {% endif %}
 
         {% for s in shifts %}
@@ -328,16 +537,16 @@ def index():
                 <b>{{ s[3] }}</b> | {{ s[4] }}<br>
                 👤 {{ s[1] }} → 🏢 {{ s[2] }}
                 {% if session['role'] == 'admin' %}
-                    <a class="action-link edit-link" href="/edit_shift/{{ s[0] }}">Izmijeni</a>
-                    <a class="action-link delete-link" href="/delete_shift/{{ s[0] }}">Obriši</a>
+                    <a class="action-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a>
+                    <a class="action-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a>
                 {% endif %}
             </div>
         {% endfor %}
 
-        <a class="week-link" href="/week">📅 Sedmični kalendar</a>
-        <a class="pdf-link" href="/export_pdf{% if request.args.get('date') %}?date={{ request.args.get('date') }}{% endif %}" target="_blank">📄 PDF raspored</a>
+        <a class="week-link" href="/week">📅 {{ tr["week_calendar"] }}</a>
+        <a class="pdf-link" href="/export_pdf{% if request.args.get('date') %}?date={{ request.args.get('date') }}{% endif %}" target="_blank">📄 {{ tr["pdf"] }}</a>
     </div>
-    """, shifts=shifts, workers=workers, clients=clients, selected_date=selected_date)
+    """, shifts=shifts, workers=workers, clients=clients, selected_date=selected_date, tr=tr)
 
 @app.route("/delete_shift/<int:id>")
 def delete_shift(id):
@@ -357,6 +566,7 @@ def edit_shift(id):
     if "user" not in session or session["role"] != "admin":
         return redirect("/")
 
+    tr = t()
     conn = get_conn()
     c = conn.cursor()
 
@@ -387,12 +597,24 @@ def edit_shift(id):
     return render_template_string("""
     <style>
         body { font-family: Arial, sans-serif; margin: 24px; background:#f4f6f8; }
+        .langbar {
+            max-width: 500px;
+            margin: 0 auto 12px auto;
+            text-align: right;
+        }
+        .langbar a {
+            text-decoration: none;
+            margin-left: 8px;
+            font-weight: bold;
+            color: #1f4f82;
+        }
         .card {
             max-width: 500px;
             background:white;
             border-radius:12px;
             padding:20px;
             box-shadow:0 4px 14px rgba(0,0,0,0.06);
+            margin: auto;
         }
         input, select, button {
             padding:10px;
@@ -411,8 +633,15 @@ def edit_shift(id):
         a { text-decoration:none; color:#1f4f82; font-weight:bold; }
     </style>
 
+    <div class="langbar">
+        <a href="/set_lang/fr">FR</a>
+        <a href="/set_lang/en">EN</a>
+        <a href="/set_lang/bos">BOS</a>
+        <a href="/set_lang/de">DE</a>
+    </div>
+
     <div class="card">
-        <h2>Izmijeni smjenu</h2>
+        <h2>{{ tr["edit_shift"] }}</h2>
 
         <form method="post">
             <select name="worker" required>
@@ -430,19 +659,20 @@ def edit_shift(id):
             <input type="date" name="date" value="{{ shift[3] }}" required>
             <input type="text" name="time" value="{{ shift[4] }}" required>
 
-            <button type="submit">Sačuvaj</button>
+            <button type="submit">{{ tr["save"] }}</button>
         </form>
 
         <br>
-        <a href="/">← Nazad</a>
+        <a href="/">{{ tr["back"] }}</a>
     </div>
-    """, shift=shift, workers=workers, clients=clients)
+    """, shift=shift, workers=workers, clients=clients, tr=tr)
 
 @app.route("/week")
 def week_view():
     if "user" not in session:
         return redirect("/login")
 
+    tr = t()
     conn = get_conn()
     c = conn.cursor()
 
@@ -463,6 +693,15 @@ def week_view():
     return render_template_string("""
     <style>
         body { font-family: Arial, sans-serif; margin: 24px; background:#f4f6f8; }
+        .langbar {
+            margin-bottom: 12px;
+        }
+        .langbar a {
+            text-decoration: none;
+            margin-right: 10px;
+            font-weight: bold;
+            color: #1f4f82;
+        }
         .week-wrap { display:flex; gap:12px; flex-wrap:wrap; }
         .day-card {
             background:white;
@@ -487,8 +726,15 @@ def week_view():
         a { text-decoration:none; color:#1f4f82; font-weight:bold; }
     </style>
 
-    <h1>📅 Sedmični plan</h1>
-    <a href="/">← Nazad</a><br><br>
+    <div class="langbar">
+        <a href="/set_lang/fr">FR</a>
+        <a href="/set_lang/en">EN</a>
+        <a href="/set_lang/bos">BOS</a>
+        <a href="/set_lang/de">DE</a>
+    </div>
+
+    <h1>📅 {{ tr["week_calendar"] }}</h1>
+    <a href="/">{{ tr["back"] }}</a><br><br>
 
     <div class="week-wrap">
         {% for day in week_days %}
@@ -506,13 +752,14 @@ def week_view():
             </div>
         {% endfor %}
     </div>
-    """, week_days=week_days, shifts=shifts)
+    """, week_days=week_days, shifts=shifts, tr=tr)
 
 @app.route("/export_pdf")
 def export_pdf():
     if "user" not in session:
         return redirect("/login")
 
+    tr = t()
     conn = get_conn()
     c = conn.cursor()
 
@@ -557,22 +804,22 @@ def export_pdf():
     styles = getSampleStyleSheet()
     elements = []
 
-    title = "Raspored radnika"
+    title = tr["pdf_title"]
     if date_filter:
         title += f" - {date_filter}"
 
     elements.append(Paragraph(title, styles["Title"]))
     elements.append(Spacer(1, 12))
-    elements.append(Paragraph(f"Korisnik: {session['user']} ({session['role']})", styles["Normal"]))
+    elements.append(Paragraph(f"{tr['pdf_user']}: {session['user']} ({session['role']})", styles["Normal"]))
     elements.append(Spacer(1, 12))
 
-    table_data = [["Datum", "Vrijeme", "Radnik", "Klijent"]]
+    table_data = [[tr["pdf_date"], tr["pdf_time"], tr["pdf_worker"], tr["pdf_client"]]]
 
     if shifts:
         for s in shifts:
             table_data.append([s[3], s[4], s[1], s[2]])
     else:
-        table_data.append(["-", "-", "-", "Nema smjena"])
+        table_data.append(["-", "-", "-", tr["pdf_no_shifts"]])
 
     table = Table(table_data, colWidths=[3.2 * cm, 3.2 * cm, 4.5 * cm, 6.0 * cm])
 
@@ -593,7 +840,7 @@ def export_pdf():
     doc.build(elements)
 
     buffer.seek(0)
-    filename = "raspored_radnika.pdf" if not date_filter else f"raspored_{date_filter}.pdf"
+    filename = "schedule.pdf" if not date_filter else f"schedule_{date_filter}.pdf"
 
     return send_file(
         buffer,
