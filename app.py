@@ -90,27 +90,27 @@ def index():
     date_filter = request.args.get("date")
 
     user = session["user"]
-role = session["role"]
+    role = session["role"]
 
-if role == "admin":
-    if date_filter:
-        shifts = c.execute(
-            "SELECT * FROM shifts WHERE date = ?",
-            (date_filter,)
-        ).fetchall()
+    if role == "admin":
+        if date_filter:
+            shifts = c.execute(
+                "SELECT * FROM shifts WHERE date = ?",
+                (date_filter,)
+            ).fetchall()
+        else:
+            shifts = c.execute("SELECT * FROM shifts ORDER BY date").fetchall()
     else:
-        shifts = c.execute("SELECT * FROM shifts ORDER BY date").fetchall()
-else:
-    if date_filter:
-        shifts = c.execute(
-            "SELECT * FROM shifts WHERE worker = ? AND date = ?",
-            (user, date_filter)
-        ).fetchall()
-    else:
-        shifts = c.execute(
-            "SELECT * FROM shifts WHERE worker = ? ORDER BY date",
-            (user,)
-        ).fetchall()
+        if date_filter:
+            shifts = c.execute(
+                "SELECT * FROM shifts WHERE worker = ? AND date = ?",
+                (user, date_filter)
+            ).fetchall()
+        else:
+            shifts = c.execute(
+                "SELECT * FROM shifts WHERE worker = ? ORDER BY date",
+                (user,)
+            ).fetchall()
 
     conn.close()
 
@@ -165,7 +165,6 @@ else:
     <br><br>
     <a href="/week">📅 Sedmični kalendar</a>
     """, shifts=shifts)
-
 # ---------------- WEEK VIEW ----------------
 @app.route("/week")
 def week_view():
@@ -184,16 +183,16 @@ def week_view():
         for i in range(7)
     ]
 
-   user = session["user"]
-role = session["role"]
+    user = session["user"]
+    role = session["role"]
 
-if role == "admin":
-    shifts = c.execute("SELECT * FROM shifts").fetchall()
-else:
-    shifts = c.execute(
-        "SELECT * FROM shifts WHERE worker = ?",
-        (user,)
-    ).fetchall()
+    if role == "admin":
+        shifts = c.execute("SELECT * FROM shifts").fetchall()
+    else:
+        shifts = c.execute(
+            "SELECT * FROM shifts WHERE worker = ?",
+            (user,)
+        ).fetchall()
 
     conn.close()
 
@@ -206,25 +205,25 @@ else:
 
     {% for day in week_days %}
         <div style="
-    border:1px solid #ccc;
-    padding:10px;
-    width:160px;
-    border-radius:10px;
-    background:#f9f9f9;
-">
+            border:1px solid #ccc;
+            padding:10px;
+            width:160px;
+            border-radius:10px;
+            background:#f9f9f9;
+        ">
             <h3>{{day}}</h3>
 
             {% for s in shifts %}
                 {% if s[3] == day %}
                     <div style="
-    background:
-    {% if s[1] == 'admin' %}#cce5ff
-    {% elif s[1] == 'worker1' %}#d4edda
-    {% else %}#f8d7da{% endif %};
-    margin:5px;
-    padding:5px;
-    border-radius:8px;
-">
+                        background:
+                        {% if s[1] == 'admin' %}#cce5ff
+                        {% elif s[1] == 'worker1' %}#d4edda
+                        {% else %}#f8d7da{% endif %};
+                        margin:5px;
+                        padding:5px;
+                        border-radius:8px;
+                    ">
                         <b>{{s[1]}}</b><br>
                         {{s[2]}}<br>
                         {{s[4]}}
@@ -236,23 +235,6 @@ else:
 
     </div>
     """, week_days=week_days, shifts=shifts)
-
-# ---------------- ADD WORKER ----------------
-@app.route("/add_worker", methods=["POST"])
-def add_worker():
-    if "user" not in session:
-        return redirect("/login")
-
-    conn = sqlite3.connect("db.sqlite")
-    c = conn.cursor()
-
-    c.execute("INSERT INTO workers (name) VALUES (?)", (request.form["name"],))
-
-    conn.commit()
-    conn.close()
-
-    return redirect("/")
-
 # ---------------- ADD CLIENT ----------------
 @app.route("/add_client", methods=["POST"])
 def add_client():
