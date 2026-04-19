@@ -253,29 +253,43 @@ def del_shift(id):
 # ===== WEEK =====
 @app.route("/week")
 def week():
-    c=db().cursor()
-    shifts=c.execute("SELECT * FROM shifts").fetchall()
+    c = db().cursor()
+    shifts = c.execute("SELECT * FROM shifts").fetchall()
 
-    today=datetime.today()
-    start=today-timedelta(days=today.weekday())
-    days=[(start+timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
+    today = datetime.today()
+    start = today - timedelta(days=today.weekday())
+    days = [(start + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
 
     return render_template_string("""
+    <style>
+    body{font-family:sans-serif;background:#f4f6f8;padding:20px}
+    .card{background:white;padding:15px;border-radius:10px;margin:10px;box-shadow:0 2px 8px rgba(0,0,0,0.05)}
+    .days{display:flex;gap:12px;flex-wrap:wrap}
+    .day{width:180px}
+    .shift{background:#eef4fb;padding:8px;border-radius:8px;margin-top:8px}
+    a{text-decoration:none;color:#1f4f82;font-weight:bold}
+    </style>
+
     <h1>Week</h1>
-    <a href="/">←</a>
-    <div style="display:flex">
+    <a href="/">&larr; Back</a>
+
+    <div class="days">
     {% for d in days %}
-    <div style="margin:10px">
-    <b>{{d}}</b>
-    {% for s in shifts %}
-    {% if s[3]==d %}
-    <div>{{s[1]}}<br>{{s[2]}}</div>
-    {% endif %}
+        <div class="card day">
+            <b><a href="/?selected_date={{d}}">{{d}}</a></b>
+            {% for s in shifts %}
+                {% if s[3] == d %}
+                    <div class="shift">
+                        {{s[1]}}<br>
+                        {{s[2]}}<br>
+                        {{s[4]}}
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
     {% endfor %}
     </div>
-    {% endfor %}
-    </div>
-    """,days=days,shifts=shifts)
+    """, days=days, shifts=shifts)
 
 # ===== PDF =====
 @app.route("/pdf")
