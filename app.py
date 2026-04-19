@@ -42,7 +42,6 @@ def init_db():
         )
     """)
 
-    # automatski dodaj admin i worker1 ako ne postoje
     c.execute("INSERT OR IGNORE INTO workers (name) VALUES (?)", ("admin",))
     c.execute("INSERT OR IGNORE INTO workers (name) VALUES (?)", ("worker1",))
 
@@ -168,12 +167,13 @@ def index():
             border-radius:10px;
             box-shadow:0 2px 8px rgba(0,0,0,0.05);
         }
-        .delete-link {
-            color:#c62828;
+        .action-link {
             text-decoration:none;
             margin-left:10px;
             font-weight:bold;
         }
+        .edit-link { color:#1f4f82; }
+        .delete-link { color:#c62828; }
         .week-link {
             display:inline-block;
             margin-top:12px;
@@ -263,7 +263,8 @@ def index():
                 <b>{{ s[3] }}</b> | {{ s[4] }}<br>
                 👤 {{ s[1] }} → 🏢 {{ s[2] }}
                 {% if session['role'] == 'admin' %}
-                    <a class="delete-link" href="/delete_shift/{{ s[0] }}">Obriši</a>
+                    <a class="action-link edit-link" href="/edit_shift/{{ s[0] }}">Izmijeni</a>
+                    <a class="action-link delete-link" href="/delete_shift/{{ s[0] }}">Obriši</a>
                 {% endif %}
             </div>
         {% endfor %}
@@ -284,6 +285,92 @@ def delete_shift(id):
     conn.close()
 
     return redirect("/")
+
+@app.route("/edit_shift/<int:id>", methods=["GET", "POST"])
+def edit_shift(id):
+    if "user" not in session or session["role"] != "admin":
+        return redirect("/")
+
+    conn = get_conn()
+    c = conn.cursor()
+
+    if request.method == "POST":
+        worker = request.form["worker"].strip()
+        client = request.form["client"].strip()
+        date = request.form["date"].strip()
+        time = request.form["time"].strip()
+
+        c.execute("""
+            UPDATE shifts
+            SET worker = ?, client = ?, date = ?, time = ?
+            WHERE id = ?
+        """, (worker, client, date, time, id))
+
+        conn.commit()
+        conn.close()
+        return redirect("/")
+
+    shift = c.execute("SELECT * FROM shifts WHERE id = ?", (id,)).fetchone()
+    workers = c.execute("SELECT name FROM workers ORDER BY name").fetchall()
+    clients = c.execute("SELECT name FROM clients ORDER BY name").fetchall()
+    conn.close()
+
+    if not shift:
+        return redirect("/")
+
+    return render_template_string("""
+    <style>
+        body { font-family: Arial, sans-serif; margin: 24px; background:#f4f6f8; }
+        .card {
+            max-width: 500px;
+            background:white;
+            border-radius:12px;
+            padding:20px;
+            box-shadow:0 4px 14px rgba(0,0,0,0.06);
+        }
+        input, select, button {
+            padding:10px;
+            margin:6px 0;
+            width:100%;
+            box-sizing:border-box;
+            border:1px solid #cbd5e1;
+            border-radius:8px;
+        }
+        button {
+            background:#1f4f82;
+            color:white;
+            border:none;
+            cursor:pointer;
+        }
+        a { text-decoration:none; color:#1f4f82; font-weight:bold; }
+    </style>
+
+    <div class="card">
+        <h2>Izmijeni smjenu</h2>
+
+        <form method="post">
+            <select name="worker" required>
+                {% for w in workers %}
+                    <option value="{{ w[0] }}" {% if w[0] == shift[1] %}selected{% endif %}>{{ w[0] }}</option>
+                {% endfor %}
+            </select>
+
+            <select name="client" required>
+                {% for c in clients %}
+                    <option value="{{ c[0] }}" {% if c[0] == shift[2] %}selected{% endif %}>{{ c[0] }}</option>
+                {% endfor %}
+            </select>
+
+            <input type="date" name="date" value="{{ shift[3] }}" required>
+            <input type="text" name="time" value="{{ shift[4] }}" required>
+
+            <button type="submit">Sačuvaj</button>
+        </form>
+
+        <br>
+        <a href="/">← Nazad</a>
+    </div>
+    """, shift=shift, workers=workers, clients=clients)
 
 @app.route("/week")
 def week_view():
