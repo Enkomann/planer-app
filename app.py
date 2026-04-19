@@ -88,48 +88,151 @@ def home():
 
     return render_template_string("""
     <style>
-    body{font-family:sans-serif;background:#f4f6f8;padding:20px}
-    .card{background:white;padding:15px;border-radius:10px;margin:10px;box-shadow:0 2px 8px rgba(0,0,0,0.05)}
-    button{background:#1f4f82;color:white;border:none;padding:10px;border-radius:6px}
-    select,input{padding:8px;margin:5px;width:100%}
-    </style>
+body {
+    font-family: "Segoe UI", Arial;
+    background: #f1f5f9;
+    margin: 0;
+}
 
+.header {
+    background: #1f4f82;
+    color: white;
+    padding: 15px 25px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.lang a {
+    color: white;
+    margin-right: 10px;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.container {
+    padding: 25px;
+}
+
+.card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+}
+
+input, select {
+    width: 100%;
+    padding: 10px;
+    margin-top: 8px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+}
+
+button {
+    margin-top: 10px;
+    padding: 10px;
+    background: #1f4f82;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #163d66;
+}
+
+.shift {
+    background: #f8fafc;
+    padding: 12px;
+    margin-top: 10px;
+    border-radius: 10px;
+    border-left: 5px solid #1f4f82;
+}
+
+a {
+    text-decoration: none;
+}
+
+.actions a {
+    margin-left: 10px;
+    font-size: 14px;
+}
+
+.delete { color: red; }
+.edit { color: #1f4f82; }
+
+.footer-links {
+    margin-top: 15px;
+}
+</style>
+
+<div class="header">
     <div>
-    <a href="/lang/fr">FR</a> |
-    <a href="/lang/en">EN</a> |
-    <a href="/lang/bos">BOS</a> |
-    <a href="/lang/de">DE</a>
+        <b>Luxmann Planner</b>
     </div>
-
-    <h1>{{t["title"]}}</h1>
-    <a href="/logout">{{t["logout"]}}</a>
-
-    <div class="card">
-    <h3>{{t["add"]}} {{t["shift"]}}</h3>
-    <form method="post" action="/add">
-    <select name="worker">{% for w in workers %}<option>{{w[0]}}</option>{% endfor %}</select>
-    <select name="client">{% for c in clients %}<option>{{c[0]}}</option>{% endfor %}</select>
-    <input type="date" name="date">
-    <input name="time">
-    <button>OK</button>
-    </form>
+    <div class="lang">
+        <a href="/lang/fr">FR</a>
+        <a href="/lang/en">EN</a>
+        <a href="/lang/bos">BOS</a>
+        <a href="/lang/de">DE</a>
     </div>
+</div>
 
-    <div class="card">
-    <h2>{{t["title"]}}</h2>
-    {% for s in shifts %}
-    <div>
-    {{s[3]}} | {{s[4]}} | {{s[1]}} → {{s[2]}}
-    <a href="/del/{{s[0]}}">❌</a>
-    </div>
-    {% endfor %}
-    </div>
+<div class="container">
 
-    <a href="/week">{{t["calendar"]}}</a> |
-    <a href="/pdf">{{t["pdf"]}}</a>
+<h2>{{t["title"]}}</h2>
+<a href="/logout">{{t["logout"]}}</a>
 
-    """,t=t,workers=workers,clients=clients,shifts=shifts)
+<div class="card">
+<h3>{{t["add"]}} {{t["shift"]}}</h3>
 
+<form method="post" action="/add">
+<select name="worker">
+{% for w in workers %}
+<option>{{w[0]}}</option>
+{% endfor %}
+</select>
+
+<select name="client">
+{% for c in clients %}
+<option>{{c[0]}}</option>
+{% endfor %}
+</select>
+
+<input type="date" name="date">
+<input name="time" placeholder="08:00 - 12:00">
+
+<button>OK</button>
+</form>
+</div>
+
+<div class="card">
+<h3>{{t["title"]}}</h3>
+
+{% for s in shifts %}
+<div class="shift">
+<b>{{s[3]}}</b> | {{s[4]}}<br>
+👤 {{s[1]}} → 🏢 {{s[2]}}
+
+<div class="actions">
+<a class="edit" href="/edit_shift/{{s[0]}}">✏</a>
+<a class="delete" href="/del/{{s[0]}}">❌</a>
+</div>
+
+</div>
+{% endfor %}
+
+<div class="footer-links">
+<a href="/week">📅 {{t["calendar"]}}</a> |
+<a href="/pdf">📄 {{t["pdf"]}}</a>
+</div>
+
+</div>
+
+</div>
 # ===== ADD =====
 @app.route("/add",methods=["POST"])
 def add():
