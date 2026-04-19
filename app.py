@@ -50,13 +50,10 @@ init_db()
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
+        user = USERS.get(request.form["username"])
 
-        user = USERS.get(username)
-
-        if user and user["password"] == password:
-            session["user"] = username
+        if user and user["password"] == request.form["password"]:
+            session["user"] = request.form["username"]
             session["role"] = user["role"]
             return redirect("/")
 
@@ -67,7 +64,7 @@ def login():
     <form method="post">
         <input name="username" placeholder="Username"><br><br>
         <input name="password" type="password" placeholder="Password"><br><br>
-        <button type="submit">Login</button>
+        <button>Login</button>
     </form>
     """
 
@@ -87,15 +84,11 @@ def index():
     conn = sqlite3.connect("db.sqlite")
     c = conn.cursor()
 
-    # dropdown data
-    workers = c.execute("SELECT name FROM workers").fetchall()
-    clients = c.execute("SELECT name FROM clients").fetchall()
-
     date_filter = request.args.get("date")
-
     user = session["user"]
     role = session["role"]
 
+    # FILTER
     if role == "admin":
         if date_filter:
             shifts = c.execute(
@@ -116,9 +109,22 @@ def index():
                 (user,)
             ).fetchall()
 
+    # DROPDOWN DATA
+    workers = c.execute("SELECT name FROM workers").fetchall()
+    clients = c.execute("SELECT name FROM clients").fetchall()
+
     conn.close()
 
     return render_template_string("""
+    <style>
+    body { font-family: Arial; margin: 20px; }
+    h1 { color: #2c3e50; }
+    button { padding: 5px 10px; }
+    input, select { padding: 5px; margin: 3px; }
+    a { text-decoration: none; }
+    .card { background:#f9f9f9; padding:10px; margin:5px; border-radius:8px; }
+    </style>
+
     <h1>PLAN RADNIKA</h1>
 
     <p>Logovan kao: {{session['user']}} ({{session['role']}})</p>
@@ -126,21 +132,23 @@ def index():
 
     <hr>
 
-    <h2>Dodaj radnika</h2>
+    {% if session['role'] == 'admin' %}
+    <h3>Dodaj radnika</h3>
     <form method="post" action="/add_worker">
         <input name="name" placeholder="Ime radnika">
         <button>Dodaj</button>
     </form>
 
-    <h2>Dodaj klijenta</h2>
+    <h3>Dodaj klijenta</h3>
     <form method="post" action="/add_client">
         <input name="name" placeholder="Klijent">
         <button>Dodaj</button>
     </form>
+    {% endif %}
 
-    <h2>Dodaj smjenu</h2>
+    <h3>Dodaj smjenu</h3>
     <form method="post" action="/add_shift">
-        
+
         <select name="worker">
             {% for w in workers %}
                 <option value="{{w[0]}}">{{w[0]}}</option>
@@ -160,7 +168,7 @@ def index():
 
     <hr>
 
-    <h2>Filter po datumu</h2>
+    <h3>Filter po datumu</h3>
     <form method="get">
         <input type="date" name="date">
         <button>Filtriraj</button>
@@ -171,18 +179,37 @@ def index():
     <hr>
 
     <h2>PLAN</h2>
-    <ul>
-    {% for s in shifts %}
-        <li>
-    {{s[3]}} | {{s[4]}} | {{s[1]}} → {{s[2]}}
-    <a href="/delete_shift/{{s[0]}}" style="color:red; margin-left:10px;">❌</a>
-</li>
-    {% endfor %}
-    </ul>
 
-    <br><br>
+    {% for s in shifts %}
+        <div class="card">
+            <b>{{s[3]}}</b> | {{s[4]}}<br>
+            👤 {{s[1]}} → 🏢 {{s[2]}}
+            {% if session['role'] == 'admin' %}
+                <a href="/delete_shift/{{s[0]}}" style="color:red;">❌</a>
+            {% endif %}
+        </div>
+    {% endfor %}
+
+    <br>
     <a href="/week">📅 Sedmični kalendar</a>
     """, shifts=shifts, workers=workers, clients=clients)
+
+# ---------------- DELETE ----------------
+@app.route("/delete_shift/<int:id>")
+def delete_shift(id):
+
+    if "user" not in session or session["role"] != "admin":
+        return redirect("/")
+
+    conn = sqlite3.connect("db.sqlite")
+    c = conn.cursor()
+
+    c.execute("DELETE FROM shifts WHERE id = ?", (id,))
+
+    conn.commit()
+    conn.close()
+
+    return redirect("/")
 
 # ---------------- WEEK VIEW ----------------
 @app.route("/week")
@@ -216,33 +243,19 @@ def week_view():
     conn.close()
 
     return render_template_string("""
-    <h1 style="font-family:sans-serif;">📅 Sedmični plan</h1>
+    <h1>📅 Sedmični plan</h1>
 
     <a href="/">← Nazad</a>
 
     <div style="display:flex; gap:10px; flex-wrap:wrap;">
 
     {% for day in week_days %}
-        <div style="
-            border:1px solid #ccc;
-            padding:10px;
-            width:160px;
-            border-radius:10px;
-            background:#f9f9f9;
-        ">
+        <div style="border:1px solid #ccc; padding:10px; width:160px; border-radius:10px;">
             <h3>{{day}}</h3>
 
             {% for s in shifts %}
                 {% if s[3] == day %}
-                    <div style="
-                        background:
-                        {% if s[1] == 'admin' %}#cce5ff
-                        {% elif s[1] == 'worker1' %}#d4edda
-                        {% else %}#f8d7da{% endif %};
-                        margin:5px;
-                        padding:5px;
-                        border-radius:8px;
-                    ">
+                    <div style="background:#e3f2fd; margin:5px; padding:5px; border-radius:6px;">
                         <b>{{s[1]}}</b><br>
                         {{s[2]}}<br>
                         {{s[4]}}
@@ -258,8 +271,8 @@ def week_view():
 # ---------------- ADD WORKER ----------------
 @app.route("/add_worker", methods=["POST"])
 def add_worker():
-    if "user" not in session:
-        return redirect("/login")
+    if session.get("role") != "admin":
+        return redirect("/")
 
     conn = sqlite3.connect("db.sqlite")
     c = conn.cursor()
@@ -274,8 +287,8 @@ def add_worker():
 # ---------------- ADD CLIENT ----------------
 @app.route("/add_client", methods=["POST"])
 def add_client():
-    if "user" not in session:
-        return redirect("/login")
+    if session.get("role") != "admin":
+        return redirect("/")
 
     conn = sqlite3.connect("db.sqlite")
     c = conn.cursor()
@@ -288,16 +301,23 @@ def add_client():
     return redirect("/")
 
 # ---------------- ADD SHIFT ----------------
-@app.route("/delete_shift/<int:id>")
-def delete_shift(id):
-
-    if "user" not in session or session["role"] != "admin":
+@app.route("/add_shift", methods=["POST"])
+def add_shift():
+    if "user" not in session:
         return redirect("/login")
 
     conn = sqlite3.connect("db.sqlite")
     c = conn.cursor()
 
-    c.execute("DELETE FROM shifts WHERE id = ?", (id,))
+    c.execute("""
+        INSERT INTO shifts (worker, client, date, time)
+        VALUES (?, ?, ?, ?)
+    """, (
+        request.form["worker"],
+        request.form["client"],
+        request.form["date"],
+        request.form["time"]
+    ))
 
     conn.commit()
     conn.close()
