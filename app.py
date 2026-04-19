@@ -174,19 +174,33 @@ def week_view():
     conn.close()
 
     return render_template_string("""
-    <h1>📅 Sedmični plan</h1>
+    <h1 style="font-family:sans-serif;">📅 Sedmični plan</h1>
 
     <a href="/">← Nazad</a>
 
-    <div style="display:flex; gap:10px;">
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
 
     {% for day in week_days %}
-        <div style="border:1px solid #ccc; padding:10px; width:150px;">
+        <div style="
+    border:1px solid #ccc;
+    padding:10px;
+    width:160px;
+    border-radius:10px;
+    background:#f9f9f9;
+">
             <h3>{{day}}</h3>
 
             {% for s in shifts %}
                 {% if s[3] == day %}
-                    <div style="background:#dff0ff; margin:5px; padding:5px;">
+                    <div style="
+    background:
+    {% if s[1] == 'admin' %}#cce5ff
+    {% elif s[1] == 'worker1' %}#d4edda
+    {% else %}#f8d7da{% endif %};
+    margin:5px;
+    padding:5px;
+    border-radius:8px;
+">
                         <b>{{s[1]}}</b><br>
                         {{s[2]}}<br>
                         {{s[4]}}
