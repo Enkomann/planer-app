@@ -1,20 +1,14 @@
 from flask import Flask, request, redirect, render_template_string, session, send_file
 import sqlite3
-import os
 import io
+import os
 from datetime import datetime, timedelta
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import cm
-from reportlab.platypus import (
-    SimpleDocTemplate,
-    Paragraph,
-    Spacer,
-    Table,
-    TableStyle
-)
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 
 app = Flask(__name__)
 app.secret_key = "luxmann_secret_key"
@@ -63,6 +57,7 @@ TRANSLATIONS = {
         "pdf_worker": "Employé",
         "pdf_client": "Client",
         "pdf_no_shifts": "Aucune mission",
+        "language": "Langue"
     },
     "en": {
         "login_title": "Login",
@@ -102,6 +97,7 @@ TRANSLATIONS = {
         "pdf_worker": "Worker",
         "pdf_client": "Client",
         "pdf_no_shifts": "No shifts",
+        "language": "Language"
     },
     "bos": {
         "login_title": "Prijava",
@@ -141,6 +137,7 @@ TRANSLATIONS = {
         "pdf_worker": "Radnik",
         "pdf_client": "Klijent",
         "pdf_no_shifts": "Nema smjena",
+        "language": "Jezik"
     },
     "de": {
         "login_title": "Anmeldung",
@@ -180,17 +177,24 @@ TRANSLATIONS = {
         "pdf_worker": "Mitarbeiter",
         "pdf_client": "Kunde",
         "pdf_no_shifts": "Keine Einsätze",
+        "language": "Sprache"
     }
 }
+
 
 def get_lang():
     return session.get("lang", "fr")
 
-def t():
+
+def tr():
     return TRANSLATIONS.get(get_lang(), TRANSLATIONS["fr"])
 
+
 def get_conn():
-    return sqlite3.connect("db.sqlite")
+    conn = sqlite3.connect("db.sqlite")
+    conn.row_factory = sqlite3.Row
+    return conn
+
 
 def init_db():
     conn = get_conn()
@@ -199,24 +203,24 @@ def init_db():
     c.execute("""
         CREATE TABLE IF NOT EXISTS workers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT UNIQUE
+            name TEXT UNIQUE NOT NULL
         )
     """)
 
     c.execute("""
         CREATE TABLE IF NOT EXISTS clients (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT UNIQUE
+            name TEXT UNIQUE NOT NULL
         )
     """)
 
     c.execute("""
         CREATE TABLE IF NOT EXISTS shifts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            worker TEXT,
-            client TEXT,
-            date TEXT,
-            time TEXT
+            worker TEXT NOT NULL,
+            client TEXT NOT NULL,
+            date TEXT NOT NULL,
+            time TEXT NOT NULL
         )
     """)
 
@@ -226,7 +230,18 @@ def init_db():
     conn.commit()
     conn.close()
 
+
 init_db()
+
+
+def get_workers_and_clients():
+    conn = get_conn()
+    c = conn.cursor()
+    workers = c.execute("SELECT name FROM workers ORDER BY name").fetchall()
+    clients = c.execute("SELECT name FROM clients ORDER BY name").fetchall()
+    conn.close()
+    return workers, clients
+
 
 @app.route("/set_lang/<lang>")
 def set_lang(lang):
@@ -234,9 +249,10 @@ def set_lang(lang):
         session["lang"] = lang
     return redirect(request.referrer or "/")
 
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    tr = t()
+    t = tr()
     error = ""
 
     if request.method == "POST":
@@ -249,7 +265,7 @@ def login():
             session["role"] = user["role"]
             return redirect("/")
 
-        error = tr["login_error"]
+        error = t["login_error"]
 
     return render_template_string("""
     <style>
@@ -259,7 +275,7 @@ def login():
             background: #f4f6f8;
         }
         .langbar {
-            max-width: 400px;
+            max-width: 420px;
             margin: 0 auto 12px auto;
             text-align: right;
         }
@@ -270,34 +286,29 @@ def login():
             color: #1f4f82;
         }
         .box {
-            max-width: 400px;
-            margin:auto;
-            background:white;
-            padding:30px;
-            border-radius:12px;
-            box-shadow:0 4px 14px rgba(0,0,0,0.08);
+            max-width: 420px;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.08);
         }
-        h2 { margin-top:0; }
+        h2 { margin-top: 0; }
         input, button {
-            width:100%;
-            padding:12px;
-            margin-top:10px;
-            box-sizing:border-box;
-            border-radius:8px;
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+            box-sizing: border-box;
+            border-radius: 8px;
         }
-        input {
-            border: 1px solid #cbd5e1;
-        }
+        input { border: 1px solid #cbd5e1; }
         button {
-            background:#1f4f82;
-            color:white;
-            border:none;
-            cursor:pointer;
+            background: #1f4f82;
+            color: white;
+            border: none;
+            cursor: pointer;
         }
-        .error {
-            color:#b00020;
-            margin-top:10px;
-        }
+        .error { color: #b00020; margin-top: 10px; }
     </style>
 
     <div class="langbar">
@@ -308,30 +319,31 @@ def login():
     </div>
 
     <div class="box">
-        <h2>{{ tr["login_title"] }}</h2>
+        <h2>{{ t["login_title"] }}</h2>
         <form method="post">
-            <input name="username" placeholder="{{ tr['username'] }}" required>
-            <input name="password" type="password" placeholder="{{ tr['password'] }}" required>
-            <button type="submit">{{ tr["login_btn"] }}</button>
+            <input name="username" placeholder="{{ t['username'] }}" required>
+            <input name="password" type="password" placeholder="{{ t['password'] }}" required>
+            <button type="submit">{{ t["login_btn"] }}</button>
         </form>
         {% if error %}
             <div class="error">{{ error }}</div>
         {% endif %}
     </div>
-    """, error=error, tr=tr)
+    """, t=t, error=error)
+
 
 @app.route("/logout")
 def logout():
     session.clear()
     return redirect("/login")
 
+
 @app.route("/")
 def index():
     if "user" not in session:
         return redirect("/login")
 
-    tr = t()
-
+    t = tr()
     conn = get_conn()
     c = conn.cursor()
 
@@ -380,14 +392,6 @@ def index():
             color: #1f4f82;
             margin-bottom: 8px;
         }
-        .topbar {
-            margin-bottom: 20px;
-        }
-        .topbar a {
-            color: #1f4f82;
-            text-decoration: none;
-            font-weight: bold;
-        }
         .langbar {
             margin-bottom: 14px;
         }
@@ -396,6 +400,14 @@ def index():
             margin-right: 10px;
             font-weight: bold;
             color: #1f4f82;
+        }
+        .topbar {
+            margin-bottom: 20px;
+        }
+        .topbar a {
+            color: #1f4f82;
+            text-decoration: none;
+            font-weight: bold;
         }
         .grid {
             display: grid;
@@ -437,7 +449,7 @@ def index():
         }
         .edit-link { color: #1f4f82; }
         .delete-link { color: #c62828; }
-        .week-link, .pdf-link {
+        .main-link {
             display: inline-block;
             margin-top: 12px;
             margin-right: 12px;
@@ -452,121 +464,122 @@ def index():
     </style>
 
     <div class="langbar">
+        <strong>{{ t["language"] }}:</strong>
         <a href="/set_lang/fr">FR</a>
         <a href="/set_lang/en">EN</a>
         <a href="/set_lang/bos">BOS</a>
         <a href="/set_lang/de">DE</a>
     </div>
 
-    <h1>{{ tr["title"] }}</h1>
+    <h1>{{ t["title"] }}</h1>
     <div class="topbar">
-        {{ tr["logged_as"] }}: <b>{{ session['user'] }}</b> ({{ session['role'] }})<br><br>
-        <a href="/logout">{{ tr["logout"] }}</a>
+        {{ t["logged_as"] }}: <b>{{ session['user'] }}</b> ({{ session['role'] }})<br><br>
+        <a href="/logout">{{ t["logout"] }}</a>
     </div>
 
     <div class="grid">
         {% if session['role'] == 'admin' %}
         <div class="card">
-            <h3>{{ tr["add_worker"] }}</h3>
+            <h3>{{ t["add_worker"] }}</h3>
             <form method="post" action="/add_worker">
-                <input name="name" placeholder="{{ tr['worker_name'] }}" required>
-                <button>{{ tr["add_worker"] }}</button>
+                <input name="name" placeholder="{{ t['worker_name'] }}" required>
+                <button>{{ t["add_worker"] }}</button>
             </form>
         </div>
 
         <div class="card">
-            <h3>{{ tr["add_client"] }}</h3>
+            <h3>{{ t["add_client"] }}</h3>
             <form method="post" action="/add_client">
-                <input name="name" placeholder="{{ tr['client_name'] }}" required>
-                <button>{{ tr["add_client"] }}</button>
+                <input name="name" placeholder="{{ t['client_name'] }}" required>
+                <button>{{ t["add_client"] }}</button>
             </form>
         </div>
         {% endif %}
 
         <div class="card">
-            <h3>{{ tr["add_shift"] }}</h3>
+            <h3>{{ t["add_shift"] }}</h3>
 
             {% if workers|length == 0 %}
-                <div class="muted">{{ tr["no_workers"] }}</div>
+                <div class="muted">{{ t["no_workers"] }}</div>
             {% endif %}
-
             {% if clients|length == 0 %}
-                <div class="muted">{{ tr["no_clients"] }}</div>
+                <div class="muted">{{ t["no_clients"] }}</div>
             {% endif %}
 
             <form method="post" action="/add_shift">
                 <select name="worker" required>
-                    <option value="">{{ tr["choose_worker"] }}</option>
+                    <option value="">{{ t["choose_worker"] }}</option>
                     {% for w in workers %}
-                        <option value="{{ w[0] }}">{{ w[0] }}</option>
+                        <option value="{{ w['name'] }}">{{ w['name'] }}</option>
                     {% endfor %}
                 </select>
 
                 <select name="client" required>
-                    <option value="">{{ tr["choose_client"] }}</option>
+                    <option value="">{{ t["choose_client"] }}</option>
                     {% for c in clients %}
-                        <option value="{{ c[0] }}">{{ c[0] }}</option>
+                        <option value="{{ c['name'] }}">{{ c['name'] }}</option>
                     {% endfor %}
                 </select>
 
                 <input name="date" type="date" value="{{ selected_date }}" required>
-                <input name="time" placeholder="{{ tr['time_placeholder'] }}" required>
-                <button>{{ tr["add_shift"] }}</button>
+                <input name="time" placeholder="{{ t['time_placeholder'] }}" required>
+                <button>{{ t["add_shift"] }}</button>
             </form>
         </div>
 
         <div class="card">
-            <h3>{{ tr["date_filter"] }}</h3>
+            <h3>{{ t["date_filter"] }}</h3>
             <form method="get">
                 <input type="date" name="date" value="{{ request.args.get('date', '') }}">
-                <button>{{ tr["filter_btn"] }}</button>
+                <button>{{ t["filter_btn"] }}</button>
             </form>
-            <a href="/">{{ tr["reset"] }}</a>
+            <a href="/">{{ t["reset"] }}</a>
         </div>
     </div>
 
     <div class="card" style="margin-top:20px;">
-        <h2>{{ tr["plan"] }}</h2>
+        <h2>{{ t["plan"] }}</h2>
 
         {% if shifts|length == 0 %}
-            <div class="muted">{{ tr["no_shifts"] }}</div>
+            <div class="muted">{{ t["no_shifts"] }}</div>
         {% endif %}
 
         {% for s in shifts %}
             <div class="shift">
-                <b>{{ s[3] }}</b> | {{ s[4] }}<br>
-                👤 {{ s[1] }} → 🏢 {{ s[2] }}
+                <b>{{ s['date'] }}</b> | {{ s['time'] }}<br>
+                👤 {{ s['worker'] }} → 🏢 {{ s['client'] }}
                 {% if session['role'] == 'admin' %}
-                    <a class="action-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a>
-                    <a class="action-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a>
+                    <a class="action-link edit-link" href="/edit_shift/{{ s['id'] }}">{{ t["edit"] }}</a>
+                    <a class="action-link delete-link" href="/delete_shift/{{ s['id'] }}">{{ t["delete"] }}</a>
                 {% endif %}
             </div>
         {% endfor %}
 
-        <a class="week-link" href="/week">📅 {{ tr["week_calendar"] }}</a>
-        <a class="pdf-link" href="/export_pdf{% if request.args.get('date') %}?date={{ request.args.get('date') }}{% endif %}" target="_blank">📄 {{ tr["pdf"] }}</a>
+        <a class="main-link" href="/week">📅 {{ t["week_calendar"] }}</a>
+        <a class="main-link" href="/export_pdf{% if request.args.get('date') %}?date={{ request.args.get('date') }}{% endif %}" target="_blank">📄 {{ t["pdf"] }}</a>
     </div>
-    """, shifts=shifts, workers=workers, clients=clients, selected_date=selected_date, tr=tr)
+    """, t=t, workers=workers, clients=clients, shifts=shifts, selected_date=selected_date)
 
-@app.route("/delete_shift/<int:id>")
-def delete_shift(id):
+
+@app.route("/delete_shift/<int:shift_id>")
+def delete_shift(shift_id):
     if "user" not in session or session["role"] != "admin":
         return redirect("/")
 
     conn = get_conn()
     c = conn.cursor()
-    c.execute("DELETE FROM shifts WHERE id = ?", (id,))
+    c.execute("DELETE FROM shifts WHERE id = ?", (shift_id,))
     conn.commit()
     conn.close()
-
     return redirect("/")
 
-@app.route("/edit_shift/<int:id>", methods=["GET", "POST"])
-def edit_shift(id):
+
+@app.route("/edit_shift/<int:shift_id>", methods=["GET", "POST"])
+def edit_shift(shift_id):
     if "user" not in session or session["role"] != "admin":
         return redirect("/")
 
-    tr = t()
+    t = tr()
     conn = get_conn()
     c = conn.cursor()
 
@@ -580,13 +593,12 @@ def edit_shift(id):
             UPDATE shifts
             SET worker = ?, client = ?, date = ?, time = ?
             WHERE id = ?
-        """, (worker, client, date, time, id))
-
+        """, (worker, client, date, time, shift_id))
         conn.commit()
         conn.close()
         return redirect("/")
 
-    shift = c.execute("SELECT * FROM shifts WHERE id = ?", (id,)).fetchone()
+    shift = c.execute("SELECT * FROM shifts WHERE id = ?", (shift_id,)).fetchone()
     workers = c.execute("SELECT name FROM workers ORDER BY name").fetchall()
     clients = c.execute("SELECT name FROM clients ORDER BY name").fetchall()
     conn.close()
@@ -598,7 +610,7 @@ def edit_shift(id):
     <style>
         body { font-family: Arial, sans-serif; margin: 24px; background:#f4f6f8; }
         .langbar {
-            max-width: 500px;
+            max-width: 520px;
             margin: 0 auto 12px auto;
             text-align: right;
         }
@@ -609,12 +621,12 @@ def edit_shift(id):
             color: #1f4f82;
         }
         .card {
-            max-width: 500px;
+            max-width: 520px;
             background:white;
             border-radius:12px;
             padding:20px;
             box-shadow:0 4px 14px rgba(0,0,0,0.06);
-            margin: auto;
+            margin:auto;
         }
         input, select, button {
             padding:10px;
@@ -641,38 +653,38 @@ def edit_shift(id):
     </div>
 
     <div class="card">
-        <h2>{{ tr["edit_shift"] }}</h2>
-
+        <h2>{{ t["edit_shift"] }}</h2>
         <form method="post">
             <select name="worker" required>
                 {% for w in workers %}
-                    <option value="{{ w[0] }}" {% if w[0] == shift[1] %}selected{% endif %}>{{ w[0] }}</option>
+                    <option value="{{ w['name'] }}" {% if w['name'] == shift['worker'] %}selected{% endif %}>{{ w['name'] }}</option>
                 {% endfor %}
             </select>
 
             <select name="client" required>
                 {% for c in clients %}
-                    <option value="{{ c[0] }}" {% if c[0] == shift[2] %}selected{% endif %}>{{ c[0] }}</option>
+                    <option value="{{ c['name'] }}" {% if c['name'] == shift['client'] %}selected{% endif %}>{{ c['name'] }}</option>
                 {% endfor %}
             </select>
 
-            <input type="date" name="date" value="{{ shift[3] }}" required>
-            <input type="text" name="time" value="{{ shift[4] }}" required>
+            <input type="date" name="date" value="{{ shift['date'] }}" required>
+            <input type="text" name="time" value="{{ shift['time'] }}" required>
 
-            <button type="submit">{{ tr["save"] }}</button>
+            <button type="submit">{{ t["save"] }}</button>
         </form>
 
         <br>
-        <a href="/">{{ tr["back"] }}</a>
+        <a href="/">{{ t["back"] }}</a>
     </div>
-    """, shift=shift, workers=workers, clients=clients, tr=tr)
+    """, t=t, shift=shift, workers=workers, clients=clients)
+
 
 @app.route("/week")
 def week_view():
     if "user" not in session:
         return redirect("/login")
 
-    tr = t()
+    t = tr()
     conn = get_conn()
     c = conn.cursor()
 
@@ -684,25 +696,30 @@ def week_view():
     role = session["role"]
 
     if role == "admin":
-        shifts = c.execute("SELECT * FROM shifts").fetchall()
+        shifts = c.execute("SELECT * FROM shifts ORDER BY date, time").fetchall()
     else:
-        shifts = c.execute("SELECT * FROM shifts WHERE worker = ?", (user,)).fetchall()
+        shifts = c.execute(
+            "SELECT * FROM shifts WHERE worker = ? ORDER BY date, time",
+            (user,)
+        ).fetchall()
 
     conn.close()
 
     return render_template_string("""
     <style>
         body { font-family: Arial, sans-serif; margin: 24px; background:#f4f6f8; }
-        .langbar {
-            margin-bottom: 12px;
-        }
+        .langbar { margin-bottom: 12px; }
         .langbar a {
             text-decoration: none;
             margin-right: 10px;
             font-weight: bold;
             color: #1f4f82;
         }
-        .week-wrap { display:flex; gap:12px; flex-wrap:wrap; }
+        .week-wrap {
+            display:flex;
+            gap:12px;
+            flex-wrap:wrap;
+        }
         .day-card {
             background:white;
             border-radius:12px;
@@ -727,39 +744,41 @@ def week_view():
     </style>
 
     <div class="langbar">
+        <strong>{{ t["language"] }}:</strong>
         <a href="/set_lang/fr">FR</a>
         <a href="/set_lang/en">EN</a>
         <a href="/set_lang/bos">BOS</a>
         <a href="/set_lang/de">DE</a>
     </div>
 
-    <h1>📅 {{ tr["week_calendar"] }}</h1>
-    <a href="/">{{ tr["back"] }}</a><br><br>
+    <h1>📅 {{ t["week_calendar"] }}</h1>
+    <a href="/">{{ t["back"] }}</a><br><br>
 
     <div class="week-wrap">
         {% for day in week_days %}
             <div class="day-card">
                 <a class="day-link" href="/?selected_date={{ day }}">{{ day }}</a>
                 {% for s in shifts %}
-                    {% if s[3] == day %}
+                    {% if s['date'] == day %}
                         <div class="shift">
-                            <b>{{ s[1] }}</b><br>
-                            {{ s[2] }}<br>
-                            {{ s[4] }}
+                            <b>{{ s['worker'] }}</b><br>
+                            {{ s['client'] }}<br>
+                            {{ s['time'] }}
                         </div>
                     {% endif %}
                 {% endfor %}
             </div>
         {% endfor %}
     </div>
-    """, week_days=week_days, shifts=shifts, tr=tr)
+    """, t=t, week_days=week_days, shifts=shifts)
+
 
 @app.route("/export_pdf")
 def export_pdf():
     if "user" not in session:
         return redirect("/login")
 
-    tr = t()
+    t = tr()
     conn = get_conn()
     c = conn.cursor()
 
@@ -774,9 +793,7 @@ def export_pdf():
                 (date_filter,)
             ).fetchall()
         else:
-            shifts = c.execute(
-                "SELECT * FROM shifts ORDER BY date, time"
-            ).fetchall()
+            shifts = c.execute("SELECT * FROM shifts ORDER BY date, time").fetchall()
     else:
         if date_filter:
             shifts = c.execute(
@@ -804,25 +821,24 @@ def export_pdf():
     styles = getSampleStyleSheet()
     elements = []
 
-    title = tr["pdf_title"]
+    title = t["pdf_title"]
     if date_filter:
         title += f" - {date_filter}"
 
     elements.append(Paragraph(title, styles["Title"]))
     elements.append(Spacer(1, 12))
-    elements.append(Paragraph(f"{tr['pdf_user']}: {session['user']} ({session['role']})", styles["Normal"]))
+    elements.append(Paragraph(f"{t['pdf_user']}: {session['user']} ({session['role']})", styles["Normal"]))
     elements.append(Spacer(1, 12))
 
-    table_data = [[tr["pdf_date"], tr["pdf_time"], tr["pdf_worker"], tr["pdf_client"]]]
+    table_data = [[t["pdf_date"], t["pdf_time"], t["pdf_worker"], t["pdf_client"]]]
 
     if shifts:
         for s in shifts:
-            table_data.append([s[3], s[4], s[1], s[2]])
+            table_data.append([s["date"], s["time"], s["worker"], s["client"]])
     else:
-        table_data.append(["-", "-", "-", tr["pdf_no_shifts"]])
+        table_data.append(["-", "-", "-", t["pdf_no_shifts"]])
 
     table = Table(table_data, colWidths=[3.2 * cm, 3.2 * cm, 4.5 * cm, 6.0 * cm])
-
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1f4f82")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
@@ -849,64 +865,6 @@ def export_pdf():
         mimetype="application/pdf"
     )
 
+
 @app.route("/add_worker", methods=["POST"])
-def add_worker():
-    if session.get("role") != "admin":
-        return redirect("/")
-
-    name = request.form["name"].strip()
-    if not name:
-        return redirect("/")
-
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute("INSERT OR IGNORE INTO workers (name) VALUES (?)", (name,))
-    conn.commit()
-    conn.close()
-
-    return redirect("/")
-
-@app.route("/add_client", methods=["POST"])
-def add_client():
-    if session.get("role") != "admin":
-        return redirect("/")
-
-    name = request.form["name"].strip()
-    if not name:
-        return redirect("/")
-
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute("INSERT OR IGNORE INTO clients (name) VALUES (?)", (name,))
-    conn.commit()
-    conn.close()
-
-    return redirect("/")
-
-@app.route("/add_shift", methods=["POST"])
-def add_shift():
-    if "user" not in session:
-        return redirect("/login")
-
-    worker = request.form["worker"].strip()
-    client = request.form["client"].strip()
-    date = request.form["date"].strip()
-    time = request.form["time"].strip()
-
-    if not worker or not client or not date or not time:
-        return redirect("/")
-
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute("""
-        INSERT INTO shifts (worker, client, date, time)
-        VALUES (?, ?, ?, ?)
-    """, (worker, client, date, time))
-    conn.commit()
-    conn.close()
-
-    return redirect("/")
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+def
