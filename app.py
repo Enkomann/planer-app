@@ -801,21 +801,33 @@ def export_pdf():
     styles = getSampleStyleSheet()
     elements = []
 
+    # LOGO
+    logo_path = "static/logo.png"
+    if os.path.exists(logo_path):
+        elements.append(Image(logo_path, width=4*cm, height=2*cm))
+        elements.append(Spacer(1, 8))
+
+    # TITLE
     title = tr["pdf_title"]
     if date_filter:
         title += f" - {date_filter}"
-logo_path = "static/logo.png"
-if os.path.exists(logo_path):
-    elements.append(Image(logo_path, width=4*cm, height=2*cm))
-    elements.append(Spacer(1, 8))
 
-elements.append(Paragraph(title, styles["Title"]))
-elements.append(Spacer(1, 12))
+    elements.append(Paragraph(title, styles["Title"]))
+    elements.append(Spacer(1, 12))
 
-elements.append(Paragraph(f"{tr['pdf_user']}: {session['user']} ({session['role']})", styles["Normal"]))
-elements.append(Spacer(1, 12))
+    elements.append(Paragraph(
+        f"{tr['pdf_user']}: {session['user']} ({session['role']})",
+        styles["Normal"]
+    ))
+    elements.append(Spacer(1, 12))
 
-    table_data = [[tr["pdf_date"], tr["pdf_time"], tr["pdf_worker"], tr["pdf_client"]]]
+    # TABLE
+    table_data = [[
+        tr["pdf_date"],
+        tr["pdf_time"],
+        tr["pdf_worker"],
+        tr["pdf_client"]
+    ]]
 
     if shifts:
         for s in shifts:
@@ -829,20 +841,18 @@ elements.append(Spacer(1, 12))
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1f4f82")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.whitesmoke, colors.HexColor("#eaf2fb")]),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("FONTSIZE", (0, 0), (-1, -1), 10),
-        ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
-        ("TOPPADDING", (0, 0), (-1, 0), 8),
     ]))
 
     elements.append(table)
     doc.build(elements)
 
     buffer.seek(0)
-    filename = "schedule.pdf" if not date_filter else f"schedule_{date_filter}.pdf"
+
+    filename = "schedule.pdf"
+    if date_filter:
+        filename = f"schedule_{date_filter}.pdf"
 
     return send_file(
         buffer,
