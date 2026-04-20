@@ -1,4 +1,4 @@
-from flask import Flask, request, redirect, render_template_string, session, send_file, url_for
+from flask import Flask, request, redirect, render_template_string, session, send_file
 import sqlite3
 import io
 import os
@@ -14,7 +14,7 @@ from reportlab.platypus import (
     Spacer,
     Table,
     TableStyle,
-    Image
+    Image,
 )
 
 app = Flask(__name__)
@@ -320,9 +320,8 @@ def login():
         <a href="/set_lang/de">DE</a>
     </div>
 
-    <div class="box" style="text-align:center;">
-    <img src="{{ url_for('static', filename='logo.png') }}" alt="Luxmann Logo" style="height:70px; margin-bottom:12px;">
-    <h2>{{ tr["login_title"] }}</h2>
+    <div class="box">
+        <h2>{{ tr["login_title"] }}</h2>
         <form method="post">
             <input name="username" placeholder="{{ tr['username'] }}" required>
             <input name="password" type="password" placeholder="{{ tr['password'] }}" required>
@@ -401,49 +400,14 @@ def index():
         .user-row { padding: 8px 0; border-bottom: 1px solid #e5e7eb; }
     </style>
 
-    <style>
-    .brandbar {
-        display:flex;
-        justify-content:space-between;
-        align-items:center;
-        background:white;
-        border-radius:12px;
-        padding:14px 18px;
-        margin-bottom:18px;
-        box-shadow:0 4px 14px rgba(0,0,0,0.06);
-    }
-    .brandleft {
-        display:flex;
-        align-items:center;
-        gap:14px;
-    }
-    .brandleft img {
-        height:52px;
-        width:auto;
-        object-fit:contain;
-    }
-    .brandtitle {
-        font-size:24px;
-        font-weight:700;
-        color:#1f4f82;
-    }
-</style>
-
-<div class="brandbar">
-    <div class="brandleft">
-        <img src="{{ url_for('static', filename='logo.png') }}" alt="Luxmann Logo">
-        <div class="brandtitle">Luxmann Planner</div>
-    </div>
-
-    <div class="langbar" style="margin:0;">
+    <div class="langbar">
         <a href="/set_lang/fr">FR</a>
         <a href="/set_lang/en">EN</a>
         <a href="/set_lang/bos">BOS</a>
         <a href="/set_lang/de">DE</a>
     </div>
-</div>
 
-<h1>{{ tr["title"] }}</h1>
+    <h1>{{ tr["title"] }}</h1>
     <div class="topbar">
         {{ tr["logged_as"] }}: <b>{{ session['user'] }}</b> ({{ session['role'] }})<br><br>
         <a href="/logout">{{ tr["logout"] }}</a>
@@ -801,27 +765,25 @@ def export_pdf():
     styles = getSampleStyleSheet()
     elements = []
 
-    # LOGO
     logo_path = "static/logo.png"
     if os.path.exists(logo_path):
-        elements.append(Image(logo_path, width=4*cm, height=2*cm))
+        elements.append(Image(logo_path, width=4 * cm, height=2 * cm))
         elements.append(Spacer(1, 8))
 
-    # TITLE
     title = tr["pdf_title"]
     if date_filter:
         title += f" - {date_filter}"
 
     elements.append(Paragraph(title, styles["Title"]))
     elements.append(Spacer(1, 12))
-
-    elements.append(Paragraph(
-        f"{tr['pdf_user']}: {session['user']} ({session['role']})",
-        styles["Normal"]
-    ))
+    elements.append(
+        Paragraph(
+            f"{tr['pdf_user']}: {session['user']} ({session['role']})",
+            styles["Normal"]
+        )
+    )
     elements.append(Spacer(1, 12))
 
-    # TABLE
     table_data = [[
         tr["pdf_date"],
         tr["pdf_time"],
@@ -841,18 +803,20 @@ def export_pdf():
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1f4f82")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.whitesmoke, colors.HexColor("#eaf2fb")]),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
+        ("TOPPADDING", (0, 0), (-1, 0), 8),
     ]))
 
     elements.append(table)
     doc.build(elements)
 
     buffer.seek(0)
-
-    filename = "schedule.pdf"
-    if date_filter:
-        filename = f"schedule_{date_filter}.pdf"
+    filename = "schedule.pdf" if not date_filter else f"schedule_{date_filter}.pdf"
 
     return send_file(
         buffer,
@@ -875,7 +839,6 @@ def add_worker():
     c.execute("INSERT OR IGNORE INTO workers (name) VALUES (?)", (name,))
     conn.commit()
     conn.close()
-
     return redirect("/")
 
 @app.route("/add_client", methods=["POST"])
@@ -892,7 +855,6 @@ def add_client():
     c.execute("INSERT OR IGNORE INTO clients (name) VALUES (?)", (name,))
     conn.commit()
     conn.close()
-
     return redirect("/")
 
 @app.route("/add_shift", methods=["POST"])
@@ -916,7 +878,6 @@ def add_shift():
     """, (worker, client, date, time))
     conn.commit()
     conn.close()
-
     return redirect("/")
 
 if __name__ == "__main__":
