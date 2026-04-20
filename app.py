@@ -811,8 +811,9 @@ if os.path.exists(logo_path):
 
 elements.append(Paragraph(title, styles["Title"]))
 elements.append(Spacer(1, 12))
-    elements.append(Paragraph(f"{tr['pdf_user']}: {session['user']} ({session['role']})", styles["Normal"]))
-    elements.append(Spacer(1, 12))
+
+elements.append(Paragraph(f"{tr['pdf_user']}: {session['user']} ({session['role']})", styles["Normal"]))
+elements.append(Spacer(1, 12))
 
     table_data = [[tr["pdf_date"], tr["pdf_time"], tr["pdf_worker"], tr["pdf_client"]]]
 
