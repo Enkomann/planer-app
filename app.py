@@ -18,11 +18,6 @@ from reportlab.platypus import (
 app = Flask(__name__)
 app.secret_key = "luxmann_secret_key"
 
-USERS = {
-    "admin": {"password": "admin123", "role": "admin"},
-    "worker1": {"password": "1234", "role": "worker"}
-}
-
 TRANSLATIONS = {
     "fr": {
         "login_title": "Connexion",
@@ -51,7 +46,7 @@ TRANSLATIONS = {
         "delete": "Supprimer",
         "week_calendar": "Calendrier hebdomadaire",
         "pdf": "PDF planning",
-        "back": "Back",
+        "back": "Retour",
         "edit_shift": "Modifier mission",
         "save": "Enregistrer",
         "time_placeholder": "Horaire, ex. 08:00-12:00",
@@ -62,6 +57,13 @@ TRANSLATIONS = {
         "pdf_worker": "Employe",
         "pdf_client": "Client",
         "pdf_no_shifts": "Aucune mission",
+        "user_mgmt": "Gestion des utilisateurs",
+        "add_user": "Ajouter utilisateur",
+        "user_role": "Role",
+        "role_admin": "admin",
+        "role_worker": "worker",
+        "existing_users": "Utilisateurs existants",
+        "delete_user": "Supprimer utilisateur",
     },
     "en": {
         "login_title": "Login",
@@ -101,6 +103,13 @@ TRANSLATIONS = {
         "pdf_worker": "Worker",
         "pdf_client": "Client",
         "pdf_no_shifts": "No shifts",
+        "user_mgmt": "User management",
+        "add_user": "Add user",
+        "user_role": "Role",
+        "role_admin": "admin",
+        "role_worker": "worker",
+        "existing_users": "Existing users",
+        "delete_user": "Delete user",
     },
     "bos": {
         "login_title": "Prijava",
@@ -140,6 +149,13 @@ TRANSLATIONS = {
         "pdf_worker": "Radnik",
         "pdf_client": "Klijent",
         "pdf_no_shifts": "Nema smjena",
+        "user_mgmt": "Upravljanje korisnicima",
+        "add_user": "Dodaj korisnika",
+        "user_role": "Uloga",
+        "role_admin": "admin",
+        "role_worker": "worker",
+        "existing_users": "Postojeci korisnici",
+        "delete_user": "Obrisi korisnika",
     },
     "de": {
         "login_title": "Anmeldung",
@@ -179,6 +195,13 @@ TRANSLATIONS = {
         "pdf_worker": "Mitarbeiter",
         "pdf_client": "Kunde",
         "pdf_no_shifts": "Keine Einsatze",
+        "user_mgmt": "Benutzerverwaltung",
+        "add_user": "Benutzer hinzufugen",
+        "user_role": "Rolle",
+        "role_admin": "admin",
+        "role_worker": "worker",
+        "existing_users": "Bestehende Benutzer",
+        "delete_user": "Benutzer loschen",
     }
 }
 
@@ -194,6 +217,15 @@ def get_conn():
 def init_db():
     conn = get_conn()
     c = conn.cursor()
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE,
+            password TEXT,
+            role TEXT
+        )
+    """)
 
     c.execute("""
         CREATE TABLE IF NOT EXISTS workers (
@@ -219,6 +251,15 @@ def init_db():
         )
     """)
 
+    c.execute(
+        "INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)",
+        ("admin", "admin123", "admin")
+    )
+    c.execute(
+        "INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)",
+        ("worker1", "1234", "worker")
+    )
+
     c.execute("INSERT OR IGNORE INTO workers (name) VALUES (?)", ("admin",))
     c.execute("INSERT OR IGNORE INTO workers (name) VALUES (?)", ("worker1",))
 
@@ -242,10 +283,17 @@ def login():
         username = request.form["username"].strip()
         password = request.form["password"].strip()
 
-        user = USERS.get(username)
-        if user and user["password"] == password:
-            session["user"] = username
-            session["role"] = user["role"]
+        conn = get_conn()
+        c = conn.cursor()
+        user = c.execute(
+            "SELECT username, password, role FROM users WHERE username = ?",
+            (username,)
+        ).fetchone()
+        conn.close()
+
+        if user and user[1] == password:
+            session["user"] = user[0]
+            session["role"] = user[2]
             return redirect("/")
 
         error = tr["login_error"]
@@ -299,6 +347,7 @@ def index():
 
     workers = c.execute("SELECT name FROM workers ORDER BY name").fetchall()
     clients = c.execute("SELECT name FROM clients ORDER BY name").fetchall()
+    db_users = c.execute("SELECT id, username, role FROM users ORDER BY username").fetchall()
 
     date_filter = request.args.get("date", "").strip()
     selected_date = request.args.get("selected_date", "").strip()
@@ -346,6 +395,7 @@ def index():
         .delete-link { color: #c62828; }
         .week-link, .pdf-link { display: inline-block; margin-top: 12px; margin-right: 12px; text-decoration: none; color: #1f4f82; font-weight: bold; }
         .muted { color: #64748b; font-size: 14px; }
+        .user-row { padding: 8px 0; border-bottom: 1px solid #e5e7eb; }
     </style>
 
     <div class="langbar">
@@ -363,6 +413,29 @@ def index():
 
     <div class="grid">
         {% if session['role'] == 'admin' %}
+        <div class="card">
+            <h3>{{ tr["user_mgmt"] }}</h3>
+            <form method="post" action="/add_user">
+                <input name="username" placeholder="{{ tr['username'] }}" required>
+                <input name="password" placeholder="{{ tr['password'] }}" required>
+                <select name="role" required>
+                    <option value="admin">{{ tr["role_admin"] }}</option>
+                    <option value="worker">{{ tr["role_worker"] }}</option>
+                </select>
+                <button>{{ tr["add_user"] }}</button>
+            </form>
+
+            <h4>{{ tr["existing_users"] }}</h4>
+            {% for u in db_users %}
+                <div class="user-row">
+                    <b>{{ u[1] }}</b> ({{ u[2] }})
+                    {% if u[1] != 'admin' %}
+                        <a class="action-link delete-link" href="/delete_user/{{ u[0] }}">{{ tr["delete_user"] }}</a>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+
         <div class="card">
             <h3>{{ tr["add_worker"] }}</h3>
             <form method="post" action="/add_worker">
@@ -443,7 +516,51 @@ def index():
         <a class="week-link" href="/week">{{ tr["week_calendar"] }}</a>
         <a class="pdf-link" href="/export_pdf{% if request.args.get('date') %}?date={{ request.args.get('date') }}{% endif %}" target="_blank">{{ tr["pdf"] }}</a>
     </div>
-    """, shifts=shifts, workers=workers, clients=clients, selected_date=selected_date, tr=tr)
+    """, shifts=shifts, workers=workers, clients=clients, selected_date=selected_date, tr=tr, db_users=db_users)
+
+@app.route("/add_user", methods=["POST"])
+def add_user():
+    if session.get("role") != "admin":
+        return redirect("/")
+
+    username = request.form["username"].strip()
+    password = request.form["password"].strip()
+    role = request.form["role"].strip()
+
+    if not username or not password or role not in ("admin", "worker"):
+        return redirect("/")
+
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute(
+        "INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)",
+        (username, password, role)
+    )
+
+    if role == "worker":
+        c.execute("INSERT OR IGNORE INTO workers (name) VALUES (?)", (username,))
+
+    conn.commit()
+    conn.close()
+
+    return redirect("/")
+
+@app.route("/delete_user/<int:user_id>")
+def delete_user(user_id):
+    if session.get("role") != "admin":
+        return redirect("/")
+
+    conn = get_conn()
+    c = conn.cursor()
+
+    user = c.execute("SELECT username FROM users WHERE id = ?", (user_id,)).fetchone()
+    if user and user[0] != "admin":
+        c.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        c.execute("DELETE FROM workers WHERE name = ?", (user[0],))
+
+    conn.commit()
+    conn.close()
+    return redirect("/")
 
 @app.route("/delete_shift/<int:id>")
 def delete_shift(id):
