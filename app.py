@@ -1,4 +1,4 @@
-from flask import Flask, request, redirect, render_template_string, session, send_file
+from flask import Flask, request, redirect, render_template_string, session, send_file, url_for
 import sqlite3
 import io
 import os
@@ -320,8 +320,9 @@ def login():
         <a href="/set_lang/de">DE</a>
     </div>
 
-    <div class="box">
-        <h2>{{ tr["login_title"] }}</h2>
+    <div class="box" style="text-align:center;">
+    <img src="{{ url_for('static', filename='logo.png') }}" alt="Luxmann Logo" style="height:70px; margin-bottom:12px;">
+    <h2>{{ tr["login_title"] }}</h2>
         <form method="post">
             <input name="username" placeholder="{{ tr['username'] }}" required>
             <input name="password" type="password" placeholder="{{ tr['password'] }}" required>
@@ -400,14 +401,49 @@ def index():
         .user-row { padding: 8px 0; border-bottom: 1px solid #e5e7eb; }
     </style>
 
-    <div class="langbar">
+    <style>
+    .brandbar {
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        background:white;
+        border-radius:12px;
+        padding:14px 18px;
+        margin-bottom:18px;
+        box-shadow:0 4px 14px rgba(0,0,0,0.06);
+    }
+    .brandleft {
+        display:flex;
+        align-items:center;
+        gap:14px;
+    }
+    .brandleft img {
+        height:56px;
+        width:auto;
+        object-fit:contain;
+    }
+    .brandtitle {
+        font-size:24px;
+        font-weight:700;
+        color:#1f4f82;
+    }
+</style>
+
+<div class="brandbar">
+    <div class="brandleft">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Luxmann Logo">
+        <div class="brandtitle">Luxmann Planner</div>
+    </div>
+
+    <div class="langbar" style="margin:0;">
         <a href="/set_lang/fr">FR</a>
         <a href="/set_lang/en">EN</a>
         <a href="/set_lang/bos">BOS</a>
         <a href="/set_lang/de">DE</a>
     </div>
+</div>
 
-    <h1>{{ tr["title"] }}</h1>
+<h1>{{ tr["title"] }}</h1>
     <div class="topbar">
         {{ tr["logged_as"] }}: <b>{{ session['user'] }}</b> ({{ session['role'] }})<br><br>
         <a href="/logout">{{ tr["logout"] }}</a>
