@@ -25,6 +25,12 @@ WORKER_COLORS = {
     "worker1": "#16a34a",
 }
 
+STATUS_COLORS = {
+    "planned": "#f59e0b",
+    "in_progress": "#2563eb",
+    "done": "#16a34a",
+}
+
 TRANSLATIONS = {
     "fr": {
         "login_title": "Connexion",
@@ -71,6 +77,13 @@ TRANSLATIONS = {
         "role_worker": "worker",
         "existing_users": "Utilisateurs existants",
         "delete_user": "Supprimer utilisateur",
+        "status": "Statut",
+        "status_planned": "Planifie",
+        "status_in_progress": "En cours",
+        "status_done": "Termine",
+        "weekly_hours": "Heures hebdomadaires",
+        "monthly_hours": "Heures mensuelles",
+        "hours": "heures",
     },
     "en": {
         "login_title": "Login",
@@ -117,6 +130,13 @@ TRANSLATIONS = {
         "role_worker": "worker",
         "existing_users": "Existing users",
         "delete_user": "Delete user",
+        "status": "Status",
+        "status_planned": "Planned",
+        "status_in_progress": "In progress",
+        "status_done": "Done",
+        "weekly_hours": "Weekly hours",
+        "monthly_hours": "Monthly hours",
+        "hours": "hours",
     },
     "bos": {
         "login_title": "Prijava",
@@ -163,6 +183,13 @@ TRANSLATIONS = {
         "role_worker": "worker",
         "existing_users": "Postojeci korisnici",
         "delete_user": "Obrisi korisnika",
+        "status": "Status",
+        "status_planned": "Planirano",
+        "status_in_progress": "U toku",
+        "status_done": "Zavrseno",
+        "weekly_hours": "Nedeljni sati",
+        "monthly_hours": "Mjesecni sati",
+        "hours": "sati",
     },
     "de": {
         "login_title": "Anmeldung",
@@ -209,6 +236,13 @@ TRANSLATIONS = {
         "role_worker": "worker",
         "existing_users": "Bestehende Benutzer",
         "delete_user": "Benutzer loschen",
+        "status": "Status",
+        "status_planned": "Geplant",
+        "status_in_progress": "In Arbeit",
+        "status_done": "Erledigt",
+        "weekly_hours": "Wochenstunden",
+        "monthly_hours": "Monatsstunden",
+        "hours": "Stunden",
     }
 }
 
@@ -220,6 +254,42 @@ def t():
 
 def get_conn():
     return sqlite3.connect("db.sqlite")
+
+def format_date(date_str):
+    try:
+        d = datetime.strptime(date_str, "%Y-%m-%d")
+        return d.strftime("%d/%m/%Y")
+    except Exception:
+        return date_str
+
+def get_status_label(status_key, tr):
+    mapping = {
+        "planned": tr["status_planned"],
+        "in_progress": tr["status_in_progress"],
+        "done": tr["status_done"],
+    }
+    return mapping.get(status_key, status_key)
+
+def parse_shift_hours(time_str):
+    try:
+        parts = time_str.split("-")
+        if len(parts) != 2:
+            return 0.0
+        start = datetime.strptime(parts[0].strip(), "%H:%M")
+        end = datetime.strptime(parts[1].strip(), "%H:%M")
+        diff = end - start
+        hours = diff.total_seconds() / 3600
+        return max(hours, 0.0)
+    except Exception:
+        return 0.0
+
+def calculate_hours_by_worker(shifts):
+    totals = {}
+    for s in shifts:
+        worker = s[1]
+        hours = parse_shift_hours(s[4])
+        totals[worker] = totals.get(worker, 0.0) + hours
+    return totals
 
 def init_db():
     conn = get_conn()
@@ -254,9 +324,15 @@ def init_db():
             worker TEXT,
             client TEXT,
             date TEXT,
-            time TEXT
+            time TEXT,
+            status TEXT DEFAULT 'planned'
         )
     """)
+
+    # Add status column if app existed before
+    cols = [row[1] for row in c.execute("PRAGMA table_info(shifts)").fetchall()]
+    if "status" not in cols:
+        c.execute("ALTER TABLE shifts ADD COLUMN status TEXT DEFAULT 'planned'")
 
     c.execute(
         "INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)",
@@ -383,6 +459,32 @@ def index():
                 (user,)
             ).fetchall()
 
+    today = datetime.today()
+    week_start = today - timedelta(days=today.weekday())
+    week_end = week_start + timedelta(days=6)
+    month_start = today.replace(day=1)
+
+    week_shifts = []
+    month_shifts = []
+
+    if role == "admin":
+        all_shifts = c.execute("SELECT * FROM shifts").fetchall()
+    else:
+        all_shifts = c.execute("SELECT * FROM shifts WHERE worker = ?", (user,)).fetchall()
+
+    for s in all_shifts:
+        try:
+            d = datetime.strptime(s[3], "%Y-%m-%d")
+            if week_start.date() <= d.date() <= week_end.date():
+                week_shifts.append(s)
+            if d.year == month_start.year and d.month == month_start.month:
+                month_shifts.append(s)
+        except Exception:
+            pass
+
+    weekly_hours = calculate_hours_by_worker(week_shifts)
+    monthly_hours = calculate_hours_by_worker(month_shifts)
+
     conn.close()
 
     return render_template_string("""
@@ -436,6 +538,20 @@ def index():
             font-size:24px;
             font-weight:700;
             color:#1f4f82;
+        }
+        .status-badge {
+            color:white;
+            padding:4px 8px;
+            border-radius:6px;
+            font-size:12px;
+            font-weight:bold;
+            margin-left:8px;
+        }
+        .hours-row {
+            display:flex;
+            justify-content:space-between;
+            padding:8px 0;
+            border-bottom:1px solid #e5e7eb;
         }
     </style>
 
@@ -529,6 +645,13 @@ def index():
 
                 <input name="date" type="date" value="{{ selected_date }}" required>
                 <input name="time" placeholder="{{ tr['time_placeholder'] }}" required>
+
+                <select name="status" required>
+                    <option value="planned">{{ tr["status_planned"] }}</option>
+                    <option value="in_progress">{{ tr["status_in_progress"] }}</option>
+                    <option value="done">{{ tr["status_done"] }}</option>
+                </select>
+
                 <button>{{ tr["add_shift"] }}</button>
             </form>
         </div>
@@ -541,6 +664,32 @@ def index():
             </form>
             <a href="/">{{ tr["reset"] }}</a>
         </div>
+
+        <div class="card">
+            <h3>{{ tr["weekly_hours"] }}</h3>
+            {% for worker, hours in weekly_hours.items() %}
+                <div class="hours-row">
+                    <span>{{ worker }}</span>
+                    <span>{{ "%.2f"|format(hours) }} {{ tr["hours"] }}</span>
+                </div>
+            {% endfor %}
+            {% if weekly_hours|length == 0 %}
+                <div class="muted">0 {{ tr["hours"] }}</div>
+            {% endif %}
+        </div>
+
+        <div class="card">
+            <h3>{{ tr["monthly_hours"] }}</h3>
+            {% for worker, hours in monthly_hours.items() %}
+                <div class="hours-row">
+                    <span>{{ worker }}</span>
+                    <span>{{ "%.2f"|format(hours) }} {{ tr["hours"] }}</span>
+                </div>
+            {% endfor %}
+            {% if monthly_hours|length == 0 %}
+                <div class="muted">0 {{ tr["hours"] }}</div>
+            {% endif %}
+        </div>
     </div>
 
     <div class="card" style="margin-top:20px;">
@@ -552,7 +701,11 @@ def index():
 
         {% for s in shifts %}
             <div class="shift" style="border-left: 6px solid {{ worker_colors.get(s[1], '#1f4f82') }}">
-                <b>{{ s[3] }}</b> | {{ s[4] }}<br><br>
+                <b>{{ format_date(s[3]) }}</b> | {{ s[4] }}
+                <span class="status-badge" style="background: {{ status_colors.get(s[5], '#6b7280') }};">
+                    {{ get_status_label(s[5], tr) }}
+                </span>
+                <br><br>
 
                 <span style="
                     background: {{ worker_colors.get(s[1], '#1f4f82') }};
@@ -576,7 +729,10 @@ def index():
         <a class="week-link" href="/week">{{ tr["week_calendar"] }}</a>
         <a class="pdf-link" href="/export_pdf{% if request.args.get('date') %}?date={{ request.args.get('date') }}{% endif %}" target="_blank">{{ tr["pdf"] }}</a>
     </div>
-    """, shifts=shifts, workers=workers, clients=clients, selected_date=selected_date, tr=tr, db_users=db_users, worker_colors=WORKER_COLORS)
+    """, shifts=shifts, workers=workers, clients=clients, selected_date=selected_date,
+       tr=tr, db_users=db_users, worker_colors=WORKER_COLORS, format_date=format_date,
+       status_colors=STATUS_COLORS, get_status_label=get_status_label,
+       weekly_hours=weekly_hours, monthly_hours=monthly_hours)
 
 @app.route("/add_user", methods=["POST"])
 def add_user():
@@ -602,7 +758,6 @@ def add_user():
 
     conn.commit()
     conn.close()
-
     return redirect("/")
 
 @app.route("/delete_user/<int:user_id>")
@@ -648,12 +803,13 @@ def edit_shift(id):
         client = request.form["client"].strip()
         date = request.form["date"].strip()
         time = request.form["time"].strip()
+        status = request.form["status"].strip()
 
         c.execute("""
             UPDATE shifts
-            SET worker = ?, client = ?, date = ?, time = ?
+            SET worker = ?, client = ?, date = ?, time = ?, status = ?
             WHERE id = ?
-        """, (worker, client, date, time, id))
+        """, (worker, client, date, time, status, id))
 
         conn.commit()
         conn.close()
@@ -704,6 +860,12 @@ def edit_shift(id):
             <input type="date" name="date" value="{{ shift[3] }}" required>
             <input type="text" name="time" value="{{ shift[4] }}" required>
 
+            <select name="status" required>
+                <option value="planned" {% if shift[5] == 'planned' %}selected{% endif %}>{{ tr["status_planned"] }}</option>
+                <option value="in_progress" {% if shift[5] == 'in_progress' %}selected{% endif %}>{{ tr["status_in_progress"] }}</option>
+                <option value="done" {% if shift[5] == 'done' %}selected{% endif %}>{{ tr["status_done"] }}</option>
+            </select>
+
             <button type="submit">{{ tr["save"] }}</button>
         </form>
 
@@ -750,6 +912,15 @@ def week_view():
             border-radius:10px;
             box-shadow: 0 4px 14px rgba(0,0,0,0.06);
         }
+        .status-badge {
+            color:white;
+            padding:4px 8px;
+            border-radius:6px;
+            font-size:12px;
+            font-weight:bold;
+            display:inline-block;
+            margin-top:6px;
+        }
         a { text-decoration:none; color:#1f4f82; font-weight:bold; }
     </style>
 
@@ -766,7 +937,7 @@ def week_view():
     <div class="week-wrap">
         {% for day in week_days %}
             <div class="day-card">
-                <a class="day-link" href="/?selected_date={{ day }}">{{ day }}</a>
+                <a class="day-link" href="/?selected_date={{ day }}">{{ format_date(day) }}</a>
                 {% for s in shifts %}
                     {% if s[3] == day %}
                         <div class="shift" style="border-left: 6px solid {{ worker_colors.get(s[1], '#1f4f82') }}">
@@ -782,14 +953,18 @@ def week_view():
                             </span>
                             <br><br>
                             {{ s[2] }}<br>
-                            {{ s[4] }}
+                            {{ s[4] }}<br>
+                            <span class="status-badge" style="background: {{ status_colors.get(s[5], '#6b7280') }};">
+                                {{ get_status_label(s[5], tr) }}
+                            </span>
                         </div>
                     {% endif %}
                 {% endfor %}
             </div>
         {% endfor %}
     </div>
-    """, week_days=week_days, shifts=shifts, tr=tr, worker_colors=WORKER_COLORS)
+    """, week_days=week_days, shifts=shifts, tr=tr, worker_colors=WORKER_COLORS,
+       format_date=format_date, status_colors=STATUS_COLORS, get_status_label=get_status_label)
 
 @app.route("/export_pdf")
 def export_pdf():
@@ -846,7 +1021,7 @@ def export_pdf():
 
     title = tr["pdf_title"]
     if date_filter:
-        title += f" - {date_filter}"
+        title += f" - {format_date(date_filter)}"
 
     elements.append(Paragraph(title, styles["Title"]))
     elements.append(Spacer(1, 12))
@@ -862,16 +1037,23 @@ def export_pdf():
         tr["pdf_date"],
         tr["pdf_time"],
         tr["pdf_worker"],
-        tr["pdf_client"]
+        tr["pdf_client"],
+        tr["status"]
     ]]
 
     if shifts:
         for s in shifts:
-            table_data.append([s[3], s[4], s[1], s[2]])
+            table_data.append([
+                format_date(s[3]),
+                s[4],
+                s[1],
+                s[2],
+                get_status_label(s[5], tr)
+            ])
     else:
-        table_data.append(["-", "-", "-", tr["pdf_no_shifts"]])
+        table_data.append(["-", "-", "-", "-", tr["pdf_no_shifts"]])
 
-    table = Table(table_data, colWidths=[3.2 * cm, 3.2 * cm, 4.5 * cm, 6.0 * cm])
+    table = Table(table_data, colWidths=[2.8 * cm, 2.8 * cm, 4.0 * cm, 4.8 * cm, 3.0 * cm])
 
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1f4f82")),
@@ -940,6 +1122,7 @@ def add_shift():
     client = request.form["client"].strip()
     date = request.form["date"].strip()
     time = request.form["time"].strip()
+    status = request.form["status"].strip()
 
     if not worker or not client or not date or not time:
         return redirect("/")
@@ -947,9 +1130,9 @@ def add_shift():
     conn = get_conn()
     c = conn.cursor()
     c.execute("""
-        INSERT INTO shifts (worker, client, date, time)
-        VALUES (?, ?, ?, ?)
-    """, (worker, client, date, time))
+        INSERT INTO shifts (worker, client, date, time, status)
+        VALUES (?, ?, ?, ?, ?)
+    """, (worker, client, date, time, status))
     conn.commit()
     conn.close()
     return redirect("/")
