@@ -3,6 +3,7 @@ import sqlite3
 import io
 import os
 from datetime import datetime, timedelta
+import calendar
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -20,7 +21,7 @@ from reportlab.platypus import (
 app = Flask(__name__)
 app.secret_key = "luxmann_secret_key"
 
-WORKER_COLORS = {
+DEFAULT_WORKER_COLORS = {
     "admin": "#1f4f82",
     "worker1": "#16a34a",
 }
@@ -58,6 +59,7 @@ TRANSLATIONS = {
         "edit": "Modifier",
         "delete": "Supprimer",
         "week_calendar": "Calendrier hebdomadaire",
+        "month_calendar": "Calendrier mensuel",
         "pdf": "PDF planning",
         "back": "Retour",
         "edit_shift": "Modifier mission",
@@ -84,6 +86,19 @@ TRANSLATIONS = {
         "weekly_hours": "Heures hebdomadaires",
         "monthly_hours": "Heures mensuelles",
         "hours": "heures",
+        "filter_worker": "Filtrer par employe",
+        "filter_client": "Filtrer par client",
+        "all_workers": "Tous les employes",
+        "all_clients": "Tous les clients",
+        "theme": "Theme",
+        "light_theme": "Clair",
+        "dark_theme": "Sombre",
+        "worker_colors": "Couleurs des employes",
+        "color": "Couleur",
+        "update_color": "Mettre a jour couleur",
+        "month": "Mois",
+        "prev_month": "Mois precedent",
+        "next_month": "Mois suivant",
     },
     "en": {
         "login_title": "Login",
@@ -111,6 +126,7 @@ TRANSLATIONS = {
         "edit": "Edit",
         "delete": "Delete",
         "week_calendar": "Weekly calendar",
+        "month_calendar": "Monthly calendar",
         "pdf": "Schedule PDF",
         "back": "Back",
         "edit_shift": "Edit shift",
@@ -137,6 +153,19 @@ TRANSLATIONS = {
         "weekly_hours": "Weekly hours",
         "monthly_hours": "Monthly hours",
         "hours": "hours",
+        "filter_worker": "Filter by worker",
+        "filter_client": "Filter by client",
+        "all_workers": "All workers",
+        "all_clients": "All clients",
+        "theme": "Theme",
+        "light_theme": "Light",
+        "dark_theme": "Dark",
+        "worker_colors": "Worker colors",
+        "color": "Color",
+        "update_color": "Update color",
+        "month": "Month",
+        "prev_month": "Previous month",
+        "next_month": "Next month",
     },
     "bos": {
         "login_title": "Prijava",
@@ -164,6 +193,7 @@ TRANSLATIONS = {
         "edit": "Izmijeni",
         "delete": "Obrisi",
         "week_calendar": "Sedmicni kalendar",
+        "month_calendar": "Mjesecni kalendar",
         "pdf": "PDF raspored",
         "back": "Nazad",
         "edit_shift": "Izmijeni smjenu",
@@ -190,6 +220,19 @@ TRANSLATIONS = {
         "weekly_hours": "Nedeljni sati",
         "monthly_hours": "Mjesecni sati",
         "hours": "sati",
+        "filter_worker": "Filter po radniku",
+        "filter_client": "Filter po klijentu",
+        "all_workers": "Svi radnici",
+        "all_clients": "Svi klijenti",
+        "theme": "Tema",
+        "light_theme": "Svijetla",
+        "dark_theme": "Tamna",
+        "worker_colors": "Boje radnika",
+        "color": "Boja",
+        "update_color": "Azuriraj boju",
+        "month": "Mjesec",
+        "prev_month": "Prosli mjesec",
+        "next_month": "Sljedeci mjesec",
     },
     "de": {
         "login_title": "Anmeldung",
@@ -217,6 +260,7 @@ TRANSLATIONS = {
         "edit": "Bearbeiten",
         "delete": "Loschen",
         "week_calendar": "Wochenkalender",
+        "month_calendar": "Monatskalender",
         "pdf": "PDF Plan",
         "back": "Zuruck",
         "edit_shift": "Einsatz bearbeiten",
@@ -243,6 +287,19 @@ TRANSLATIONS = {
         "weekly_hours": "Wochenstunden",
         "monthly_hours": "Monatsstunden",
         "hours": "Stunden",
+        "filter_worker": "Nach Mitarbeiter filtern",
+        "filter_client": "Nach Kunde filtern",
+        "all_workers": "Alle Mitarbeiter",
+        "all_clients": "Alle Kunden",
+        "theme": "Thema",
+        "light_theme": "Hell",
+        "dark_theme": "Dunkel",
+        "worker_colors": "Mitarbeiterfarben",
+        "color": "Farbe",
+        "update_color": "Farbe aktualisieren",
+        "month": "Monat",
+        "prev_month": "Vorheriger Monat",
+        "next_month": "Nächster Monat",
     }
 }
 
@@ -251,6 +308,9 @@ def get_lang():
 
 def t():
     return TRANSLATIONS.get(get_lang(), TRANSLATIONS["fr"])
+
+def get_theme():
+    return session.get("theme", "light")
 
 def get_conn():
     return sqlite3.connect("db.sqlite")
@@ -291,6 +351,31 @@ def calculate_hours_by_worker(shifts):
         totals[worker] = totals.get(worker, 0.0) + hours
     return totals
 
+def get_worker_colors(conn):
+    c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS worker_colors (
+            worker_name TEXT PRIMARY KEY,
+            color TEXT
+        )
+    """)
+    rows = c.execute("SELECT worker_name, color FROM worker_colors").fetchall()
+    colors_map = DEFAULT_WORKER_COLORS.copy()
+    for worker_name, color in rows:
+        colors_map[worker_name] = color
+    return colors_map
+
+def month_navigation(year, month, delta):
+    current = datetime(year, month, 15)
+    if delta == -1:
+        if month == 1:
+            return year - 1, 12
+        return year, month - 1
+    else:
+        if month == 12:
+            return year + 1, 1
+        return year, month + 1
+
 def init_db():
     conn = get_conn()
     c = conn.cursor()
@@ -329,7 +414,13 @@ def init_db():
         )
     """)
 
-    # Add status column if app existed before
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS worker_colors (
+            worker_name TEXT PRIMARY KEY,
+            color TEXT
+        )
+    """)
+
     cols = [row[1] for row in c.execute("PRAGMA table_info(shifts)").fetchall()]
     if "status" not in cols:
         c.execute("ALTER TABLE shifts ADD COLUMN status TEXT DEFAULT 'planned'")
@@ -346,6 +437,12 @@ def init_db():
     c.execute("INSERT OR IGNORE INTO workers (name) VALUES (?)", ("admin",))
     c.execute("INSERT OR IGNORE INTO workers (name) VALUES (?)", ("worker1",))
 
+    for worker_name, color in DEFAULT_WORKER_COLORS.items():
+        c.execute(
+            "INSERT OR IGNORE INTO worker_colors (worker_name, color) VALUES (?, ?)",
+            (worker_name, color)
+        )
+
     conn.commit()
     conn.close()
 
@@ -357,10 +454,18 @@ def set_lang(lang):
         session["lang"] = lang
     return redirect(request.referrer or "/")
 
+@app.route("/set_theme/<theme>")
+def set_theme(theme):
+    if theme in ("light", "dark"):
+        session["theme"] = theme
+    return redirect(request.referrer or "/")
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     tr = t()
     error = ""
+    theme = get_theme()
+    dark = theme == "dark"
 
     if request.method == "POST":
         username = request.form["username"].strip()
@@ -383,15 +488,32 @@ def login():
 
     return render_template_string("""
     <style>
-        body { font-family: Arial, sans-serif; margin: 40px; background: #f4f6f8; }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background: {{ '#0f172a' if dark else '#f4f6f8' }};
+            color: {{ '#e5e7eb' if dark else '#111827' }};
+        }
         .langbar { max-width: 400px; margin: 0 auto 12px auto; text-align: right; }
-        .langbar a { text-decoration: none; margin-left: 8px; font-weight: bold; color: #1f4f82; }
-        .box { max-width: 400px; margin:auto; background:white; padding:30px; border-radius:12px; box-shadow:0 4px 14px rgba(0,0,0,0.08); }
+        .langbar a { text-decoration: none; margin-left: 8px; font-weight: bold; color: {{ '#93c5fd' if dark else '#1f4f82' }}; }
+        .box {
+            max-width: 400px; margin:auto;
+            background: {{ '#111827' if dark else 'white' }};
+            padding:30px; border-radius:12px;
+            box-shadow:0 4px 14px rgba(0,0,0,0.08);
+        }
         h2 { margin-top:0; }
-        input, button { width:100%; padding:12px; margin-top:10px; box-sizing:border-box; border-radius:8px; }
-        input { border: 1px solid #cbd5e1; }
+        input, button {
+            width:100%; padding:12px; margin-top:10px;
+            box-sizing:border-box; border-radius:8px;
+        }
+        input {
+            border: 1px solid {{ '#374151' if dark else '#cbd5e1' }};
+            background: {{ '#1f2937' if dark else 'white' }};
+            color: {{ '#e5e7eb' if dark else '#111827' }};
+        }
         button { background:#1f4f82; color:white; border:none; cursor:pointer; }
-        .error { color:#b00020; margin-top:10px; }
+        .error { color:#ef4444; margin-top:10px; }
     </style>
 
     <div class="langbar">
@@ -413,7 +535,7 @@ def login():
             <div class="error">{{ error }}</div>
         {% endif %}
     </div>
-    """, error=error, tr=tr)
+    """, error=error, tr=tr, dark=dark)
 
 @app.route("/logout")
 def logout():
@@ -426,52 +548,59 @@ def index():
         return redirect("/login")
 
     tr = t()
+    theme = get_theme()
+    dark = theme == "dark"
+
     conn = get_conn()
     c = conn.cursor()
 
     workers = c.execute("SELECT name FROM workers ORDER BY name").fetchall()
     clients = c.execute("SELECT name FROM clients ORDER BY name").fetchall()
     db_users = c.execute("SELECT id, username, role FROM users ORDER BY username").fetchall()
+    worker_colors = get_worker_colors(conn)
 
     date_filter = request.args.get("date", "").strip()
     selected_date = request.args.get("selected_date", "").strip()
+    worker_filter = request.args.get("worker", "").strip()
+    client_filter = request.args.get("client", "").strip()
 
     user = session["user"]
     role = session["role"]
 
-    if role == "admin":
-        if date_filter:
-            shifts = c.execute(
-                "SELECT * FROM shifts WHERE date = ? ORDER BY date, time",
-                (date_filter,)
-            ).fetchall()
-        else:
-            shifts = c.execute("SELECT * FROM shifts ORDER BY date, time").fetchall()
-    else:
-        if date_filter:
-            shifts = c.execute(
-                "SELECT * FROM shifts WHERE worker = ? AND date = ? ORDER BY date, time",
-                (user, date_filter)
-            ).fetchall()
-        else:
-            shifts = c.execute(
-                "SELECT * FROM shifts WHERE worker = ? ORDER BY date, time",
-                (user,)
-            ).fetchall()
+    base_query = "SELECT * FROM shifts WHERE 1=1"
+    params = []
+
+    if role != "admin":
+        base_query += " AND worker = ?"
+        params.append(user)
+
+    if date_filter:
+        base_query += " AND date = ?"
+        params.append(date_filter)
+
+    if worker_filter:
+        base_query += " AND worker = ?"
+        params.append(worker_filter)
+
+    if client_filter:
+        base_query += " AND client = ?"
+        params.append(client_filter)
+
+    base_query += " ORDER BY date, time"
+    shifts = c.execute(base_query, tuple(params)).fetchall()
 
     today = datetime.today()
     week_start = today - timedelta(days=today.weekday())
     week_end = week_start + timedelta(days=6)
     month_start = today.replace(day=1)
 
-    week_shifts = []
-    month_shifts = []
-
     if role == "admin":
         all_shifts = c.execute("SELECT * FROM shifts").fetchall()
     else:
         all_shifts = c.execute("SELECT * FROM shifts WHERE worker = ?", (user,)).fetchall()
 
+    week_shifts = []
+    month_shifts = []
     for s in all_shifts:
         try:
             d = datetime.strptime(s[3], "%Y-%m-%d")
@@ -489,18 +618,47 @@ def index():
 
     return render_template_string("""
     <style>
-        body { font-family: Arial, sans-serif; margin: 24px; background: #f4f6f8; color: #1f2937; }
-        h1 { color: #1f4f82; margin-bottom: 8px; }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 24px;
+            background: {{ '#0f172a' if dark else '#f4f6f8' }};
+            color: {{ '#e5e7eb' if dark else '#1f2937' }};
+        }
+        h1 { color: {{ '#93c5fd' if dark else '#1f4f82' }}; margin-bottom: 8px; }
+        h2, h3, h4 { color: {{ '#e5e7eb' if dark else '#111827' }}; }
         .topbar { margin-bottom: 20px; }
-        .topbar a { color: #1f4f82; text-decoration: none; font-weight: bold; }
+        .topbar a, .langbar a, .week-link, .pdf-link {
+            color: {{ '#93c5fd' if dark else '#1f4f82' }};
+            text-decoration: none;
+            font-weight: bold;
+        }
         .langbar { margin-bottom: 14px; }
-        .langbar a { text-decoration: none; margin-right: 10px; font-weight: bold; color: #1f4f82; }
+        .langbar a { margin-right: 10px; }
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
-        .card { background: white; border-radius: 12px; padding: 18px; box-shadow: 0 4px 14px rgba(0,0,0,0.06); }
-        input, select, button { padding: 10px; margin: 6px 0; width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 8px; }
-        button { background: #1f4f82; color: white; border: none; cursor: pointer; }
+        .card {
+            background: {{ '#111827' if dark else 'white' }};
+            border-radius: 12px;
+            padding: 18px;
+            box-shadow:0 4px 14px rgba(0,0,0,0.06);
+        }
+        input, select, button {
+            padding: 10px;
+            margin: 6px 0;
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid {{ '#374151' if dark else '#cbd5e1' }};
+            border-radius: 8px;
+            background: {{ '#1f2937' if dark else 'white' }};
+            color: {{ '#e5e7eb' if dark else '#111827' }};
+        }
+        button {
+            background: #1f4f82;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
         .shift {
-            background: linear-gradient(135deg, #ffffff, #f1f5f9);
+            background: {{ 'linear-gradient(135deg, #111827, #1f2937)' if dark else 'linear-gradient(135deg, #ffffff, #f1f5f9)' }};
             padding: 14px;
             margin: 12px 0;
             border-radius: 12px;
@@ -509,36 +667,24 @@ def index():
         }
         .shift:hover { transform: translateY(-2px); }
         .action-link { text-decoration: none; margin-left: 10px; font-weight: bold; }
-        .edit-link { color: #1f4f82; }
-        .delete-link { color: #c62828; }
-        .week-link, .pdf-link { display: inline-block; margin-top: 12px; margin-right: 12px; text-decoration: none; color: #1f4f82; font-weight: bold; }
-        .muted { color: #64748b; font-size: 14px; }
-        .user-row { padding: 8px 0; border-bottom: 1px solid #e5e7eb; }
+        .edit-link { color: {{ '#93c5fd' if dark else '#1f4f82' }}; }
+        .delete-link { color: #ef4444; }
+        .week-link, .pdf-link { display: inline-block; margin-top: 12px; margin-right: 12px; }
+        .muted { color: {{ '#9ca3af' if dark else '#64748b' }}; font-size: 14px; }
+        .user-row, .hours-row { padding: 8px 0; border-bottom: 1px solid {{ '#374151' if dark else '#e5e7eb' }}; }
         .brandbar {
             display:flex;
             justify-content:space-between;
             align-items:center;
-            background:white;
+            background: {{ '#111827' if dark else 'white' }};
             border-radius:12px;
             padding:14px 18px;
             margin-bottom:18px;
             box-shadow:0 4px 14px rgba(0,0,0,0.06);
         }
-        .brandleft {
-            display:flex;
-            align-items:center;
-            gap:14px;
-        }
-        .brandleft img {
-            height:56px;
-            width:auto;
-            object-fit:contain;
-        }
-        .brandtitle {
-            font-size:24px;
-            font-weight:700;
-            color:#1f4f82;
-        }
+        .brandleft { display:flex; align-items:center; gap:14px; }
+        .brandleft img { height:56px; width:auto; object-fit:contain; }
+        .brandtitle { font-size:24px; font-weight:700; color: {{ '#93c5fd' if dark else '#1f4f82' }}; }
         .status-badge {
             color:white;
             padding:4px 8px;
@@ -547,11 +693,11 @@ def index():
             font-weight:bold;
             margin-left:8px;
         }
-        .hours-row {
-            display:flex;
-            justify-content:space-between;
-            padding:8px 0;
-            border-bottom:1px solid #e5e7eb;
+        .theme-links a {
+            margin-left: 10px;
+            color: {{ '#93c5fd' if dark else '#1f4f82' }};
+            text-decoration:none;
+            font-weight:bold;
         }
     </style>
 
@@ -561,11 +707,18 @@ def index():
             <div class="brandtitle">Luxmann Planner</div>
         </div>
 
-        <div class="langbar" style="margin:0;">
-            <a href="/set_lang/fr">FR</a>
-            <a href="/set_lang/en">EN</a>
-            <a href="/set_lang/bos">BOS</a>
-            <a href="/set_lang/de">DE</a>
+        <div>
+            <div class="langbar" style="margin:0;">
+                <a href="/set_lang/fr">FR</a>
+                <a href="/set_lang/en">EN</a>
+                <a href="/set_lang/bos">BOS</a>
+                <a href="/set_lang/de">DE</a>
+            </div>
+            <div class="theme-links" style="text-align:right; margin-top:8px;">
+                {{ tr["theme"] }}:
+                <a href="/set_theme/light">{{ tr["light_theme"] }}</a>
+                <a href="/set_theme/dark">{{ tr["dark_theme"] }}</a>
+            </div>
         </div>
     </div>
 
@@ -601,6 +754,20 @@ def index():
         </div>
 
         <div class="card">
+            <h3>{{ tr["worker_colors"] }}</h3>
+            {% for w in workers %}
+                <form method="post" action="/update_worker_color">
+                    <input type="hidden" name="worker_name" value="{{ w[0] }}">
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <div style="min-width:110px;">{{ w[0] }}</div>
+                        <input type="color" name="color" value="{{ worker_colors.get(w[0], '#1f4f82') }}">
+                        <button>{{ tr["update_color"] }}</button>
+                    </div>
+                </form>
+            {% endfor %}
+        </div>
+
+        <div class="card">
             <h3>{{ tr["add_worker"] }}</h3>
             <form method="post" action="/add_worker">
                 <input name="name" placeholder="{{ tr['worker_name'] }}" required>
@@ -619,15 +786,6 @@ def index():
 
         <div class="card">
             <h3>{{ tr["add_shift"] }}</h3>
-
-            {% if workers|length == 0 %}
-                <div class="muted">{{ tr["no_workers"] }}</div>
-            {% endif %}
-
-            {% if clients|length == 0 %}
-                <div class="muted">{{ tr["no_clients"] }}</div>
-            {% endif %}
-
             <form method="post" action="/add_shift">
                 <select name="worker" required>
                     <option value="">{{ tr["choose_worker"] }}</option>
@@ -660,6 +818,21 @@ def index():
             <h3>{{ tr["date_filter"] }}</h3>
             <form method="get">
                 <input type="date" name="date" value="{{ request.args.get('date', '') }}">
+
+                <select name="worker">
+                    <option value="">{{ tr["all_workers"] }}</option>
+                    {% for w in workers %}
+                        <option value="{{ w[0] }}" {% if worker_filter == w[0] %}selected{% endif %}>{{ w[0] }}</option>
+                    {% endfor %}
+                </select>
+
+                <select name="client">
+                    <option value="">{{ tr["all_clients"] }}</option>
+                    {% for c in clients %}
+                        <option value="{{ c[0] }}" {% if client_filter == c[0] %}selected{% endif %}>{{ c[0] }}</option>
+                    {% endfor %}
+                </select>
+
                 <button>{{ tr["filter_btn"] }}</button>
             </form>
             <a href="/">{{ tr["reset"] }}</a>
@@ -727,12 +900,36 @@ def index():
         {% endfor %}
 
         <a class="week-link" href="/week">{{ tr["week_calendar"] }}</a>
-        <a class="pdf-link" href="/export_pdf{% if request.args.get('date') %}?date={{ request.args.get('date') }}{% endif %}" target="_blank">{{ tr["pdf"] }}</a>
+        <a class="week-link" href="/month">{{ tr["month_calendar"] }}</a>
+        <a class="pdf-link" href="/export_pdf{% if request.args.get('date') or worker_filter or client_filter %}?{% endif %}{% if request.args.get('date') %}date={{ request.args.get('date') }}{% endif %}" target="_blank">{{ tr["pdf"] }}</a>
     </div>
     """, shifts=shifts, workers=workers, clients=clients, selected_date=selected_date,
-       tr=tr, db_users=db_users, worker_colors=WORKER_COLORS, format_date=format_date,
+       tr=tr, db_users=db_users, worker_colors=worker_colors, format_date=format_date,
        status_colors=STATUS_COLORS, get_status_label=get_status_label,
-       weekly_hours=weekly_hours, monthly_hours=monthly_hours)
+       weekly_hours=weekly_hours, monthly_hours=monthly_hours, dark=dark,
+       worker_filter=worker_filter, client_filter=client_filter)
+
+@app.route("/update_worker_color", methods=["POST"])
+def update_worker_color():
+    if session.get("role") != "admin":
+        return redirect("/")
+
+    worker_name = request.form["worker_name"].strip()
+    color = request.form["color"].strip()
+
+    if not worker_name or not color:
+        return redirect("/")
+
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("""
+        INSERT INTO worker_colors (worker_name, color)
+        VALUES (?, ?)
+        ON CONFLICT(worker_name) DO UPDATE SET color = excluded.color
+    """, (worker_name, color))
+    conn.commit()
+    conn.close()
+    return redirect("/")
 
 @app.route("/add_user", methods=["POST"])
 def add_user():
@@ -755,6 +952,7 @@ def add_user():
 
     if role == "worker":
         c.execute("INSERT OR IGNORE INTO workers (name) VALUES (?)", (username,))
+        c.execute("INSERT OR IGNORE INTO worker_colors (worker_name, color) VALUES (?, ?)", (username, "#f97316"))
 
     conn.commit()
     conn.close()
@@ -772,6 +970,7 @@ def delete_user(user_id):
     if user and user[0] != "admin":
         c.execute("DELETE FROM users WHERE id = ?", (user_id,))
         c.execute("DELETE FROM workers WHERE name = ?", (user[0],))
+        c.execute("DELETE FROM worker_colors WHERE worker_name = ?", (user[0],))
 
     conn.commit()
     conn.close()
@@ -795,6 +994,9 @@ def edit_shift(id):
         return redirect("/")
 
     tr = t()
+    theme = get_theme()
+    dark = theme == "dark"
+
     conn = get_conn()
     c = conn.cursor()
 
@@ -825,13 +1027,19 @@ def edit_shift(id):
 
     return render_template_string("""
     <style>
-        body { font-family: Arial, sans-serif; margin: 24px; background:#f4f6f8; }
+        body { font-family: Arial, sans-serif; margin: 24px; background: {{ '#0f172a' if dark else '#f4f6f8' }}; color: {{ '#e5e7eb' if dark else '#111827' }}; }
         .langbar { max-width: 500px; margin: 0 auto 12px auto; text-align: right; }
-        .langbar a { text-decoration: none; margin-left: 8px; font-weight: bold; color: #1f4f82; }
-        .card { max-width: 500px; background:white; border-radius:12px; padding:20px; box-shadow:0 4px 14px rgba(0,0,0,0.06); margin: auto; }
-        input, select, button { padding:10px; margin:6px 0; width:100%; box-sizing:border-box; border:1px solid #cbd5e1; border-radius:8px; }
+        .langbar a { text-decoration: none; margin-left: 8px; font-weight: bold; color: {{ '#93c5fd' if dark else '#1f4f82' }}; }
+        .card { max-width: 500px; background: {{ '#111827' if dark else 'white' }}; border-radius:12px; padding:20px; box-shadow:0 4px 14px rgba(0,0,0,0.06); margin: auto; }
+        input, select, button {
+            padding:10px; margin:6px 0; width:100%; box-sizing:border-box;
+            border:1px solid {{ '#374151' if dark else '#cbd5e1' }};
+            border-radius:8px;
+            background: {{ '#1f2937' if dark else 'white' }};
+            color: {{ '#e5e7eb' if dark else '#111827' }};
+        }
         button { background:#1f4f82; color:white; border:none; cursor:pointer; }
-        a { text-decoration:none; color:#1f4f82; font-weight:bold; }
+        a { text-decoration:none; color: {{ '#93c5fd' if dark else '#1f4f82' }}; font-weight:bold; }
     </style>
 
     <div class="langbar">
@@ -872,7 +1080,7 @@ def edit_shift(id):
         <br>
         <a href="/">{{ tr["back"] }}</a>
     </div>
-    """, shift=shift, workers=workers, clients=clients, tr=tr)
+    """, shift=shift, workers=workers, clients=clients, tr=tr, dark=dark)
 
 @app.route("/week")
 def week_view():
@@ -880,8 +1088,12 @@ def week_view():
         return redirect("/login")
 
     tr = t()
+    theme = get_theme()
+    dark = theme == "dark"
+
     conn = get_conn()
     c = conn.cursor()
+    worker_colors = get_worker_colors(conn)
 
     today = datetime.today()
     start_week = today - timedelta(days=today.weekday())
@@ -899,14 +1111,14 @@ def week_view():
 
     return render_template_string("""
     <style>
-        body { font-family: Arial, sans-serif; margin: 24px; background:#f4f6f8; }
+        body { font-family: Arial, sans-serif; margin: 24px; background: {{ '#0f172a' if dark else '#f4f6f8' }}; color: {{ '#e5e7eb' if dark else '#111827' }}; }
         .langbar { margin-bottom: 12px; }
-        .langbar a { text-decoration: none; margin-right: 10px; font-weight: bold; color: #1f4f82; }
+        .langbar a { text-decoration: none; margin-right: 10px; font-weight: bold; color: {{ '#93c5fd' if dark else '#1f4f82' }}; }
         .week-wrap { display:flex; gap:12px; flex-wrap:wrap; }
-        .day-card { background:white; border-radius:12px; padding:14px; width:180px; box-shadow:0 4px 14px rgba(0,0,0,0.06); }
-        .day-link { text-decoration:none; color:#1f4f82; font-weight:bold; display:block; margin-bottom:8px; }
+        .day-card { background: {{ '#111827' if dark else 'white' }}; border-radius:12px; padding:14px; width:180px; box-shadow:0 4px 14px rgba(0,0,0,0.06); }
+        .day-link { text-decoration:none; color: {{ '#93c5fd' if dark else '#1f4f82' }}; font-weight:bold; display:block; margin-bottom:8px; }
         .shift {
-            background: linear-gradient(135deg, #ffffff, #f1f5f9);
+            background: {{ 'linear-gradient(135deg, #111827, #1f2937)' if dark else 'linear-gradient(135deg, #ffffff, #f1f5f9)' }};
             margin-top:8px;
             padding:10px;
             border-radius:10px;
@@ -921,7 +1133,7 @@ def week_view():
             display:inline-block;
             margin-top:6px;
         }
-        a { text-decoration:none; color:#1f4f82; font-weight:bold; }
+        a { text-decoration:none; color: {{ '#93c5fd' if dark else '#1f4f82' }}; font-weight:bold; }
     </style>
 
     <div class="langbar">
@@ -963,8 +1175,127 @@ def week_view():
             </div>
         {% endfor %}
     </div>
-    """, week_days=week_days, shifts=shifts, tr=tr, worker_colors=WORKER_COLORS,
-       format_date=format_date, status_colors=STATUS_COLORS, get_status_label=get_status_label)
+    """, week_days=week_days, shifts=shifts, tr=tr, worker_colors=worker_colors,
+       format_date=format_date, status_colors=STATUS_COLORS, get_status_label=get_status_label, dark=dark)
+
+@app.route("/month")
+def month_view():
+    if "user" not in session:
+        return redirect("/login")
+
+    tr = t()
+    theme = get_theme()
+    dark = theme == "dark"
+
+    year = request.args.get("year", type=int)
+    month = request.args.get("month", type=int)
+    now = datetime.today()
+    if not year:
+        year = now.year
+    if not month:
+        month = now.month
+
+    prev_year, prev_month = month_navigation(year, month, -1)
+    next_year, next_month = month_navigation(year, month, 1)
+
+    conn = get_conn()
+    c = conn.cursor()
+    worker_colors = get_worker_colors(conn)
+
+    user = session["user"]
+    role = session["role"]
+
+    start_date = f"{year:04d}-{month:02d}-01"
+    last_day = calendar.monthrange(year, month)[1]
+    end_date = f"{year:04d}-{month:02d}-{last_day:02d}"
+
+    if role == "admin":
+        shifts = c.execute(
+            "SELECT * FROM shifts WHERE date >= ? AND date <= ? ORDER BY date, time",
+            (start_date, end_date)
+        ).fetchall()
+    else:
+        shifts = c.execute(
+            "SELECT * FROM shifts WHERE worker = ? AND date >= ? AND date <= ? ORDER BY date, time",
+            (user, start_date, end_date)
+        ).fetchall()
+
+    conn.close()
+
+    cal = calendar.Calendar(firstweekday=0)
+    month_days = cal.monthdatescalendar(year, month)
+    month_name = f"{month:02d}/{year}"
+
+    shifts_by_date = {}
+    for s in shifts:
+        shifts_by_date.setdefault(s[3], []).append(s)
+
+    return render_template_string("""
+    <style>
+        body { font-family: Arial, sans-serif; margin: 24px; background: {{ '#0f172a' if dark else '#f4f6f8' }}; color: {{ '#e5e7eb' if dark else '#111827' }}; }
+        .topnav a { color: {{ '#93c5fd' if dark else '#1f4f82' }}; text-decoration:none; font-weight:bold; margin-right:12px; }
+        .month-nav { display:flex; justify-content:space-between; align-items:center; margin:16px 0; }
+        .month-grid { display:grid; grid-template-columns: repeat(7, 1fr); gap:10px; }
+        .day-header, .day-cell {
+            background: {{ '#111827' if dark else 'white' }};
+            border-radius:12px;
+            padding:10px;
+            box-shadow:0 4px 14px rgba(0,0,0,0.06);
+            min-height:120px;
+        }
+        .day-header { min-height:auto; font-weight:bold; text-align:center; }
+        .day-num { font-weight:bold; margin-bottom:8px; color: {{ '#93c5fd' if dark else '#1f4f82' }}; }
+        .mini-shift {
+            margin-top:6px;
+            padding:6px;
+            border-radius:8px;
+            font-size:12px;
+            background: {{ '#1f2937' if dark else '#f8fafc' }};
+        }
+    </style>
+
+    <div class="topnav">
+        <a href="/">{{ tr["back"] }}</a>
+        <a href="/week">{{ tr["week_calendar"] }}</a>
+    </div>
+
+    <div class="month-nav">
+        <a href="/month?year={{ prev_year }}&month={{ prev_month }}">{{ tr["prev_month"] }}</a>
+        <h2>{{ tr["month_calendar"] }} - {{ month_name }}</h2>
+        <a href="/month?year={{ next_year }}&month={{ next_month }}">{{ tr["next_month"] }}</a>
+    </div>
+
+    <div class="month-grid">
+        <div class="day-header">Mon</div>
+        <div class="day-header">Tue</div>
+        <div class="day-header">Wed</div>
+        <div class="day-header">Thu</div>
+        <div class="day-header">Fri</div>
+        <div class="day-header">Sat</div>
+        <div class="day-header">Sun</div>
+
+        {% for week in month_days %}
+            {% for day in week %}
+                <div class="day-cell">
+                    <div class="day-num">
+                        <a href="/?selected_date={{ day.strftime('%Y-%m-%d') }}" style="text-decoration:none; color:inherit;">
+                            {{ day.strftime('%d/%m/%Y') }}
+                        </a>
+                    </div>
+                    {% for s in shifts_by_date.get(day.strftime('%Y-%m-%d'), []) %}
+                        <div class="mini-shift" style="border-left: 5px solid {{ worker_colors.get(s[1], '#1f4f82') }};">
+                            <b>{{ s[1] }}</b><br>
+                            {{ s[2] }}<br>
+                            {{ s[4] }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+        {% endfor %}
+    </div>
+    """, tr=tr, dark=dark, month_days=month_days, shifts_by_date=shifts_by_date,
+       worker_colors=worker_colors, prev_year=prev_year, prev_month=prev_month,
+       next_year=next_year, next_month=next_month, month_name=month_name)
 
 @app.route("/export_pdf")
 def export_pdf():
@@ -974,6 +1305,7 @@ def export_pdf():
     tr = t()
     conn = get_conn()
     c = conn.cursor()
+    worker_colors = get_worker_colors(conn)
 
     date_filter = request.args.get("date", "").strip()
     user = session["user"]
@@ -1093,6 +1425,7 @@ def add_worker():
     conn = get_conn()
     c = conn.cursor()
     c.execute("INSERT OR IGNORE INTO workers (name) VALUES (?)", (name,))
+    c.execute("INSERT OR IGNORE INTO worker_colors (worker_name, color) VALUES (?, ?)", (name, "#f97316"))
     conn.commit()
     conn.close()
     return redirect("/")
