@@ -20,6 +20,11 @@ from reportlab.platypus import (
 app = Flask(__name__)
 app.secret_key = "luxmann_secret_key"
 
+WORKER_COLORS = {
+    "admin": "#1f4f82",
+    "worker1": "#16a34a",
+}
+
 TRANSLATIONS = {
     "fr": {
         "login_title": "Connexion",
@@ -321,8 +326,8 @@ def login():
     </div>
 
     <div class="box" style="text-align:center;">
-    <img src="{{ url_for('static', filename='logo.png') }}" alt="Luxmann Logo" style="height:70px; margin-bottom:12px;">
-    <h2>{{ tr["login_title"] }}</h2>
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Luxmann Logo" style="height:70px; margin-bottom:12px;">
+        <h2>{{ tr["login_title"] }}</h2>
         <form method="post">
             <input name="username" placeholder="{{ tr['username'] }}" required>
             <input name="password" type="password" placeholder="{{ tr['password'] }}" required>
@@ -392,58 +397,63 @@ def index():
         .card { background: white; border-radius: 12px; padding: 18px; box-shadow: 0 4px 14px rgba(0,0,0,0.06); }
         input, select, button { padding: 10px; margin: 6px 0; width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 8px; }
         button { background: #1f4f82; color: white; border: none; cursor: pointer; }
-        .shift { background: white; border-left: 5px solid #1f4f82; padding: 12px; margin: 10px 0; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .shift {
+            background: linear-gradient(135deg, #ffffff, #f1f5f9);
+            padding: 14px;
+            margin: 12px 0;
+            border-radius: 12px;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+            transition: 0.2s;
+        }
+        .shift:hover { transform: translateY(-2px); }
         .action-link { text-decoration: none; margin-left: 10px; font-weight: bold; }
         .edit-link { color: #1f4f82; }
         .delete-link { color: #c62828; }
         .week-link, .pdf-link { display: inline-block; margin-top: 12px; margin-right: 12px; text-decoration: none; color: #1f4f82; font-weight: bold; }
         .muted { color: #64748b; font-size: 14px; }
         .user-row { padding: 8px 0; border-bottom: 1px solid #e5e7eb; }
+        .brandbar {
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            background:white;
+            border-radius:12px;
+            padding:14px 18px;
+            margin-bottom:18px;
+            box-shadow:0 4px 14px rgba(0,0,0,0.06);
+        }
+        .brandleft {
+            display:flex;
+            align-items:center;
+            gap:14px;
+        }
+        .brandleft img {
+            height:56px;
+            width:auto;
+            object-fit:contain;
+        }
+        .brandtitle {
+            font-size:24px;
+            font-weight:700;
+            color:#1f4f82;
+        }
     </style>
 
-    <style>
-    .brandbar {
-        display:flex;
-        justify-content:space-between;
-        align-items:center;
-        background:white;
-        border-radius:12px;
-        padding:14px 18px;
-        margin-bottom:18px;
-        box-shadow:0 4px 14px rgba(0,0,0,0.06);
-    }
-    .brandleft {
-        display:flex;
-        align-items:center;
-        gap:14px;
-    }
-    .brandleft img {
-        height:56px;
-        width:auto;
-        object-fit:contain;
-    }
-    .brandtitle {
-        font-size:24px;
-        font-weight:700;
-        color:#1f4f82;
-    }
-</style>
+    <div class="brandbar">
+        <div class="brandleft">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Luxmann Logo">
+            <div class="brandtitle">Luxmann Planner</div>
+        </div>
 
-<div class="brandbar">
-    <div class="brandleft">
-        <img src="{{ url_for('static', filename='logo.png') }}" alt="Luxmann Logo">
-        <div class="brandtitle">Luxmann Planner</div>
+        <div class="langbar" style="margin:0;">
+            <a href="/set_lang/fr">FR</a>
+            <a href="/set_lang/en">EN</a>
+            <a href="/set_lang/bos">BOS</a>
+            <a href="/set_lang/de">DE</a>
+        </div>
     </div>
 
-    <div class="langbar" style="margin:0;">
-        <a href="/set_lang/fr">FR</a>
-        <a href="/set_lang/en">EN</a>
-        <a href="/set_lang/bos">BOS</a>
-        <a href="/set_lang/de">DE</a>
-    </div>
-</div>
-
-<h1>{{ tr["title"] }}</h1>
+    <h1>{{ tr["title"] }}</h1>
     <div class="topbar">
         {{ tr["logged_as"] }}: <b>{{ session['user'] }}</b> ({{ session['role'] }})<br><br>
         <a href="/logout">{{ tr["logout"] }}</a>
@@ -541,9 +551,21 @@ def index():
         {% endif %}
 
         {% for s in shifts %}
-            <div class="shift">
-                <b>{{ s[3] }}</b> | {{ s[4] }}<br>
-                {{ s[1] }} -> {{ s[2] }}
+            <div class="shift" style="border-left: 6px solid {{ worker_colors.get(s[1], '#1f4f82') }}">
+                <b>{{ s[3] }}</b> | {{ s[4] }}<br><br>
+
+                <span style="
+                    background: {{ worker_colors.get(s[1], '#1f4f82') }};
+                    color:white;
+                    padding:4px 8px;
+                    border-radius:6px;
+                    font-size:12px;
+                    font-weight:bold;
+                ">
+                    {{ s[1] }}
+                </span>
+                → {{ s[2] }}
+
                 {% if session['role'] == 'admin' %}
                     <a class="action-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a>
                     <a class="action-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a>
@@ -554,7 +576,7 @@ def index():
         <a class="week-link" href="/week">{{ tr["week_calendar"] }}</a>
         <a class="pdf-link" href="/export_pdf{% if request.args.get('date') %}?date={{ request.args.get('date') }}{% endif %}" target="_blank">{{ tr["pdf"] }}</a>
     </div>
-    """, shifts=shifts, workers=workers, clients=clients, selected_date=selected_date, tr=tr, db_users=db_users)
+    """, shifts=shifts, workers=workers, clients=clients, selected_date=selected_date, tr=tr, db_users=db_users, worker_colors=WORKER_COLORS)
 
 @app.route("/add_user", methods=["POST"])
 def add_user():
@@ -721,7 +743,13 @@ def week_view():
         .week-wrap { display:flex; gap:12px; flex-wrap:wrap; }
         .day-card { background:white; border-radius:12px; padding:14px; width:180px; box-shadow:0 4px 14px rgba(0,0,0,0.06); }
         .day-link { text-decoration:none; color:#1f4f82; font-weight:bold; display:block; margin-bottom:8px; }
-        .shift { background:#e8f1fb; margin-top:8px; padding:8px; border-radius:8px; }
+        .shift {
+            background: linear-gradient(135deg, #ffffff, #f1f5f9);
+            margin-top:8px;
+            padding:10px;
+            border-radius:10px;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+        }
         a { text-decoration:none; color:#1f4f82; font-weight:bold; }
     </style>
 
@@ -741,8 +769,18 @@ def week_view():
                 <a class="day-link" href="/?selected_date={{ day }}">{{ day }}</a>
                 {% for s in shifts %}
                     {% if s[3] == day %}
-                        <div class="shift">
-                            <b>{{ s[1] }}</b><br>
+                        <div class="shift" style="border-left: 6px solid {{ worker_colors.get(s[1], '#1f4f82') }}">
+                            <span style="
+                                background: {{ worker_colors.get(s[1], '#1f4f82') }};
+                                color:white;
+                                padding:4px 8px;
+                                border-radius:6px;
+                                font-size:12px;
+                                font-weight:bold;
+                            ">
+                                {{ s[1] }}
+                            </span>
+                            <br><br>
                             {{ s[2] }}<br>
                             {{ s[4] }}
                         </div>
@@ -751,7 +789,7 @@ def week_view():
             </div>
         {% endfor %}
     </div>
-    """, week_days=week_days, shifts=shifts, tr=tr)
+    """, week_days=week_days, shifts=shifts, tr=tr, worker_colors=WORKER_COLORS)
 
 @app.route("/export_pdf")
 def export_pdf():
