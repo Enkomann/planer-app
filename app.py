@@ -99,6 +99,19 @@ TRANSLATIONS = {
         "month": "Mois",
         "prev_month": "Mois precedent",
         "next_month": "Mois suivant",
+        "change_password": "Changer mot de passe",
+        "new_password": "Nouveau mot de passe",
+        "search_shifts": "Rechercher missions",
+        "search_placeholder": "Rechercher par client, employe, heure...",
+        "week_period": "Periode",
+        "month_period": "Periode",
+        "monday": "Lun",
+        "tuesday": "Mar",
+        "wednesday": "Mer",
+        "thursday": "Jeu",
+        "friday": "Ven",
+        "saturday": "Sam",
+        "sunday": "Dim",
     },
     "en": {
         "login_title": "Login",
@@ -166,6 +179,19 @@ TRANSLATIONS = {
         "month": "Month",
         "prev_month": "Previous month",
         "next_month": "Next month",
+        "change_password": "Change password",
+        "new_password": "New password",
+        "search_shifts": "Search shifts",
+        "search_placeholder": "Search by client, worker, time...",
+        "week_period": "Period",
+        "month_period": "Period",
+        "monday": "Mon",
+        "tuesday": "Tue",
+        "wednesday": "Wed",
+        "thursday": "Thu",
+        "friday": "Fri",
+        "saturday": "Sat",
+        "sunday": "Sun",
     },
     "bos": {
         "login_title": "Prijava",
@@ -233,6 +259,19 @@ TRANSLATIONS = {
         "month": "Mjesec",
         "prev_month": "Prosli mjesec",
         "next_month": "Sljedeci mjesec",
+        "change_password": "Promijeni lozinku",
+        "new_password": "Nova lozinka",
+        "search_shifts": "Pretraga smjena",
+        "search_placeholder": "Pretrazi po klijentu, radniku, vremenu...",
+        "week_period": "Period",
+        "month_period": "Period",
+        "monday": "Pon",
+        "tuesday": "Uto",
+        "wednesday": "Sri",
+        "thursday": "Cet",
+        "friday": "Pet",
+        "saturday": "Sub",
+        "sunday": "Ned",
     },
     "de": {
         "login_title": "Anmeldung",
@@ -299,7 +338,100 @@ TRANSLATIONS = {
         "update_color": "Farbe aktualisieren",
         "month": "Monat",
         "prev_month": "Vorheriger Monat",
-        "next_month": "Nächster Monat",
+        "next_month": "Nachster Monat",
+        "change_password": "Passwort andern",
+        "new_password": "Neues Passwort",
+        "search_shifts": "Einsatze suchen",
+        "search_placeholder": "Nach Kunde, Mitarbeiter, Zeit suchen...",
+        "week_period": "Zeitraum",
+        "month_period": "Zeitraum",
+        "monday": "Mo",
+        "tuesday": "Di",
+        "wednesday": "Mi",
+        "thursday": "Do",
+        "friday": "Fr",
+        "saturday": "Sa",
+        "sunday": "So",
+    },
+    "pt": {
+        "login_title": "Entrar",
+        "username": "Nome de utilizador",
+        "password": "Palavra-passe",
+        "login_btn": "Entrar",
+        "login_error": "Nome de utilizador ou palavra-passe incorretos",
+        "title": "PLANO DE TRABALHO",
+        "logged_as": "Ligado como",
+        "logout": "Sair",
+        "add_worker": "Adicionar trabalhador",
+        "add_client": "Adicionar cliente",
+        "add_shift": "Adicionar turno",
+        "worker_name": "Nome do trabalhador",
+        "client_name": "Nome do cliente",
+        "choose_worker": "Escolher trabalhador",
+        "choose_client": "Escolher cliente",
+        "date_filter": "Filtrar por data",
+        "filter_btn": "Filtrar",
+        "reset": "Repor",
+        "plan": "PLANO",
+        "no_workers": "Nao ha trabalhadores na base de dados.",
+        "no_clients": "Nao ha clientes na base de dados.",
+        "no_shifts": "Nao ha turnos inseridos.",
+        "edit": "Editar",
+        "delete": "Apagar",
+        "week_calendar": "Calendario semanal",
+        "month_calendar": "Calendario mensal",
+        "pdf": "PDF do plano",
+        "back": "Voltar",
+        "edit_shift": "Editar turno",
+        "save": "Guardar",
+        "time_placeholder": "Hora, ex. 08:00-12:00",
+        "pdf_title": "Plano dos trabalhadores",
+        "pdf_user": "Utilizador",
+        "pdf_date": "Data",
+        "pdf_time": "Hora",
+        "pdf_worker": "Trabalhador",
+        "pdf_client": "Cliente",
+        "pdf_no_shifts": "Sem turnos",
+        "user_mgmt": "Gestao de utilizadores",
+        "add_user": "Adicionar utilizador",
+        "user_role": "Funcao",
+        "role_admin": "admin",
+        "role_worker": "worker",
+        "existing_users": "Utilizadores existentes",
+        "delete_user": "Apagar utilizador",
+        "status": "Estado",
+        "status_planned": "Planeado",
+        "status_in_progress": "Em curso",
+        "status_done": "Concluido",
+        "weekly_hours": "Horas semanais",
+        "monthly_hours": "Horas mensais",
+        "hours": "horas",
+        "filter_worker": "Filtrar por trabalhador",
+        "filter_client": "Filtrar por cliente",
+        "all_workers": "Todos os trabalhadores",
+        "all_clients": "Todos os clientes",
+        "theme": "Tema",
+        "light_theme": "Claro",
+        "dark_theme": "Escuro",
+        "worker_colors": "Cores dos trabalhadores",
+        "color": "Cor",
+        "update_color": "Atualizar cor",
+        "month": "Mes",
+        "prev_month": "Mes anterior",
+        "next_month": "Proximo mes",
+        "change_password": "Alterar palavra-passe",
+        "new_password": "Nova palavra-passe",
+        "search_shifts": "Pesquisar turnos",
+        "search_placeholder": "Pesquisar por cliente, trabalhador, hora...",
+        "week_period": "Periodo",
+        "month_period": "Periodo",
+        "monday": "Seg",
+        "tuesday": "Ter",
+        "wednesday": "Qua",
+        "thursday": "Qui",
+        "friday": "Sex",
+        "saturday": "Sab",
+        "sunday": "Dom",
     }
 }
 
@@ -338,8 +470,7 @@ def parse_shift_hours(time_str):
         start = datetime.strptime(parts[0].strip(), "%H:%M")
         end = datetime.strptime(parts[1].strip(), "%H:%M")
         diff = end - start
-        hours = diff.total_seconds() / 3600
-        return max(hours, 0.0)
+        return max(diff.total_seconds() / 3600, 0.0)
     except Exception:
         return 0.0
 
@@ -366,7 +497,6 @@ def get_worker_colors(conn):
     return colors_map
 
 def month_navigation(year, month, delta):
-    current = datetime(year, month, 15)
     if delta == -1:
         if month == 1:
             return year - 1, 12
@@ -521,6 +651,7 @@ def login():
         <a href="/set_lang/en">EN</a>
         <a href="/set_lang/bos">BOS</a>
         <a href="/set_lang/de">DE</a>
+        <a href="/set_lang/pt">PT</a>
     </div>
 
     <div class="box" style="text-align:center;">
@@ -541,6 +672,25 @@ def login():
 def logout():
     session.clear()
     return redirect("/login")
+
+@app.route("/change_password", methods=["POST"])
+def change_password():
+    if "user" not in session:
+        return redirect("/login")
+
+    new_password = request.form["new_password"].strip()
+    if not new_password:
+        return redirect("/")
+
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute(
+        "UPDATE users SET password = ? WHERE username = ?",
+        (new_password, session["user"])
+    )
+    conn.commit()
+    conn.close()
+    return redirect("/")
 
 @app.route("/")
 def index():
@@ -563,6 +713,7 @@ def index():
     selected_date = request.args.get("selected_date", "").strip()
     worker_filter = request.args.get("worker", "").strip()
     client_filter = request.args.get("client", "").strip()
+    search_query = request.args.get("q", "").strip().lower()
 
     user = session["user"]
     role = session["role"]
@@ -589,6 +740,14 @@ def index():
     base_query += " ORDER BY date, time"
     shifts = c.execute(base_query, tuple(params)).fetchall()
 
+    if search_query:
+        filtered = []
+        for s in shifts:
+            hay = f"{s[1]} {s[2]} {s[3]} {s[4]} {s[5]}".lower()
+            if search_query in hay:
+                filtered.append(s)
+        shifts = filtered
+
     today = datetime.today()
     week_start = today - timedelta(days=today.weekday())
     week_end = week_start + timedelta(days=6)
@@ -613,6 +772,9 @@ def index():
 
     weekly_hours = calculate_hours_by_worker(week_shifts)
     monthly_hours = calculate_hours_by_worker(month_shifts)
+
+    week_period = f"{format_date(week_start.strftime('%Y-%m-%d'))} - {format_date(week_end.strftime('%Y-%m-%d'))}"
+    month_period = today.strftime("%m/%Y")
 
     conn.close()
 
@@ -713,6 +875,7 @@ def index():
                 <a href="/set_lang/en">EN</a>
                 <a href="/set_lang/bos">BOS</a>
                 <a href="/set_lang/de">DE</a>
+                <a href="/set_lang/pt">PT</a>
             </div>
             <div class="theme-links" style="text-align:right; margin-top:8px;">
                 {{ tr["theme"] }}:
@@ -729,12 +892,20 @@ def index():
     </div>
 
     <div class="grid">
+        <div class="card">
+            <h3>{{ tr["change_password"] }}</h3>
+            <form method="post" action="/change_password">
+                <input name="new_password" type="password" placeholder="{{ tr['new_password'] }}" required autocomplete="off">
+                <button>{{ tr["save"] }}</button>
+            </form>
+        </div>
+
         {% if session['role'] == 'admin' %}
         <div class="card">
             <h3>{{ tr["user_mgmt"] }}</h3>
-            <form method="post" action="/add_user">
-                <input name="username" placeholder="{{ tr['username'] }}" required>
-                <input name="password" placeholder="{{ tr['password'] }}" required>
+            <form method="post" action="/add_user" autocomplete="off">
+                <input name="username" placeholder="{{ tr['username'] }}" required autocomplete="off">
+                <input name="password" placeholder="{{ tr['password'] }}" required autocomplete="new-password">
                 <select name="role" required>
                     <option value="admin">{{ tr["role_admin"] }}</option>
                     <option value="worker">{{ tr["role_worker"] }}</option>
@@ -769,16 +940,16 @@ def index():
 
         <div class="card">
             <h3>{{ tr["add_worker"] }}</h3>
-            <form method="post" action="/add_worker">
-                <input name="name" placeholder="{{ tr['worker_name'] }}" required>
+            <form method="post" action="/add_worker" autocomplete="off">
+                <input name="name" placeholder="{{ tr['worker_name'] }}" required autocomplete="off">
                 <button>{{ tr["add_worker"] }}</button>
             </form>
         </div>
 
         <div class="card">
             <h3>{{ tr["add_client"] }}</h3>
-            <form method="post" action="/add_client">
-                <input name="name" placeholder="{{ tr['client_name'] }}" required>
+            <form method="post" action="/add_client" autocomplete="off">
+                <input name="name" placeholder="{{ tr['client_name'] }}" required autocomplete="off">
                 <button>{{ tr["add_client"] }}</button>
             </form>
         </div>
@@ -786,15 +957,15 @@ def index():
 
         <div class="card">
             <h3>{{ tr["add_shift"] }}</h3>
-            <form method="post" action="/add_shift">
-                <select name="worker" required>
+            <form method="post" action="/add_shift" autocomplete="off">
+                <select name="worker" required autocomplete="off">
                     <option value="">{{ tr["choose_worker"] }}</option>
                     {% for w in workers %}
                         <option value="{{ w[0] }}">{{ w[0] }}</option>
                     {% endfor %}
                 </select>
 
-                <select name="client" required>
+                <select name="client" required autocomplete="off">
                     <option value="">{{ tr["choose_client"] }}</option>
                     {% for c in clients %}
                         <option value="{{ c[0] }}">{{ c[0] }}</option>
@@ -802,7 +973,7 @@ def index():
                 </select>
 
                 <input name="date" type="date" value="{{ selected_date }}" required>
-                <input name="time" placeholder="{{ tr['time_placeholder'] }}" required>
+                <input name="time" placeholder="{{ tr['time_placeholder'] }}" required autocomplete="off">
 
                 <select name="status" required>
                     <option value="planned">{{ tr["status_planned"] }}</option>
@@ -815,24 +986,22 @@ def index():
         </div>
 
         <div class="card">
-            <h3>{{ tr["date_filter"] }}</h3>
-            <form method="get">
+            <h3>{{ tr["search_shifts"] }}</h3>
+            <form method="get" autocomplete="off">
                 <input type="date" name="date" value="{{ request.args.get('date', '') }}">
-
                 <select name="worker">
                     <option value="">{{ tr["all_workers"] }}</option>
                     {% for w in workers %}
                         <option value="{{ w[0] }}" {% if worker_filter == w[0] %}selected{% endif %}>{{ w[0] }}</option>
                     {% endfor %}
                 </select>
-
                 <select name="client">
                     <option value="">{{ tr["all_clients"] }}</option>
                     {% for c in clients %}
                         <option value="{{ c[0] }}" {% if client_filter == c[0] %}selected{% endif %}>{{ c[0] }}</option>
                     {% endfor %}
                 </select>
-
+                <input name="q" value="{{ request.args.get('q', '') }}" placeholder="{{ tr['search_placeholder'] }}" autocomplete="off">
                 <button>{{ tr["filter_btn"] }}</button>
             </form>
             <a href="/">{{ tr["reset"] }}</a>
@@ -840,6 +1009,7 @@ def index():
 
         <div class="card">
             <h3>{{ tr["weekly_hours"] }}</h3>
+            <div class="muted">{{ tr["week_period"] }}: {{ week_period }}</div>
             {% for worker, hours in weekly_hours.items() %}
                 <div class="hours-row">
                     <span>{{ worker }}</span>
@@ -853,6 +1023,7 @@ def index():
 
         <div class="card">
             <h3>{{ tr["monthly_hours"] }}</h3>
+            <div class="muted">{{ month_period }}</div>
             {% for worker, hours in monthly_hours.items() %}
                 <div class="hours-row">
                     <span>{{ worker }}</span>
@@ -901,13 +1072,14 @@ def index():
 
         <a class="week-link" href="/week">{{ tr["week_calendar"] }}</a>
         <a class="week-link" href="/month">{{ tr["month_calendar"] }}</a>
-        <a class="pdf-link" href="/export_pdf{% if request.args.get('date') or worker_filter or client_filter %}?{% endif %}{% if request.args.get('date') %}date={{ request.args.get('date') }}{% endif %}" target="_blank">{{ tr["pdf"] }}</a>
+        <a class="pdf-link" href="/export_pdf{% if request.args.get('date') %}?date={{ request.args.get('date') }}{% endif %}" target="_blank">{{ tr["pdf"] }}</a>
     </div>
     """, shifts=shifts, workers=workers, clients=clients, selected_date=selected_date,
        tr=tr, db_users=db_users, worker_colors=worker_colors, format_date=format_date,
        status_colors=STATUS_COLORS, get_status_label=get_status_label,
        weekly_hours=weekly_hours, monthly_hours=monthly_hours, dark=dark,
-       worker_filter=worker_filter, client_filter=client_filter)
+       worker_filter=worker_filter, client_filter=client_filter,
+       week_period=week_period, month_period=month_period)
 
 @app.route("/update_worker_color", methods=["POST"])
 def update_worker_color():
@@ -1047,26 +1219,27 @@ def edit_shift(id):
         <a href="/set_lang/en">EN</a>
         <a href="/set_lang/bos">BOS</a>
         <a href="/set_lang/de">DE</a>
+        <a href="/set_lang/pt">PT</a>
     </div>
 
     <div class="card">
         <h2>{{ tr["edit_shift"] }}</h2>
 
-        <form method="post">
-            <select name="worker" required>
+        <form method="post" autocomplete="off">
+            <select name="worker" required autocomplete="off">
                 {% for w in workers %}
                     <option value="{{ w[0] }}" {% if w[0] == shift[1] %}selected{% endif %}>{{ w[0] }}</option>
                 {% endfor %}
             </select>
 
-            <select name="client" required>
+            <select name="client" required autocomplete="off">
                 {% for c in clients %}
                     <option value="{{ c[0] }}" {% if c[0] == shift[2] %}selected{% endif %}>{{ c[0] }}</option>
                 {% endfor %}
             </select>
 
             <input type="date" name="date" value="{{ shift[3] }}" required>
-            <input type="text" name="time" value="{{ shift[4] }}" required>
+            <input type="text" name="time" value="{{ shift[4] }}" required autocomplete="off">
 
             <select name="status" required>
                 <option value="planned" {% if shift[5] == 'planned' %}selected{% endif %}>{{ tr["status_planned"] }}</option>
@@ -1141,6 +1314,7 @@ def week_view():
         <a href="/set_lang/en">EN</a>
         <a href="/set_lang/bos">BOS</a>
         <a href="/set_lang/de">DE</a>
+        <a href="/set_lang/pt">PT</a>
     </div>
 
     <h1>{{ tr["week_calendar"] }}</h1>
@@ -1230,6 +1404,11 @@ def month_view():
     for s in shifts:
         shifts_by_date.setdefault(s[3], []).append(s)
 
+    day_names = [
+        tr["monday"], tr["tuesday"], tr["wednesday"], tr["thursday"],
+        tr["friday"], tr["saturday"], tr["sunday"]
+    ]
+
     return render_template_string("""
     <style>
         body { font-family: Arial, sans-serif; margin: 24px; background: {{ '#0f172a' if dark else '#f4f6f8' }}; color: {{ '#e5e7eb' if dark else '#111827' }}; }
@@ -1266,13 +1445,9 @@ def month_view():
     </div>
 
     <div class="month-grid">
-        <div class="day-header">Mon</div>
-        <div class="day-header">Tue</div>
-        <div class="day-header">Wed</div>
-        <div class="day-header">Thu</div>
-        <div class="day-header">Fri</div>
-        <div class="day-header">Sat</div>
-        <div class="day-header">Sun</div>
+        {% for dn in day_names %}
+            <div class="day-header">{{ dn }}</div>
+        {% endfor %}
 
         {% for week in month_days %}
             {% for day in week %}
@@ -1295,7 +1470,7 @@ def month_view():
     </div>
     """, tr=tr, dark=dark, month_days=month_days, shifts_by_date=shifts_by_date,
        worker_colors=worker_colors, prev_year=prev_year, prev_month=prev_month,
-       next_year=next_year, next_month=next_month, month_name=month_name)
+       next_year=next_year, next_month=next_month, month_name=month_name, day_names=day_names)
 
 @app.route("/export_pdf")
 def export_pdf():
@@ -1305,7 +1480,295 @@ def export_pdf():
     tr = t()
     conn = get_conn()
     c = conn.cursor()
-    worker_colors = get_worker_colors(conn)
+
+    date_filter = request.args.get("date", "").strip()
+    user = session["user"]
+    role = session["role"]
+
+    if role == "admin":
+        if date_filter:
+            shifts = c.execute(
+                "SELECT * FROM shifts WHERE date = ? ORDER BY date, time",
+                (date_filter,)
+            ).fetchall()
+        else:
+            shifts = c.execute("SELECT * FROM shifts ORDER BY date, time").fetchall()
+    else:
+        if date_filter:
+            shifts = c.execute(
+                "SELECT * FROM shifts WHERE worker = ? AND date = ? ORDER BY date, time",
+                (user, date_filter)
+            ).fetchall()
+        else:
+            shifts = c.execute(
+                "SELECT * FROM shifts WHERE worker = ? ORDER BY date, time",
+                (user,)
+            ).fetchall()
+
+    conn.close()
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=1.5 * cm,
+        leftMargin=1.5 * cm,
+        topMargin=1.5 * cm,
+        bottomMargin=1.5 * cm
+    )
+
+    styles = getSampleStyleSheet()
+    elements = []
+
+    logo_path = "static/logo.png"
+    if os.path.exists(logo_path):
+        elements.append(Image(logo_path, width=4 * cm, height=2 * cm))
+        elements.append(Spacer(1, 8))
+
+    title = tr["pdf_title"]
+    if date_filter:
+        title += f" - {format_date(date_filter)}"
+
+    elements.append(Paragraph(title, styles["Title"]))
+    elements.append(Spacer(1, 12))
+    elements.append(
+        Paragraph(
+            f"{tr['pdf_user']}: {session['user']} ({session['role']})",
+            styles["Normal"]
+        )
+    )
+    elements.append(Spacer(1, 12))
+
+    table_data = [[
+        tr["pdf_date"],
+        tr["pdf_time"],
+        tr["pdf_worker"],
+        tr["pdf_client"],
+        tr["status"]
+    ]]
+
+    if shifts:
+        for s in shifts:
+            table_data.append([
+                format_date(s[3]),
+                s[4],
+                s[1],
+                s[2],
+                get_status_label(s[5], tr)
+            ])
+    else:
+        table_data.append(["-", "-", "-", "-", tr["pdf_no_shifts"]])
+
+    table = Table(table_data, colWidths=[2.8 * cm, 2.8 * cm, 4.0 * cm, 4.8 * cm, 3.0 * cm])
+
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1f4f82")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.whitesmoke, colors.HexColor("#eaf2fb")]),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
+        ("TOPPADDING", (0, 0), (-1, 0), 8),
+    ]))
+
+    elements.append(table)
+    doc.build(elements)
+
+    buffer.seek(0)
+    filename = "schedule.pdf" if not date_filter else f"schedule_{date_filter}.pdf"
+
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/pdf"
+    )
+
+@app.route("/update_worker_color", methods=["POST"])
+def update_worker_color():
+    if session.get("role") != "admin":
+        return redirect("/")
+
+    worker_name = request.form["worker_name"].strip()
+    color = request.form["color"].strip()
+
+    if not worker_name or not color:
+        return redirect("/")
+
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("""
+        INSERT INTO worker_colors (worker_name, color)
+        VALUES (?, ?)
+        ON CONFLICT(worker_name) DO UPDATE SET color = excluded.color
+    """, (worker_name, color))
+    conn.commit()
+    conn.close()
+    return redirect("/")
+
+@app.route("/add_user", methods=["POST"])
+def add_user():
+    if session.get("role") != "admin":
+        return redirect("/")
+
+    username = request.form["username"].strip()
+    password = request.form["password"].strip()
+    role = request.form["role"].strip()
+
+    if not username or not password or role not in ("admin", "worker"):
+        return redirect("/")
+
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute(
+        "INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)",
+        (username, password, role)
+    )
+
+    if role == "worker":
+        c.execute("INSERT OR IGNORE INTO workers (name) VALUES (?)", (username,))
+        c.execute("INSERT OR IGNORE INTO worker_colors (worker_name, color) VALUES (?, ?)", (username, "#f97316"))
+
+    conn.commit()
+    conn.close()
+    return redirect("/")
+
+@app.route("/delete_user/<int:user_id>")
+def delete_user(user_id):
+    if session.get("role") != "admin":
+        return redirect("/")
+
+    conn = get_conn()
+    c = conn.cursor()
+
+    user = c.execute("SELECT username FROM users WHERE id = ?", (user_id,)).fetchone()
+    if user and user[0] != "admin":
+        c.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        c.execute("DELETE FROM workers WHERE name = ?", (user[0],))
+        c.execute("DELETE FROM worker_colors WHERE worker_name = ?", (user[0],))
+
+    conn.commit()
+    conn.close()
+    return redirect("/")
+
+@app.route("/delete_shift/<int:id>")
+def delete_shift(id):
+    if "user" not in session or session["role"] != "admin":
+        return redirect("/")
+
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("DELETE FROM shifts WHERE id = ?", (id,))
+    conn.commit()
+    conn.close()
+    return redirect("/")
+
+@app.route("/edit_shift/<int:id>", methods=["GET", "POST"])
+def edit_shift(id):
+    if "user" not in session or session["role"] != "admin":
+        return redirect("/")
+
+    tr = t()
+    theme = get_theme()
+    dark = theme == "dark"
+
+    conn = get_conn()
+    c = conn.cursor()
+
+    if request.method == "POST":
+        worker = request.form["worker"].strip()
+        client = request.form["client"].strip()
+        date = request.form["date"].strip()
+        time = request.form["time"].strip()
+        status = request.form["status"].strip()
+
+        c.execute("""
+            UPDATE shifts
+            SET worker = ?, client = ?, date = ?, time = ?, status = ?
+            WHERE id = ?
+        """, (worker, client, date, time, status, id))
+
+        conn.commit()
+        conn.close()
+        return redirect("/")
+
+    shift = c.execute("SELECT * FROM shifts WHERE id = ?", (id,)).fetchone()
+    workers = c.execute("SELECT name FROM workers ORDER BY name").fetchall()
+    clients = c.execute("SELECT name FROM clients ORDER BY name").fetchall()
+    conn.close()
+
+    if not shift:
+        return redirect("/")
+
+    return render_template_string("""
+    <style>
+        body { font-family: Arial, sans-serif; margin: 24px; background: {{ '#0f172a' if dark else '#f4f6f8' }}; color: {{ '#e5e7eb' if dark else '#111827' }}; }
+        .langbar { max-width: 500px; margin: 0 auto 12px auto; text-align: right; }
+        .langbar a { text-decoration: none; margin-left: 8px; font-weight: bold; color: {{ '#93c5fd' if dark else '#1f4f82' }}; }
+        .card { max-width: 500px; background: {{ '#111827' if dark else 'white' }}; border-radius:12px; padding:20px; box-shadow:0 4px 14px rgba(0,0,0,0.06); margin: auto; }
+        input, select, button {
+            padding:10px; margin:6px 0; width:100%; box-sizing:border-box;
+            border:1px solid {{ '#374151' if dark else '#cbd5e1' }};
+            border-radius:8px;
+            background: {{ '#1f2937' if dark else 'white' }};
+            color: {{ '#e5e7eb' if dark else '#111827' }};
+        }
+        button { background:#1f4f82; color:white; border:none; cursor:pointer; }
+        a { text-decoration:none; color: {{ '#93c5fd' if dark else '#1f4f82' }}; font-weight:bold; }
+    </style>
+
+    <div class="langbar">
+        <a href="/set_lang/fr">FR</a>
+        <a href="/set_lang/en">EN</a>
+        <a href="/set_lang/bos">BOS</a>
+        <a href="/set_lang/de">DE</a>
+        <a href="/set_lang/pt">PT</a>
+    </div>
+
+    <div class="card">
+        <h2>{{ tr["edit_shift"] }}</h2>
+
+        <form method="post" autocomplete="off">
+            <select name="worker" required autocomplete="off">
+                {% for w in workers %}
+                    <option value="{{ w[0] }}" {% if w[0] == shift[1] %}selected{% endif %}>{{ w[0] }}</option>
+                {% endfor %}
+            </select>
+
+            <select name="client" required autocomplete="off">
+                {% for c in clients %}
+                    <option value="{{ c[0] }}" {% if c[0] == shift[2] %}selected{% endif %}>{{ c[0] }}</option>
+                {% endfor %}
+            </select>
+
+            <input type="date" name="date" value="{{ shift[3] }}" required>
+            <input type="text" name="time" value="{{ shift[4] }}" required autocomplete="off">
+
+            <select name="status" required>
+                <option value="planned" {% if shift[5] == 'planned' %}selected{% endif %}>{{ tr["status_planned"] }}</option>
+                <option value="in_progress" {% if shift[5] == 'in_progress' %}selected{% endif %}>{{ tr["status_in_progress"] }}</option>
+                <option value="done" {% if shift[5] == 'done' %}selected{% endif %}>{{ tr["status_done"] }}</option>
+            </select>
+
+            <button type="submit">{{ tr["save"] }}</button>
+        </form>
+
+        <br>
+        <a href="/">{{ tr["back"] }}</a>
+    </div>
+    """, shift=shift, workers=workers, clients=clients, tr=tr, dark=dark)
+
+@app.route("/export_pdf")
+def export_pdf():
+    if "user" not in session:
+        return redirect("/login")
+
+    tr = t()
+    conn = get_conn()
+    c = conn.cursor()
 
     date_filter = request.args.get("date", "").strip()
     user = session["user"]
