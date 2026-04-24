@@ -1,9 +1,6 @@
 from flask import Flask, request, redirect, render_template_string, session, send_file, url_for
-import sqlite3
-import io
-import os
+import sqlite3, io, os, calendar
 from datetime import datetime, timedelta
-import calendar
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -27,374 +24,149 @@ STATUS_COLORS = {
 
 TRANSLATIONS = {
     "bos": {
-        "login_title": "Prijava",
-        "username": "Korisnicko ime",
-        "password": "Lozinka",
-        "login_btn": "Prijava",
-        "login_error": "Pogresno korisnicko ime ili lozinka",
-        "title": "PLAN RADNIKA",
-        "logged_as": "Logovan kao",
-        "logout": "Odjava",
-        "add_worker": "Dodaj radnika",
-        "add_client": "Dodaj klijenta",
-        "add_shift": "Dodaj smjenu",
-        "worker_name": "Ime radnika",
-        "client_name": "Naziv klijenta",
-        "choose_worker": "Izaberi radnika",
-        "choose_client": "Izaberi klijenta",
-        "filter_btn": "Filtriraj",
-        "reset": "Reset",
-        "plan": "PLAN",
-        "no_shifts": "Trenutno nema unesenih smjena.",
-        "edit": "Izmijeni",
-        "delete": "Obrisi",
-        "week_calendar": "Sedmicni kalendar",
-        "month_calendar": "Mjesecni kalendar",
-        "pdf": "PDF raspored",
-        "back": "Nazad",
-        "edit_shift": "Izmijeni smjenu",
-        "save": "Sacuvaj",
-        "time_placeholder": "Vrijeme, npr. 08:00-12:00",
-        "pdf_title": "Raspored radnika",
-        "pdf_user": "Korisnik",
-        "pdf_date": "Datum",
-        "pdf_time": "Vrijeme",
-        "pdf_worker": "Radnik",
-        "pdf_client": "Klijent",
-        "pdf_no_shifts": "Nema smjena",
-        "user_mgmt": "Upravljanje korisnicima",
-        "add_user": "Dodaj korisnika",
-        "role_admin": "admin",
-        "role_worker": "worker",
-        "existing_users": "Postojeci korisnici",
-        "delete_user": "Obrisi korisnika",
-        "status": "Status",
-        "status_planned": "Planirano",
-        "status_in_progress": "U toku",
-        "status_done": "Zavrseno",
-        "weekly_hours": "Nedeljni sati",
-        "monthly_hours": "Mjesecni sati",
-        "hours": "sati",
-        "all_workers": "Svi radnici",
-        "all_clients": "Svi klijenti",
-        "theme": "Tema",
-        "light_theme": "Svijetla",
-        "dark_theme": "Tamna",
-        "worker_colors": "Boje radnika",
-        "update_color": "Azuriraj boju",
-        "prev_month": "Prosli mjesec",
-        "next_month": "Sljedeci mjesec",
-        "change_password": "Promijeni lozinku",
-        "new_password": "Nova lozinka",
-        "search_shifts": "Pretraga smjena",
+        "login_title": "Prijava", "username": "Korisnicko ime", "password": "Lozinka",
+        "login_btn": "Prijava", "login_error": "Pogresno korisnicko ime ili lozinka",
+        "title": "PLAN RADNIKA", "logged_as": "Logovan kao", "logout": "Odjava",
+        "add_worker": "Dodaj radnika", "add_client": "Dodaj klijenta", "add_shift": "Dodaj smjenu",
+        "worker_name": "Ime radnika", "client_name": "Naziv klijenta", "address": "Adresa",
+        "choose_worker": "Izaberi radnika", "choose_client": "Izaberi klijenta",
+        "filter_btn": "Filtriraj", "reset": "Reset", "plan": "PLAN",
+        "no_shifts": "Trenutno nema unesenih smjena.", "edit": "Izmijeni", "delete": "Obrisi",
+        "week_calendar": "Sedmicni kalendar", "month_calendar": "Mjesecni kalendar", "pdf": "PDF raspored",
+        "back": "Nazad", "edit_shift": "Izmijeni smjenu", "save": "Sacuvaj",
+        "time_placeholder": "Vrijeme, npr. 08:00-12:00", "pdf_title": "Raspored radnika",
+        "pdf_user": "Korisnik", "pdf_date": "Datum", "pdf_time": "Vrijeme",
+        "pdf_worker": "Radnik", "pdf_client": "Klijent", "pdf_no_shifts": "Nema smjena",
+        "user_mgmt": "Upravljanje korisnicima", "add_user": "Dodaj korisnika",
+        "role_admin": "admin", "role_worker": "worker", "existing_users": "Postojeci korisnici",
+        "delete_user": "Obrisi korisnika", "status": "Status", "status_planned": "Planirano",
+        "status_in_progress": "U toku", "status_done": "Zavrseno",
+        "weekly_hours": "Nedeljni sati", "monthly_hours": "Mjesecni sati", "hours": "sati",
+        "all_workers": "Svi radnici", "all_clients": "Svi klijenti", "theme": "Tema",
+        "light_theme": "Svijetla", "dark_theme": "Tamna", "worker_colors": "Boje radnika",
+        "update_color": "Azuriraj boju", "prev_month": "Prosli mjesec",
+        "next_month": "Sljedeci mjesec", "change_password": "Promijeni lozinku",
+        "new_password": "Nova lozinka", "search_shifts": "Pretraga smjena",
         "search_placeholder": "Pretrazi po klijentu, radniku, vremenu...",
-        "week_period": "Period",
-        "workers": "Radnici",
-        "clients": "Klijenti",
-        "menu": "Menu",
-        "monday": "Pon",
-        "tuesday": "Uto",
-        "wednesday": "Sri",
-        "thursday": "Cet",
-        "friday": "Pet",
-        "saturday": "Sub",
-        "sunday": "Ned",
+        "week_period": "Period", "workers": "Radnici", "clients": "Klijenti", "menu": "Menu",
+        "monday": "Pon", "tuesday": "Uto", "wednesday": "Sri", "thursday": "Cet",
+        "friday": "Pet", "saturday": "Sub", "sunday": "Ned",
     },
     "fr": {
-        "login_title": "Connexion",
-        "username": "Nom d'utilisateur",
-        "password": "Mot de passe",
-        "login_btn": "Connexion",
-        "login_error": "Nom d'utilisateur ou mot de passe incorrect",
-        "title": "PLAN DE TRAVAIL",
-        "logged_as": "Connecte comme",
-        "logout": "Deconnexion",
-        "add_worker": "Ajouter employe",
-        "add_client": "Ajouter client",
-        "add_shift": "Ajouter mission",
-        "worker_name": "Nom de l'employe",
-        "client_name": "Nom du client",
-        "choose_worker": "Choisir employe",
-        "choose_client": "Choisir client",
-        "filter_btn": "Filtrer",
-        "reset": "Reinitialiser",
-        "plan": "PLANNING",
-        "no_shifts": "Aucune mission enregistree.",
-        "edit": "Modifier",
-        "delete": "Supprimer",
-        "week_calendar": "Calendrier hebdomadaire",
-        "month_calendar": "Calendrier mensuel",
-        "pdf": "PDF planning",
-        "back": "Retour",
-        "edit_shift": "Modifier mission",
-        "save": "Enregistrer",
-        "time_placeholder": "Horaire, ex. 08:00-12:00",
-        "pdf_title": "Planning des employes",
-        "pdf_user": "Utilisateur",
-        "pdf_date": "Date",
-        "pdf_time": "Heure",
-        "pdf_worker": "Employe",
-        "pdf_client": "Client",
-        "pdf_no_shifts": "Aucune mission",
-        "user_mgmt": "Gestion des utilisateurs",
-        "add_user": "Ajouter utilisateur",
-        "role_admin": "admin",
-        "role_worker": "worker",
-        "existing_users": "Utilisateurs existants",
-        "delete_user": "Supprimer utilisateur",
-        "status": "Statut",
-        "status_planned": "Planifie",
-        "status_in_progress": "En cours",
-        "status_done": "Termine",
-        "weekly_hours": "Heures hebdomadaires",
-        "monthly_hours": "Heures mensuelles",
-        "hours": "heures",
-        "all_workers": "Tous les employes",
-        "all_clients": "Tous les clients",
-        "theme": "Theme",
-        "light_theme": "Clair",
-        "dark_theme": "Sombre",
-        "worker_colors": "Couleurs des employes",
-        "update_color": "Mettre a jour couleur",
-        "prev_month": "Mois precedent",
-        "next_month": "Mois suivant",
-        "change_password": "Changer mot de passe",
-        "new_password": "Nouveau mot de passe",
-        "search_shifts": "Rechercher missions",
+        "login_title": "Connexion", "username": "Nom d'utilisateur", "password": "Mot de passe",
+        "login_btn": "Connexion", "login_error": "Nom d'utilisateur ou mot de passe incorrect",
+        "title": "PLAN DE TRAVAIL", "logged_as": "Connecte comme", "logout": "Deconnexion",
+        "add_worker": "Ajouter employe", "add_client": "Ajouter client", "add_shift": "Ajouter mission",
+        "worker_name": "Nom de l'employe", "client_name": "Nom du client", "address": "Adresse",
+        "choose_worker": "Choisir employe", "choose_client": "Choisir client",
+        "filter_btn": "Filtrer", "reset": "Reinitialiser", "plan": "PLANNING",
+        "no_shifts": "Aucune mission enregistree.", "edit": "Modifier", "delete": "Supprimer",
+        "week_calendar": "Calendrier hebdomadaire", "month_calendar": "Calendrier mensuel", "pdf": "PDF planning",
+        "back": "Retour", "edit_shift": "Modifier mission", "save": "Enregistrer",
+        "time_placeholder": "Horaire, ex. 08:00-12:00", "pdf_title": "Planning des employes",
+        "pdf_user": "Utilisateur", "pdf_date": "Date", "pdf_time": "Heure",
+        "pdf_worker": "Employe", "pdf_client": "Client", "pdf_no_shifts": "Aucune mission",
+        "user_mgmt": "Gestion des utilisateurs", "add_user": "Ajouter utilisateur",
+        "role_admin": "admin", "role_worker": "worker", "existing_users": "Utilisateurs existants",
+        "delete_user": "Supprimer utilisateur", "status": "Statut", "status_planned": "Planifie",
+        "status_in_progress": "En cours", "status_done": "Termine",
+        "weekly_hours": "Heures hebdomadaires", "monthly_hours": "Heures mensuelles", "hours": "heures",
+        "all_workers": "Tous les employes", "all_clients": "Tous les clients", "theme": "Theme",
+        "light_theme": "Clair", "dark_theme": "Sombre", "worker_colors": "Couleurs des employes",
+        "update_color": "Mettre a jour couleur", "prev_month": "Mois precedent",
+        "next_month": "Mois suivant", "change_password": "Changer mot de passe",
+        "new_password": "Nouveau mot de passe", "search_shifts": "Rechercher missions",
         "search_placeholder": "Rechercher par client, employe, heure...",
-        "week_period": "Periode",
-        "workers": "Employes",
-        "clients": "Clients",
-        "menu": "Menu",
-        "monday": "Lun",
-        "tuesday": "Mar",
-        "wednesday": "Mer",
-        "thursday": "Jeu",
-        "friday": "Ven",
-        "saturday": "Sam",
-        "sunday": "Dim",
+        "week_period": "Periode", "workers": "Employes", "clients": "Clients", "menu": "Menu",
+        "monday": "Lun", "tuesday": "Mar", "wednesday": "Mer", "thursday": "Jeu",
+        "friday": "Ven", "saturday": "Sam", "sunday": "Dim",
     },
     "en": {
-        "login_title": "Login",
-        "username": "Username",
-        "password": "Password",
-        "login_btn": "Login",
-        "login_error": "Wrong username or password",
-        "title": "WORK SCHEDULE",
-        "logged_as": "Logged in as",
-        "logout": "Logout",
-        "add_worker": "Add worker",
-        "add_client": "Add client",
-        "add_shift": "Add shift",
-        "worker_name": "Worker name",
-        "client_name": "Client name",
-        "choose_worker": "Choose worker",
-        "choose_client": "Choose client",
-        "filter_btn": "Filter",
-        "reset": "Reset",
-        "plan": "SCHEDULE",
-        "no_shifts": "No shifts entered.",
-        "edit": "Edit",
-        "delete": "Delete",
-        "week_calendar": "Weekly calendar",
-        "month_calendar": "Monthly calendar",
-        "pdf": "Schedule PDF",
-        "back": "Back",
-        "edit_shift": "Edit shift",
-        "save": "Save",
-        "time_placeholder": "Time, e.g. 08:00-12:00",
-        "pdf_title": "Worker schedule",
-        "pdf_user": "User",
-        "pdf_date": "Date",
-        "pdf_time": "Time",
-        "pdf_worker": "Worker",
-        "pdf_client": "Client",
-        "pdf_no_shifts": "No shifts",
-        "user_mgmt": "User management",
-        "add_user": "Add user",
-        "role_admin": "admin",
-        "role_worker": "worker",
-        "existing_users": "Existing users",
-        "delete_user": "Delete user",
-        "status": "Status",
-        "status_planned": "Planned",
-        "status_in_progress": "In progress",
-        "status_done": "Done",
-        "weekly_hours": "Weekly hours",
-        "monthly_hours": "Monthly hours",
-        "hours": "hours",
-        "all_workers": "All workers",
-        "all_clients": "All clients",
-        "theme": "Theme",
-        "light_theme": "Light",
-        "dark_theme": "Dark",
-        "worker_colors": "Worker colors",
-        "update_color": "Update color",
-        "prev_month": "Previous month",
-        "next_month": "Next month",
-        "change_password": "Change password",
-        "new_password": "New password",
-        "search_shifts": "Search shifts",
+        "login_title": "Login", "username": "Username", "password": "Password",
+        "login_btn": "Login", "login_error": "Wrong username or password",
+        "title": "WORK SCHEDULE", "logged_as": "Logged in as", "logout": "Logout",
+        "add_worker": "Add worker", "add_client": "Add client", "add_shift": "Add shift",
+        "worker_name": "Worker name", "client_name": "Client name", "address": "Address",
+        "choose_worker": "Choose worker", "choose_client": "Choose client",
+        "filter_btn": "Filter", "reset": "Reset", "plan": "SCHEDULE",
+        "no_shifts": "No shifts entered.", "edit": "Edit", "delete": "Delete",
+        "week_calendar": "Weekly calendar", "month_calendar": "Monthly calendar", "pdf": "Schedule PDF",
+        "back": "Back", "edit_shift": "Edit shift", "save": "Save",
+        "time_placeholder": "Time, e.g. 08:00-12:00", "pdf_title": "Worker schedule",
+        "pdf_user": "User", "pdf_date": "Date", "pdf_time": "Time",
+        "pdf_worker": "Worker", "pdf_client": "Client", "pdf_no_shifts": "No shifts",
+        "user_mgmt": "User management", "add_user": "Add user",
+        "role_admin": "admin", "role_worker": "worker", "existing_users": "Existing users",
+        "delete_user": "Delete user", "status": "Status", "status_planned": "Planned",
+        "status_in_progress": "In progress", "status_done": "Done",
+        "weekly_hours": "Weekly hours", "monthly_hours": "Monthly hours", "hours": "hours",
+        "all_workers": "All workers", "all_clients": "All clients", "theme": "Theme",
+        "light_theme": "Light", "dark_theme": "Dark", "worker_colors": "Worker colors",
+        "update_color": "Update color", "prev_month": "Previous month",
+        "next_month": "Next month", "change_password": "Change password",
+        "new_password": "New password", "search_shifts": "Search shifts",
         "search_placeholder": "Search by client, worker, time...",
-        "week_period": "Period",
-        "workers": "Workers",
-        "clients": "Clients",
-        "menu": "Menu",
-        "monday": "Mon",
-        "tuesday": "Tue",
-        "wednesday": "Wed",
-        "thursday": "Thu",
-        "friday": "Fri",
-        "saturday": "Sat",
-        "sunday": "Sun",
+        "week_period": "Period", "workers": "Workers", "clients": "Clients", "menu": "Menu",
+        "monday": "Mon", "tuesday": "Tue", "wednesday": "Wed", "thursday": "Thu",
+        "friday": "Fri", "saturday": "Sat", "sunday": "Sun",
     },
     "de": {
-        "login_title": "Anmeldung",
-        "username": "Benutzername",
-        "password": "Passwort",
-        "login_btn": "Anmelden",
-        "login_error": "Falscher Benutzername oder falsches Passwort",
-        "title": "ARBEITSPLAN",
-        "logged_as": "Angemeldet als",
-        "logout": "Abmelden",
-        "add_worker": "Mitarbeiter hinzufugen",
-        "add_client": "Kunde hinzufugen",
-        "add_shift": "Einsatz hinzufugen",
-        "worker_name": "Name des Mitarbeiters",
-        "client_name": "Name des Kunden",
-        "choose_worker": "Mitarbeiter wahlen",
-        "choose_client": "Kunden wahlen",
-        "filter_btn": "Filtern",
-        "reset": "Zurucksetzen",
-        "plan": "PLANUNG",
-        "no_shifts": "Keine Einsatze vorhanden.",
-        "edit": "Bearbeiten",
-        "delete": "Loschen",
-        "week_calendar": "Wochenkalender",
-        "month_calendar": "Monatskalender",
-        "pdf": "PDF Plan",
-        "back": "Zuruck",
-        "edit_shift": "Einsatz bearbeiten",
-        "save": "Speichern",
-        "time_placeholder": "Zeit, z. B. 08:00-12:00",
-        "pdf_title": "Mitarbeiterplan",
-        "pdf_user": "Benutzer",
-        "pdf_date": "Datum",
-        "pdf_time": "Zeit",
-        "pdf_worker": "Mitarbeiter",
-        "pdf_client": "Kunde",
-        "pdf_no_shifts": "Keine Einsatze",
-        "user_mgmt": "Benutzerverwaltung",
-        "add_user": "Benutzer hinzufugen",
-        "role_admin": "admin",
-        "role_worker": "worker",
-        "existing_users": "Bestehende Benutzer",
-        "delete_user": "Benutzer loschen",
-        "status": "Status",
-        "status_planned": "Geplant",
-        "status_in_progress": "In Arbeit",
-        "status_done": "Erledigt",
-        "weekly_hours": "Wochenstunden",
-        "monthly_hours": "Monatsstunden",
-        "hours": "Stunden",
-        "all_workers": "Alle Mitarbeiter",
-        "all_clients": "Alle Kunden",
-        "theme": "Thema",
-        "light_theme": "Hell",
-        "dark_theme": "Dunkel",
-        "worker_colors": "Mitarbeiterfarben",
-        "update_color": "Farbe aktualisieren",
-        "prev_month": "Vorheriger Monat",
-        "next_month": "Nachster Monat",
-        "change_password": "Passwort andern",
-        "new_password": "Neues Passwort",
-        "search_shifts": "Einsatze suchen",
+        "login_title": "Anmeldung", "username": "Benutzername", "password": "Passwort",
+        "login_btn": "Anmelden", "login_error": "Falscher Benutzername oder falsches Passwort",
+        "title": "ARBEITSPLAN", "logged_as": "Angemeldet als", "logout": "Abmelden",
+        "add_worker": "Mitarbeiter hinzufugen", "add_client": "Kunde hinzufugen", "add_shift": "Einsatz hinzufugen",
+        "worker_name": "Name des Mitarbeiters", "client_name": "Name des Kunden", "address": "Adresse",
+        "choose_worker": "Mitarbeiter wahlen", "choose_client": "Kunden wahlen",
+        "filter_btn": "Filtern", "reset": "Zurucksetzen", "plan": "PLANUNG",
+        "no_shifts": "Keine Einsatze vorhanden.", "edit": "Bearbeiten", "delete": "Loschen",
+        "week_calendar": "Wochenkalender", "month_calendar": "Monatskalender", "pdf": "PDF Plan",
+        "back": "Zuruck", "edit_shift": "Einsatz bearbeiten", "save": "Speichern",
+        "time_placeholder": "Zeit, z. B. 08:00-12:00", "pdf_title": "Mitarbeiterplan",
+        "pdf_user": "Benutzer", "pdf_date": "Datum", "pdf_time": "Zeit",
+        "pdf_worker": "Mitarbeiter", "pdf_client": "Kunde", "pdf_no_shifts": "Keine Einsatze",
+        "user_mgmt": "Benutzerverwaltung", "add_user": "Benutzer hinzufugen",
+        "role_admin": "admin", "role_worker": "worker", "existing_users": "Bestehende Benutzer",
+        "delete_user": "Benutzer loschen", "status": "Status", "status_planned": "Geplant",
+        "status_in_progress": "In Arbeit", "status_done": "Erledigt",
+        "weekly_hours": "Wochenstunden", "monthly_hours": "Monatsstunden", "hours": "Stunden",
+        "all_workers": "Alle Mitarbeiter", "all_clients": "Alle Kunden", "theme": "Thema",
+        "light_theme": "Hell", "dark_theme": "Dunkel", "worker_colors": "Mitarbeiterfarben",
+        "update_color": "Farbe aktualisieren", "prev_month": "Vorheriger Monat",
+        "next_month": "Nachster Monat", "change_password": "Passwort andern",
+        "new_password": "Neues Passwort", "search_shifts": "Einsatze suchen",
         "search_placeholder": "Nach Kunde, Mitarbeiter, Zeit suchen...",
-        "week_period": "Zeitraum",
-        "workers": "Mitarbeiter",
-        "clients": "Kunden",
-        "menu": "Menu",
-        "monday": "Mo",
-        "tuesday": "Di",
-        "wednesday": "Mi",
-        "thursday": "Do",
-        "friday": "Fr",
-        "saturday": "Sa",
-        "sunday": "So",
+        "week_period": "Zeitraum", "workers": "Mitarbeiter", "clients": "Kunden", "menu": "Menu",
+        "monday": "Mo", "tuesday": "Di", "wednesday": "Mi", "thursday": "Do",
+        "friday": "Fr", "saturday": "Sa", "sunday": "So",
     },
     "pt": {
-        "login_title": "Entrar",
-        "username": "Nome de utilizador",
-        "password": "Palavra-passe",
-        "login_btn": "Entrar",
-        "login_error": "Nome de utilizador ou palavra-passe incorretos",
-        "title": "PLANO DE TRABALHO",
-        "logged_as": "Ligado como",
-        "logout": "Sair",
-        "add_worker": "Adicionar trabalhador",
-        "add_client": "Adicionar cliente",
-        "add_shift": "Adicionar turno",
-        "worker_name": "Nome do trabalhador",
-        "client_name": "Nome do cliente",
-        "choose_worker": "Escolher trabalhador",
-        "choose_client": "Escolher cliente",
-        "filter_btn": "Filtrar",
-        "reset": "Repor",
-        "plan": "PLANO",
-        "no_shifts": "Nao ha turnos inseridos.",
-        "edit": "Editar",
-        "delete": "Apagar",
-        "week_calendar": "Calendario semanal",
-        "month_calendar": "Calendario mensal",
-        "pdf": "PDF do plano",
-        "back": "Voltar",
-        "edit_shift": "Editar turno",
-        "save": "Guardar",
-        "time_placeholder": "Hora, ex. 08:00-12:00",
-        "pdf_title": "Plano dos trabalhadores",
-        "pdf_user": "Utilizador",
-        "pdf_date": "Data",
-        "pdf_time": "Hora",
-        "pdf_worker": "Trabalhador",
-        "pdf_client": "Cliente",
-        "pdf_no_shifts": "Sem turnos",
-        "user_mgmt": "Gestao de utilizadores",
-        "add_user": "Adicionar utilizador",
-        "role_admin": "admin",
-        "role_worker": "worker",
-        "existing_users": "Utilizadores existentes",
-        "delete_user": "Apagar utilizador",
-        "status": "Estado",
-        "status_planned": "Planeado",
-        "status_in_progress": "Em curso",
-        "status_done": "Concluido",
-        "weekly_hours": "Horas semanais",
-        "monthly_hours": "Horas mensais",
-        "hours": "horas",
-        "all_workers": "Todos os trabalhadores",
-        "all_clients": "Todos os clientes",
-        "theme": "Tema",
-        "light_theme": "Claro",
-        "dark_theme": "Escuro",
-        "worker_colors": "Cores dos trabalhadores",
-        "update_color": "Atualizar cor",
-        "prev_month": "Mes anterior",
-        "next_month": "Proximo mes",
-        "change_password": "Alterar palavra-passe",
-        "new_password": "Nova palavra-passe",
-        "search_shifts": "Pesquisar turnos",
+        "login_title": "Entrar", "username": "Nome de utilizador", "password": "Palavra-passe",
+        "login_btn": "Entrar", "login_error": "Nome de utilizador ou palavra-passe incorretos",
+        "title": "PLANO DE TRABALHO", "logged_as": "Ligado como", "logout": "Sair",
+        "add_worker": "Adicionar trabalhador", "add_client": "Adicionar cliente", "add_shift": "Adicionar turno",
+        "worker_name": "Nome do trabalhador", "client_name": "Nome do cliente", "address": "Endereco",
+        "choose_worker": "Escolher trabalhador", "choose_client": "Escolher cliente",
+        "filter_btn": "Filtrar", "reset": "Repor", "plan": "PLANO",
+        "no_shifts": "Nao ha turnos inseridos.", "edit": "Editar", "delete": "Apagar",
+        "week_calendar": "Calendario semanal", "month_calendar": "Calendario mensal", "pdf": "PDF do plano",
+        "back": "Voltar", "edit_shift": "Editar turno", "save": "Guardar",
+        "time_placeholder": "Hora, ex. 08:00-12:00", "pdf_title": "Plano dos trabalhadores",
+        "pdf_user": "Utilizador", "pdf_date": "Data", "pdf_time": "Hora",
+        "pdf_worker": "Trabalhador", "pdf_client": "Cliente", "pdf_no_shifts": "Sem turnos",
+        "user_mgmt": "Gestao de utilizadores", "add_user": "Adicionar utilizador",
+        "role_admin": "admin", "role_worker": "worker", "existing_users": "Utilizadores existentes",
+        "delete_user": "Apagar utilizador", "status": "Estado", "status_planned": "Planeado",
+        "status_in_progress": "Em curso", "status_done": "Concluido",
+        "weekly_hours": "Horas semanais", "monthly_hours": "Horas mensais", "hours": "horas",
+        "all_workers": "Todos os trabalhadores", "all_clients": "Todos os clientes", "theme": "Tema",
+        "light_theme": "Claro", "dark_theme": "Escuro", "worker_colors": "Cores dos trabalhadores",
+        "update_color": "Atualizar cor", "prev_month": "Mes anterior",
+        "next_month": "Proximo mes", "change_password": "Alterar palavra-passe",
+        "new_password": "Nova palavra-passe", "search_shifts": "Pesquisar turnos",
         "search_placeholder": "Pesquisar por cliente, trabalhador, hora...",
-        "week_period": "Periodo",
-        "workers": "Trabalhadores",
-        "clients": "Clientes",
-        "menu": "Menu",
-        "monday": "Seg",
-        "tuesday": "Ter",
-        "wednesday": "Qua",
-        "thursday": "Qui",
-        "friday": "Sex",
-        "saturday": "Sab",
-        "sunday": "Dom",
+        "week_period": "Periodo", "workers": "Trabalhadores", "clients": "Clientes", "menu": "Menu",
+        "monday": "Seg", "tuesday": "Ter", "wednesday": "Qua", "thursday": "Qui",
+        "friday": "Sex", "saturday": "Sab", "sunday": "Dom",
     },
 }
 
@@ -467,14 +239,16 @@ def init_db():
     c.execute("""
         CREATE TABLE IF NOT EXISTS workers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT UNIQUE
+            name TEXT UNIQUE,
+            address TEXT DEFAULT ''
         )
     """)
 
     c.execute("""
         CREATE TABLE IF NOT EXISTS clients (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT UNIQUE
+            name TEXT UNIQUE,
+            address TEXT DEFAULT ''
         )
     """)
 
@@ -496,15 +270,23 @@ def init_db():
         )
     """)
 
-    cols = [row[1] for row in c.execute("PRAGMA table_info(shifts)").fetchall()]
-    if "status" not in cols:
+    shift_cols = [row[1] for row in c.execute("PRAGMA table_info(shifts)").fetchall()]
+    if "status" not in shift_cols:
         c.execute("ALTER TABLE shifts ADD COLUMN status TEXT DEFAULT 'planned'")
+
+    worker_cols = [row[1] for row in c.execute("PRAGMA table_info(workers)").fetchall()]
+    if "address" not in worker_cols:
+        c.execute("ALTER TABLE workers ADD COLUMN address TEXT DEFAULT ''")
+
+    client_cols = [row[1] for row in c.execute("PRAGMA table_info(clients)").fetchall()]
+    if "address" not in client_cols:
+        c.execute("ALTER TABLE clients ADD COLUMN address TEXT DEFAULT ''")
 
     c.execute("INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)", ("admin", "admin123", "admin"))
     c.execute("INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)", ("worker1", "1234", "worker"))
 
-    c.execute("INSERT OR IGNORE INTO workers (name) VALUES (?)", ("admin",))
-    c.execute("INSERT OR IGNORE INTO workers (name) VALUES (?)", ("worker1",))
+    c.execute("INSERT OR IGNORE INTO workers (name, address) VALUES (?, ?)", ("admin", ""))
+    c.execute("INSERT OR IGNORE INTO workers (name, address) VALUES (?, ?)", ("worker1", ""))
 
     for worker_name, color in DEFAULT_WORKER_COLORS.items():
         c.execute("INSERT OR IGNORE INTO worker_colors (worker_name, color) VALUES (?, ?)", (worker_name, color))
@@ -605,8 +387,8 @@ def index():
     conn = get_conn()
     c = conn.cursor()
 
-    workers = c.execute("SELECT name FROM workers ORDER BY name").fetchall()
-    clients = c.execute("SELECT name FROM clients ORDER BY name").fetchall()
+    workers = c.execute("SELECT name, address FROM workers ORDER BY name").fetchall()
+    clients = c.execute("SELECT name, address FROM clients ORDER BY name").fetchall()
     db_users = c.execute("SELECT id, username, role FROM users ORDER BY username").fetchall()
     worker_colors = get_worker_colors(conn)
 
@@ -686,8 +468,9 @@ def index():
         .muted { color: {{ '#9ca3af' if dark else '#64748b' }}; font-size:14px; }
         .status-badge { color:white; padding:4px 8px; border-radius:6px; font-size:12px; font-weight:bold; margin-left:8px; }
         .action-link { text-decoration:none; margin-left:10px; font-weight:bold; }
-        .edit-link { color: {{ '#93c5fd' if dark else '#1f4f82' }}; }
+        .edit-link { color: {{ '#93c5fd' if dark else '#1f4f82' }}; text-decoration:none; font-weight:bold; margin-left:10px; }
         .delete-link { color:#ef4444; text-decoration:none; font-weight:bold; margin-left:10px; }
+        small { color: {{ '#9ca3af' if dark else '#64748b' }}; }
     </style>
 
     <div class="brandbar">
@@ -714,13 +497,11 @@ def index():
     </div>
 
     <div class="grid">
-
         <div class="card" style="grid-column:1/-1;">
             <button class="menu-button" onclick="toggleMenu()" type="button">☰ {{ tr["menu"] }}</button>
 
             <div id="menuBox" style="display:none; margin-top:15px;">
                 <div class="grid">
-
                     <div class="card">
                         <h3>{{ tr["change_password"] }}</h3>
                         <form method="post" action="/change_password" autocomplete="off">
@@ -730,7 +511,6 @@ def index():
                     </div>
 
                     {% if session['role'] == 'admin' %}
-
                     <div class="card">
                         <h3>{{ tr["user_mgmt"] }}</h3>
                         <form method="post" action="/add_user" autocomplete="off">
@@ -774,7 +554,9 @@ def index():
                         <h3>{{ tr["workers"] }}</h3>
                         {% for w in workers %}
                             <div class="user-row">
-                                {{ w[0] }}
+                                <b>{{ w[0] }}</b><br>
+                                <small>{{ w[1] }}</small><br>
+                                <a class="edit-link" href="/edit_worker/{{ w[0] }}">{{ tr["edit"] }}</a>
                                 {% if w[0] != 'admin' %}
                                     <a class="delete-link" href="/delete_worker/{{ w[0] }}">{{ tr["delete"] }}</a>
                                 {% endif %}
@@ -786,14 +568,14 @@ def index():
                         <h3>{{ tr["clients"] }}</h3>
                         {% for c in clients %}
                             <div class="user-row">
-                                {{ c[0] }}
+                                <b>{{ c[0] }}</b><br>
+                                <small>{{ c[1] }}</small><br>
+                                <a class="edit-link" href="/edit_client/{{ c[0] }}">{{ tr["edit"] }}</a>
                                 <a class="delete-link" href="/delete_client/{{ c[0] }}">{{ tr["delete"] }}</a>
                             </div>
                         {% endfor %}
                     </div>
-
                     {% endif %}
-
                 </div>
             </div>
         </div>
@@ -803,6 +585,7 @@ def index():
             <h3>{{ tr["add_worker"] }}</h3>
             <form method="post" action="/add_worker" autocomplete="off">
                 <input name="name" placeholder="{{ tr['worker_name'] }}" required autocomplete="off">
+                <input name="address" placeholder="{{ tr['address'] }}" autocomplete="off">
                 <button>{{ tr["add_worker"] }}</button>
             </form>
         </div>
@@ -811,6 +594,7 @@ def index():
             <h3>{{ tr["add_client"] }}</h3>
             <form method="post" action="/add_client" autocomplete="off">
                 <input name="name" placeholder="{{ tr['client_name'] }}" required autocomplete="off">
+                <input name="address" placeholder="{{ tr['address'] }}" autocomplete="off">
                 <button>{{ tr["add_client"] }}</button>
             </form>
         </div>
@@ -921,11 +705,7 @@ def index():
     <script>
     function toggleMenu() {
         var m = document.getElementById("menuBox");
-        if (m.style.display === "none") {
-            m.style.display = "block";
-        } else {
-            m.style.display = "none";
-        }
+        m.style.display = (m.style.display === "none") ? "block" : "none";
     }
     </script>
     """, tr=tr, dark=dark, workers=workers, clients=clients, db_users=db_users,
@@ -934,6 +714,107 @@ def index():
        format_date=format_date, status_colors=STATUS_COLORS,
        get_status_label=get_status_label, weekly_hours=weekly_hours,
        monthly_hours=monthly_hours, week_period=week_period, month_period=month_period)
+
+@app.route("/edit_worker/<name>", methods=["GET", "POST"])
+def edit_worker(name):
+    if session.get("role") != "admin":
+        return redirect("/")
+
+    tr = t()
+    dark = get_theme() == "dark"
+    conn = get_conn()
+    c = conn.cursor()
+
+    if request.method == "POST":
+        new_name = request.form["name"].strip()
+        address = request.form["address"].strip()
+
+        if new_name:
+            old_color = c.execute("SELECT color FROM worker_colors WHERE worker_name = ?", (name,)).fetchone()
+            color_value = old_color[0] if old_color else "#f97316"
+
+            c.execute("UPDATE workers SET name = ?, address = ? WHERE name = ?", (new_name, address, name))
+            c.execute("UPDATE shifts SET worker = ? WHERE worker = ?", (new_name, name))
+            c.execute("DELETE FROM worker_colors WHERE worker_name = ?", (name,))
+            c.execute("INSERT OR REPLACE INTO worker_colors (worker_name, color) VALUES (?, ?)", (new_name, color_value))
+
+        conn.commit()
+        conn.close()
+        return redirect("/")
+
+    worker = c.execute("SELECT name, address FROM workers WHERE name = ?", (name,)).fetchone()
+    conn.close()
+
+    if not worker:
+        return redirect("/")
+
+    return render_template_string("""
+    <style>
+        body { font-family: Arial, sans-serif; margin:24px; background: {{ '#0f172a' if dark else '#f4f6f8' }}; color: {{ '#e5e7eb' if dark else '#111827' }}; }
+        .card { max-width:500px; background: {{ '#111827' if dark else 'white' }}; border-radius:12px; padding:20px; margin:auto; box-shadow:0 4px 14px rgba(0,0,0,0.06); }
+        input, button { padding:10px; margin:6px 0; width:100%; box-sizing:border-box; border-radius:8px; border:1px solid #cbd5e1; }
+        button { background:#1f4f82; color:white; border:none; cursor:pointer; }
+        a { color:#1f4f82; font-weight:bold; text-decoration:none; }
+    </style>
+    <div class="card">
+        <h2>{{ tr["workers"] }} - {{ tr["edit"] }}</h2>
+        <form method="post">
+            <input name="name" value="{{ worker[0] }}" required>
+            <input name="address" value="{{ worker[1] }}" placeholder="{{ tr['address'] }}">
+            <button>{{ tr["save"] }}</button>
+        </form>
+        <br>
+        <a href="/">{{ tr["back"] }}</a>
+    </div>
+    """, tr=tr, worker=worker, dark=dark)
+
+@app.route("/edit_client/<name>", methods=["GET", "POST"])
+def edit_client(name):
+    if session.get("role") != "admin":
+        return redirect("/")
+
+    tr = t()
+    dark = get_theme() == "dark"
+    conn = get_conn()
+    c = conn.cursor()
+
+    if request.method == "POST":
+        new_name = request.form["name"].strip()
+        address = request.form["address"].strip()
+
+        if new_name:
+            c.execute("UPDATE clients SET name = ?, address = ? WHERE name = ?", (new_name, address, name))
+            c.execute("UPDATE shifts SET client = ? WHERE client = ?", (new_name, name))
+
+        conn.commit()
+        conn.close()
+        return redirect("/")
+
+    client = c.execute("SELECT name, address FROM clients WHERE name = ?", (name,)).fetchone()
+    conn.close()
+
+    if not client:
+        return redirect("/")
+
+    return render_template_string("""
+    <style>
+        body { font-family: Arial, sans-serif; margin:24px; background: {{ '#0f172a' if dark else '#f4f6f8' }}; color: {{ '#e5e7eb' if dark else '#111827' }}; }
+        .card { max-width:500px; background: {{ '#111827' if dark else 'white' }}; border-radius:12px; padding:20px; margin:auto; box-shadow:0 4px 14px rgba(0,0,0,0.06); }
+        input, button { padding:10px; margin:6px 0; width:100%; box-sizing:border-box; border-radius:8px; border:1px solid #cbd5e1; }
+        button { background:#1f4f82; color:white; border:none; cursor:pointer; }
+        a { color:#1f4f82; font-weight:bold; text-decoration:none; }
+    </style>
+    <div class="card">
+        <h2>{{ tr["clients"] }} - {{ tr["edit"] }}</h2>
+        <form method="post">
+            <input name="name" value="{{ client[0] }}" required>
+            <input name="address" value="{{ client[1] }}" placeholder="{{ tr['address'] }}">
+            <button>{{ tr["save"] }}</button>
+        </form>
+        <br>
+        <a href="/">{{ tr["back"] }}</a>
+    </div>
+    """, tr=tr, client=client, dark=dark)
 
 @app.route("/week")
 def week_view():
@@ -1184,7 +1065,7 @@ def add_user():
     c = conn.cursor()
     c.execute("INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)", (username, password, role))
     if role == "worker":
-        c.execute("INSERT OR IGNORE INTO workers (name) VALUES (?)", (username,))
+        c.execute("INSERT OR IGNORE INTO workers (name, address) VALUES (?, ?)", (username, ""))
         c.execute("INSERT OR IGNORE INTO worker_colors (worker_name, color) VALUES (?, ?)", (username, "#f97316"))
     conn.commit()
     conn.close()
@@ -1265,8 +1146,8 @@ def edit_shift(id):
         return redirect("/")
 
     shift = c.execute("SELECT * FROM shifts WHERE id = ?", (id,)).fetchone()
-    workers = c.execute("SELECT name FROM workers ORDER BY name").fetchall()
-    clients = c.execute("SELECT name FROM clients ORDER BY name").fetchall()
+    workers = c.execute("SELECT name, address FROM workers ORDER BY name").fetchall()
+    clients = c.execute("SELECT name, address FROM clients ORDER BY name").fetchall()
     conn.close()
 
     if not shift:
@@ -1316,11 +1197,12 @@ def add_worker():
     if session.get("role") != "admin":
         return redirect("/")
     name = request.form["name"].strip()
+    address = request.form.get("address", "").strip()
     if not name:
         return redirect("/")
     conn = get_conn()
     c = conn.cursor()
-    c.execute("INSERT OR IGNORE INTO workers (name) VALUES (?)", (name,))
+    c.execute("INSERT OR IGNORE INTO workers (name, address) VALUES (?, ?)", (name, address))
     c.execute("INSERT OR IGNORE INTO worker_colors (worker_name, color) VALUES (?, ?)", (name, "#f97316"))
     conn.commit()
     conn.close()
@@ -1331,11 +1213,12 @@ def add_client():
     if session.get("role") != "admin":
         return redirect("/")
     name = request.form["name"].strip()
+    address = request.form.get("address", "").strip()
     if not name:
         return redirect("/")
     conn = get_conn()
     c = conn.cursor()
-    c.execute("INSERT OR IGNORE INTO clients (name) VALUES (?)", (name,))
+    c.execute("INSERT OR IGNORE INTO clients (name, address) VALUES (?, ?)", (name, address))
     conn.commit()
     conn.close()
     return redirect("/")
