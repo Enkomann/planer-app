@@ -42,12 +42,9 @@ TRANSLATIONS = {
         "client_name": "Naziv klijenta",
         "choose_worker": "Izaberi radnika",
         "choose_client": "Izaberi klijenta",
-        "date_filter": "Filter po datumu",
         "filter_btn": "Filtriraj",
         "reset": "Reset",
         "plan": "PLAN",
-        "no_workers": "Nema radnika u bazi.",
-        "no_clients": "Nema klijenata u bazi.",
         "no_shifts": "Trenutno nema unesenih smjena.",
         "edit": "Izmijeni",
         "delete": "Obrisi",
@@ -67,7 +64,6 @@ TRANSLATIONS = {
         "pdf_no_shifts": "Nema smjena",
         "user_mgmt": "Upravljanje korisnicima",
         "add_user": "Dodaj korisnika",
-        "user_role": "Uloga",
         "role_admin": "admin",
         "role_worker": "worker",
         "existing_users": "Postojeci korisnici",
@@ -93,6 +89,9 @@ TRANSLATIONS = {
         "search_shifts": "Pretraga smjena",
         "search_placeholder": "Pretrazi po klijentu, radniku, vremenu...",
         "week_period": "Period",
+        "workers": "Radnici",
+        "clients": "Klijenti",
+        "menu": "Menu",
         "monday": "Pon",
         "tuesday": "Uto",
         "wednesday": "Sri",
@@ -117,12 +116,9 @@ TRANSLATIONS = {
         "client_name": "Nom du client",
         "choose_worker": "Choisir employe",
         "choose_client": "Choisir client",
-        "date_filter": "Filtrer par date",
         "filter_btn": "Filtrer",
         "reset": "Reinitialiser",
         "plan": "PLANNING",
-        "no_workers": "Aucun employe dans la base.",
-        "no_clients": "Aucun client dans la base.",
         "no_shifts": "Aucune mission enregistree.",
         "edit": "Modifier",
         "delete": "Supprimer",
@@ -142,7 +138,6 @@ TRANSLATIONS = {
         "pdf_no_shifts": "Aucune mission",
         "user_mgmt": "Gestion des utilisateurs",
         "add_user": "Ajouter utilisateur",
-        "user_role": "Role",
         "role_admin": "admin",
         "role_worker": "worker",
         "existing_users": "Utilisateurs existants",
@@ -168,6 +163,9 @@ TRANSLATIONS = {
         "search_shifts": "Rechercher missions",
         "search_placeholder": "Rechercher par client, employe, heure...",
         "week_period": "Periode",
+        "workers": "Employes",
+        "clients": "Clients",
+        "menu": "Menu",
         "monday": "Lun",
         "tuesday": "Mar",
         "wednesday": "Mer",
@@ -192,12 +190,9 @@ TRANSLATIONS = {
         "client_name": "Client name",
         "choose_worker": "Choose worker",
         "choose_client": "Choose client",
-        "date_filter": "Filter by date",
         "filter_btn": "Filter",
         "reset": "Reset",
         "plan": "SCHEDULE",
-        "no_workers": "No workers in database.",
-        "no_clients": "No clients in database.",
         "no_shifts": "No shifts entered.",
         "edit": "Edit",
         "delete": "Delete",
@@ -217,7 +212,6 @@ TRANSLATIONS = {
         "pdf_no_shifts": "No shifts",
         "user_mgmt": "User management",
         "add_user": "Add user",
-        "user_role": "Role",
         "role_admin": "admin",
         "role_worker": "worker",
         "existing_users": "Existing users",
@@ -243,6 +237,9 @@ TRANSLATIONS = {
         "search_shifts": "Search shifts",
         "search_placeholder": "Search by client, worker, time...",
         "week_period": "Period",
+        "workers": "Workers",
+        "clients": "Clients",
+        "menu": "Menu",
         "monday": "Mon",
         "tuesday": "Tue",
         "wednesday": "Wed",
@@ -267,12 +264,9 @@ TRANSLATIONS = {
         "client_name": "Name des Kunden",
         "choose_worker": "Mitarbeiter wahlen",
         "choose_client": "Kunden wahlen",
-        "date_filter": "Nach Datum filtern",
         "filter_btn": "Filtern",
         "reset": "Zurucksetzen",
         "plan": "PLANUNG",
-        "no_workers": "Keine Mitarbeiter in der Datenbank.",
-        "no_clients": "Keine Kunden in der Datenbank.",
         "no_shifts": "Keine Einsatze vorhanden.",
         "edit": "Bearbeiten",
         "delete": "Loschen",
@@ -292,7 +286,6 @@ TRANSLATIONS = {
         "pdf_no_shifts": "Keine Einsatze",
         "user_mgmt": "Benutzerverwaltung",
         "add_user": "Benutzer hinzufugen",
-        "user_role": "Rolle",
         "role_admin": "admin",
         "role_worker": "worker",
         "existing_users": "Bestehende Benutzer",
@@ -318,6 +311,9 @@ TRANSLATIONS = {
         "search_shifts": "Einsatze suchen",
         "search_placeholder": "Nach Kunde, Mitarbeiter, Zeit suchen...",
         "week_period": "Zeitraum",
+        "workers": "Mitarbeiter",
+        "clients": "Kunden",
+        "menu": "Menu",
         "monday": "Mo",
         "tuesday": "Di",
         "wednesday": "Mi",
@@ -342,12 +338,9 @@ TRANSLATIONS = {
         "client_name": "Nome do cliente",
         "choose_worker": "Escolher trabalhador",
         "choose_client": "Escolher cliente",
-        "date_filter": "Filtrar por data",
         "filter_btn": "Filtrar",
         "reset": "Repor",
         "plan": "PLANO",
-        "no_workers": "Nao ha trabalhadores na base de dados.",
-        "no_clients": "Nao ha clientes na base de dados.",
         "no_shifts": "Nao ha turnos inseridos.",
         "edit": "Editar",
         "delete": "Apagar",
@@ -367,7 +360,6 @@ TRANSLATIONS = {
         "pdf_no_shifts": "Sem turnos",
         "user_mgmt": "Gestao de utilizadores",
         "add_user": "Adicionar utilizador",
-        "user_role": "Funcao",
         "role_admin": "admin",
         "role_worker": "worker",
         "existing_users": "Utilizadores existentes",
@@ -393,6 +385,9 @@ TRANSLATIONS = {
         "search_shifts": "Pesquisar turnos",
         "search_placeholder": "Pesquisar por cliente, trabalhador, hora...",
         "week_period": "Periodo",
+        "workers": "Trabalhadores",
+        "clients": "Clientes",
+        "menu": "Menu",
         "monday": "Seg",
         "tuesday": "Ter",
         "wednesday": "Qua",
@@ -685,13 +680,14 @@ def index():
         .card { background: {{ '#111827' if dark else 'white' }}; border-radius:12px; padding:18px; box-shadow:0 4px 14px rgba(0,0,0,0.06); }
         input, select, button { padding:10px; margin:6px 0; width:100%; box-sizing:border-box; border:1px solid {{ '#374151' if dark else '#cbd5e1' }}; border-radius:8px; background: {{ '#1f2937' if dark else 'white' }}; color: {{ '#e5e7eb' if dark else '#111827' }}; }
         button { background:#1f4f82; color:white; border:none; cursor:pointer; }
+        .menu-button { font-size:16px; font-weight:bold; }
         .shift { background: {{ 'linear-gradient(135deg, #111827, #1f2937)' if dark else 'linear-gradient(135deg, #ffffff, #f1f5f9)' }}; padding:14px; margin:12px 0; border-radius:12px; box-shadow:0 4px 14px rgba(0,0,0,0.06); }
         .user-row, .hours-row { padding:8px 0; border-bottom:1px solid {{ '#374151' if dark else '#e5e7eb' }}; }
         .muted { color: {{ '#9ca3af' if dark else '#64748b' }}; font-size:14px; }
         .status-badge { color:white; padding:4px 8px; border-radius:6px; font-size:12px; font-weight:bold; margin-left:8px; }
         .action-link { text-decoration:none; margin-left:10px; font-weight:bold; }
         .edit-link { color: {{ '#93c5fd' if dark else '#1f4f82' }}; }
-        .delete-link { color:#ef4444; }
+        .delete-link { color:#ef4444; text-decoration:none; font-weight:bold; margin-left:10px; }
     </style>
 
     <div class="brandbar">
@@ -718,118 +714,91 @@ def index():
     </div>
 
     <div class="grid">
-    <div class="card" style="grid-column:1/-1;">
-    <button onclick="toggleMenu()" type="button">☰ Menu</button>
 
-    <div id="menuBox" style="display:none; margin-top:15px;">
-        <div class="grid">
-            <div class="card">
-                <h3>{{ tr["change_password"] }}</h3>
-                <form method="post" action="/change_password">
-                    <input name="new_password" type="password" placeholder="{{ tr['new_password'] }}" required autocomplete="off">
-                    <button>{{ tr["save"] }}</button>
-                </form>
-            </div>
+        <div class="card" style="grid-column:1/-1;">
+            <button class="menu-button" onclick="toggleMenu()" type="button">☰ {{ tr["menu"] }}</button>
 
-            {% if session['role'] == 'admin' %}
-            <div class="card">
-                <h3>{{ tr["user_mgmt"] }}</h3>
-                <form method="post" action="/add_user" autocomplete="off">
-                    <input name="username" placeholder="{{ tr['username'] }}" required autocomplete="off">
-                    <input name="password" placeholder="{{ tr['password'] }}" required autocomplete="new-password">
-                    <select name="role" required>
-                        <option value="admin">{{ tr["role_admin"] }}</option>
-                        <option value="worker">{{ tr["role_worker"] }}</option>
-                    </select>
-                    <button>{{ tr["add_user"] }}</button>
-                </form>
-            </div>
+            <div id="menuBox" style="display:none; margin-top:15px;">
+                <div class="grid">
 
-            <div class="card">
-                <h3>{{ tr["existing_users"] }}</h3>
-                {% for u in db_users %}
-                    <div class="user-row">
-                        <b>{{ u[1] }}</b> ({{ u[2] }})
-                        {% if u[1] != 'admin' %}
-                            <a class="action-link delete-link" href="/delete_user/{{ u[0] }}">{{ tr["delete_user"] }}</a>
-                        {% endif %}
+                    <div class="card">
+                        <h3>{{ tr["change_password"] }}</h3>
+                        <form method="post" action="/change_password" autocomplete="off">
+                            <input name="new_password" type="password" placeholder="{{ tr['new_password'] }}" required autocomplete="off">
+                            <button>{{ tr["save"] }}</button>
+                        </form>
                     </div>
-                {% endfor %}
-            </div>
 
-            <div class="card">
-                <h3>{{ tr["worker_colors"] }}</h3>
-                {% for w in workers %}
-                    <form method="post" action="/update_worker_color">
-                        <input type="hidden" name="worker_name" value="{{ w[0] }}">
-                        <div style="display:flex; gap:10px; align-items:center;">
-                            <div style="min-width:110px;">{{ w[0] }}</div>
-                            <input type="color" name="color" value="{{ worker_colors.get(w[0], '#1f4f82') }}">
-                            <button>{{ tr["update_color"] }}</button>
-                        </div>
-                    </form>
-                {% endfor %}
-            </div>
-            {% endif %}
-        </div>
-    </div>
-</div>
+                    {% if session['role'] == 'admin' %}
 
-<script>
-function toggleMenu() {
-    var menu = document.getElementById("menuBox");
-    if (menu.style.display === "none") {
-        menu.style.display = "block";
-    } else {
-        menu.style.display = "none";
-    }
-}
-</script>
-        <div class="card">
-            <h3>{{ tr["change_password"] }}</h3>
-            <form method="post" action="/change_password">
-                <input name="new_password" type="password" placeholder="{{ tr['new_password'] }}" required autocomplete="off">
-                <button>{{ tr["save"] }}</button>
-            </form>
+                    <div class="card">
+                        <h3>{{ tr["user_mgmt"] }}</h3>
+                        <form method="post" action="/add_user" autocomplete="off">
+                            <input name="username" placeholder="{{ tr['username'] }}" required autocomplete="off">
+                            <input name="password" placeholder="{{ tr['password'] }}" required autocomplete="new-password">
+                            <select name="role" required>
+                                <option value="admin">{{ tr["role_admin"] }}</option>
+                                <option value="worker">{{ tr["role_worker"] }}</option>
+                            </select>
+                            <button>{{ tr["add_user"] }}</button>
+                        </form>
+                    </div>
+
+                    <div class="card">
+                        <h3>{{ tr["existing_users"] }}</h3>
+                        {% for u in db_users %}
+                            <div class="user-row">
+                                <b>{{ u[1] }}</b> ({{ u[2] }})
+                                {% if u[1] != 'admin' %}
+                                    <a class="delete-link" href="/delete_user/{{ u[0] }}">{{ tr["delete"] }}</a>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="card">
+                        <h3>{{ tr["worker_colors"] }}</h3>
+                        {% for w in workers %}
+                            <form method="post" action="/update_worker_color">
+                                <input type="hidden" name="worker_name" value="{{ w[0] }}">
+                                <div style="display:flex; gap:10px; align-items:center;">
+                                    <div style="min-width:110px;">{{ w[0] }}</div>
+                                    <input type="color" name="color" value="{{ worker_colors.get(w[0], '#1f4f82') }}">
+                                    <button>{{ tr["update_color"] }}</button>
+                                </div>
+                            </form>
+                        {% endfor %}
+                    </div>
+
+                    <div class="card">
+                        <h3>{{ tr["workers"] }}</h3>
+                        {% for w in workers %}
+                            <div class="user-row">
+                                {{ w[0] }}
+                                {% if w[0] != 'admin' %}
+                                    <a class="delete-link" href="/delete_worker/{{ w[0] }}">{{ tr["delete"] }}</a>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="card">
+                        <h3>{{ tr["clients"] }}</h3>
+                        {% for c in clients %}
+                            <div class="user-row">
+                                {{ c[0] }}
+                                <a class="delete-link" href="/delete_client/{{ c[0] }}">{{ tr["delete"] }}</a>
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    {% endif %}
+
+                </div>
+            </div>
         </div>
 
         {% if session['role'] == 'admin' %}
-        <div class="card">
-            <h3>{{ tr["user_mgmt"] }}</h3>
-            <form method="post" action="/add_user" autocomplete="off">
-                <input name="username" placeholder="{{ tr['username'] }}" required autocomplete="off">
-                <input name="password" placeholder="{{ tr['password'] }}" required autocomplete="new-password">
-                <select name="role" required>
-                    <option value="admin">{{ tr["role_admin"] }}</option>
-                    <option value="worker">{{ tr["role_worker"] }}</option>
-                </select>
-                <button>{{ tr["add_user"] }}</button>
-            </form>
-            <h4>{{ tr["existing_users"] }}</h4>
-            {% for u in db_users %}
-                <div class="user-row">
-                    <b>{{ u[1] }}</b> ({{ u[2] }})
-                    {% if u[1] != 'admin' %}
-                        <a class="action-link delete-link" href="/delete_user/{{ u[0] }}">{{ tr["delete_user"] }}</a>
-                    {% endif %}
-                </div>
-            {% endfor %}
-        </div>
-
-        <div class="card">
-            <h3>{{ tr["worker_colors"] }}</h3>
-            {% for w in workers %}
-                <form method="post" action="/update_worker_color">
-                    <input type="hidden" name="worker_name" value="{{ w[0] }}">
-                    <div style="display:flex; gap:10px; align-items:center;">
-                        <div style="min-width:110px;">{{ w[0] }}</div>
-                        <input type="color" name="color" value="{{ worker_colors.get(w[0], '#1f4f82') }}">
-                        <button>{{ tr["update_color"] }}</button>
-                    </div>
-                </form>
-            {% endfor %}
-        </div>
-
         <div class="card">
             <h3>{{ tr["add_worker"] }}</h3>
             <form method="post" action="/add_worker" autocomplete="off">
@@ -948,6 +917,17 @@ function toggleMenu() {
         <a class="week-link" href="/month">{{ tr["month_calendar"] }}</a>
         <a class="pdf-link" href="/export_pdf{% if request.args.get('date') %}?date={{ request.args.get('date') }}{% endif %}" target="_blank">{{ tr["pdf"] }}</a>
     </div>
+
+    <script>
+    function toggleMenu() {
+        var m = document.getElementById("menuBox");
+        if (m.style.display === "none") {
+            m.style.display = "block";
+        } else {
+            m.style.display = "none";
+        }
+    }
+    </script>
     """, tr=tr, dark=dark, workers=workers, clients=clients, db_users=db_users,
        worker_colors=worker_colors, selected_date=selected_date,
        worker_filter=worker_filter, client_filter=client_filter, shifts=shifts,
@@ -1221,6 +1201,31 @@ def delete_user(user_id):
         c.execute("DELETE FROM users WHERE id = ?", (user_id,))
         c.execute("DELETE FROM workers WHERE name = ?", (user[0],))
         c.execute("DELETE FROM worker_colors WHERE worker_name = ?", (user[0],))
+    conn.commit()
+    conn.close()
+    return redirect("/")
+
+@app.route("/delete_worker/<name>")
+def delete_worker(name):
+    if session.get("role") != "admin":
+        return redirect("/")
+    if name == "admin":
+        return redirect("/")
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("DELETE FROM workers WHERE name = ?", (name,))
+    c.execute("DELETE FROM worker_colors WHERE worker_name = ?", (name,))
+    conn.commit()
+    conn.close()
+    return redirect("/")
+
+@app.route("/delete_client/<name>")
+def delete_client(name):
+    if session.get("role") != "admin":
+        return redirect("/")
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("DELETE FROM clients WHERE name = ?", (name,))
     conn.commit()
     conn.close()
     return redirect("/")
