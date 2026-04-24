@@ -718,6 +718,73 @@ def index():
     </div>
 
     <div class="grid">
+    <div class="card" style="grid-column:1/-1;">
+    <button onclick="toggleMenu()" type="button">☰ Menu</button>
+
+    <div id="menuBox" style="display:none; margin-top:15px;">
+        <div class="grid">
+            <div class="card">
+                <h3>{{ tr["change_password"] }}</h3>
+                <form method="post" action="/change_password">
+                    <input name="new_password" type="password" placeholder="{{ tr['new_password'] }}" required autocomplete="off">
+                    <button>{{ tr["save"] }}</button>
+                </form>
+            </div>
+
+            {% if session['role'] == 'admin' %}
+            <div class="card">
+                <h3>{{ tr["user_mgmt"] }}</h3>
+                <form method="post" action="/add_user" autocomplete="off">
+                    <input name="username" placeholder="{{ tr['username'] }}" required autocomplete="off">
+                    <input name="password" placeholder="{{ tr['password'] }}" required autocomplete="new-password">
+                    <select name="role" required>
+                        <option value="admin">{{ tr["role_admin"] }}</option>
+                        <option value="worker">{{ tr["role_worker"] }}</option>
+                    </select>
+                    <button>{{ tr["add_user"] }}</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h3>{{ tr["existing_users"] }}</h3>
+                {% for u in db_users %}
+                    <div class="user-row">
+                        <b>{{ u[1] }}</b> ({{ u[2] }})
+                        {% if u[1] != 'admin' %}
+                            <a class="action-link delete-link" href="/delete_user/{{ u[0] }}">{{ tr["delete_user"] }}</a>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+
+            <div class="card">
+                <h3>{{ tr["worker_colors"] }}</h3>
+                {% for w in workers %}
+                    <form method="post" action="/update_worker_color">
+                        <input type="hidden" name="worker_name" value="{{ w[0] }}">
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            <div style="min-width:110px;">{{ w[0] }}</div>
+                            <input type="color" name="color" value="{{ worker_colors.get(w[0], '#1f4f82') }}">
+                            <button>{{ tr["update_color"] }}</button>
+                        </div>
+                    </form>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleMenu() {
+    var menu = document.getElementById("menuBox");
+    if (menu.style.display === "none") {
+        menu.style.display = "block";
+    } else {
+        menu.style.display = "none";
+    }
+}
+</script>
         <div class="card">
             <h3>{{ tr["change_password"] }}</h3>
             <form method="post" action="/change_password">
