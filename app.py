@@ -1235,10 +1235,12 @@ def add_shift():
     worker = request.form["worker"].strip()
     client = request.form["client"].strip()
     date = request.form["date"].strip()
-    time = request.form["time"].strip()
+    start_time = request.form["start_time"].strip()
+    end_time = request.form["end_time"].strip()
+    time = f"{start_time}-{end_time}"
     status = request.form["status"].strip()
 
-    if not worker or not client or not date or not time:
+    if not worker or not client or not date or not start_time or not end_time:
         return redirect("/")
 
     conn = get_conn()
