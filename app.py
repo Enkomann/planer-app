@@ -11,16 +11,8 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 app = Flask(__name__)
 app.secret_key = "luxmann_secret_key"
 
-DEFAULT_WORKER_COLORS = {
-    "admin": "#1f4f82",
-    "worker1": "#16a34a",
-}
-
-STATUS_COLORS = {
-    "planned": "#f59e0b",
-    "in_progress": "#2563eb",
-    "done": "#16a34a",
-}
+DEFAULT_WORKER_COLORS = {"admin": "#1f4f82", "worker1": "#16a34a"}
+STATUS_COLORS = {"planned": "#f59e0b", "in_progress": "#2563eb", "done": "#16a34a"}
 
 TRANSLATIONS = {
     "bos": {
@@ -32,6 +24,7 @@ TRANSLATIONS = {
         "choose_worker": "Izaberi radnike", "choose_client": "Izaberi klijenta",
         "filter_btn": "Filtriraj", "reset": "Reset", "plan": "PLAN",
         "no_shifts": "Trenutno nema unesenih smjena.", "edit": "Izmijeni", "delete": "Obrisi",
+        "copy": "Copy", "copy_shift": "Kopiraj smjenu",
         "week_calendar": "Sedmicni kalendar", "month_calendar": "Mjesecni kalendar", "pdf": "PDF raspored",
         "back": "Nazad", "edit_shift": "Izmijeni smjenu", "save": "Sacuvaj",
         "pdf_title": "Raspored radnika", "pdf_user": "Korisnik", "pdf_date": "Datum",
@@ -93,8 +86,7 @@ def replace_worker_in_shift(worker_text, old_name, new_name):
     return join_workers(names)
 
 def remove_worker_from_shift(worker_text, name):
-    names = [n for n in split_workers(worker_text) if n != name]
-    return join_workers(names)
+    return join_workers([n for n in split_workers(worker_text) if n != name])
 
 def get_status_label(status_key, tr):
     return {
@@ -348,7 +340,6 @@ def index():
     week_end = week_start + timedelta(days=6)
 
     all_shifts_for_hours = c.execute("SELECT * FROM shifts").fetchall()
-
     if not is_admin:
         all_shifts_for_hours = [s for s in all_shifts_for_hours if worker_in_shift(current_user, s[1])]
 
@@ -393,6 +384,7 @@ def index():
         .action-link { text-decoration:none; margin-left:10px; font-weight:bold; }
         .edit-link { color: {{ '#93c5fd' if dark else '#1f4f82' }}; text-decoration:none; font-weight:bold; margin-left:10px; }
         .delete-link { color:#ef4444; text-decoration:none; font-weight:bold; margin-left:10px; }
+        .copy-link { color:#16a34a; text-decoration:none; font-weight:bold; margin-left:10px; }
         small { color: {{ '#9ca3af' if dark else '#64748b' }}; }
         .check-row { display:flex; align-items:center; gap:8px; margin:5px 0; }
         .check-row input { width:auto; }
@@ -626,6 +618,7 @@ def index():
                 {% if is_admin %}
                     <a class="action-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a>
                     <a class="action-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a>
+                    <a class="action-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>
                 {% endif %}
             </div>
         {% endfor %}
@@ -647,6 +640,111 @@ def index():
        get_status_label=get_status_label, weekly_hours=weekly_hours,
        monthly_hours=monthly_hours, week_period=week_period, month_period=month_period,
        split_workers=split_workers)
+
+@app.route("/copy_shift/<int:id>", methods=["GET", "POST"])
+def copy_shift(id):
+    if "user" not in session or session.get("role") != "admin":
+        return redirect("/")
+
+    tr = t()
+    dark = get_theme() == "dark"
+
+    conn = get_conn()
+    c = conn.cursor()
+
+    original_shift = c.execute("SELECT * FROM shifts WHERE id = ?", (id,)).fetchone()
+    workers = c.execute("SELECT name, address FROM workers ORDER BY name").fetchall()
+    clients = c.execute("SELECT name, address FROM clients ORDER BY name").fetchall()
+
+    if not original_shift:
+        conn.close()
+        return redirect("/")
+
+    if request.method == "POST":
+        selected_workers = request.form.getlist("workers")
+        worker = join_workers(selected_workers)
+        client = request.form["client"].strip()
+        date = request.form["date"].strip()
+        start_time = request.form["start_time"].strip()
+        end_time = request.form["end_time"].strip()
+        time = f"{start_time}-{end_time}"
+        status = request.form["status"].strip()
+
+        if not worker or not client or not date or not start_time or not end_time:
+            conn.close()
+            return redirect("/copy_shift/" + str(id))
+
+        c.execute(
+            "INSERT INTO shifts (worker, client, date, time, status) VALUES (?, ?, ?, ?, ?)",
+            (worker, client, date, time, status)
+        )
+        conn.commit()
+        conn.close()
+        return redirect("/month")
+
+    conn.close()
+
+    start_time, end_time = split_time_range(original_shift[4])
+    selected_workers = split_workers(original_shift[1])
+    tomorrow = (datetime.today() + timedelta(days=1)).strftime("%Y-%m-%d")
+
+    return render_template_string("""
+    <style>
+        body { font-family: Arial, sans-serif; margin:24px; background: {{ '#0f172a' if dark else '#f4f6f8' }}; color: {{ '#e5e7eb' if dark else '#111827' }}; }
+        .card { max-width:560px; background: {{ '#111827' if dark else 'white' }}; border-radius:12px; padding:20px; box-shadow:0 4px 14px rgba(0,0,0,0.06); margin:auto; }
+        input, select, button { padding:10px; margin:6px 0; width:100%; box-sizing:border-box; border:1px solid {{ '#374151' if dark else '#cbd5e1' }}; border-radius:8px; background: {{ '#1f2937' if dark else 'white' }}; color: {{ '#e5e7eb' if dark else '#111827' }}; }
+        button { background:#1f4f82; color:white; border:none; cursor:pointer; }
+        a { text-decoration:none; color: {{ '#93c5fd' if dark else '#1f4f82' }}; font-weight:bold; }
+        .check-row { display:flex; align-items:center; gap:8px; margin:5px 0; }
+        .check-row input { width:auto; }
+    </style>
+
+    <div class="card">
+        <h2>{{ tr["copy_shift"] }}</h2>
+
+        <form method="post" autocomplete="off">
+            <label>{{ tr["choose_worker"] }}</label>
+            {% for w in workers %}
+                {% if w[0] != 'admin' %}
+                <label class="check-row">
+                    <input type="checkbox" name="workers" value="{{ w[0] }}" {% if w[0] in selected_workers %}checked{% endif %}>
+                    {{ w[0] }}
+                </label>
+                {% endif %}
+            {% endfor %}
+
+            <label>{{ tr["choose_client"] }}</label>
+            <select name="client" required>
+                {% for c in clients %}
+                    <option value="{{ c[0] }}" {% if c[0] == original_shift[2] %}selected{% endif %}>{{ c[0] }}</option>
+                {% endfor %}
+            </select>
+
+            <label>{{ tr["pdf_date"] }}</label>
+            <input type="date" name="date" value="{{ tomorrow }}" required>
+
+            <label>{{ tr["start_time"] }}</label>
+            <input type="time" name="start_time" value="{{ start_time }}" required>
+
+            <label>{{ tr["end_time"] }}</label>
+            <input type="time" name="end_time" value="{{ end_time }}" required>
+
+            <label>{{ tr["status"] }}</label>
+            <select name="status" required>
+                <option value="planned" {% if original_shift[5] == 'planned' %}selected{% endif %}>{{ tr["status_planned"] }}</option>
+                <option value="in_progress" {% if original_shift[5] == 'in_progress' %}selected{% endif %}>{{ tr["status_in_progress"] }}</option>
+                <option value="done" {% if original_shift[5] == 'done' %}selected{% endif %}>{{ tr["status_done"] }}</option>
+            </select>
+
+            <button type="submit">{{ tr["save"] }}</button>
+        </form>
+
+        <br>
+        <a href="/month">{{ tr["back"] }}</a>
+    </div>
+    """, tr=tr, dark=dark, original_shift=original_shift, workers=workers,
+       clients=clients, selected_workers=selected_workers, start_time=start_time,
+       end_time=end_time, tomorrow=tomorrow)
 
 @app.route("/edit_worker/<path:name>", methods=["GET", "POST"])
 def edit_worker(name):
@@ -869,6 +967,9 @@ def month_view():
         .day-header { min-height:auto; font-weight:bold; text-align:center; }
         .day-num { font-weight:bold; margin-bottom:8px; color: {{ '#93c5fd' if dark else '#1f4f82' }}; }
         .mini-shift { margin-top:6px; padding:6px; border-radius:8px; font-size:12px; background: {{ '#1f2937' if dark else '#f8fafc' }}; }
+        .mini-link { font-size:11px; margin-right:5px; text-decoration:none; font-weight:bold; }
+        .copy-link { color:#16a34a; }
+        .edit-link { color: {{ '#93c5fd' if dark else '#1f4f82' }}; }
     </style>
 
     <div class="topnav">
@@ -895,6 +996,11 @@ def month_view():
                     {% for s in shifts_by_date.get(day.strftime('%Y-%m-%d'), []) %}
                         <div class="mini-shift" style="border-left:5px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }};">
                             <b>{{ s[1] }}</b><br>{{ s[2] }}<br>{{ s[4] }}
+                            {% if is_admin %}
+                                <br>
+                                <a class="mini-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a>
+                                <a class="mini-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>
+                            {% endif %}
                         </div>
                     {% endfor %}
                 </div>
@@ -905,7 +1011,7 @@ def month_view():
        next_year=next_year, next_month=next_month, month=month, year=year,
        month_days=month_days, shifts_by_date=shifts_by_date,
        worker_colors=worker_colors, day_names=day_names,
-       split_workers=split_workers)
+       split_workers=split_workers, is_admin=is_admin)
 
 @app.route("/export_pdf")
 def export_pdf():
