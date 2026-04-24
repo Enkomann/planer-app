@@ -49,6 +49,7 @@ TRANSLATIONS = {
         "new_password": "Nova lozinka", "search_shifts": "Pretraga smjena",
         "search_placeholder": "Pretrazi po klijentu, radniku, vremenu...",
         "week_period": "Period", "workers": "Radnici", "clients": "Klijenti", "menu": "Menu",
+        "start_time": "Pocetak", "end_time": "Kraj",
         "monday": "Pon", "tuesday": "Uto", "wednesday": "Sri", "thursday": "Cet",
         "friday": "Pet", "saturday": "Sub", "sunday": "Ned",
     },
@@ -78,6 +79,7 @@ TRANSLATIONS = {
         "new_password": "Nouveau mot de passe", "search_shifts": "Rechercher missions",
         "search_placeholder": "Rechercher par client, employe, heure...",
         "week_period": "Periode", "workers": "Employes", "clients": "Clients", "menu": "Menu",
+        "start_time": "Debut", "end_time": "Fin",
         "monday": "Lun", "tuesday": "Mar", "wednesday": "Mer", "thursday": "Jeu",
         "friday": "Ven", "saturday": "Sam", "sunday": "Dim",
     },
@@ -107,6 +109,7 @@ TRANSLATIONS = {
         "new_password": "New password", "search_shifts": "Search shifts",
         "search_placeholder": "Search by client, worker, time...",
         "week_period": "Period", "workers": "Workers", "clients": "Clients", "menu": "Menu",
+        "start_time": "Start", "end_time": "End",
         "monday": "Mon", "tuesday": "Tue", "wednesday": "Wed", "thursday": "Thu",
         "friday": "Fri", "saturday": "Sat", "sunday": "Sun",
     },
@@ -136,6 +139,7 @@ TRANSLATIONS = {
         "new_password": "Neues Passwort", "search_shifts": "Einsatze suchen",
         "search_placeholder": "Nach Kunde, Mitarbeiter, Zeit suchen...",
         "week_period": "Zeitraum", "workers": "Mitarbeiter", "clients": "Kunden", "menu": "Menu",
+        "start_time": "Beginn", "end_time": "Ende",
         "monday": "Mo", "tuesday": "Di", "wednesday": "Mi", "thursday": "Do",
         "friday": "Fr", "saturday": "Sa", "sunday": "So",
     },
@@ -165,6 +169,7 @@ TRANSLATIONS = {
         "new_password": "Nova palavra-passe", "search_shifts": "Pesquisar turnos",
         "search_placeholder": "Pesquisar por cliente, trabalhador, hora...",
         "week_period": "Periodo", "workers": "Trabalhadores", "clients": "Clientes", "menu": "Menu",
+        "start_time": "Inicio", "end_time": "Fim",
         "monday": "Seg", "tuesday": "Ter", "wednesday": "Qua", "thursday": "Qui",
         "friday": "Sex", "saturday": "Sab", "sunday": "Dom",
     },
@@ -194,6 +199,12 @@ def get_status_label(status_key, tr):
         "in_progress": tr["status_in_progress"],
         "done": tr["status_done"],
     }.get(status_key, status_key)
+
+def split_time_range(time_range):
+    if "-" in time_range:
+        parts = time_range.split("-")
+        return parts[0].strip(), parts[1].strip()
+    return "", ""
 
 def parse_shift_hours(time_str):
     try:
@@ -364,8 +375,8 @@ def logout():
 
 @app.route("/change_password", methods=["POST"])
 def change_password():
-    if "user" not in session:
-        return redirect("/login")
+    if "user" not in session or session.get("role") != "admin":
+        return redirect("/")
     new_password = request.form["new_password"].strip()
     if not new_password:
         return redirect("/")
@@ -383,34 +394,39 @@ def index():
 
     tr = t()
     dark = get_theme() == "dark"
+    is_admin = session.get("role") == "admin"
+    current_user = session.get("user")
 
     conn = get_conn()
     c = conn.cursor()
 
     workers = c.execute("SELECT name, address FROM workers ORDER BY name").fetchall()
     clients = c.execute("SELECT name, address FROM clients ORDER BY name").fetchall()
-    db_users = c.execute("SELECT id, username, role FROM users ORDER BY username").fetchall()
+    db_users = c.execute("SELECT id, username, role FROM users ORDER BY username").fetchall() if is_admin else []
     worker_colors = get_worker_colors(conn)
 
     date_filter = request.args.get("date", "").strip()
     selected_date = request.args.get("selected_date", "").strip()
-    worker_filter = request.args.get("worker", "").strip()
+    worker_filter = request.args.get("worker", "").strip() if is_admin else current_user
     client_filter = request.args.get("client", "").strip()
     search_query = request.args.get("q", "").strip().lower()
 
     base_query = "SELECT * FROM shifts WHERE 1=1"
     params = []
 
-    if session["role"] != "admin":
+    if not is_admin:
         base_query += " AND worker = ?"
-        params.append(session["user"])
+        params.append(current_user)
+
     if date_filter:
         base_query += " AND date = ?"
         params.append(date_filter)
-    if worker_filter:
+
+    if is_admin and worker_filter:
         base_query += " AND worker = ?"
         params.append(worker_filter)
-    if client_filter:
+
+    if is_admin and client_filter:
         base_query += " AND client = ?"
         params.append(client_filter)
 
@@ -424,10 +440,10 @@ def index():
     week_start = today - timedelta(days=today.weekday())
     week_end = week_start + timedelta(days=6)
 
-    if session["role"] == "admin":
+    if is_admin:
         all_shifts = c.execute("SELECT * FROM shifts").fetchall()
     else:
-        all_shifts = c.execute("SELECT * FROM shifts WHERE worker = ?", (session["user"],)).fetchall()
+        all_shifts = c.execute("SELECT * FROM shifts WHERE worker = ?", (current_user,)).fetchall()
 
     week_shifts, month_shifts = [], []
     for s in all_shifts:
@@ -497,6 +513,8 @@ def index():
     </div>
 
     <div class="grid">
+
+        {% if is_admin %}
         <div class="card" style="grid-column:1/-1;">
             <button class="menu-button" onclick="toggleMenu()" type="button">☰ {{ tr["menu"] }}</button>
 
@@ -510,7 +528,6 @@ def index():
                         </form>
                     </div>
 
-                    {% if session['role'] == 'admin' %}
                     <div class="card">
                         <h3>{{ tr["user_mgmt"] }}</h3>
                         <form method="post" action="/add_user" autocomplete="off">
@@ -575,12 +592,10 @@ def index():
                             </div>
                         {% endfor %}
                     </div>
-                    {% endif %}
                 </div>
             </div>
         </div>
 
-        {% if session['role'] == 'admin' %}
         <div class="card">
             <h3>{{ tr["add_worker"] }}</h3>
             <form method="post" action="/add_worker" autocomplete="off">
@@ -598,7 +613,6 @@ def index():
                 <button>{{ tr["add_client"] }}</button>
             </form>
         </div>
-        {% endif %}
 
         <div class="card">
             <h3>{{ tr["add_shift"] }}</h3>
@@ -618,10 +632,11 @@ def index():
                 </select>
 
                 <input name="date" type="date" value="{{ selected_date }}" required>
-                <label>Početak</label>
+
+                <label>{{ tr["start_time"] }}</label>
                 <input name="start_time" type="time" required>
 
-                <label>Kraj</label>
+                <label>{{ tr["end_time"] }}</label>
                 <input name="end_time" type="time" required>
 
                 <select name="status" required>
@@ -655,6 +670,7 @@ def index():
             </form>
             <a href="/">{{ tr["reset"] }}</a>
         </div>
+        {% endif %}
 
         <div class="card">
             <h3>{{ tr["weekly_hours"] }}</h3>
@@ -695,7 +711,7 @@ def index():
                     {{ s[1] }}
                 </span>
                 → {{ s[2] }}
-                {% if session['role'] == 'admin' %}
+                {% if is_admin %}
                     <a class="action-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a>
                     <a class="action-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a>
                 {% endif %}
@@ -712,7 +728,7 @@ def index():
         m.style.display = (m.style.display === "none") ? "block" : "none";
     }
     </script>
-    """, tr=tr, dark=dark, workers=workers, clients=clients, db_users=db_users,
+    """, tr=tr, dark=dark, is_admin=is_admin, workers=workers, clients=clients, db_users=db_users,
        worker_colors=worker_colors, selected_date=selected_date,
        worker_filter=worker_filter, client_filter=client_filter, shifts=shifts,
        format_date=format_date, status_colors=STATUS_COLORS,
@@ -827,6 +843,7 @@ def week_view():
 
     tr = t()
     dark = get_theme() == "dark"
+    is_admin = session.get("role") == "admin"
 
     conn = get_conn()
     c = conn.cursor()
@@ -836,7 +853,7 @@ def week_view():
     start_week = today - timedelta(days=today.weekday())
     week_days = [(start_week + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
 
-    if session["role"] == "admin":
+    if is_admin:
         shifts = c.execute("SELECT * FROM shifts").fetchall()
     else:
         shifts = c.execute("SELECT * FROM shifts WHERE worker = ?", (session["user"],)).fetchall()
@@ -890,6 +907,7 @@ def month_view():
 
     tr = t()
     dark = get_theme() == "dark"
+    is_admin = session.get("role") == "admin"
 
     year = request.args.get("year", type=int) or datetime.today().year
     month = request.args.get("month", type=int) or datetime.today().month
@@ -904,7 +922,7 @@ def month_view():
     start_date = f"{year:04d}-{month:02d}-01"
     end_date = f"{year:04d}-{month:02d}-{calendar.monthrange(year, month)[1]:02d}"
 
-    if session["role"] == "admin":
+    if is_admin:
         shifts = c.execute("SELECT * FROM shifts WHERE date >= ? AND date <= ? ORDER BY date, time", (start_date, end_date)).fetchall()
     else:
         shifts = c.execute("SELECT * FROM shifts WHERE worker = ? AND date >= ? AND date <= ? ORDER BY date, time", (session["user"], start_date, end_date)).fetchall()
@@ -972,12 +990,14 @@ def export_pdf():
         return redirect("/login")
 
     tr = t()
+    is_admin = session.get("role") == "admin"
+
     conn = get_conn()
     c = conn.cursor()
 
     date_filter = request.args.get("date", "").strip()
 
-    if session["role"] == "admin":
+    if is_admin:
         if date_filter:
             shifts = c.execute("SELECT * FROM shifts WHERE date = ? ORDER BY date, time", (date_filter,)).fetchall()
         else:
@@ -1141,7 +1161,9 @@ def edit_shift(id):
         worker = request.form["worker"].strip()
         client = request.form["client"].strip()
         date = request.form["date"].strip()
-        time = request.form["time"].strip()
+        start_time = request.form["start_time"].strip()
+        end_time = request.form["end_time"].strip()
+        time = f"{start_time}-{end_time}"
         status = request.form["status"].strip()
 
         c.execute("UPDATE shifts SET worker = ?, client = ?, date = ?, time = ?, status = ? WHERE id = ?", (worker, client, date, time, status, id))
@@ -1156,6 +1178,8 @@ def edit_shift(id):
 
     if not shift:
         return redirect("/")
+
+    start_time, end_time = split_time_range(shift[4])
 
     return render_template_string("""
     <style>
@@ -1184,7 +1208,13 @@ def edit_shift(id):
                 {% endfor %}
             </select>
             <input type="date" name="date" value="{{ shift[3] }}" required>
-            <input type="text" name="time" value="{{ shift[4] }}" required autocomplete="off">
+
+            <label>{{ tr["start_time"] }}</label>
+            <input type="time" name="start_time" value="{{ start_time }}" required>
+
+            <label>{{ tr["end_time"] }}</label>
+            <input type="time" name="end_time" value="{{ end_time }}" required>
+
             <select name="status" required>
                 <option value="planned" {% if shift[5] == 'planned' %}selected{% endif %}>{{ tr["status_planned"] }}</option>
                 <option value="in_progress" {% if shift[5] == 'in_progress' %}selected{% endif %}>{{ tr["status_in_progress"] }}</option>
@@ -1194,7 +1224,7 @@ def edit_shift(id):
         </form>
         <br><a href="/">{{ tr["back"] }}</a>
     </div>
-    """, tr=tr, dark=dark, shift=shift, workers=workers, clients=clients)
+    """, tr=tr, dark=dark, shift=shift, workers=workers, clients=clients, start_time=start_time, end_time=end_time)
 
 @app.route("/add_worker", methods=["POST"])
 def add_worker():
@@ -1229,8 +1259,8 @@ def add_client():
 
 @app.route("/add_shift", methods=["POST"])
 def add_shift():
-    if "user" not in session:
-        return redirect("/login")
+    if "user" not in session or session.get("role") != "admin":
+        return redirect("/")
 
     worker = request.form["worker"].strip()
     client = request.form["client"].strip()
