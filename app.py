@@ -618,7 +618,11 @@ def index():
                 </select>
 
                 <input name="date" type="date" value="{{ selected_date }}" required>
-                <input name="time" placeholder="{{ tr['time_placeholder'] }}" required autocomplete="off">
+                <label>Početak</label>
+                <input name="start_time" type="time" required>
+
+                <label>Kraj</label>
+                <input name="end_time" type="time" required>
 
                 <select name="status" required>
                     <option value="planned">{{ tr["status_planned"] }}</option>
