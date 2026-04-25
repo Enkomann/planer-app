@@ -654,8 +654,8 @@ def copy_shift(id):
         return redirect("/")
 
     session["copied_shift_id"] = id
-    return redirect("/month")
-
+    d = datetime.strptime(date, "%Y-%m-%d")
+    return redirect(f"/month?year={d.year}&month={d.month}")
 @app.route("/paste_shift/<date>")
 def paste_shift(date):
     if "user" not in session or session.get("role") != "admin":
