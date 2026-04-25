@@ -962,6 +962,22 @@ def month_view():
         body { font-family: Arial, sans-serif; margin:24px; background: {{ '#0f172a' if dark else '#f4f6f8' }}; color: {{ '#e5e7eb' if dark else '#111827' }}; }
         .topnav a { color: {{ '#93c5fd' if dark else '#1f4f82' }}; text-decoration:none; font-weight:bold; margin-right:12px; }
         .month-nav { display:flex; justify-content:space-between; align-items:center; margin:16px 0; }
+        .month-nav a {
+    color: {{ '#93c5fd' if dark else '#1f4f82' }};
+    text-decoration: none;
+    font-weight: bold;
+}
+.paste-link {
+    display:inline-block;
+    margin-top:6px;
+    padding:4px 7px;
+    border-radius:6px;
+    background:#16a34a;
+    color:white !important;
+    font-size:11px;
+    text-decoration:none;
+    font-weight:bold;
+}
         .month-grid { display:grid; grid-template-columns: repeat(7, 1fr); gap:10px; }
         .day-header, .day-cell { background: {{ '#111827' if dark else 'white' }}; border-radius:12px; padding:10px; box-shadow:0 4px 14px rgba(0,0,0,0.06); min-height:120px; }
         .day-header { min-height:auto; font-weight:bold; text-align:center; }
@@ -989,10 +1005,15 @@ def month_view():
             {% for day in week %}
                 <div class="day-cell">
                     <div class="day-num">
-                        <a href="/?selected_date={{ day.strftime('%Y-%m-%d') }}" style="text-decoration:none; color:inherit;">
-                            {{ day.strftime('%d/%m/%Y') }}
-                        </a>
-                    </div>
+    <a href="/?selected_date={{ day.strftime('%Y-%m-%d') }}" style="text-decoration:none; color:inherit;">
+        {{ day.strftime('%d/%m/%Y') }}
+    </a>
+
+    {% if is_admin and copied_shift_id %}
+        <br>
+        <a class="paste-link" href="/paste_shift/{{ day.strftime('%Y-%m-%d') }}">+ Paste</a>
+    {% endif %}
+</div>
                     {% for s in shifts_by_date.get(day.strftime('%Y-%m-%d'), []) %}
                         <div class="mini-shift" style="border-left:5px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }};">
                             <b>{{ s[1] }}</b><br>{{ s[2] }}<br>{{ s[4] }}
@@ -1011,7 +1032,7 @@ def month_view():
        next_year=next_year, next_month=next_month, month=month, year=year,
        month_days=month_days, shifts_by_date=shifts_by_date,
        worker_colors=worker_colors, day_names=day_names,
-       split_workers=split_workers, is_admin=is_admin)
+       split_workers=split_workers, is_admin=is_admin, copied_shift_id=session.get("copied_shift_id"))
 
 @app.route("/export_pdf")
 def export_pdf():
@@ -1180,16 +1201,122 @@ def delete_client(name):
     conn.close()
     return redirect("/")
 
-@app.route("/delete_shift/<int:id>")
-def delete_shift(id):
-    if "user" not in session or session["role"] != "admin":
+@app.route("/copy_shift/<int:id>")
+def copy_shift(id):
+    if "user" not in session or session.get("role") != "admin":
         return redirect("/")
+
+    session["copied_shift_id"] = id
+    return redirect("/month")
+    @app.route("/paste_shift/<date>", methods=["GET", "POST"])
+def paste_shift(date):
+    if "user" not in session or session.get("role") != "admin":
+        return redirect("/")
+
+    copied_id = session.get("copied_shift_id")
+    if not copied_id:
+        return redirect("/month")
+
+    tr = t()
+    dark = get_theme() == "dark"
+
     conn = get_conn()
     c = conn.cursor()
-    c.execute("DELETE FROM shifts WHERE id = ?", (id,))
-    conn.commit()
+
+    original_shift = c.execute("SELECT * FROM shifts WHERE id = ?", (copied_id,)).fetchone()
+    workers = c.execute("SELECT name, address FROM workers ORDER BY name").fetchall()
+    clients = c.execute("SELECT name, address FROM clients ORDER BY name").fetchall()
+
+    if not original_shift:
+        conn.close()
+        session.pop("copied_shift_id", None)
+        return redirect("/month")
+
+    if request.method == "POST":
+        selected_workers = request.form.getlist("workers")
+        worker = join_workers(selected_workers)
+        client = request.form["client"].strip()
+        new_date = request.form["date"].strip()
+        start_time = request.form["start_time"].strip()
+        end_time = request.form["end_time"].strip()
+        time = f"{start_time}-{end_time}"
+        status = request.form["status"].strip()
+
+        if not worker or not client or not new_date or not start_time or not end_time:
+            conn.close()
+            return redirect("/paste_shift/" + date)
+
+        c.execute(
+            "INSERT INTO shifts (worker, client, date, time, status) VALUES (?, ?, ?, ?, ?)",
+            (worker, client, new_date, time, status)
+        )
+
+        conn.commit()
+        conn.close()
+        return redirect("/month")
+
     conn.close()
-    return redirect("/")
+
+    start_time, end_time = split_time_range(original_shift[4])
+    selected_workers = split_workers(original_shift[1])
+
+    return render_template_string("""
+    <style>
+        body { font-family: Arial, sans-serif; margin:24px; background: {{ '#0f172a' if dark else '#f4f6f8' }}; color: {{ '#e5e7eb' if dark else '#111827' }}; }
+        .card { max-width:560px; background: {{ '#111827' if dark else 'white' }}; border-radius:12px; padding:20px; box-shadow:0 4px 14px rgba(0,0,0,0.06); margin:auto; }
+        input, select, button { padding:10px; margin:6px 0; width:100%; box-sizing:border-box; border:1px solid {{ '#374151' if dark else '#cbd5e1' }}; border-radius:8px; background: {{ '#1f2937' if dark else 'white' }}; color: {{ '#e5e7eb' if dark else '#111827' }}; }
+        button { background:#1f4f82; color:white; border:none; cursor:pointer; }
+        a { text-decoration:none; color: {{ '#93c5fd' if dark else '#1f4f82' }}; font-weight:bold; }
+        .check-row { display:flex; align-items:center; gap:8px; margin:5px 0; }
+        .check-row input { width:auto; }
+    </style>
+
+    <div class="card">
+        <h2>{{ tr["copy_shift"] }}</h2>
+
+        <form method="post" autocomplete="off">
+            <label>{{ tr["choose_worker"] }}</label>
+            {% for w in workers %}
+                {% if w[0] != 'admin' %}
+                <label class="check-row">
+                    <input type="checkbox" name="workers" value="{{ w[0] }}" {% if w[0] in selected_workers %}checked{% endif %}>
+                    {{ w[0] }}
+                </label>
+                {% endif %}
+            {% endfor %}
+
+            <label>{{ tr["choose_client"] }}</label>
+            <select name="client" required>
+                {% for c in clients %}
+                    <option value="{{ c[0] }}" {% if c[0] == original_shift[2] %}selected{% endif %}>{{ c[0] }}</option>
+                {% endfor %}
+            </select>
+
+            <label>{{ tr["pdf_date"] }}</label>
+            <input type="date" name="date" value="{{ date }}" required>
+
+            <label>{{ tr["start_time"] }}</label>
+            <input type="time" name="start_time" value="{{ start_time }}" required>
+
+            <label>{{ tr["end_time"] }}</label>
+            <input type="time" name="end_time" value="{{ end_time }}" required>
+
+            <label>{{ tr["status"] }}</label>
+            <select name="status" required>
+                <option value="planned" {% if original_shift[5] == 'planned' %}selected{% endif %}>{{ tr["status_planned"] }}</option>
+                <option value="in_progress" {% if original_shift[5] == 'in_progress' %}selected{% endif %}>{{ tr["status_in_progress"] }}</option>
+                <option value="done" {% if original_shift[5] == 'done' %}selected{% endif %}>{{ tr["status_done"] }}</option>
+            </select>
+
+            <button type="submit">{{ tr["save"] }}</button>
+        </form>
+
+        <br>
+        <a href="/month">{{ tr["back"] }}</a>
+    </div>
+    """, tr=tr, dark=dark, original_shift=original_shift, workers=workers,
+       clients=clients, selected_workers=selected_workers, start_time=start_time,
+       end_time=end_time, date=date)
 
 @app.route("/edit_shift/<int:id>", methods=["GET", "POST"])
 def edit_shift(id):
