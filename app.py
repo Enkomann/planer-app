@@ -656,7 +656,7 @@ def copy_shift(id):
     session["copied_shift_id"] = id
     return redirect("/month")
 
-@app.route("/paste_shift/<date>", methods=["GET", "POST"])
+@app.route("/paste_shift/<date>")
 def paste_shift(date):
     if "user" not in session or session.get("role") != "admin":
         return redirect("/")
@@ -665,20 +665,30 @@ def paste_shift(date):
     if not copied_id:
         return redirect("/month")
 
-    tr = t()
-    dark = get_theme() == "dark"
-
     conn = get_conn()
     c = conn.cursor()
 
-    original_shift = c.execute("SELECT * FROM shifts WHERE id = ?", (copied_id,)).fetchone()
-    workers = c.execute("SELECT name, address FROM workers ORDER BY name").fetchall()
-    clients = c.execute("SELECT name, address FROM clients ORDER BY name").fetchall()
+    original_shift = c.execute(
+        "SELECT worker, client, time, status FROM shifts WHERE id = ?",
+        (copied_id,)
+    ).fetchone()
 
     if not original_shift:
         conn.close()
         session.pop("copied_shift_id", None)
         return redirect("/month")
+
+    worker, client, time, status = original_shift
+
+    c.execute(
+        "INSERT INTO shifts (worker, client, date, time, status) VALUES (?, ?, ?, ?, ?)",
+        (worker, client, date, time, status)
+    )
+
+    conn.commit()
+    conn.close()
+
+    return redirect("/month")
 
     if request.method == "POST":
         selected_workers = request.form.getlist("workers")
