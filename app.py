@@ -1,4 +1,4 @@
-vfrom flask import Flask, request, redirect, render_template_string, session, send_file, url_for
+from flask import Flask, request, redirect, render_template_string, session, send_file, url_for
 import sqlite3, io, os, calendar
 from datetime import datetime, timedelta
 
