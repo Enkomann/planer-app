@@ -698,9 +698,9 @@ def index():
                 </select>
                 <input name="date" type="date" value="{{ selected_date }}" required>
                 <label>{{ tr["start_time"] }}</label>
-                <input name="start_time" type="time" required>
+                <input name="start_time" type="time" step="900" required>
                 <label>{{ tr["end_time"] }}</label>
-                <input name="end_time" type="time" required>
+                <input name="end_time" type="time" step="900" required>
                 <select name="status" required>
                     <option value="planned">{{ tr["status_planned"] }}</option>
                     <option value="in_progress">{{ tr["status_in_progress"] }}</option>
@@ -978,6 +978,10 @@ def week_view():
     worker_colors = get_worker_colors(conn)
 
     week_days = [(start_week + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
+    week_day_names = [
+        tr["monday"], tr["tuesday"], tr["wednesday"], tr["thursday"],
+        tr["friday"], tr["saturday"], tr["sunday"]
+    ]
 
     all_shifts = c.execute(
         "SELECT * FROM shifts WHERE date >= ? AND date <= ? ORDER BY date, time",
@@ -1019,7 +1023,10 @@ def week_view():
     <div class="week-wrap">
         {% for day in week_days %}
             <div class="day-card">
-                <a class="day-link" href="/?selected_date={{ day }}">{{ format_date(day) }}</a>
+                <a class="day-link" href="/?selected_date={{ day }}">
+                    {{ week_day_names[loop.index0] }}<br>
+                    {{ format_date(day) }}
+                </a>
                 {% for s in shifts %}
                     {% if s[3] == day %}
                         <div class="shift" style="border-left: 6px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }}">
@@ -1037,7 +1044,7 @@ def week_view():
        worker_colors=worker_colors, format_date=format_date,
        status_colors=STATUS_COLORS, get_status_label=get_status_label,
        split_workers=split_workers, prev_week=prev_week, next_week=next_week,
-       current_week=current_week)
+       current_week=current_week, week_day_names=week_day_names)
 
 
 @app.route("/month")
@@ -1416,9 +1423,9 @@ def edit_shift(id):
 
             <input type="date" name="date" value="{{ shift[3] }}" required>
             <label>{{ tr["start_time"] }}</label>
-            <input type="time" name="start_time" value="{{ start_time }}" required>
+            <input type="time" name="start_time" value="{{ start_time }}" step="900" required>
             <label>{{ tr["end_time"] }}</label>
-            <input type="time" name="end_time" value="{{ end_time }}" required>
+            <input type="time" name="end_time" value="{{ end_time }}" step="900" required>
 
             <select name="status" required>
                 <option value="planned" {% if shift[5] == 'planned' %}selected{% endif %}>{{ tr["status_planned"] }}</option>
