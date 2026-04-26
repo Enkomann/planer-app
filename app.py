@@ -186,6 +186,68 @@ TRANSLATIONS = {
 }
 
 
+
+EXTRA_TRANSLATIONS = {
+    "bos": {
+        "add_holiday": "Dodaj praznik / neradni dan",
+        "holiday_name": "Naziv praznika",
+        "holiday": "Praznik",
+        "repeat_weekly": "Ponovi svake sedmice",
+        "repeat_weeks": "Broj sedmica",
+        "drag_hint": "Prevuci smjenu na drugi dan za promjenu datuma",
+        "week": "Sedmica",
+        "current_month": "Trenutni mjesec",
+        "cancel": "Odustani",
+    },
+    "fr": {
+        "add_holiday": "Ajouter jour ferie / non travaille",
+        "holiday_name": "Nom du jour",
+        "holiday": "Jour ferie",
+        "repeat_weekly": "Repeter chaque semaine",
+        "repeat_weeks": "Nombre de semaines",
+        "drag_hint": "Glissez la mission vers un autre jour pour changer la date",
+        "week": "Semaine",
+        "current_month": "Mois actuel",
+        "cancel": "Annuler",
+    },
+    "en": {
+        "add_holiday": "Add holiday / day off",
+        "holiday_name": "Holiday name",
+        "holiday": "Holiday",
+        "repeat_weekly": "Repeat weekly",
+        "repeat_weeks": "Number of weeks",
+        "drag_hint": "Drag a shift to another day to change its date",
+        "week": "Week",
+        "current_month": "Current month",
+        "cancel": "Cancel",
+    },
+    "de": {
+        "add_holiday": "Feiertag / freier Tag hinzufugen",
+        "holiday_name": "Name des Feiertags",
+        "holiday": "Feiertag",
+        "repeat_weekly": "Wochentlich wiederholen",
+        "repeat_weeks": "Anzahl Wochen",
+        "drag_hint": "Einsatz auf einen anderen Tag ziehen, um das Datum zu andern",
+        "week": "Woche",
+        "current_month": "Aktueller Monat",
+        "cancel": "Abbrechen",
+    },
+    "pt": {
+        "add_holiday": "Adicionar feriado / dia livre",
+        "holiday_name": "Nome do feriado",
+        "holiday": "Feriado",
+        "repeat_weekly": "Repetir semanalmente",
+        "repeat_weeks": "Numero de semanas",
+        "drag_hint": "Arraste o turno para outro dia para mudar a data",
+        "week": "Semana",
+        "current_month": "Mes atual",
+        "cancel": "Cancelar",
+    },
+}
+for _lang, _vals in EXTRA_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_lang, TRANSLATIONS["bos"]).update(_vals)
+
+
 def get_lang():
     return session.get("lang", "bos")
 
@@ -247,6 +309,15 @@ def split_time_range(time_range):
         return parts[0].strip(), parts[1].strip()
     return "", ""
 
+def time_options():
+    return [f"{hour:02d}:{minute:02d}" for hour in range(24) for minute in (0, 15, 30, 45)]
+
+def is_weekend(date_str):
+    try:
+        return datetime.strptime(date_str, "%Y-%m-%d").weekday() >= 5
+    except Exception:
+        return False
+
 
 def parse_shift_hours(time_str):
     try:
@@ -296,6 +367,77 @@ def get_week_start_from_request():
     return today - timedelta(days=today.weekday())
 
 
+def easter_date(year):
+    """Gregorian Easter Sunday date."""
+    a = year % 19
+    b = year // 100
+    c = year % 100
+    d = b // 4
+    e = b % 4
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i = c // 4
+    k = c % 4
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    month = (h + l - 7 * m + 114) // 31
+    day = ((h + l - 7 * m + 114) % 31) + 1
+    return datetime(year, month, day)
+
+
+def lux_holidays_for_year(year):
+    easter = easter_date(year)
+    holidays = {
+        f"{year}-01-01": "Nouvel An",
+        (easter + timedelta(days=1)).strftime("%Y-%m-%d"): "Lundi de Paques",
+        f"{year}-05-01": "Fete du Travail",
+        f"{year}-05-09": "Jour de l'Europe",
+        (easter + timedelta(days=39)).strftime("%Y-%m-%d"): "Ascension",
+        (easter + timedelta(days=50)).strftime("%Y-%m-%d"): "Lundi de Pentecote",
+        f"{year}-06-23": "Fete nationale",
+        f"{year}-08-15": "Assomption",
+        f"{year}-11-01": "Toussaint",
+        f"{year}-12-25": "Noel",
+        f"{year}-12-26": "Saint Etienne",
+    }
+    return holidays
+
+
+def get_custom_holidays(conn):
+    c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS holidays (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT UNIQUE,
+            name TEXT
+        )
+    """)
+    return {row[0]: row[1] for row in c.execute("SELECT date, name FROM holidays").fetchall()}
+
+
+def get_all_holidays(conn, years):
+    holidays = {}
+    for y in years:
+        holidays.update(lux_holidays_for_year(y))
+    holidays.update(get_custom_holidays(conn))
+    return holidays
+
+
+def group_shifts_by_week(shifts):
+    weeks = {}
+    for s in shifts:
+        try:
+            d = datetime.strptime(s[3], "%Y-%m-%d")
+            week_start = d - timedelta(days=d.weekday())
+            key = week_start.strftime("%Y-%m-%d")
+            weeks.setdefault(key, []).append(s)
+        except Exception:
+            pass
+    return dict(sorted(weeks.items()))
+
+
+
 def init_db():
     conn = get_conn()
     c = conn.cursor()
@@ -340,6 +482,14 @@ def init_db():
         CREATE TABLE IF NOT EXISTS worker_colors (
             worker_name TEXT PRIMARY KEY,
             color TEXT
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS holidays (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT UNIQUE,
+            name TEXT
         )
     """)
 
@@ -529,6 +679,7 @@ def index():
 
     week_period = f"{format_date(week_start.strftime('%Y-%m-%d'))} - {format_date(week_end.strftime('%Y-%m-%d'))}"
     month_period = today.strftime("%m/%Y")
+    weeks_grouped = group_shifts_by_week(shifts)
 
     conn.close()
 
@@ -698,14 +849,29 @@ def index():
                 </select>
                 <input name="date" type="date" value="{{ selected_date }}" required>
                 <label>{{ tr["start_time"] }}</label>
-                <input name="start_time" type="time" required>
+                <select name="start_time" required>
+                    {% for opt in time_options %}
+                        <option value="{{ opt }}">{{ opt }}</option>
+                    {% endfor %}
+                </select>
                 <label>{{ tr["end_time"] }}</label>
-                <input name="end_time" type="time" required>
+                <select name="end_time" required>
+                    {% for opt in time_options %}
+                        <option value="{{ opt }}">{{ opt }}</option>
+                    {% endfor %}
+                </select>
                 <select name="status" required>
                     <option value="planned">{{ tr["status_planned"] }}</option>
                     <option value="in_progress">{{ tr["status_in_progress"] }}</option>
                     <option value="done">{{ tr["status_done"] }}</option>
                 </select>
+
+                <label class="check-row">
+                    <input type="checkbox" name="repeat_weekly" value="1">
+                    {{ tr["repeat_weekly"] }}
+                </label>
+                <input type="number" name="repeat_weeks" min="1" max="52" value="1" placeholder="{{ tr['repeat_weeks'] }}">
+
                 <button>{{ tr["add_shift"] }}</button>
             </form>
         </div>
@@ -761,22 +927,35 @@ def index():
     <div class="card" style="margin-top:20px;">
         <h2>{{ tr["plan"] }}</h2>
         {% if shifts|length == 0 %}<div class="muted">{{ tr["no_shifts"] }}</div>{% endif %}
-        {% for s in shifts %}
-            <div class="shift" style="border-left: 6px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }}">
-                <b>{{ format_date(s[3]) }}</b> | {{ s[4] }}
-                <span class="status-badge" style="background: {{ status_colors.get(s[5], '#6b7280') }};">
-                    {{ get_status_label(s[5], tr) }}
-                </span>
-                <br><br>
-                <b>{{ tr["team"] }}:</b> {{ s[1] }}<br>
-                <b>{{ tr["pdf_client"] }}:</b> {{ s[2] }}
-                {% if is_admin %}
-                    <a class="action-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a>
-                    <a class="action-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a>
-                    <a class="action-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>
-                {% endif %}
-            </div>
-        {% endfor %}
+
+        <div class="plan-weeks" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(360px, 1fr)); gap:18px;">
+            {% for week_start_key, week_shifts in weeks_grouped.items() %}
+                {% set week_end_key = (datetime.strptime(week_start_key, "%Y-%m-%d") + timedelta(days=6)).strftime("%Y-%m-%d") %}
+                <div class="card" style="padding:12px;">
+                    <h3 style="border-bottom:2px solid #1f4f82; padding-bottom:8px; margin-top:0;">
+                        {{ tr["week"] }}: {{ format_date(week_start_key) }} - {{ format_date(week_end_key) }}
+                    </h3>
+
+                    {% for s in week_shifts %}
+                        <div class="shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="border-left: 6px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }}">
+                            <b>{{ format_date(s[3]) }}</b> | {{ s[4] }}
+                            <span class="status-badge" style="background: {{ status_colors.get(s[5], '#6b7280') }};">
+                                {{ get_status_label(s[5], tr) }}
+                            </span>
+                            <br><br>
+                            <b>{{ tr["team"] }}:</b> {{ s[1] }}<br>
+                            <b>{{ tr["pdf_client"] }}:</b> {{ s[2] }}
+                            {% if is_admin %}
+                                <a class="action-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a>
+                                <a class="action-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a>
+                                <a class="action-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+        </div>
+
         <a class="week-link" href="/week">{{ tr["week_calendar"] }}</a>
         <a class="week-link" href="/month">{{ tr["month_calendar"] }}</a>
         <a class="pdf-link" href="/export_pdf{% if request.args.get('date') %}?date={{ request.args.get('date') }}{% endif %}" target="_blank">{{ tr["pdf"] }}</a>
@@ -787,6 +966,9 @@ def index():
         var m = document.getElementById("menuBox");
         m.style.display = (m.style.display === "none") ? "block" : "none";
     }
+    function dragShift(ev, shiftId) {
+        ev.dataTransfer.setData("shift_id", shiftId);
+    }
     </script>
     """, tr=tr, dark=dark, is_admin=is_admin, workers=workers, clients=clients, db_users=db_users,
        worker_colors=worker_colors, selected_date=selected_date,
@@ -794,7 +976,8 @@ def index():
        format_date=format_date, status_colors=STATUS_COLORS,
        get_status_label=get_status_label, weekly_hours=weekly_hours,
        monthly_hours=monthly_hours, week_period=week_period, month_period=month_period,
-       split_workers=split_workers)
+       split_workers=split_workers, weeks_grouped=weeks_grouped,
+       datetime=datetime, timedelta=timedelta, time_options=time_options())
 
 
 @app.route("/copy_shift/<int:id>")
@@ -847,6 +1030,54 @@ def clear_copy():
     if session.get("role") == "admin":
         session.pop("copied_shift_id", None)
     return redirect("/month")
+
+
+@app.route("/add_holiday", methods=["POST"])
+def add_holiday():
+    if "user" not in session or session.get("role") != "admin":
+        return redirect("/")
+
+    date = request.form.get("date", "").strip()
+    name = request.form.get("name", "").strip() or t().get("holiday", "Praznik")
+
+    if date:
+        conn = get_conn()
+        c = conn.cursor()
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS holidays (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                date TEXT UNIQUE,
+                name TEXT
+            )
+        """)
+        c.execute(
+            "INSERT OR REPLACE INTO holidays (date, name) VALUES (?, ?)",
+            (date, name)
+        )
+        conn.commit()
+        conn.close()
+
+    return redirect(request.referrer or "/month")
+
+
+@app.route("/move_shift", methods=["POST"])
+def move_shift():
+    if "user" not in session or session.get("role") != "admin":
+        return ("Forbidden", 403)
+
+    shift_id = request.form.get("shift_id", "").strip()
+    new_date = request.form.get("date", "").strip()
+
+    if not shift_id or not new_date:
+        return ("Bad request", 400)
+
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("UPDATE shifts SET date = ? WHERE id = ?", (new_date, shift_id))
+    conn.commit()
+    conn.close()
+    return ("OK", 200)
+
 
 
 @app.route("/edit_worker/<path:name>", methods=["GET", "POST"])
@@ -987,6 +1218,9 @@ def week_view():
     if not is_admin:
         all_shifts = [s for s in all_shifts if worker_in_shift(current_user, s[1])]
 
+    holiday_years = {start_week.year, week_end.year}
+    holidays_map = get_all_holidays(conn, holiday_years)
+
     conn.close()
 
     return render_template_string("""
@@ -1000,6 +1234,11 @@ def week_view():
         .day-link { display:block; margin-bottom:8px; }
         .shift { background: {{ 'linear-gradient(135deg, #111827, #1f2937)' if dark else 'linear-gradient(135deg, #ffffff, #f1f5f9)' }}; margin-top:8px; padding:10px; border-radius:10px; }
         .status-badge { color:white; padding:4px 8px; border-radius:6px; font-size:12px; font-weight:bold; display:inline-block; margin-top:6px; }
+        .holiday-note { display:block; color:#dc2626; font-size:11px; margin-top:4px; font-weight:bold; }
+        .holiday-soft { background:{{ '#3f2f12' if dark else '#fff7df' }} !important; border-color:#f59e0b !important; }
+        .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:50; }
+        .modal-card { max-width:420px; margin:12vh auto; background:{{ '#111827' if dark else 'white' }}; color:{{ '#e5e7eb' if dark else '#111827' }}; border-radius:12px; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,0.25); }
+        .drop-target { outline:2px dashed #22c55e; }
     </style>
 
     <div class="langbar">
@@ -1018,11 +1257,15 @@ def week_view():
 
     <div class="week-wrap">
         {% for day in week_days %}
-            <div class="day-card">
-                <a class="day-link" href="/?selected_date={{ day }}">{{ format_date(day) }}</a>
+            {% set holiday_name = holidays_map.get(day) %}
+            <div class="day-card {% if holiday_name %}holiday-soft{% endif %}" ondragover="allowDrop(event)" ondragleave="clearDrop(event)" ondrop="dropShift(event, '{{ day }}')" style="{% if is_weekend(day) %}border:2px solid #ef4444; background:{{ '#3f1f1f' if dark else '#fff1f1' }};{% endif %}">
+                <a class="day-link" href="{% if is_admin %}javascript:void(0){% else %}/?selected_date={{ day }}{% endif %}" {% if is_admin %}onclick="openHolidayModal('{{ day }}')"{% endif %} style="{% if is_weekend(day) %}color:#ef4444;{% endif %}">
+                    {{ day_names[loop.index0] }}<br>{{ format_date(day) }}
+                </a>
+                {% if holiday_name %}<small class="holiday-note">{{ holiday_name }}</small>{% endif %}
                 {% for s in shifts %}
                     {% if s[3] == day %}
-                        <div class="shift" style="border-left: 6px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }}">
+                        <div class="shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="border-left: 6px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }}">
                             <b>{{ s[1] }}</b><br><br>
                             {{ s[2] }}<br>
                             {{ s[4] }}<br>
@@ -1033,11 +1276,52 @@ def week_view():
             </div>
         {% endfor %}
     </div>
+
+    {% if is_admin %}
+    <div id="holidayModal" class="modal-backdrop">
+        <div class="modal-card">
+            <h3>{{ tr["add_holiday"] }}</h3>
+            <form method="post" action="/add_holiday">
+                <input type="date" name="date" id="holidayDate" required>
+                <input type="text" name="name" placeholder="{{ tr['holiday_name'] }}" required>
+                <button type="submit">{{ tr["save"] }}</button>
+            </form>
+            <button type="button" onclick="closeHolidayModal()">{{ tr["cancel"] }}</button>
+        </div>
+    </div>
+    {% endif %}
+
+    <script>
+    function openHolidayModal(dateStr) {
+        var m = document.getElementById("holidayModal");
+        var d = document.getElementById("holidayDate");
+        if (m && d) { d.value = dateStr; m.style.display = "block"; }
+    }
+    function closeHolidayModal() {
+        var m = document.getElementById("holidayModal");
+        if (m) { m.style.display = "none"; }
+    }
+    function dragShift(ev, shiftId) { ev.dataTransfer.setData("shift_id", shiftId); }
+    function allowDrop(ev) { ev.preventDefault(); ev.currentTarget.classList.add("drop-target"); }
+    function clearDrop(ev) { ev.currentTarget.classList.remove("drop-target"); }
+    function dropShift(ev, dateStr) {
+        ev.preventDefault();
+        ev.currentTarget.classList.remove("drop-target");
+        var shiftId = ev.dataTransfer.getData("shift_id");
+        if (!shiftId) return;
+        fetch("/move_shift", {
+            method: "POST",
+            headers: {"Content-Type": "application/x-www-form-urlencoded"},
+            body: "shift_id=" + encodeURIComponent(shiftId) + "&date=" + encodeURIComponent(dateStr)
+        }).then(function(){ window.location.reload(); });
+    }
+    </script>
     """, tr=tr, dark=dark, week_days=week_days, shifts=all_shifts,
        worker_colors=worker_colors, format_date=format_date,
        status_colors=STATUS_COLORS, get_status_label=get_status_label,
        split_workers=split_workers, prev_week=prev_week, next_week=next_week,
-       current_week=current_week)
+       current_week=current_week, day_names=[tr["monday"], tr["tuesday"], tr["wednesday"], tr["thursday"], tr["friday"], tr["saturday"], tr["sunday"]], is_weekend=is_weekend,
+       holidays_map=holidays_map, is_admin=is_admin)
 
 
 @app.route("/month")
@@ -1072,6 +1356,13 @@ def month_view():
     if not is_admin:
         shifts = [s for s in shifts if worker_in_shift(current_user, s[1])]
 
+    holiday_years = {year}
+    # Include surrounding years because calendar weeks may show days from previous/next month.
+    for wk in calendar.Calendar(firstweekday=0).monthdatescalendar(year, month):
+        for d in wk:
+            holiday_years.add(d.year)
+    holidays_map = get_all_holidays(conn, holiday_years)
+
     conn.close()
 
     cal = calendar.Calendar(firstweekday=0)
@@ -1099,6 +1390,11 @@ def month_view():
         .paste-link { display:inline-block; margin-top:6px; padding:4px 7px; border-radius:6px; background:#16a34a; color:white !important; font-size:11px; text-decoration:none; font-weight:bold; }
         .copy-active { background:#16a34a; color:white; padding:8px 12px; border-radius:8px; display:inline-block; margin:10px 0; font-weight:bold; }
         .clear-link { color:white; margin-left:10px; }
+        .holiday-note { display:block; color:#dc2626; font-size:11px; margin-top:4px; font-weight:bold; }
+        .holiday-soft { background:{{ '#3f2f12' if dark else '#fff7df' }} !important; border-color:#f59e0b !important; }
+        .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:50; }
+        .modal-card { max-width:420px; margin:12vh auto; background:{{ '#111827' if dark else 'white' }}; color:{{ '#e5e7eb' if dark else '#111827' }}; border-radius:12px; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,0.25); }
+        .drop-target { outline:2px dashed #22c55e; }
     </style>
 
     <div class="topnav">
@@ -1120,21 +1416,24 @@ def month_view():
     </div>
 
     <div class="month-grid">
-        {% for dn in day_names %}<div class="day-header">{{ dn }}</div>{% endfor %}
+        {% for dn in day_names %}<div class="day-header" style="{% if loop.index0 >= 5 %}color:#ef4444; border:2px solid #ef4444;{% endif %}">{{ dn }}</div>{% endfor %}
         {% for week in month_days %}
             {% for day in week %}
-                <div class="day-cell">
+                {% set day_str = day.strftime('%Y-%m-%d') %}
+                {% set holiday_name = holidays_map.get(day_str) %}
+                <div class="day-cell {% if holiday_name %}holiday-soft{% endif %}" ondragover="allowDrop(event)" ondragleave="clearDrop(event)" ondrop="dropShift(event, '{{ day_str }}')" style="{% if day.weekday() >= 5 %}border:2px solid #ef4444; background:{{ '#3f1f1f' if dark else '#fff1f1' }};{% endif %}">
                     <div class="day-num">
-                        <a href="/?selected_date={{ day.strftime('%Y-%m-%d') }}" style="text-decoration:none; color:inherit;">
+                        <a href="{% if is_admin %}javascript:void(0){% else %}/?selected_date={{ day_str }}{% endif %}" {% if is_admin %}onclick="openHolidayModal('{{ day_str }}')"{% endif %} style="text-decoration:none; color:{{ '#ef4444' if day.weekday() >= 5 else 'inherit' }};">
                             {{ day.strftime('%d/%m/%Y') }}
                         </a>
+                        {% if holiday_name %}<small class="holiday-note">{{ holiday_name }}</small>{% endif %}
                         {% if is_admin and copied_shift_id %}
                             <br>
-                            <a class="paste-link" href="/paste_shift/{{ day.strftime('%Y-%m-%d') }}">{{ tr["paste"] }}</a>
+                            <a class="paste-link" href="/paste_shift/{{ day_str }}">{{ tr["paste"] }}</a>
                         {% endif %}
                     </div>
                     {% for s in shifts_by_date.get(day.strftime('%Y-%m-%d'), []) %}
-                        <div class="mini-shift" style="border-left:5px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }};">
+                        <div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="border-left:5px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }};">
                             <b>{{ s[1] }}</b><br>{{ s[2] }}<br>{{ s[4] }}
                             {% if is_admin %}
                                 <br>
@@ -1147,11 +1446,52 @@ def month_view():
             {% endfor %}
         {% endfor %}
     </div>
+
+    {% if is_admin %}
+    <div id="holidayModal" class="modal-backdrop">
+        <div class="modal-card">
+            <h3>{{ tr["add_holiday"] }}</h3>
+            <form method="post" action="/add_holiday">
+                <input type="date" name="date" id="holidayDate" required>
+                <input type="text" name="name" placeholder="{{ tr['holiday_name'] }}" required>
+                <button type="submit">{{ tr["save"] }}</button>
+            </form>
+            <button type="button" onclick="closeHolidayModal()">{{ tr["cancel"] }}</button>
+        </div>
+    </div>
+    {% endif %}
+
+    <script>
+    function openHolidayModal(dateStr) {
+        var m = document.getElementById("holidayModal");
+        var d = document.getElementById("holidayDate");
+        if (m && d) { d.value = dateStr; m.style.display = "block"; }
+    }
+    function closeHolidayModal() {
+        var m = document.getElementById("holidayModal");
+        if (m) { m.style.display = "none"; }
+    }
+    function dragShift(ev, shiftId) { ev.dataTransfer.setData("shift_id", shiftId); }
+    function allowDrop(ev) { ev.preventDefault(); ev.currentTarget.classList.add("drop-target"); }
+    function clearDrop(ev) { ev.currentTarget.classList.remove("drop-target"); }
+    function dropShift(ev, dateStr) {
+        ev.preventDefault();
+        ev.currentTarget.classList.remove("drop-target");
+        var shiftId = ev.dataTransfer.getData("shift_id");
+        if (!shiftId) return;
+        fetch("/move_shift", {
+            method: "POST",
+            headers: {"Content-Type": "application/x-www-form-urlencoded"},
+            body: "shift_id=" + encodeURIComponent(shiftId) + "&date=" + encodeURIComponent(dateStr)
+        }).then(function(){ window.location.reload(); });
+    }
+    </script>
     """, tr=tr, dark=dark, prev_year=prev_year, prev_month=prev_month,
        next_year=next_year, next_month=next_month, month=month, year=year,
        month_days=month_days, shifts_by_date=shifts_by_date,
        worker_colors=worker_colors, day_names=day_names,
-       split_workers=split_workers, is_admin=is_admin, copied_shift_id=copied_shift_id)
+       split_workers=split_workers, is_admin=is_admin, copied_shift_id=copied_shift_id,
+       holidays_map=holidays_map)
 
 
 @app.route("/export_pdf")
@@ -1416,9 +1756,17 @@ def edit_shift(id):
 
             <input type="date" name="date" value="{{ shift[3] }}" required>
             <label>{{ tr["start_time"] }}</label>
-            <input type="time" name="start_time" value="{{ start_time }}" required>
+            <select name="start_time" required>
+                {% for opt in time_options %}
+                    <option value="{{ opt }}" {% if opt == start_time %}selected{% endif %}>{{ opt }}</option>
+                {% endfor %}
+            </select>
             <label>{{ tr["end_time"] }}</label>
-            <input type="time" name="end_time" value="{{ end_time }}" required>
+            <select name="end_time" required>
+                {% for opt in time_options %}
+                    <option value="{{ opt }}" {% if opt == end_time %}selected{% endif %}>{{ opt }}</option>
+                {% endfor %}
+            </select>
 
             <select name="status" required>
                 <option value="planned" {% if shift[5] == 'planned' %}selected{% endif %}>{{ tr["status_planned"] }}</option>
@@ -1431,7 +1779,7 @@ def edit_shift(id):
         <br><a href="/">{{ tr["back"] }}</a>
     </div>
     """, tr=tr, dark=dark, shift=shift, workers=workers, clients=clients,
-       start_time=start_time, end_time=end_time, selected_workers=selected_workers)
+       start_time=start_time, end_time=end_time, selected_workers=selected_workers, time_options=time_options())
 
 
 @app.route("/add_worker", methods=["POST"])
@@ -1484,14 +1832,34 @@ def add_shift():
     if not worker or not client or not date or not start_time or not end_time:
         return redirect("/")
 
+    repeat_weekly = request.form.get("repeat_weekly") == "1"
+    try:
+        repeat_weeks = int(request.form.get("repeat_weeks", "1"))
+    except Exception:
+        repeat_weeks = 1
+    repeat_weeks = max(1, min(repeat_weeks, 52))
+
     conn = get_conn()
     c = conn.cursor()
-    c.execute("INSERT INTO shifts (worker, client, date, time, status) VALUES (?, ?, ?, ?, ?)", (worker, client, date, time, status))
+
+    try:
+        base_date = datetime.strptime(date, "%Y-%m-%d")
+    except Exception:
+        base_date = None
+
+    if repeat_weekly and base_date:
+        for i in range(repeat_weeks):
+            new_date = (base_date + timedelta(days=7 * i)).strftime("%Y-%m-%d")
+            c.execute(
+                "INSERT INTO shifts (worker, client, date, time, status) VALUES (?, ?, ?, ?, ?)",
+                (worker, client, new_date, time, status)
+            )
+    else:
+        c.execute("INSERT INTO shifts (worker, client, date, time, status) VALUES (?, ?, ?, ?, ?)", (worker, client, date, time, status))
+
     conn.commit()
     conn.close()
     return redirect("/")
 
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+if __n
