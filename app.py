@@ -849,11 +849,37 @@ def index():
                 </select>
                 <input name="date" type="date" value="{{ selected_date }}" required>
                 <label>{{ tr["start_time"] }}</label>
-                <select name="start_time" required>
-                    {% for opt in time_options %}
-                        <option value="{{ opt }}">{{ opt }}</option>
+                <label>Pocetak</label>
+        <div style="display:flex; gap:5px;">
+                <select name="start_hour">
+                    {% for h in range(0,24) %}
+                <option value="{{ "%02d"|format(h) }}">{{ "%02d"|format(h) }}</option>
                     {% endfor %}
-                </select>
+            </select>
+
+            <select name="start_minute">
+            <option value="00" selected>00</option>
+            <option value="15">15</option>
+            <option value="30">30</option>
+            <option value="45">45</option>
+        </select>
+        </div>
+
+        <label>Kraj</label>
+        <div style="display:flex; gap:5px;">
+        <select name="end_hour">
+        {% for h in range(0,24) %}
+            <option value="{{ "%02d"|format(h) }}">{{ "%02d"|format(h) }}</option>
+        {% endfor %}
+    </select>
+
+    <select name="end_minute">
+        <option value="00" selected>00</option>
+        <option value="15">15</option>
+        <option value="30">30</option>
+        <option value="45">45</option>
+    </select>
+</div>
                 <label>{{ tr["end_time"] }}</label>
                 <select name="end_time" required>
                     {% for opt in time_options %}
