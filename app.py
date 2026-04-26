@@ -811,7 +811,7 @@ def index():
        format_date=format_date, status_colors=STATUS_COLORS,
        get_status_label=get_status_label, weekly_hours=weekly_hours,
        monthly_hours=monthly_hours, week_period=week_period, month_period=month_period,
-       split_workers=split_workers)
+       split_workers=split_workers, time_options=time_options())
 
 
 @app.route("/copy_shift/<int:id>")
@@ -1521,4 +1521,4 @@ def add_shift():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port
