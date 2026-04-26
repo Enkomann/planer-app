@@ -622,8 +622,8 @@ def index():
             </div>
         </div>
 
-        <div class="card"><h3>{{ tr["add_worker"] }}</h3><form method="post" action="/add_worker"><input name="name" placeholder="{{ tr['worker_name'] }}" required><input name="address" placeholder="{{ tr['address'] }}"><button>{{ tr["add_worker"] }}</button></form></div>
-        <div class="card"><h3>{{ tr["add_client"] }}</h3><form method="post" action="/add_client"><input name="name" placeholder="{{ tr['client_name'] }}" required><input name="address" placeholder="{{ tr['address'] }}"><button>{{ tr["add_client"] }}</button></form></div>
+        <div class="card"><h3>{{ tr["add_worker"] }}</h3><form method="post" action="/add_worker" autocomplete="off"><input name="worker_name" placeholder="{{ tr['worker_name'] }}" required autocomplete="off"><input name="worker_address" placeholder="{{ tr['address'] }}" autocomplete="off"><button>{{ tr["add_worker"] }}</button></form></div>
+        <div class="card"><h3>{{ tr["add_client"] }}</h3><form method="post" action="/add_client" autocomplete="off"><input name="client_name" placeholder="{{ tr['client_name'] }}" required autocomplete="off"><input name="client_address" placeholder="{{ tr['address'] }}" autocomplete="off"><button>{{ tr["add_client"] }}</button></form></div>
 
         <div class="card">
             <h3>{{ tr["add_shift"] }}</h3>
@@ -998,18 +998,38 @@ def edit_shift(id):
 
 @app.route("/add_worker", methods=["POST"])
 def add_worker():
-    if session.get("role") != "admin": return redirect("/")
-    name = request.form["name"].strip(); address = request.form.get("address", "").strip()
+    if session.get("role") != "admin":
+        return redirect("/")
+
+    # Odvojena imena polja sprečavaju da browser/autocomplete miješa radnike i klijente.
+    name = request.form.get("worker_name", "").strip()
+    address = request.form.get("worker_address", "").strip()
+
     if name:
-        conn = get_conn(); c = conn.cursor(); c.execute("INSERT OR IGNORE INTO workers (name, address) VALUES (?, ?)", (name, address)); c.execute("INSERT OR IGNORE INTO worker_colors (worker_name, color) VALUES (?, ?)", (name, "#f97316")); conn.commit(); conn.close()
+        conn = get_conn()
+        c = conn.cursor()
+        c.execute("INSERT OR IGNORE INTO workers (name, address) VALUES (?, ?)", (name, address))
+        c.execute("INSERT OR IGNORE INTO worker_colors (worker_name, color) VALUES (?, ?)", (name, "#f97316"))
+        conn.commit()
+        conn.close()
     return redirect("/")
+
 
 @app.route("/add_client", methods=["POST"])
 def add_client():
-    if session.get("role") != "admin": return redirect("/")
-    name = request.form["name"].strip(); address = request.form.get("address", "").strip()
+    if session.get("role") != "admin":
+        return redirect("/")
+
+    # Klijent ima svoja polja, odvojena od radnika.
+    name = request.form.get("client_name", "").strip()
+    address = request.form.get("client_address", "").strip()
+
     if name:
-        conn = get_conn(); c = conn.cursor(); c.execute("INSERT OR IGNORE INTO clients (name, address) VALUES (?, ?)", (name, address)); conn.commit(); conn.close()
+        conn = get_conn()
+        c = conn.cursor()
+        c.execute("INSERT OR IGNORE INTO clients (name, address) VALUES (?, ?)", (name, address))
+        conn.commit()
+        conn.close()
     return redirect("/")
 
 @app.route("/add_shift", methods=["POST"])
