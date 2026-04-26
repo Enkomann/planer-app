@@ -1824,8 +1824,13 @@ def add_shift():
     worker = join_workers(selected_workers)
     client = request.form["client"].strip()
     date = request.form["date"].strip()
-    start_time = request.form["start_time"].strip()
-    end_time = request.form["end_time"].strip()
+    start_hour = request.form["start_hour"]
+    start_minute = request.form["start_minute"]
+    end_hour = request.form["end_hour"]
+    end_minute = request.form["end_minute"]
+
+    start_time = f"{start_hour}:{start_minute}"
+    end_time = f"{end_hour}:{end_minute}"
     time = f"{start_time}-{end_time}"
     status = request.form["status"].strip()
 
