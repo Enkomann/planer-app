@@ -1,20 +1,16 @@
 from flask import Flask, request, redirect, render_template_string, session, send_file, url_for
-import os
-import psycopg2
-import psycopg2.extras
+import sqlite3
+import re
 import io
+import os
 import calendar
 from datetime import datetime, timedelta, date as dt_date
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 USE_POSTGRES = bool(DATABASE_URL)
+
 if USE_POSTGRES:
     import psycopg2
-
-import io
-import os
-import calendar
-from datetime import datetime, timedelta, date as dt_date
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
