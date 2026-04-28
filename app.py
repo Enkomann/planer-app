@@ -1,5 +1,12 @@
 from flask import Flask, request, redirect, render_template_string, session, send_file, url_for
 import sqlite3
+import re
+
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+USE_POSTGRES = bool(DATABASE_URL)
+if USE_POSTGRES:
+    import psycopg2
+
 import io
 import os
 import calendar
@@ -113,7 +120,79 @@ def get_theme():
     return session.get("theme", "light")
 
 
+class _PgCursor:
+    def __init__(self, cursor):
+        self.cursor = cursor
+        self._fake_rows = None
+
+    def _translate(self, query):
+        q = query
+        q = q.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
+
+        # SQLite -> PostgreSQL syntax fixes
+        m = re.match(r"\s*PRAGMA\s+table_info\((\w+)\)\s*", q, re.IGNORECASE)
+        if m:
+            table = m.group(1)
+            self.cursor.execute(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = %s ORDER BY ordinal_position",
+                (table,),
+            )
+            cols = self.cursor.fetchall()
+            self._fake_rows = [(None, row[0]) for row in cols]
+            return None
+
+        q = re.sub(r"INSERT\s+OR\s+IGNORE\s+INTO", "INSERT INTO", q, flags=re.IGNORECASE)
+
+        # Specific SQLite UPSERT replacements
+        if re.search(r"INSERT\s+OR\s+REPLACE\s+INTO\s+holidays", query, re.IGNORECASE):
+            q = re.sub(r"INSERT\s+OR\s+REPLACE\s+INTO", "INSERT INTO", query, flags=re.IGNORECASE)
+            q += " ON CONFLICT(date) DO UPDATE SET name = EXCLUDED.name"
+        elif re.search(r"INSERT\s+OR\s+REPLACE\s+INTO\s+worker_colors", query, re.IGNORECASE):
+            q = re.sub(r"INSERT\s+OR\s+REPLACE\s+INTO", "INSERT INTO", query, flags=re.IGNORECASE)
+            q += " ON CONFLICT(worker_name) DO UPDATE SET color = EXCLUDED.color"
+        elif re.search(r"INSERT\s+OR\s+IGNORE\s+INTO", query, re.IGNORECASE):
+            q += " ON CONFLICT DO NOTHING"
+
+        q = q.replace("?", "%s")
+        return q
+
+    def execute(self, query, params=()):
+        self._fake_rows = None
+        translated = self._translate(query)
+        if translated is not None:
+            self.cursor.execute(translated, params)
+        return self
+
+    def fetchall(self):
+        if self._fake_rows is not None:
+            return self._fake_rows
+        return self.cursor.fetchall()
+
+    def fetchone(self):
+        if self._fake_rows is not None:
+            return self._fake_rows[0] if self._fake_rows else None
+        return self.cursor.fetchone()
+
+
+class _PgConn:
+    def __init__(self, conn):
+        self.conn = conn
+
+    def cursor(self):
+        return _PgCursor(self.conn.cursor())
+
+    def commit(self):
+        return self.conn.commit()
+
+    def close(self):
+        return self.conn.close()
+
+
 def get_conn():
+    if USE_POSTGRES:
+        # Render PostgreSQL provides DATABASE_URL. Internal URL is recommended when the DB
+        # and web service are in the same Render account/region.
+        return _PgConn(psycopg2.connect(DATABASE_URL))
     return sqlite3.connect("db.sqlite")
 
 
@@ -622,8 +701,8 @@ def index():
             </div>
         </div>
 
-        <div class="card"><h3>{{ tr["add_worker"] }}</h3><form method="post" action="/add_worker" autocomplete="off"><input name="worker_name" placeholder="{{ tr['worker_name'] }}" required autocomplete="off"><input name="worker_address" placeholder="{{ tr['address'] }}" autocomplete="off"><button>{{ tr["add_worker"] }}</button></form></div>
-        <div class="card"><h3>{{ tr["add_client"] }}</h3><form method="post" action="/add_client" autocomplete="off"><input name="client_name" placeholder="{{ tr['client_name'] }}" required autocomplete="off"><input name="client_address" placeholder="{{ tr['address'] }}" autocomplete="off"><button>{{ tr["add_client"] }}</button></form></div>
+        <div class="card"><h3>{{ tr["add_worker"] }}</h3><form method="post" action="/add_worker" autocomplete="off"><input name="worker_name" placeholder="{{ tr['worker_name'] }}" required autocomplete="off"><input name="address" placeholder="{{ tr['address'] }}" autocomplete="off"><button>{{ tr["add_worker"] }}</button></form></div>
+        <div class="card"><h3>{{ tr["add_client"] }}</h3><form method="post" action="/add_client" autocomplete="off"><input name="client_name" placeholder="{{ tr['client_name'] }}" required autocomplete="off"><input name="address" placeholder="{{ tr['address'] }}" autocomplete="off"><button>{{ tr["add_client"] }}</button></form></div>
 
         <div class="card">
             <h3>{{ tr["add_shift"] }}</h3>
@@ -998,38 +1077,18 @@ def edit_shift(id):
 
 @app.route("/add_worker", methods=["POST"])
 def add_worker():
-    if session.get("role") != "admin":
-        return redirect("/")
-
-    # Odvojena imena polja sprečavaju da browser/autocomplete miješa radnike i klijente.
-    name = request.form.get("worker_name", "").strip()
-    address = request.form.get("worker_address", "").strip()
-
+    if session.get("role") != "admin": return redirect("/")
+    name = request.form["worker_name"].strip(); address = request.form.get("address", "").strip()
     if name:
-        conn = get_conn()
-        c = conn.cursor()
-        c.execute("INSERT OR IGNORE INTO workers (name, address) VALUES (?, ?)", (name, address))
-        c.execute("INSERT OR IGNORE INTO worker_colors (worker_name, color) VALUES (?, ?)", (name, "#f97316"))
-        conn.commit()
-        conn.close()
+        conn = get_conn(); c = conn.cursor(); c.execute("INSERT OR IGNORE INTO workers (name, address) VALUES (?, ?)", (name, address)); c.execute("INSERT OR IGNORE INTO worker_colors (worker_name, color) VALUES (?, ?)", (name, "#f97316")); conn.commit(); conn.close()
     return redirect("/")
-
 
 @app.route("/add_client", methods=["POST"])
 def add_client():
-    if session.get("role") != "admin":
-        return redirect("/")
-
-    # Klijent ima svoja polja, odvojena od radnika.
-    name = request.form.get("client_name", "").strip()
-    address = request.form.get("client_address", "").strip()
-
+    if session.get("role") != "admin": return redirect("/")
+    name = request.form["client_name"].strip(); address = request.form.get("address", "").strip()
     if name:
-        conn = get_conn()
-        c = conn.cursor()
-        c.execute("INSERT OR IGNORE INTO clients (name, address) VALUES (?, ?)", (name, address))
-        conn.commit()
-        conn.close()
+        conn = get_conn(); c = conn.cursor(); c.execute("INSERT OR IGNORE INTO clients (name, address) VALUES (?, ?)", (name, address)); conn.commit(); conn.close()
     return redirect("/")
 
 @app.route("/add_shift", methods=["POST"])
@@ -1043,4 +1102,4 @@ def add_shift():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port
