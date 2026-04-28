@@ -8,6 +8,8 @@ from datetime import datetime, timedelta, date as dt_date
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 USE_POSTGRES = bool(DATABASE_URL)
+print("DATABASE_URL EXISTS:", bool(DATABASE_URL))
+print("USE_POSTGRES:", USE_POSTGRES)
 
 if USE_POSTGRES:
     import psycopg2
