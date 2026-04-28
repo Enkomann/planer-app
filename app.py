@@ -5,6 +5,7 @@ import io
 import os
 import calendar
 from datetime import datetime, timedelta, date as dt_date
+from zoneinfo import ZoneInfo
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 USE_POSTGRES = bool(DATABASE_URL)
@@ -284,12 +285,14 @@ def parse_shift_hours(time_str):
 
 
 def get_auto_status(shift_date, time_range):
-    """Automatski status po datumu i vremenu smjene."""
+    """Automatski status po datumu i vremenu smjene, po vremenu u Luksemburgu."""
     try:
         start_str, end_str = [x.strip() for x in time_range.split("-")]
-        start_dt = datetime.strptime(f"{shift_date} {start_str}", "%Y-%m-%d %H:%M")
-        end_dt = datetime.strptime(f"{shift_date} {end_str}", "%Y-%m-%d %H:%M")
-        now = datetime.now()
+
+        lux_tz = ZoneInfo("Europe/Luxembourg")
+        start_dt = datetime.strptime(f"{shift_date} {start_str}", "%Y-%m-%d %H:%M").replace(tzinfo=lux_tz)
+        end_dt = datetime.strptime(f"{shift_date} {end_str}", "%Y-%m-%d %H:%M").replace(tzinfo=lux_tz)
+        now = datetime.now(lux_tz)
 
         if now < start_dt:
             return "planned"
