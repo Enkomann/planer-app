@@ -81,6 +81,7 @@ TRANSLATIONS["fr"].update({
     "week_calendar": "Calendrier hebdomadaire", "month_calendar": "Calendrier mensuel",
     "monthly_hours": "Heures mensuelles", "weekly_hours": "Heures hebdomadaires",
     "back": "Retour", "save": "Enregistrer", "delete": "Supprimer", "edit": "Modifier",
+    "status_planned": "Planifié", "status_in_progress": "En cours", "status_done": "Terminé",
     "sick": "Maladie", "vacation": "Conge", "sick_vacation": "Maladie / Conge",
 })
 TRANSLATIONS["en"].update({
@@ -90,6 +91,7 @@ TRANSLATIONS["en"].update({
     "week_calendar": "Weekly calendar", "month_calendar": "Monthly calendar",
     "monthly_hours": "Monthly hours", "weekly_hours": "Weekly hours",
     "back": "Back", "save": "Save", "delete": "Delete", "edit": "Edit",
+    "status_planned": "Planned", "status_in_progress": "In progress", "status_done": "Done",
     "sick": "Sick leave", "vacation": "Vacation", "sick_vacation": "Sick leave / Vacation",
 })
 TRANSLATIONS["de"].update({
@@ -99,6 +101,7 @@ TRANSLATIONS["de"].update({
     "week_calendar": "Wochenkalender", "month_calendar": "Monatskalender",
     "monthly_hours": "Monatsstunden", "weekly_hours": "Wochenstunden",
     "back": "Zuruck", "save": "Speichern", "delete": "Loschen", "edit": "Bearbeiten",
+    "status_planned": "Geplant", "status_in_progress": "In Arbeit", "status_done": "Fertig",
     "sick": "Krankheit", "vacation": "Urlaub", "sick_vacation": "Krankheit / Urlaub",
 })
 TRANSLATIONS["pt"].update({
@@ -108,6 +111,7 @@ TRANSLATIONS["pt"].update({
     "week_calendar": "Calendario semanal", "month_calendar": "Calendario mensal",
     "monthly_hours": "Horas mensais", "weekly_hours": "Horas semanais",
     "back": "Voltar", "save": "Guardar", "delete": "Apagar", "edit": "Editar",
+    "status_planned": "Planeado", "status_in_progress": "Em andamento", "status_done": "Concluído",
     "sick": "Baixa medica", "vacation": "Ferias", "sick_vacation": "Baixa / Ferias",
 })
 
@@ -230,11 +234,13 @@ def remove_worker_from_shift(worker_text, name):
 
 
 def get_status_label(status_key, tr):
-    return {
-        "planned": tr["status_planned"],
-        "in_progress": tr["status_in_progress"],
-        "done": tr["status_done"],
-    }.get(status_key, status_key)
+    if status_key == "planned":
+        return tr.get("status_planned", "Planirano")
+    if status_key == "in_progress":
+        return tr.get("status_in_progress", "U toku")
+    if status_key == "done":
+        return tr.get("status_done", "Završeno")
+    return status_key
 
 
 def split_time_range(time_range):
@@ -781,6 +787,10 @@ def index():
     <script>
     function toggleMenu(){var m=document.getElementById('menuBox');m.style.display=(m.style.display==='none')?'block':'none';}
     function dragShift(ev, shiftId){ev.dataTransfer.setData('shift_id', shiftId);}
+    // Automatski osvježi stranicu da se status i boja promijene bez ručnog refresh-a.
+    setInterval(function() {
+        window.location.reload();
+    }, 30000);
     </script>
     """, tr=tr, dark=dark, datetime=datetime, timedelta=timedelta, format_date=format_date,
        time_hours=time_hours(), time_minutes=time_minutes(), status_colors=STATUS_COLORS,
@@ -921,7 +931,7 @@ def week_view():
             <div class="card {% if holiday_name %}holiday-soft{% endif %} {% if is_weekend(day) %}weekend-soft{% endif %}" style="width:180px; min-height:130px;" ondragover="allowDrop(event)" ondragleave="clearDrop(event)" ondrop="dropShift(event, '{{ day }}')">
                 <a href="{% if is_admin %}javascript:void(0){% else %}/?selected_date={{ day }}{% endif %}" {% if is_admin %}onclick="openHolidayModal('{{ day }}')"{% endif %} style="{% if is_weekend(day) %}color:#ef4444;{% endif %}">{{ day_names[loop.index0] }}<br>{{ format_date(day) }}</a>
                 {% if holiday_name %}<small class="holiday-note">{{ holiday_name }}</small>{% endif %}
-                {% for s in shifts %}{% if s[3] == day %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="border-left:5px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }};"><b>{{ s[1] }}</b><br>{{ s[2] }}<br>{{ s[4] }}{% if is_admin %}<br><a class="mini-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a><a class="mini-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a><a class="mini-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>{% endif %}</div>{% endif %}{% endfor %}
+                {% for s in shifts %}{% if s[3] == day %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="border-left:5px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }};">{% set auto_status = get_auto_status(s[3], s[4]) %}<b>{{ s[1] }}</b><br>{{ s[2] }}<br>{{ s[4] }}<br><span class="status-badge" style="background:{{ status_colors.get(auto_status, '#6b7280') }}; margin-left:0; display:inline-block; margin-top:4px;">{{ get_status_label(auto_status, tr) }}</span>{% if is_admin %}<br><a class="mini-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a><a class="mini-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a><a class="mini-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>{% endif %}</div>{% endif %}{% endfor %}
             </div>
         {% endfor %}
     </div>
@@ -931,6 +941,10 @@ def week_view():
     function closeHolidayModal(){var m=document.getElementById('holidayModal');if(m){m.style.display='none';}}
     function dragShift(ev, shiftId){ev.dataTransfer.setData('shift_id', shiftId);} function allowDrop(ev){ev.preventDefault();ev.currentTarget.classList.add('drop-target');} function clearDrop(ev){ev.currentTarget.classList.remove('drop-target');}
     function dropShift(ev, dateStr){ev.preventDefault();ev.currentTarget.classList.remove('drop-target');var shiftId=ev.dataTransfer.getData('shift_id');if(!shiftId)return;fetch('/move_shift',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'shift_id='+encodeURIComponent(shiftId)+'&date='+encodeURIComponent(dateStr)}).then(function(){window.location.reload();});}
+    // Automatski osvježi stranicu da se status i boja promijene bez ručnog refresh-a.
+    setInterval(function() {
+        window.location.reload();
+    }, 30000);
     </script>
     """, tr=tr, dark=dark, week_days=week_days, shifts=shifts, worker_colors=worker_colors, format_date=format_date, holidays_map=holidays_map, day_names=day_names, status_colors=STATUS_COLORS, get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers, is_weekend=is_weekend, is_admin=is_admin, prev_week=prev_week, next_week=next_week, current_week=current_week)
 
@@ -961,7 +975,7 @@ def month_view():
             <div class="card {% if holiday_name %}holiday-soft{% endif %} {% if day.weekday() >= 5 %}weekend-soft{% endif %}" style="min-height:120px;" ondragover="allowDrop(event)" ondragleave="clearDrop(event)" ondrop="dropShift(event, '{{ daystr }}')">
                 <div style="font-weight:bold; margin-bottom:8px;"><a href="{% if is_admin %}javascript:void(0){% else %}/?selected_date={{ daystr }}{% endif %}" {% if is_admin %}onclick="openHolidayModal('{{ daystr }}')"{% endif %} style="{% if day.weekday() >= 5 %}color:#ef4444;{% endif %}">{{ day.strftime('%d/%m/%Y') }}</a>{% if is_admin and copied_shift_id %}<br><a style="display:inline-block;margin-top:6px;padding:4px 7px;border-radius:6px;background:#16a34a;color:white!important;font-size:11px;" href="/paste_shift/{{ daystr }}">{{ tr["paste"] }}</a>{% endif %}</div>
                 {% if holiday_name %}<small class="holiday-note">{{ holiday_name }}</small>{% endif %}
-                {% for s in shifts_by_date.get(daystr, []) %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="border-left:5px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }};"><b>{{ s[1] }}</b><br>{{ s[2] }}<br>{{ s[4] }}{% if is_admin %}<br><a class="mini-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a><a class="mini-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a><a class="mini-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>{% endif %}</div>{% endfor %}
+                {% for s in shifts_by_date.get(daystr, []) %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="border-left:5px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }};">{% set auto_status = get_auto_status(s[3], s[4]) %}<b>{{ s[1] }}</b><br>{{ s[2] }}<br>{{ s[4] }}<br><span class="status-badge" style="background:{{ status_colors.get(auto_status, '#6b7280') }}; margin-left:0; display:inline-block; margin-top:4px;">{{ get_status_label(auto_status, tr) }}</span>{% if is_admin %}<br><a class="mini-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a><a class="mini-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a><a class="mini-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>{% endif %}</div>{% endfor %}
             </div>
         {% endfor %}{% endfor %}
     </div>
@@ -970,8 +984,12 @@ def month_view():
     function openHolidayModal(dateStr){var m=document.getElementById('holidayModal');var d=document.getElementById('holidayDate');if(m&&d){d.value=dateStr;m.style.display='block';}} function closeHolidayModal(){var m=document.getElementById('holidayModal');if(m){m.style.display='none';}}
     function dragShift(ev, shiftId){ev.dataTransfer.setData('shift_id', shiftId);} function allowDrop(ev){ev.preventDefault();ev.currentTarget.classList.add('drop-target');} function clearDrop(ev){ev.currentTarget.classList.remove('drop-target');}
     function dropShift(ev, dateStr){ev.preventDefault();ev.currentTarget.classList.remove('drop-target');var shiftId=ev.dataTransfer.getData('shift_id');if(!shiftId)return;fetch('/move_shift',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'shift_id='+encodeURIComponent(shiftId)+'&date='+encodeURIComponent(dateStr)}).then(function(){window.location.reload();});}
+    // Automatski osvježi stranicu da se status i boja promijene bez ručnog refresh-a.
+    setInterval(function() {
+        window.location.reload();
+    }, 30000);
     </script>
-    """, tr=tr, dark=dark, year=year, month=month, prev_year=prev_year, prev_month=prev_month, next_year=next_year, next_month=next_month, month_days=month_days, day_names=day_names, shifts_by_date=shifts_by_date, worker_colors=worker_colors, holidays_map=holidays_map, is_admin=is_admin, copied_shift_id=copied_shift_id, get_auto_status=get_auto_status, split_workers=split_workers)
+    """, tr=tr, dark=dark, year=year, month=month, prev_year=prev_year, prev_month=prev_month, next_year=next_year, next_month=next_month, month_days=month_days, day_names=day_names, shifts_by_date=shifts_by_date, worker_colors=worker_colors, holidays_map=holidays_map, is_admin=is_admin, copied_shift_id=copied_shift_id, status_colors=STATUS_COLORS, get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers)
 
 
 @app.route("/export_pdf")
