@@ -8,8 +8,6 @@ from datetime import datetime, timedelta, date as dt_date
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 USE_POSTGRES = bool(DATABASE_URL)
-print("DATABASE_URL EXISTS:", bool(DATABASE_URL))
-print("USE_POSTGRES:", USE_POSTGRES)
 
 if USE_POSTGRES:
     import psycopg2
@@ -24,7 +22,11 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "luxmann_secret_key")
 
 DEFAULT_WORKER_COLORS = {"admin": "#1f4f82", "worker1": "#16a34a"}
-STATUS_COLORS = {"planned": "#f59e0b", "in_progress": "#2563eb", "done": "#16a34a"}
+STATUS_COLORS = {
+    "planned": "#f59e0b",      # Planirano - narandzasto
+    "in_progress": "#16a34a",  # U toku - zeleno
+    "done": "#ef4444",         # Zavrseno - crveno
+}
 ABSENCE_COLORS = {"sick": "#ef4444", "vacation": "#8b5cf6", "other": "#64748b"}
 
 TRANSLATIONS = {
@@ -273,6 +275,23 @@ def parse_shift_hours(time_str):
         return max((end - start).total_seconds() / 3600, 0.0)
     except Exception:
         return 0.0
+
+
+def get_auto_status(shift_date, time_range):
+    """Automatski status po datumu i vremenu smjene."""
+    try:
+        start_str, end_str = [x.strip() for x in time_range.split("-")]
+        start_dt = datetime.strptime(f"{shift_date} {start_str}", "%Y-%m-%d %H:%M")
+        end_dt = datetime.strptime(f"{shift_date} {end_str}", "%Y-%m-%d %H:%M")
+        now = datetime.now()
+
+        if now < start_dt:
+            return "planned"
+        if start_dt <= now <= end_dt:
+            return "in_progress"
+        return "done"
+    except Exception:
+        return "planned"
 
 
 def calculate_hours_for_user(shifts, username=None):
@@ -753,7 +772,7 @@ def index():
         {% for week_start_key, week_shifts in weeks_grouped.items() %}
             {% set week_end_key = (datetime.strptime(week_start_key, "%Y-%m-%d") + timedelta(days=6)).strftime("%Y-%m-%d") %}
             <div class="card" style="padding:12px;"><h3 style="border-bottom:2px solid #1f4f82; padding-bottom:8px; margin-top:0;">{{ format_date(week_start_key) }} - {{ format_date(week_end_key) }}</h3>
-            {% for s in week_shifts %}<div class="shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="border-left:6px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }}"><b>{{ format_date(s[3]) }}</b> | {{ s[4] }}<span class="status-badge" style="background:{{ status_colors.get(s[5], '#6b7280') }};">{{ get_status_label(s[5], tr) }}</span><br><br><b>{{ tr["team"] }}:</b> {{ s[1] }}<br><b>{{ tr["pdf_client"] }}:</b> {{ s[2] }}{% if is_admin %}<a class="action-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a><a class="action-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a><a class="action-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>{% endif %}</div>{% endfor %}</div>
+            {% for s in week_shifts %}{% set auto_status = get_auto_status(s[3], s[4]) %}<div class="shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="border-left:6px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }}"><b>{{ format_date(s[3]) }}</b> | {{ s[4] }}<span class="status-badge" style="background:{{ status_colors.get(auto_status, '#6b7280') }};">{{ get_status_label(auto_status, tr) }}</span><br><br><b>{{ tr["team"] }}:</b> {{ s[1] }}<br><b>{{ tr["pdf_client"] }}:</b> {{ s[2] }}{% if is_admin %}<a class="action-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a><a class="action-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a><a class="action-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>{% endif %}</div>{% endfor %}</div>
         {% endfor %}
         </div>
         <a class="week-link" href="/week">{{ tr["week_calendar"] }}</a><a class="week-link" href="/month">{{ tr["month_calendar"] }}</a><a class="pdf-link" href="/export_pdf{% if request.args.get('date') %}?date={{ request.args.get('date') }}{% endif %}" target="_blank">{{ tr["pdf"] }}</a>
@@ -765,7 +784,7 @@ def index():
     </script>
     """, tr=tr, dark=dark, datetime=datetime, timedelta=timedelta, format_date=format_date,
        time_hours=time_hours(), time_minutes=time_minutes(), status_colors=STATUS_COLORS,
-       get_status_label=get_status_label, split_workers=split_workers, **data)
+       get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers, **data)
 
 
 @app.route("/copy_shift/<int:id>")
@@ -913,7 +932,7 @@ def week_view():
     function dragShift(ev, shiftId){ev.dataTransfer.setData('shift_id', shiftId);} function allowDrop(ev){ev.preventDefault();ev.currentTarget.classList.add('drop-target');} function clearDrop(ev){ev.currentTarget.classList.remove('drop-target');}
     function dropShift(ev, dateStr){ev.preventDefault();ev.currentTarget.classList.remove('drop-target');var shiftId=ev.dataTransfer.getData('shift_id');if(!shiftId)return;fetch('/move_shift',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'shift_id='+encodeURIComponent(shiftId)+'&date='+encodeURIComponent(dateStr)}).then(function(){window.location.reload();});}
     </script>
-    """, tr=tr, dark=dark, week_days=week_days, shifts=shifts, worker_colors=worker_colors, format_date=format_date, holidays_map=holidays_map, day_names=day_names, status_colors=STATUS_COLORS, get_status_label=get_status_label, split_workers=split_workers, is_weekend=is_weekend, is_admin=is_admin, prev_week=prev_week, next_week=next_week, current_week=current_week)
+    """, tr=tr, dark=dark, week_days=week_days, shifts=shifts, worker_colors=worker_colors, format_date=format_date, holidays_map=holidays_map, day_names=day_names, status_colors=STATUS_COLORS, get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers, is_weekend=is_weekend, is_admin=is_admin, prev_week=prev_week, next_week=next_week, current_week=current_week)
 
 
 @app.route("/month")
@@ -952,7 +971,7 @@ def month_view():
     function dragShift(ev, shiftId){ev.dataTransfer.setData('shift_id', shiftId);} function allowDrop(ev){ev.preventDefault();ev.currentTarget.classList.add('drop-target');} function clearDrop(ev){ev.currentTarget.classList.remove('drop-target');}
     function dropShift(ev, dateStr){ev.preventDefault();ev.currentTarget.classList.remove('drop-target');var shiftId=ev.dataTransfer.getData('shift_id');if(!shiftId)return;fetch('/move_shift',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'shift_id='+encodeURIComponent(shiftId)+'&date='+encodeURIComponent(dateStr)}).then(function(){window.location.reload();});}
     </script>
-    """, tr=tr, dark=dark, year=year, month=month, prev_year=prev_year, prev_month=prev_month, next_year=next_year, next_month=next_month, month_days=month_days, day_names=day_names, shifts_by_date=shifts_by_date, worker_colors=worker_colors, holidays_map=holidays_map, is_admin=is_admin, copied_shift_id=copied_shift_id, split_workers=split_workers)
+    """, tr=tr, dark=dark, year=year, month=month, prev_year=prev_year, prev_month=prev_month, next_year=next_year, next_month=next_month, month_days=month_days, day_names=day_names, shifts_by_date=shifts_by_date, worker_colors=worker_colors, holidays_map=holidays_map, is_admin=is_admin, copied_shift_id=copied_shift_id, get_auto_status=get_auto_status, split_workers=split_workers)
 
 
 @app.route("/export_pdf")
@@ -968,7 +987,7 @@ def export_pdf():
     title = tr["pdf_title"] + (f" - {format_date(date_filter)}" if date_filter else "")
     elements += [Paragraph(title, styles["Title"]), Spacer(1, 12), Paragraph(f"{tr['pdf_user']}: {session['user']} ({session['role']})", styles["Normal"]), Spacer(1, 12)]
     table_data = [[tr["pdf_date"], tr["pdf_time"], tr["pdf_worker"], tr["pdf_client"], tr["status"]]]
-    for s in shifts: table_data.append([format_date(s[3]), s[4], s[1], s[2], get_status_label(s[5], tr)])
+    for s in shifts: table_data.append([format_date(s[3]), s[4], s[1], s[2], get_status_label(get_auto_status(s[3], s[4]), tr)])
     if not shifts: table_data.append(["-", "-", "-", "-", tr["pdf_no_shifts"]])
     table = Table(table_data, colWidths=[2.8*cm, 2.8*cm, 4.0*cm, 4.8*cm, 3.0*cm]); table.setStyle(TableStyle([("BACKGROUND", (0,0), (-1,0), colors.HexColor("#1f4f82")), ("TEXTCOLOR", (0,0), (-1,0), colors.white), ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"), ("GRID", (0,0), (-1,-1), 0.5, colors.grey), ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.whitesmoke, colors.HexColor("#eaf2fb")]), ("FONTSIZE", (0,0), (-1,-1), 10)])); elements.append(table); doc.build(elements); buffer.seek(0)
     return send_file(buffer, as_attachment=True, download_name="schedule.pdf", mimetype="application/pdf")
@@ -984,7 +1003,7 @@ def month_pdf():
     if not is_admin: shifts = [s for s in shifts if worker_in_shift(current_user, s[1])]; absences = [a for a in absences if a[1] == current_user]
     buffer = io.BytesIO(); doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=1*cm, leftMargin=1*cm, topMargin=1*cm, bottomMargin=1*cm); styles = getSampleStyleSheet(); elements = [Paragraph(f"{tr['month_calendar']} {month:02d}/{year}", styles["Title"]), Spacer(1, 10)]
     table_data = [[tr["pdf_date"], tr["pdf_time"], tr["pdf_worker"], tr["pdf_client"], tr["status"]]]
-    for s in shifts: table_data.append([format_date(s[3]), s[4], s[1], s[2], get_status_label(s[5], tr)])
+    for s in shifts: table_data.append([format_date(s[3]), s[4], s[1], s[2], get_status_label(get_auto_status(s[3], s[4]), tr)])
     if len(table_data) == 1: table_data.append(["-", "-", "-", "-", tr["pdf_no_shifts"]])
     table = Table(table_data, colWidths=[3*cm, 3*cm, 6*cm, 6*cm, 4*cm]); table.setStyle(TableStyle([("BACKGROUND", (0,0), (-1,0), colors.HexColor("#1f4f82")), ("TEXTCOLOR", (0,0), (-1,0), colors.white), ("GRID", (0,0), (-1,-1), 0.5, colors.grey), ("FONTSIZE", (0,0), (-1,-1), 9)])); elements.append(table)
     absence_lines = []
