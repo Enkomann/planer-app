@@ -5,7 +5,6 @@ import io
 import os
 import calendar
 from datetime import datetime, timedelta, date as dt_date
-from zoneinfo import ZoneInfo
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 USE_POSTGRES = bool(DATABASE_URL)
@@ -41,6 +40,8 @@ TRANSLATIONS = {
         "filter_btn": "Filtriraj", "reset": "Reset", "plan": "PLAN",
         "no_shifts": "Trenutno nema unesenih smjena.", "edit": "Izmijeni", "delete": "Obrisi",
         "copy": "Copy", "copy_shift": "Kopiraj smjenu", "paste": "+ Paste",
+        "copy_active": "Copy aktivan - klikni + Paste na zeljeni datum.", "cancel_copy": "Ponisti copy",
+        "confirm_delete": "Da li ste sigurni da zelite izbrisati ovaj podatak?",
         "week_calendar": "Sedmicni kalendar", "month_calendar": "Mjesecni kalendar", "pdf": "PDF raspored",
         "month_pdf": "PDF mjesecni kalendar", "back": "Nazad", "edit_shift": "Izmijeni smjenu", "save": "Sacuvaj",
         "pdf_title": "Raspored radnika", "pdf_user": "Korisnik", "pdf_date": "Datum",
@@ -82,8 +83,9 @@ TRANSLATIONS["fr"].update({
     "week_calendar": "Calendrier hebdomadaire", "month_calendar": "Calendrier mensuel",
     "monthly_hours": "Heures mensuelles", "weekly_hours": "Heures hebdomadaires",
     "back": "Retour", "save": "Enregistrer", "delete": "Supprimer", "edit": "Modifier",
-    "status_planned": "Planifié", "status_in_progress": "En cours", "status_done": "Terminé",
     "sick": "Maladie", "vacation": "Conge", "sick_vacation": "Maladie / Conge",
+    "copy_active": "Copie active - cliquez sur + Paste à la date souhaitée.", "cancel_copy": "Annuler la copie",
+    "confirm_delete": "Êtes-vous sûr de vouloir supprimer cet élément ?",
 })
 TRANSLATIONS["en"].update({
     "login_title": "Login", "login_btn": "Login", "logout": "Logout",
@@ -92,8 +94,9 @@ TRANSLATIONS["en"].update({
     "week_calendar": "Weekly calendar", "month_calendar": "Monthly calendar",
     "monthly_hours": "Monthly hours", "weekly_hours": "Weekly hours",
     "back": "Back", "save": "Save", "delete": "Delete", "edit": "Edit",
-    "status_planned": "Planned", "status_in_progress": "In progress", "status_done": "Done",
     "sick": "Sick leave", "vacation": "Vacation", "sick_vacation": "Sick leave / Vacation",
+    "copy_active": "Copy active - click + Paste on the desired date.", "cancel_copy": "Cancel copy",
+    "confirm_delete": "Are you sure you want to delete this item?",
 })
 TRANSLATIONS["de"].update({
     "login_title": "Anmeldung", "login_btn": "Anmelden", "logout": "Abmelden",
@@ -102,8 +105,9 @@ TRANSLATIONS["de"].update({
     "week_calendar": "Wochenkalender", "month_calendar": "Monatskalender",
     "monthly_hours": "Monatsstunden", "weekly_hours": "Wochenstunden",
     "back": "Zuruck", "save": "Speichern", "delete": "Loschen", "edit": "Bearbeiten",
-    "status_planned": "Geplant", "status_in_progress": "In Arbeit", "status_done": "Fertig",
     "sick": "Krankheit", "vacation": "Urlaub", "sick_vacation": "Krankheit / Urlaub",
+    "copy_active": "Kopie aktiv - klicken Sie auf + Paste am gewünschten Datum.", "cancel_copy": "Kopie abbrechen",
+    "confirm_delete": "Möchten Sie diesen Eintrag wirklich löschen?",
 })
 TRANSLATIONS["pt"].update({
     "login_title": "Entrar", "login_btn": "Entrar", "logout": "Sair",
@@ -112,171 +116,11 @@ TRANSLATIONS["pt"].update({
     "week_calendar": "Calendario semanal", "month_calendar": "Calendario mensal",
     "monthly_hours": "Horas mensais", "weekly_hours": "Horas semanais",
     "back": "Voltar", "save": "Guardar", "delete": "Apagar", "edit": "Editar",
-    "status_planned": "Planeado", "status_in_progress": "Em andamento", "status_done": "Concluído",
     "sick": "Baixa medica", "vacation": "Ferias", "sick_vacation": "Baixa / Ferias",
+    "copy_active": "Cópia ativa - clique em + Paste na data desejada.", "cancel_copy": "Cancelar cópia",
+    "confirm_delete": "Tem certeza de que deseja apagar este item?",
 })
 
-
-# Full UI translations for all visible labels/buttons.
-TRANSLATIONS["en"].update({
-    "login_title": "Login", "username": "Username", "password": "Password",
-    "login_btn": "Login", "login_error": "Wrong username or password",
-    "title": "WORK SCHEDULE", "logged_as": "Logged in as", "logout": "Logout",
-    "add_worker": "Add worker", "add_client": "Add client", "add_shift": "Add shift",
-    "worker_name": "Worker name", "client_name": "Client name", "address": "Address",
-    "choose_worker": "Choose workers", "choose_client": "Choose client",
-    "filter_btn": "Filter", "reset": "Reset", "plan": "PLAN",
-    "no_shifts": "No shifts entered yet.", "edit": "Edit", "delete": "Delete",
-    "copy": "Copy", "copy_shift": "Copy shift", "paste": "+ Paste",
-    "week_calendar": "Weekly calendar", "month_calendar": "Monthly calendar", "pdf": "PDF schedule",
-    "month_pdf": "Monthly calendar PDF", "back": "Back", "edit_shift": "Edit shift", "save": "Save",
-    "pdf_title": "Worker schedule", "pdf_user": "User", "pdf_date": "Date",
-    "pdf_time": "Time", "pdf_worker": "Workers", "pdf_client": "Client",
-    "pdf_no_shifts": "No shifts", "user_mgmt": "User management",
-    "add_user": "Add user", "role_admin": "admin", "role_worker": "worker",
-    "existing_users": "Existing users", "delete_user": "Delete user",
-    "status": "Status", "status_planned": "Planned", "status_in_progress": "In progress",
-    "status_done": "Done", "weekly_hours": "Weekly hours",
-    "monthly_hours": "Monthly hours", "monthly_absence_days": "Monthly absence days",
-    "hours": "hours", "days": "days", "all_workers": "All workers",
-    "all_clients": "All clients", "theme": "Theme", "light_theme": "Light",
-    "dark_theme": "Dark", "worker_colors": "Worker colors",
-    "update_color": "Update color", "prev_month": "Previous month",
-    "next_month": "Next month", "prev_week": "Previous week",
-    "next_week": "Next week", "current_week": "Current week",
-    "change_password": "Change password", "new_password": "New password",
-    "search_shifts": "Search shifts",
-    "search_placeholder": "Search by client, worker, time...",
-    "week_period": "Period", "workers": "Workers", "clients": "Clients", "menu": "Menu",
-    "start_time": "Start", "end_time": "End", "team": "Workers together",
-    "add_holiday": "Add holiday / non-working day", "holiday_name": "Holiday name", "holiday": "Holiday",
-    "sick_vacation": "Sick leave / Vacation", "absence_type": "Absence type", "sick": "Sick leave",
-    "vacation": "Vacation", "other_absence": "Other", "date_from": "From date", "date_to": "To date",
-    "note": "Note", "add_absence": "Add absence", "active_absences": "Recorded absences",
-    "monday": "Mon", "tuesday": "Tue", "wednesday": "Wed", "thursday": "Thu",
-    "friday": "Fri", "saturday": "Sat", "sunday": "Sun", "cancel": "Cancel",
-    "copy_active": "Copy active - click + Paste on the desired date.", "clear_copy": "Clear",
-})
-
-TRANSLATIONS["fr"].update({
-    "login_title": "Connexion", "username": "Nom d'utilisateur", "password": "Mot de passe",
-    "login_btn": "Connexion", "login_error": "Nom d'utilisateur ou mot de passe incorrect",
-    "title": "PLAN DE TRAVAIL", "logged_as": "Connecté comme", "logout": "Déconnexion",
-    "add_worker": "Ajouter employé", "add_client": "Ajouter client", "add_shift": "Ajouter mission",
-    "worker_name": "Nom de l'employé", "client_name": "Nom du client", "address": "Adresse",
-    "choose_worker": "Choisir les employés", "choose_client": "Choisir le client",
-    "filter_btn": "Filtrer", "reset": "Réinitialiser", "plan": "PLAN",
-    "no_shifts": "Aucune mission enregistrée.", "edit": "Modifier", "delete": "Supprimer",
-    "copy": "Copier", "copy_shift": "Copier mission", "paste": "+ Coller",
-    "week_calendar": "Calendrier hebdomadaire", "month_calendar": "Calendrier mensuel", "pdf": "Planning PDF",
-    "month_pdf": "Calendrier mensuel PDF", "back": "Retour", "edit_shift": "Modifier mission", "save": "Enregistrer",
-    "pdf_title": "Planning des employés", "pdf_user": "Utilisateur", "pdf_date": "Date",
-    "pdf_time": "Heure", "pdf_worker": "Employés", "pdf_client": "Client",
-    "pdf_no_shifts": "Aucune mission", "user_mgmt": "Gestion des utilisateurs",
-    "add_user": "Ajouter utilisateur", "role_admin": "admin", "role_worker": "employé",
-    "existing_users": "Utilisateurs existants", "delete_user": "Supprimer utilisateur",
-    "status": "Statut", "status_planned": "Planifié", "status_in_progress": "En cours",
-    "status_done": "Terminé", "weekly_hours": "Heures hebdomadaires",
-    "monthly_hours": "Heures mensuelles", "monthly_absence_days": "Jours d'absence mensuels",
-    "hours": "heures", "days": "jours", "all_workers": "Tous les employés",
-    "all_clients": "Tous les clients", "theme": "Thème", "light_theme": "Claire",
-    "dark_theme": "Sombre", "worker_colors": "Couleurs des employés",
-    "update_color": "Mettre à jour la couleur", "prev_month": "Mois précédent",
-    "next_month": "Mois suivant", "prev_week": "Semaine précédente",
-    "next_week": "Semaine suivante", "current_week": "Semaine actuelle",
-    "change_password": "Changer le mot de passe", "new_password": "Nouveau mot de passe",
-    "search_shifts": "Recherche des missions",
-    "search_placeholder": "Rechercher par client, employé, heure...",
-    "week_period": "Période", "workers": "Employés", "clients": "Clients", "menu": "Menu",
-    "start_time": "Début", "end_time": "Fin", "team": "Employés ensemble",
-    "add_holiday": "Ajouter jour férié / non travaillé", "holiday_name": "Nom du jour férié", "holiday": "Jour férié",
-    "sick_vacation": "Maladie / Congé", "absence_type": "Type d'absence", "sick": "Maladie",
-    "vacation": "Congé", "other_absence": "Autre", "date_from": "Du", "date_to": "Au",
-    "note": "Remarque", "add_absence": "Ajouter absence", "active_absences": "Absences enregistrées",
-    "monday": "Lun", "tuesday": "Mar", "wednesday": "Mer", "thursday": "Jeu",
-    "friday": "Ven", "saturday": "Sam", "sunday": "Dim", "cancel": "Annuler",
-    "copy_active": "Copie active - cliquez sur + Coller à la date souhaitée.", "clear_copy": "Annuler",
-})
-
-TRANSLATIONS["de"].update({
-    "login_title": "Anmeldung", "username": "Benutzername", "password": "Passwort",
-    "login_btn": "Anmelden", "login_error": "Falscher Benutzername oder falsches Passwort",
-    "title": "ARBEITSPLAN", "logged_as": "Angemeldet als", "logout": "Abmelden",
-    "add_worker": "Mitarbeiter hinzufügen", "add_client": "Kunde hinzufügen", "add_shift": "Einsatz hinzufügen",
-    "worker_name": "Name des Mitarbeiters", "client_name": "Name des Kunden", "address": "Adresse",
-    "choose_worker": "Mitarbeiter auswählen", "choose_client": "Kunden auswählen",
-    "filter_btn": "Filtern", "reset": "Zurücksetzen", "plan": "PLAN",
-    "no_shifts": "Noch keine Einsätze eingetragen.", "edit": "Bearbeiten", "delete": "Löschen",
-    "copy": "Kopieren", "copy_shift": "Einsatz kopieren", "paste": "+ Einfügen",
-    "week_calendar": "Wochenkalender", "month_calendar": "Monatskalender", "pdf": "PDF-Plan",
-    "month_pdf": "Monatskalender PDF", "back": "Zurück", "edit_shift": "Einsatz bearbeiten", "save": "Speichern",
-    "pdf_title": "Arbeitsplan", "pdf_user": "Benutzer", "pdf_date": "Datum",
-    "pdf_time": "Zeit", "pdf_worker": "Mitarbeiter", "pdf_client": "Kunde",
-    "pdf_no_shifts": "Keine Einsätze", "user_mgmt": "Benutzerverwaltung",
-    "add_user": "Benutzer hinzufügen", "role_admin": "admin", "role_worker": "Mitarbeiter",
-    "existing_users": "Bestehende Benutzer", "delete_user": "Benutzer löschen",
-    "status": "Status", "status_planned": "Geplant", "status_in_progress": "In Arbeit",
-    "status_done": "Fertig", "weekly_hours": "Wochenstunden",
-    "monthly_hours": "Monatsstunden", "monthly_absence_days": "Monatliche Abwesenheitstage",
-    "hours": "Stunden", "days": "Tage", "all_workers": "Alle Mitarbeiter",
-    "all_clients": "Alle Kunden", "theme": "Design", "light_theme": "Hell",
-    "dark_theme": "Dunkel", "worker_colors": "Mitarbeiterfarben",
-    "update_color": "Farbe aktualisieren", "prev_month": "Vorheriger Monat",
-    "next_month": "Nächster Monat", "prev_week": "Vorherige Woche",
-    "next_week": "Nächste Woche", "current_week": "Aktuelle Woche",
-    "change_password": "Passwort ändern", "new_password": "Neues Passwort",
-    "search_shifts": "Einsätze suchen",
-    "search_placeholder": "Nach Kunde, Mitarbeiter, Zeit suchen...",
-    "week_period": "Zeitraum", "workers": "Mitarbeiter", "clients": "Kunden", "menu": "Menü",
-    "start_time": "Beginn", "end_time": "Ende", "team": "Mitarbeiter zusammen",
-    "add_holiday": "Feiertag / arbeitsfreien Tag hinzufügen", "holiday_name": "Name des Feiertags", "holiday": "Feiertag",
-    "sick_vacation": "Krankheit / Urlaub", "absence_type": "Abwesenheitsart", "sick": "Krankheit",
-    "vacation": "Urlaub", "other_absence": "Andere", "date_from": "Von", "date_to": "Bis",
-    "note": "Notiz", "add_absence": "Abwesenheit hinzufügen", "active_absences": "Eingetragene Abwesenheiten",
-    "monday": "Mo", "tuesday": "Di", "wednesday": "Mi", "thursday": "Do",
-    "friday": "Fr", "saturday": "Sa", "sunday": "So", "cancel": "Abbrechen",
-    "copy_active": "Kopie aktiv - klicken Sie auf + Einfügen beim gewünschten Datum.", "clear_copy": "Abbrechen",
-})
-
-TRANSLATIONS["pt"].update({
-    "login_title": "Entrar", "username": "Nome de utilizador", "password": "Palavra-passe",
-    "login_btn": "Entrar", "login_error": "Nome de utilizador ou palavra-passe incorretos",
-    "title": "PLANO DE TRABALHO", "logged_as": "Sessão iniciada como", "logout": "Sair",
-    "add_worker": "Adicionar trabalhador", "add_client": "Adicionar cliente", "add_shift": "Adicionar turno",
-    "worker_name": "Nome do trabalhador", "client_name": "Nome do cliente", "address": "Endereço",
-    "choose_worker": "Escolher trabalhadores", "choose_client": "Escolher cliente",
-    "filter_btn": "Filtrar", "reset": "Repor", "plan": "PLANO",
-    "no_shifts": "Ainda não existem turnos registados.", "edit": "Editar", "delete": "Apagar",
-    "copy": "Copiar", "copy_shift": "Copiar turno", "paste": "+ Colar",
-    "week_calendar": "Calendário semanal", "month_calendar": "Calendário mensal", "pdf": "PDF do plano",
-    "month_pdf": "PDF calendário mensal", "back": "Voltar", "edit_shift": "Editar turno", "save": "Guardar",
-    "pdf_title": "Plano dos trabalhadores", "pdf_user": "Utilizador", "pdf_date": "Data",
-    "pdf_time": "Hora", "pdf_worker": "Trabalhadores", "pdf_client": "Cliente",
-    "pdf_no_shifts": "Sem turnos", "user_mgmt": "Gestão de utilizadores",
-    "add_user": "Adicionar utilizador", "role_admin": "admin", "role_worker": "trabalhador",
-    "existing_users": "Utilizadores existentes", "delete_user": "Apagar utilizador",
-    "status": "Estado", "status_planned": "Planeado", "status_in_progress": "Em andamento",
-    "status_done": "Concluído", "weekly_hours": "Horas semanais",
-    "monthly_hours": "Horas mensais", "monthly_absence_days": "Dias de ausência mensais",
-    "hours": "horas", "days": "dias", "all_workers": "Todos os trabalhadores",
-    "all_clients": "Todos os clientes", "theme": "Tema", "light_theme": "Claro",
-    "dark_theme": "Escuro", "worker_colors": "Cores dos trabalhadores",
-    "update_color": "Atualizar cor", "prev_month": "Mês anterior",
-    "next_month": "Mês seguinte", "prev_week": "Semana anterior",
-    "next_week": "Semana seguinte", "current_week": "Semana atual",
-    "change_password": "Alterar palavra-passe", "new_password": "Nova palavra-passe",
-    "search_shifts": "Pesquisar turnos",
-    "search_placeholder": "Pesquisar por cliente, trabalhador, hora...",
-    "week_period": "Período", "workers": "Trabalhadores", "clients": "Clientes", "menu": "Menu",
-    "start_time": "Início", "end_time": "Fim", "team": "Trabalhadores juntos",
-    "add_holiday": "Adicionar feriado / dia não útil", "holiday_name": "Nome do feriado", "holiday": "Feriado",
-    "sick_vacation": "Baixa / Férias", "absence_type": "Tipo de ausência", "sick": "Baixa médica",
-    "vacation": "Férias", "other_absence": "Outro", "date_from": "De", "date_to": "Até",
-    "note": "Nota", "add_absence": "Adicionar ausência", "active_absences": "Ausências registadas",
-    "monday": "Seg", "tuesday": "Ter", "wednesday": "Qua", "thursday": "Qui",
-    "friday": "Sex", "saturday": "Sáb", "sunday": "Dom", "cancel": "Cancelar",
-    "copy_active": "Cópia ativa - clique em + Colar na data desejada.", "clear_copy": "Cancelar",
-})
 
 def get_lang():
     return session.get("lang", "bos")
@@ -396,13 +240,11 @@ def remove_worker_from_shift(worker_text, name):
 
 
 def get_status_label(status_key, tr):
-    if status_key == "planned":
-        return tr.get("status_planned", "Planirano")
-    if status_key == "in_progress":
-        return tr.get("status_in_progress", "U toku")
-    if status_key == "done":
-        return tr.get("status_done", "Završeno")
-    return status_key
+    return {
+        "planned": tr["status_planned"],
+        "in_progress": tr["status_in_progress"],
+        "done": tr["status_done"],
+    }.get(status_key, status_key)
 
 
 def split_time_range(time_range):
@@ -446,14 +288,12 @@ def parse_shift_hours(time_str):
 
 
 def get_auto_status(shift_date, time_range):
-    """Automatski status po datumu i vremenu smjene, po vremenu u Luksemburgu."""
+    """Automatski status po datumu i vremenu smjene."""
     try:
         start_str, end_str = [x.strip() for x in time_range.split("-")]
-
-        lux_tz = ZoneInfo("Europe/Luxembourg")
-        start_dt = datetime.strptime(f"{shift_date} {start_str}", "%Y-%m-%d %H:%M").replace(tzinfo=lux_tz)
-        end_dt = datetime.strptime(f"{shift_date} {end_str}", "%Y-%m-%d %H:%M").replace(tzinfo=lux_tz)
-        now = datetime.now(lux_tz)
+        start_dt = datetime.strptime(f"{shift_date} {start_str}", "%Y-%m-%d %H:%M")
+        end_dt = datetime.strptime(f"{shift_date} {end_str}", "%Y-%m-%d %H:%M")
+        now = datetime.now()
 
         if now < start_dt:
             return "planned"
@@ -937,6 +777,11 @@ def index():
 
     <div class="card" style="margin-top:20px;">
         <h2>{{ tr["plan"] }}</h2>
+        {% if is_admin and session.get('copied_shift_id') %}
+        <div style="background:#16a34a;color:white;padding:8px 12px;border-radius:8px;display:inline-block;margin:10px 0;font-weight:bold;">
+            {{ tr["copy_active"] }} <a style="color:white;text-decoration:underline;" href="/clear_copy">{{ tr["cancel_copy"] }}</a>
+        </div>
+        {% endif %}
         {% if shifts|length == 0 %}<div class="muted">{{ tr["no_shifts"] }}</div>{% endif %}
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(360px, 1fr)); gap:18px;">
         {% for week_start_key, week_shifts in weeks_grouped.items() %}
@@ -951,10 +796,11 @@ def index():
     <script>
     function toggleMenu(){var m=document.getElementById('menuBox');m.style.display=(m.style.display==='none')?'block':'none';}
     function dragShift(ev, shiftId){ev.dataTransfer.setData('shift_id', shiftId);}
-    // Automatski osvježi stranicu da se status i boja promijene bez ručnog refresh-a.
-    setInterval(function() {
-        window.location.reload();
-    }, 30000);
+    document.querySelectorAll(".delete-link").forEach(function(link){
+        link.addEventListener("click", function(e){
+            if(!confirm({{ tr["confirm_delete"]|tojson }})){ e.preventDefault(); }
+        });
+    });
     </script>
     """, tr=tr, dark=dark, datetime=datetime, timedelta=timedelta, format_date=format_date,
        time_hours=time_hours(), time_minutes=time_minutes(), status_colors=STATUS_COLORS,
@@ -995,7 +841,7 @@ def paste_shift(date):
 def clear_copy():
     if session.get("role") == "admin":
         session.pop("copied_shift_id", None)
-    return redirect("/month")
+    return redirect(request.referrer or "/")
 
 
 @app.route("/add_holiday", methods=["POST"])
@@ -1086,6 +932,11 @@ def week_view():
 
     return render_template_string(BASE_STYLE + header_html() + """
     <h1>{{ tr["week_calendar"] }}</h1><a href="/">{{ tr["back"] }}</a>
+    {% if is_admin and session.get('copied_shift_id') %}
+    <div style="background:#16a34a;color:white;padding:8px 12px;border-radius:8px;display:inline-block;margin:10px 0;font-weight:bold;">
+        {{ tr["copy_active"] }} <a style="color:white;text-decoration:underline;" href="/clear_copy">{{ tr["cancel_copy"] }}</a>
+    </div>
+    {% endif %}
     <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin:16px 0; flex-wrap:wrap;">
         <a href="/week?start={{ prev_week }}">{{ tr["prev_week"] }}</a><strong>{{ format_date(week_days[0]) }} - {{ format_date(week_days[-1]) }}</strong><a href="/week?start={{ next_week }}">{{ tr["next_week"] }}</a><a href="/week?start={{ current_week }}">{{ tr["current_week"] }}</a>
     </div>
@@ -1095,7 +946,7 @@ def week_view():
             <div class="card {% if holiday_name %}holiday-soft{% endif %} {% if is_weekend(day) %}weekend-soft{% endif %}" style="width:180px; min-height:130px;" ondragover="allowDrop(event)" ondragleave="clearDrop(event)" ondrop="dropShift(event, '{{ day }}')">
                 <a href="{% if is_admin %}javascript:void(0){% else %}/?selected_date={{ day }}{% endif %}" {% if is_admin %}onclick="openHolidayModal('{{ day }}')"{% endif %} style="{% if is_weekend(day) %}color:#ef4444;{% endif %}">{{ day_names[loop.index0] }}<br>{{ format_date(day) }}</a>
                 {% if holiday_name %}<small class="holiday-note">{{ holiday_name }}</small>{% endif %}
-                {% for s in shifts %}{% if s[3] == day %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="border-left:5px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }};">{% set auto_status = get_auto_status(s[3], s[4]) %}<b>{{ s[1] }}</b><br>{{ s[2] }}<br>{{ s[4] }}<br><span class="status-badge" style="background:{{ status_colors.get(auto_status, '#6b7280') }}; margin-left:0; display:inline-block; margin-top:4px;">{{ get_status_label(auto_status, tr) }}</span>{% if is_admin %}<br><a class="mini-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a><a class="mini-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a><a class="mini-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>{% endif %}</div>{% endif %}{% endfor %}
+                {% for s in shifts %}{% if s[3] == day %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="border-left:5px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }};"><b>{{ s[1] }}</b><br>{{ s[2] }}<br>{{ s[4] }}{% if is_admin %}<br><a class="mini-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a><a class="mini-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a><a class="mini-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>{% endif %}</div>{% endif %}{% endfor %}
             </div>
         {% endfor %}
     </div>
@@ -1105,10 +956,11 @@ def week_view():
     function closeHolidayModal(){var m=document.getElementById('holidayModal');if(m){m.style.display='none';}}
     function dragShift(ev, shiftId){ev.dataTransfer.setData('shift_id', shiftId);} function allowDrop(ev){ev.preventDefault();ev.currentTarget.classList.add('drop-target');} function clearDrop(ev){ev.currentTarget.classList.remove('drop-target');}
     function dropShift(ev, dateStr){ev.preventDefault();ev.currentTarget.classList.remove('drop-target');var shiftId=ev.dataTransfer.getData('shift_id');if(!shiftId)return;fetch('/move_shift',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'shift_id='+encodeURIComponent(shiftId)+'&date='+encodeURIComponent(dateStr)}).then(function(){window.location.reload();});}
-    // Automatski osvježi stranicu da se status i boja promijene bez ručnog refresh-a.
-    setInterval(function() {
-        window.location.reload();
-    }, 30000);
+    document.querySelectorAll(".delete-link").forEach(function(link){
+        link.addEventListener("click", function(e){
+            if(!confirm({{ tr["confirm_delete"]|tojson }})){ e.preventDefault(); }
+        });
+    });
     </script>
     """, tr=tr, dark=dark, week_days=week_days, shifts=shifts, worker_colors=worker_colors, format_date=format_date, holidays_map=holidays_map, day_names=day_names, status_colors=STATUS_COLORS, get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers, is_weekend=is_weekend, is_admin=is_admin, prev_week=prev_week, next_week=next_week, current_week=current_week)
 
@@ -1131,7 +983,7 @@ def month_view():
     day_names = [tr["monday"], tr["tuesday"], tr["wednesday"], tr["thursday"], tr["friday"], tr["saturday"], tr["sunday"]]
     return render_template_string(BASE_STYLE + header_html() + """
     <div><a href="/">{{ tr["back"] }}</a><a href="/week">{{ tr["week_calendar"] }}</a><a href="/month_pdf?year={{ year }}&month={{ month }}" target="_blank">{{ tr["month_pdf"] }}</a></div>
-    {% if is_admin and copied_shift_id %}<div style="background:#16a34a;color:white;padding:8px 12px;border-radius:8px;display:inline-block;margin:10px 0;font-weight:bold;">{{ tr["copy_active"] }} <a style="color:white;" href="/clear_copy">{{ tr["clear_copy"] }}</a></div>{% endif %}
+    {% if is_admin and copied_shift_id %}<div style="background:#16a34a;color:white;padding:8px 12px;border-radius:8px;display:inline-block;margin:10px 0;font-weight:bold;">{{ tr["copy_active"] }} <a style="color:white;text-decoration:underline;" href="/clear_copy">{{ tr["cancel_copy"] }}</a></div>{% endif %}
     <div style="display:flex; justify-content:space-between; align-items:center; margin:16px 0; gap:12px;"><a href="/month?year={{ prev_year }}&month={{ prev_month }}">{{ tr["prev_month"] }}</a><h2>{{ tr["month_calendar"] }} - {{ "%02d/%04d"|format(month, year) }}</h2><a href="/month?year={{ next_year }}&month={{ next_month }}">{{ tr["next_month"] }}</a></div>
     <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:10px;">
         {% for dn in day_names %}<div class="card" style="min-height:auto; text-align:center; font-weight:bold;">{{ dn }}</div>{% endfor %}
@@ -1139,7 +991,7 @@ def month_view():
             <div class="card {% if holiday_name %}holiday-soft{% endif %} {% if day.weekday() >= 5 %}weekend-soft{% endif %}" style="min-height:120px;" ondragover="allowDrop(event)" ondragleave="clearDrop(event)" ondrop="dropShift(event, '{{ daystr }}')">
                 <div style="font-weight:bold; margin-bottom:8px;"><a href="{% if is_admin %}javascript:void(0){% else %}/?selected_date={{ daystr }}{% endif %}" {% if is_admin %}onclick="openHolidayModal('{{ daystr }}')"{% endif %} style="{% if day.weekday() >= 5 %}color:#ef4444;{% endif %}">{{ day.strftime('%d/%m/%Y') }}</a>{% if is_admin and copied_shift_id %}<br><a style="display:inline-block;margin-top:6px;padding:4px 7px;border-radius:6px;background:#16a34a;color:white!important;font-size:11px;" href="/paste_shift/{{ daystr }}">{{ tr["paste"] }}</a>{% endif %}</div>
                 {% if holiday_name %}<small class="holiday-note">{{ holiday_name }}</small>{% endif %}
-                {% for s in shifts_by_date.get(daystr, []) %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="border-left:5px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }};">{% set auto_status = get_auto_status(s[3], s[4]) %}<b>{{ s[1] }}</b><br>{{ s[2] }}<br>{{ s[4] }}<br><span class="status-badge" style="background:{{ status_colors.get(auto_status, '#6b7280') }}; margin-left:0; display:inline-block; margin-top:4px;">{{ get_status_label(auto_status, tr) }}</span>{% if is_admin %}<br><a class="mini-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a><a class="mini-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a><a class="mini-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>{% endif %}</div>{% endfor %}
+                {% for s in shifts_by_date.get(daystr, []) %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="border-left:5px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }};"><b>{{ s[1] }}</b><br>{{ s[2] }}<br>{{ s[4] }}{% if is_admin %}<br><a class="mini-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a><a class="mini-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a><a class="mini-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>{% endif %}</div>{% endfor %}
             </div>
         {% endfor %}{% endfor %}
     </div>
@@ -1148,12 +1000,13 @@ def month_view():
     function openHolidayModal(dateStr){var m=document.getElementById('holidayModal');var d=document.getElementById('holidayDate');if(m&&d){d.value=dateStr;m.style.display='block';}} function closeHolidayModal(){var m=document.getElementById('holidayModal');if(m){m.style.display='none';}}
     function dragShift(ev, shiftId){ev.dataTransfer.setData('shift_id', shiftId);} function allowDrop(ev){ev.preventDefault();ev.currentTarget.classList.add('drop-target');} function clearDrop(ev){ev.currentTarget.classList.remove('drop-target');}
     function dropShift(ev, dateStr){ev.preventDefault();ev.currentTarget.classList.remove('drop-target');var shiftId=ev.dataTransfer.getData('shift_id');if(!shiftId)return;fetch('/move_shift',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'shift_id='+encodeURIComponent(shiftId)+'&date='+encodeURIComponent(dateStr)}).then(function(){window.location.reload();});}
-    // Automatski osvježi stranicu da se status i boja promijene bez ručnog refresh-a.
-    setInterval(function() {
-        window.location.reload();
-    }, 30000);
+    document.querySelectorAll(".delete-link").forEach(function(link){
+        link.addEventListener("click", function(e){
+            if(!confirm({{ tr["confirm_delete"]|tojson }})){ e.preventDefault(); }
+        });
+    });
     </script>
-    """, tr=tr, dark=dark, year=year, month=month, prev_year=prev_year, prev_month=prev_month, next_year=next_year, next_month=next_month, month_days=month_days, day_names=day_names, shifts_by_date=shifts_by_date, worker_colors=worker_colors, holidays_map=holidays_map, is_admin=is_admin, copied_shift_id=copied_shift_id, status_colors=STATUS_COLORS, get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers)
+    """, tr=tr, dark=dark, year=year, month=month, prev_year=prev_year, prev_month=prev_month, next_year=next_year, next_month=next_month, month_days=month_days, day_names=day_names, shifts_by_date=shifts_by_date, worker_colors=worker_colors, holidays_map=holidays_map, is_admin=is_admin, copied_shift_id=copied_shift_id, get_auto_status=get_auto_status, split_workers=split_workers)
 
 
 @app.route("/export_pdf")
