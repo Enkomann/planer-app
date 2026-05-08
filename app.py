@@ -9,7 +9,6 @@ import math
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, date as dt_date
-from zoneinfo import ZoneInfo
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 USE_POSTGRES = bool(DATABASE_URL)
@@ -216,10 +215,7 @@ def get_theme():
 
 
 def lux_now():
-    try:
-        return datetime.now(ZoneInfo("Europe/Luxembourg")).replace(tzinfo=None)
-    except:
-        return datetime.now()
+    return datetime.now(ZoneInfo("Europe/Luxembourg")).replace(tzinfo=None)
 
 
 class _PgCursor:
