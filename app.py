@@ -9,7 +9,10 @@ import math
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, date as dt_date
-from zoneinfo import ZoneInfo
+try:
+    from zoneinfo import ZoneInfo
+except Exception:
+    ZoneInfo = None
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 USE_POSTGRES = bool(DATABASE_URL)
@@ -116,12 +119,11 @@ TRANSLATIONS["pt"].update({
     "sick": "Baixa medica", "vacation": "Ferias", "sick_vacation": "Baixa / Ferias",
 })
 
-
 ROUTE_TRANSLATIONS = {
     "bos": {
         "route_optimizer": "Optimizacija rute",
         "route_title": "Optimizacija rute po radniku",
-        "route_desc": "Izaberi datum i radnika. Sistem će predložiti redoslijed klijenata sa najmanje približne vožnje.",
+        "route_desc": "Izaberi datum i radnika. Sistem predlaže redoslijed klijenata sa najmanje približne vožnje.",
         "start_address": "Početna adresa",
         "start_address_help": "Npr. adresa firme ili prvi polazak radnika",
         "optimize_route": "Optimizuj rutu",
@@ -133,11 +135,12 @@ ROUTE_TRANSLATIONS = {
         "geocode_failed": "Nije moguće pronaći koordinate za adresu",
         "no_route_shifts": "Nema smjena za izabrani datum/radnika.",
         "client_address": "Adresa klijenta",
+        "api_missing": "ORS_API_KEY nije dodat u Render Environment.",
     },
     "en": {
         "route_optimizer": "Route optimizer",
         "route_title": "Route optimization by worker",
-        "route_desc": "Choose a date and worker. The system will suggest a client order with the lowest approximate travel distance.",
+        "route_desc": "Choose a date and worker. The system suggests a client order with the lowest approximate travel distance.",
         "start_address": "Start address",
         "start_address_help": "For example company address or worker departure address",
         "optimize_route": "Optimize route",
@@ -149,11 +152,12 @@ ROUTE_TRANSLATIONS = {
         "geocode_failed": "Could not find coordinates for address",
         "no_route_shifts": "No shifts for the selected date/worker.",
         "client_address": "Client address",
+        "api_missing": "ORS_API_KEY is not set in Render Environment.",
     },
     "fr": {
         "route_optimizer": "Optimisation de tournée",
         "route_title": "Optimisation de tournée par employé",
-        "route_desc": "Choisissez une date et un employé. Le système proposera l’ordre des clients avec le moins de trajet approximatif.",
+        "route_desc": "Choisissez une date et un employé. Le système propose l’ordre des clients avec le moins de trajet approximatif.",
         "start_address": "Adresse de départ",
         "start_address_help": "Par exemple l’adresse de la société ou le départ de l’employé",
         "optimize_route": "Optimiser la tournée",
@@ -165,6 +169,7 @@ ROUTE_TRANSLATIONS = {
         "geocode_failed": "Impossible de trouver les coordonnées pour l’adresse",
         "no_route_shifts": "Aucune mission pour la date/l’employé sélectionné.",
         "client_address": "Adresse client",
+        "api_missing": "ORS_API_KEY n’est pas ajouté dans Render Environment.",
     },
     "de": {
         "route_optimizer": "Routenoptimierung",
@@ -181,6 +186,7 @@ ROUTE_TRANSLATIONS = {
         "geocode_failed": "Koordinaten für die Adresse konnten nicht gefunden werden",
         "no_route_shifts": "Keine Einsätze für das gewählte Datum/den Mitarbeiter.",
         "client_address": "Kundenadresse",
+        "api_missing": "ORS_API_KEY ist nicht in Render Environment gesetzt.",
     },
     "pt": {
         "route_optimizer": "Otimização de rota",
@@ -197,6 +203,7 @@ ROUTE_TRANSLATIONS = {
         "geocode_failed": "Não foi possível encontrar coordenadas para o endereço",
         "no_route_shifts": "Não há turnos para a data/trabalhador selecionado.",
         "client_address": "Endereço do cliente",
+        "api_missing": "ORS_API_KEY não foi adicionado no Render Environment.",
     },
 }
 for _lang, _values in ROUTE_TRANSLATIONS.items():
@@ -216,7 +223,101 @@ def get_theme():
 
 
 def lux_now():
-    return datetime.now(ZoneInfo("Europe/Luxembourg")).replace(tzinfo=None)
+    try:
+        if ZoneInfo is not None:
+            return datetime.now(ZoneInfo("Europe/Luxembourg")).replace(tzinfo=None)
+    except Exception as e:
+        print("TIMEZONE ERROR:", e)
+    return datetime.now()
+
+
+def normalize_lux_address(address):
+    address = (address or "").strip()
+    if address and "luxembourg" not in address.lower():
+        address += ", Luxembourg"
+    return address
+
+
+def get_coords(address):
+    """Return (lat, lon) for an address using OpenRouteService geocoding."""
+    api_key = os.environ.get("ORS_API_KEY", "").strip()
+    address = normalize_lux_address(address)
+
+    if not api_key:
+        print("ROUTE ERROR: ORS_API_KEY is missing in Render Environment")
+        return None
+    if not address or len(address) < 3:
+        print("ROUTE ERROR: bad/empty address", address)
+        return None
+
+    try:
+        params = urllib.parse.urlencode({
+            "api_key": api_key,
+            "text": address,
+            "size": 1,
+            "boundary.country": "LU",
+        })
+        url = f"https://api.openrouteservice.org/geocode/search?{params}"
+        req = urllib.request.Request(url, headers={"User-Agent": "LuxmannPlanner/1.0"})
+        with urllib.request.urlopen(req, timeout=10) as response:
+            data = json.loads(response.read().decode("utf-8"))
+
+        if not data.get("features"):
+            print("ROUTE ERROR: no coordinates found for", address)
+            return None
+
+        lon, lat = data["features"][0]["geometry"]["coordinates"][:2]
+        return float(lat), float(lon)
+    except Exception as e:
+        print("ROUTE GEOCODING ERROR:", address, e)
+        return None
+
+
+def haversine_km(a, b):
+    lat1, lon1 = a
+    lat2, lon2 = b
+    r = 6371.0
+    p1 = math.radians(lat1)
+    p2 = math.radians(lat2)
+    dp = math.radians(lat2 - lat1)
+    dl = math.radians(lon2 - lon1)
+    x = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * r * math.atan2(math.sqrt(x), math.sqrt(1 - x))
+
+
+def optimize_nearest_neighbor(start_coords, stops):
+    remaining = stops[:]
+    ordered = []
+    total_km = 0.0
+    current = start_coords
+
+    while remaining:
+        next_stop = min(remaining, key=lambda item: haversine_km(current, item["coords"]))
+        total_km += haversine_km(current, next_stop["coords"])
+        ordered.append(next_stop)
+        current = next_stop["coords"]
+        remaining.remove(next_stop)
+
+    return ordered, total_km
+
+
+def google_maps_directions_url(start_address, ordered_stops):
+    destination = ordered_stops[-1]["address"] if ordered_stops else start_address
+    waypoints = [stop["address"] for stop in ordered_stops[:-1]]
+    params = {
+        "api": "1",
+        "origin": normalize_lux_address(start_address),
+        "destination": normalize_lux_address(destination),
+        "travelmode": "driving",
+    }
+    if waypoints:
+        params["waypoints"] = "|".join(normalize_lux_address(x) for x in waypoints)
+    return "https://www.google.com/maps/dir/?" + urllib.parse.urlencode(params)
+
+
+def google_maps_embed_url(start_address, ordered_stops):
+    # Simple embedded directions-style map. If Google blocks embed in some browsers, the normal Google Maps link still works.
+    return google_maps_directions_url(start_address, ordered_stops) + "&output=embed"
 
 
 class _PgCursor:
@@ -378,7 +479,7 @@ def get_auto_status(shift_date, time_range):
         start_str, end_str = [x.strip() for x in time_range.split("-")]
         start_dt = datetime.strptime(f"{shift_date} {start_str}", "%Y-%m-%d %H:%M")
         end_dt = datetime.strptime(f"{shift_date} {end_str}", "%Y-%m-%d %H:%M")
-        now = lux_now()
+        now = datetime.now()
 
         if now < start_dt:
             return "planned"
@@ -387,98 +488,6 @@ def get_auto_status(shift_date, time_range):
         return "done"
     except Exception:
         return "planned"
-
-
-
-def normalize_address_for_maps(address):
-    address = (address or "").strip()
-    if address and "luxembourg" not in address.lower() and "luxembourg" not in address.lower():
-        address = f"{address}, Luxembourg"
-    return address
-
-
-def haversine_km(lat1, lng1, lat2, lng2):
-    r = 6371.0
-    phi1 = math.radians(float(lat1))
-    phi2 = math.radians(float(lat2))
-    d_phi = math.radians(float(lat2) - float(lat1))
-    d_lam = math.radians(float(lng2) - float(lng1))
-    a = math.sin(d_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lam / 2) ** 2
-    return 2 * r * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-
-def geocode_address(address):
-    """Return (lat, lng, error). Uses local DB cache + OpenStreetMap Nominatim."""
-    normalized = normalize_address_for_maps(address)
-    if not normalized:
-        return None, None, "missing"
-
-    conn = get_conn()
-    c = conn.cursor()
-    row = c.execute("SELECT lat, lng FROM geocode_cache WHERE address = ?", (normalized,)).fetchone()
-    if row:
-        conn.close()
-        return float(row[0]), float(row[1]), None
-
-    try:
-        params = urllib.parse.urlencode({"q": normalized, "format": "json", "limit": 1})
-        url = f"https://nominatim.openstreetmap.org/search?{params}"
-        req = urllib.request.Request(url, headers={"User-Agent": "LuxmannPlanner/1.0 (route optimizer)"})
-        with urllib.request.urlopen(req, timeout=8) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-        if not payload:
-            conn.close()
-            return None, None, "not_found"
-        lat = float(payload[0]["lat"])
-        lng = float(payload[0]["lon"])
-        existing = c.execute("SELECT address FROM geocode_cache WHERE address = ?", (normalized,)).fetchone()
-        if existing:
-            c.execute("UPDATE geocode_cache SET lat = ?, lng = ?, updated_at = ? WHERE address = ?", (lat, lng, datetime.now().isoformat(), normalized))
-        else:
-            c.execute("INSERT INTO geocode_cache (address, lat, lng, updated_at) VALUES (?, ?, ?, ?)", (normalized, lat, lng, datetime.now().isoformat()))
-        conn.commit()
-        conn.close()
-        return lat, lng, None
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
-        return None, None, str(exc)
-
-
-def optimize_route_points(start_point, points):
-    """Nearest-neighbor route optimization. Returns ordered points and approximate km."""
-    ordered = []
-    remaining = points[:]
-    current = start_point
-    total_km = 0.0
-    while remaining:
-        next_point = min(
-            remaining,
-            key=lambda p: haversine_km(current["lat"], current["lng"], p["lat"], p["lng"]),
-        )
-        leg_km = haversine_km(current["lat"], current["lng"], next_point["lat"], next_point["lng"])
-        remaining.remove(next_point)
-        next_point = dict(next_point)
-        next_point["leg_km"] = leg_km
-        total_km += leg_km
-        ordered.append(next_point)
-        current = next_point
-    return ordered, total_km
-
-
-def build_google_maps_url(start_address, ordered_points):
-    addresses = [normalize_address_for_maps(start_address)] + [p["address"] for p in ordered_points]
-    if len(addresses) < 2:
-        return "https://www.google.com/maps"
-    origin = urllib.parse.quote_plus(addresses[0])
-    destination = urllib.parse.quote_plus(addresses[-1])
-    waypoints = "|".join(urllib.parse.quote_plus(a) for a in addresses[1:-1])
-    url = f"https://www.google.com/maps/dir/?api=1&origin={origin}&destination={destination}&travelmode=driving"
-    if waypoints:
-        url += f"&waypoints={waypoints}"
-    return url
 
 
 def calculate_hours_for_user(shifts, username=None):
@@ -653,15 +662,6 @@ def init_db():
             date_from TEXT,
             date_to TEXT,
             note TEXT DEFAULT ''
-        )
-    """)
-
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS geocode_cache (
-            address TEXT PRIMARY KEY,
-            lat REAL,
-            lng REAL,
-            updated_at TEXT
         )
     """)
 
@@ -919,7 +919,7 @@ def index():
         </div>
 
         <div class="card"><h3>{{ tr["add_worker"] }}</h3><form method="post" action="/add_worker" autocomplete="off"><input name="worker_name" placeholder="{{ tr['worker_name'] }}" required autocomplete="off"><input name="address" placeholder="{{ tr['address'] }}" autocomplete="off"><button>{{ tr["add_worker"] }}</button></form></div>
-        <div class="card"><h3>{{ tr["add_client"] }}</h3><form method="post" action="/add_client" autocomplete="off"><input name="client_name" placeholder="{{ tr['client_name'] }}" required autocomplete="off"><input name="address" placeholder="{{ tr['address'] }}" autocomplete="off"><button>{{ tr["add_client"] }}</button></form></div>
+        <div class="card"><h3>{{ tr["add_client"] }}</h3><form method="post" action="/add_client" autocomplete="off"><input name="client_name" placeholder="{{ tr['client_name'] }}" required autocomplete="off"><input name="address" placeholder="{{ tr['address'] }}" required autocomplete="off"><button>{{ tr["add_client"] }}</button></form></div>
 
         <div class="card">
             <h3>{{ tr["add_shift"] }}</h3>
@@ -1170,6 +1170,127 @@ def month_view():
     """, tr=tr, dark=dark, year=year, month=month, prev_year=prev_year, prev_month=prev_month, next_year=next_year, next_month=next_month, month_days=month_days, day_names=day_names, shifts_by_date=shifts_by_date, worker_colors=worker_colors, holidays_map=holidays_map, is_admin=is_admin, copied_shift_id=copied_shift_id, get_auto_status=get_auto_status, split_workers=split_workers)
 
 
+
+@app.route("/route_optimizer", methods=["GET", "POST"])
+def route_optimizer():
+    if "user" not in session:
+        return redirect("/login")
+    tr = t()
+    dark = get_theme() == "dark"
+    is_admin = session.get("role") == "admin"
+    current_user = session.get("user")
+
+    conn = get_conn()
+    c = conn.cursor()
+    workers = c.execute("SELECT name, address FROM workers ORDER BY name").fetchall()
+
+    selected_date = request.values.get("date", lux_now().strftime("%Y-%m-%d")).strip()
+    selected_worker = request.values.get("worker", current_user if not is_admin else "").strip()
+    start_address = request.values.get("start_address", "Wiltz, Luxembourg").strip()
+    result = None
+    error = ""
+
+    if request.method == "POST":
+        if not os.environ.get("ORS_API_KEY", "").strip():
+            error = tr["api_missing"]
+        elif not start_address:
+            error = tr["missing_address"] + ": " + tr["start_address"]
+        elif not selected_worker:
+            error = tr["choose_worker"]
+        else:
+            shifts = c.execute("SELECT * FROM shifts WHERE date = ? ORDER BY time", (selected_date,)).fetchall()
+            shifts = [s for s in shifts if worker_in_shift(selected_worker, s[1])]
+
+            if not shifts:
+                error = tr["no_route_shifts"]
+            else:
+                start_coords = get_coords(start_address)
+                if not start_coords:
+                    error = f"{tr['geocode_failed']}: {start_address}"
+                else:
+                    stops = []
+                    bad_addresses = []
+                    for s in shifts:
+                        client_name = s[2]
+                        client = c.execute("SELECT name, address FROM clients WHERE name = ?", (client_name,)).fetchone()
+                        client_address = client[1] if client and len(client) > 1 else ""
+                        if not client_address:
+                            bad_addresses.append(f"{client_name} ({tr['missing_address']})")
+                            continue
+                        coords = get_coords(client_address)
+                        if not coords:
+                            bad_addresses.append(f"{client_name} - {client_address}")
+                            continue
+                        stops.append({
+                            "client": client_name,
+                            "address": client_address,
+                            "time": s[4],
+                            "coords": coords,
+                        })
+
+                    if not stops:
+                        error = tr["geocode_failed"] + ": " + ", ".join(bad_addresses)
+                    else:
+                        ordered, total_km = optimize_nearest_neighbor(start_coords, stops)
+                        result = {
+                            "ordered": ordered,
+                            "total_km": total_km,
+                            "bad_addresses": bad_addresses,
+                            "maps_url": google_maps_directions_url(start_address, ordered),
+                            "embed_url": google_maps_embed_url(start_address, ordered),
+                        }
+    conn.close()
+
+    return render_template_string(BASE_STYLE + header_html() + """
+    <h1>{{ tr["route_title"] }}</h1>
+    <a href="/">{{ tr["back"] }}</a>
+    <div class="card" style="margin-top:16px; max-width:900px;">
+        <p class="muted">{{ tr["route_desc"] }}</p>
+        <form method="post">
+            <label>{{ tr["pdf_date"] }}</label>
+            <input type="date" name="date" value="{{ selected_date }}" required>
+            <label>{{ tr["choose_worker"] }}</label>
+            <select name="worker" required>
+                {% if is_admin %}<option value="">{{ tr["choose_worker"] }}</option>{% endif %}
+                {% for w in workers %}
+                    {% if w[0] != 'admin' %}<option value="{{ w[0] }}" {% if selected_worker == w[0] %}selected{% endif %}>{{ w[0] }}</option>{% endif %}
+                {% endfor %}
+            </select>
+            <label>{{ tr["start_address"] }}</label>
+            <input name="start_address" value="{{ start_address }}" placeholder="{{ tr['start_address_help'] }}" required>
+            <button>{{ tr["optimize_route"] }}</button>
+        </form>
+        {% if error %}<div style="margin-top:15px; color:#ef4444; font-weight:bold;">{{ error }}</div>{% endif %}
+    </div>
+
+    {% if result %}
+    <div class="card" style="margin-top:16px; max-width:900px;">
+        <h2>{{ tr["optimized_order"] }}</h2>
+        <p><b>{{ tr["approx_distance"] }}:</b> {{ "%.1f"|format(result.total_km) }} km</p>
+        <ol>
+            {% for stop in result.ordered %}
+                <li style="margin-bottom:10px;">
+                    <b>{{ stop.client }}</b> — {{ stop.time }}<br>
+                    <span class="muted">{{ tr["client_address"] }}: {{ stop.address }}</span>
+                </li>
+            {% endfor %}
+        </ol>
+        {% if result.bad_addresses %}
+            <div style="color:#f59e0b; font-weight:bold; margin:12px 0;">
+                {{ tr["geocode_failed"] }}:<br>
+                {% for bad in result.bad_addresses %}• {{ bad }}<br>{% endfor %}
+            </div>
+        {% endif %}
+        <p class="muted">{{ tr["route_warning"] }}</p>
+        <a class="week-link" href="{{ result.maps_url }}" target="_blank">{{ tr["open_in_maps"] }}</a>
+        <div style="margin-top:16px; border-radius:12px; overflow:hidden; border:1px solid #cbd5e1;">
+            <iframe src="{{ result.embed_url }}" width="100%" height="420" style="border:0;" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+        </div>
+    </div>
+    {% endif %}
+    """, tr=tr, dark=dark, workers=workers, selected_date=selected_date,
+       selected_worker=selected_worker, start_address=start_address, result=result, error=error, is_admin=is_admin)
+
 @app.route("/export_pdf")
 def export_pdf():
     if "user" not in session: return redirect("/login")
@@ -1210,124 +1331,6 @@ def month_pdf():
     doc.build(elements); buffer.seek(0)
     return send_file(buffer, as_attachment=True, download_name=f"month_calendar_{year}_{month:02d}.pdf", mimetype="application/pdf")
 
-
-
-@app.route("/route_optimizer", methods=["GET", "POST"])
-def route_optimizer():
-    if "user" not in session:
-        return redirect("/login")
-    tr = t()
-    dark = get_theme() == "dark"
-    is_admin = session.get("role") == "admin"
-    current_user = session.get("user")
-
-    conn = get_conn()
-    c = conn.cursor()
-    workers = c.execute("SELECT name, address FROM workers ORDER BY name").fetchall()
-    conn.close()
-
-    today_str = lux_now().strftime("%Y-%m-%d")
-    selected_date = request.values.get("date", today_str)
-    selected_worker = request.values.get("worker", current_user if not is_admin else "").strip()
-    start_address = request.values.get("start_address", "Wiltz, Luxembourg").strip() or "Wiltz, Luxembourg"
-
-    route_result = None
-    errors = []
-    if request.method == "POST" and selected_date and selected_worker:
-        conn = get_conn()
-        c = conn.cursor()
-        rows = c.execute(
-            """
-            SELECT shifts.id, shifts.worker, shifts.client, shifts.date, shifts.time, clients.address
-            FROM shifts
-            LEFT JOIN clients ON shifts.client = clients.name
-            WHERE shifts.date = ?
-            ORDER BY shifts.time
-            """,
-            (selected_date,),
-        ).fetchall()
-        conn.close()
-        rows = [r for r in rows if worker_in_shift(selected_worker, r[1])]
-
-        start_lat, start_lng, start_error = geocode_address(start_address)
-        points = []
-        for r in rows:
-            client_name = r[2]
-            client_address = (r[5] or "").strip()
-            if not client_address:
-                errors.append(f"{client_name}: {tr['missing_address']}")
-                continue
-            lat, lng, err = geocode_address(client_address)
-            if err:
-                errors.append(f"{client_name}: {tr['geocode_failed']} - {client_address}")
-                continue
-            points.append({
-                "shift_id": r[0],
-                "worker": r[1],
-                "client": client_name,
-                "date": r[3],
-                "time": r[4],
-                "address": normalize_address_for_maps(client_address),
-                "lat": lat,
-                "lng": lng,
-            })
-
-        if start_error:
-            errors.append(f"{tr['start_address']}: {tr['geocode_failed']} - {start_address}")
-        elif points:
-            ordered, total_km = optimize_route_points({"lat": start_lat, "lng": start_lng, "address": normalize_address_for_maps(start_address)}, points)
-            route_result = {
-                "ordered": ordered,
-                "total_km": total_km,
-                "maps_url": build_google_maps_url(start_address, ordered),
-            }
-        elif not rows:
-            errors.append(tr["no_route_shifts"])
-
-    return render_template_string(BASE_STYLE + header_html() + """
-    <h1>{{ tr["route_title"] }}</h1>
-    <a href="/">{{ tr["back"] }}</a>
-    <div class="card" style="margin-top:18px; max-width:760px;">
-        <p class="muted">{{ tr["route_desc"] }}</p>
-        <form method="post">
-            <label>{{ tr["pdf_date"] }}</label>
-            <input type="date" name="date" value="{{ selected_date }}" required>
-            <label>{{ tr["pdf_worker"] }}</label>
-            <select name="worker" required>
-                <option value="">{{ tr["choose_worker"] }}</option>
-                {% for w in workers %}{% if w[0] != 'admin' %}<option value="{{ w[0] }}" {% if selected_worker == w[0] %}selected{% endif %}>{{ w[0] }}</option>{% endif %}{% endfor %}
-            </select>
-            <label>{{ tr["start_address"] }}</label>
-            <input name="start_address" value="{{ start_address }}" placeholder="{{ tr['start_address_help'] }}" required>
-            <button>{{ tr["optimize_route"] }}</button>
-        </form>
-    </div>
-
-    {% if errors %}
-    <div class="card" style="margin-top:18px; border-left:6px solid #ef4444; max-width:760px;">
-        {% for e in errors %}<div class="user-row">{{ e }}</div>{% endfor %}
-    </div>
-    {% endif %}
-
-    {% if route_result %}
-    <div class="card" style="margin-top:18px; max-width:900px;">
-        <h2>{{ tr["optimized_order"] }}</h2>
-        <p><b>{{ tr["approx_distance"] }}:</b> {{ "%.1f"|format(route_result.total_km) }} km</p>
-        <p class="muted">{{ tr["route_warning"] }}</p>
-        <ol>
-            {% for p in route_result.ordered %}
-            <li style="margin-bottom:12px;">
-                <b>{{ p.client }}</b> — {{ p.time }}<br>
-                <span class="muted">{{ tr["client_address"] }}: {{ p.address }}</span><br>
-                <span class="muted">+ {{ "%.1f"|format(p.leg_km) }} km</span>
-            </li>
-            {% endfor %}
-        </ol>
-        <a class="week-link" href="{{ route_result.maps_url }}" target="_blank">{{ tr["open_in_maps"] }}</a>
-    </div>
-    {% endif %}
-    """, tr=tr, dark=dark, workers=workers, selected_date=selected_date, selected_worker=selected_worker,
-       start_address=start_address, route_result=route_result, errors=errors)
 
 # CRUD routes
 @app.route("/update_worker_color", methods=["POST"])
@@ -1395,7 +1398,7 @@ def edit_client(name):
         conn.commit(); conn.close(); return redirect("/")
     client = c.execute("SELECT name, address FROM clients WHERE name = ?", (name,)).fetchone(); conn.close()
     if not client: return redirect("/")
-    return render_template_string(BASE_STYLE + """<div class="card" style="max-width:500px;margin:auto;"><h2>{{ tr["clients"] }} - {{ tr["edit"] }}</h2><form method="post"><input name="name" value="{{ client[0] }}" required><input name="address" value="{{ client[1] }}" placeholder="{{ tr['address'] }}"><button>{{ tr["save"] }}</button></form><br><a href="/">{{ tr["back"] }}</a></div>""", tr=tr, client=client, dark=dark)
+    return render_template_string(BASE_STYLE + """<div class="card" style="max-width:500px;margin:auto;"><h2>{{ tr["clients"] }} - {{ tr["edit"] }}</h2><form method="post"><input name="name" value="{{ client[0] }}" required><input name="address" value="{{ client[1] }}" placeholder="{{ tr['address'] }}" required><button>{{ tr["save"] }}</button></form><br><a href="/">{{ tr["back"] }}</a></div>""", tr=tr, client=client, dark=dark)
 
 @app.route("/edit_shift/<int:id>", methods=["GET", "POST"])
 def edit_shift(id):
@@ -1422,7 +1425,7 @@ def add_worker():
 def add_client():
     if session.get("role") != "admin": return redirect("/")
     name = request.form["client_name"].strip(); address = request.form.get("address", "").strip()
-    if name:
+    if name and address:
         conn = get_conn(); c = conn.cursor(); c.execute("INSERT OR IGNORE INTO clients (name, address) VALUES (?, ?)", (name, address)); conn.commit(); conn.close()
     return redirect("/")
 
