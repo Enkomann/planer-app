@@ -216,7 +216,10 @@ def get_theme():
 
 
 def lux_now():
-    return datetime.now(ZoneInfo("Europe/Luxembourg")).replace(tzinfo=None)
+    try:
+        return datetime.now(ZoneInfo("Europe/Luxembourg")).replace(tzinfo=None)
+    except:
+        return datetime.now()
 
 
 class _PgCursor:
