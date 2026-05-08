@@ -1284,8 +1284,22 @@ def route_optimizer():
         <p class="muted">{{ tr["route_warning"] }}</p>
         <a class="week-link" href="{{ result.maps_url }}" target="_blank">{{ tr["open_in_maps"] }}</a>
         <div style="margin-top:16px; border-radius:12px; overflow:hidden; border:1px solid #cbd5e1;">
-            <iframe src="{{ result.embed_url }}" width="100%" height="420" style="border:0;" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
-        </div>
+<div style="margin-top:20px; text-align:center;">
+    <a href="{{ google_map_url }}" target="_blank"
+       style="
+        display:inline-block;
+        padding:16px 28px;
+        font-size:18px;
+        font-weight:bold;
+        background:#16a34a;
+        color:white;
+        border-radius:10px;
+        text-decoration:none;
+        box-shadow:0 4px 12px rgba(0,0,0,0.2);
+       ">
+       🗺️ Otvori rutu u Google Maps
+    </a>
+</div>        </div>
     </div>
     {% endif %}
     """, tr=tr, dark=dark, workers=workers, selected_date=selected_date,
