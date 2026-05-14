@@ -408,43 +408,46 @@ def haversine_km(lat1, lng1, lat2, lng2):
 
 
 def geocode_address(address):
-    """Return (lat, lng, error). Uses local DB cache + OpenStreetMap Nominatim."""
-    normalized = normalize_address_for_maps(address)
-    if not normalized:
-        return None, None, "missing"
-
-    conn = get_conn()
-    c = conn.cursor()
-    row = c.execute("SELECT lat, lng FROM geocode_cache WHERE address = ?", (normalized,)).fetchone()
-    if row:
-        conn.close()
-        return float(row[0]), float(row[1]), None
-
     try:
-        params = urllib.parse.urlencode({"q": normalized, "format": "json", "limit": 1})
-        url = f"https://nominatim.openstreetmap.org/search?{params}"
-        req = urllib.request.Request(url, headers={"User-Agent": "LuxmannPlanner/1.0 (route optimizer)"})
-        with urllib.request.urlopen(req, timeout=8) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-        if not payload:
-            conn.close()
-            return None, None, "not_found"
-        lat = float(payload[0]["lat"])
-        lng = float(payload[0]["lon"])
-        existing = c.execute("SELECT address FROM geocode_cache WHERE address = ?", (normalized,)).fetchone()
-        if existing:
-            c.execute("UPDATE geocode_cache SET lat = ?, lng = ?, updated_at = ? WHERE address = ?", (lat, lng, datetime.now().isoformat(), normalized))
-        else:
-            c.execute("INSERT INTO geocode_cache (address, lat, lng, updated_at) VALUES (?, ?, ?, ?)", (normalized, lat, lng, datetime.now().isoformat()))
-        conn.commit()
-        conn.close()
+        api_key = os.environ.get("ORS_API_KEY")
+
+        if not api_key:
+            return None, None, "Nema API key"
+
+        if not address:
+            return None, None, "Prazna adresa"
+
+        url = "https://api.openrouteservice.org/geocode/search"
+
+        params = {
+            "api_key": api_key,
+            "text": address,
+            "size": 1,
+        }
+
+        r = requests.get(url, params=params, timeout=10)
+
+        print("GEOCODE STATUS:", r.status_code)
+        print("GEOCODE RESPONSE:", r.text)
+
+        data = r.json()
+
+        if "features" not in data:
+            return None, None, "Nema features"
+
+        if len(data["features"]) == 0:
+            return None, None, "Adresa nije pronađena"
+
+        coords = data["features"][0]["geometry"]["coordinates"]
+
+        lng = coords[0]
+        lat = coords[1]
+
         return lat, lng, None
-    except Exception as exc:
-        try:
-            conn.close()
-        except Exception:
-            pass
-        return None, None, str(exc)
+
+    except Exception as e:
+        print("GEOCODE ERROR:", e)
+        return None, None, str(e)
 
 
 def optimize_route_points(start_point, points):
