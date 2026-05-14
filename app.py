@@ -1209,6 +1209,47 @@ def month_pdf():
     if absence_lines: elements += [Spacer(1, 12), Paragraph(tr["monthly_absence_days"], styles["Heading2"])] + [Paragraph(x, styles["Normal"]) for x in absence_lines]
     doc.build(elements); buffer.seek(0)
     return send_file(buffer, as_attachment=True, download_name=f"month_calendar_{year}_{month:02d}.pdf", mimetype="application/pdf")
+    
+
+def get_coords(address):
+    try:
+        api_key = os.environ.get("ORS_API_KEY")
+
+        if not api_key:
+            print("NEMA ORS_API_KEY")
+            return None
+
+        headers = {
+            "Authorization": api_key
+        }
+
+        url = "https://api.openrouteservice.org/geocode/search"
+
+        params = {
+            "text": address,
+            "size": 1
+        }
+
+        r = requests.get(url, headers=headers, params=params, timeout=10)
+
+        print("STATUS:", r.status_code)
+        print("RESPONSE:", r.text)
+
+        data = r.json()
+
+        if "features" not in data:
+            return None
+
+        if len(data["features"]) == 0:
+            return None
+
+        coords = data["features"][0]["geometry"]["coordinates"]
+
+        return coords[1], coords[0]
+
+    except Exception as e:
+        print("GET_COORDS ERROR:", e)
+        return None
 
 
 
