@@ -8,10 +8,11 @@ import json
 import math
 import urllib.parse
 import urllib.request
-import requests
-
 from datetime import datetime, timedelta, date as dt_date
-from zoneinfo import ZoneInfo
+try:
+    from zoneinfo import ZoneInfo
+except Exception:
+    ZoneInfo = None
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 USE_POSTGRES = bool(DATABASE_URL)
@@ -118,12 +119,11 @@ TRANSLATIONS["pt"].update({
     "sick": "Baixa medica", "vacation": "Ferias", "sick_vacation": "Baixa / Ferias",
 })
 
-
 ROUTE_TRANSLATIONS = {
     "bos": {
         "route_optimizer": "Optimizacija rute",
         "route_title": "Optimizacija rute po radniku",
-        "route_desc": "Izaberi datum i radnika. Sistem će predložiti redoslijed klijenata sa najmanje približne vožnje.",
+        "route_desc": "Izaberi datum i radnika. Sistem predlaže redoslijed klijenata sa najmanje približne vožnje.",
         "start_address": "Početna adresa",
         "start_address_help": "Npr. adresa firme ili prvi polazak radnika",
         "optimize_route": "Optimizuj rutu",
@@ -135,11 +135,12 @@ ROUTE_TRANSLATIONS = {
         "geocode_failed": "Nije moguće pronaći koordinate za adresu",
         "no_route_shifts": "Nema smjena za izabrani datum/radnika.",
         "client_address": "Adresa klijenta",
+        "api_missing": "ORS_API_KEY nije dodat u Render Environment.",
     },
     "en": {
         "route_optimizer": "Route optimizer",
         "route_title": "Route optimization by worker",
-        "route_desc": "Choose a date and worker. The system will suggest a client order with the lowest approximate travel distance.",
+        "route_desc": "Choose a date and worker. The system suggests a client order with the lowest approximate travel distance.",
         "start_address": "Start address",
         "start_address_help": "For example company address or worker departure address",
         "optimize_route": "Optimize route",
@@ -151,11 +152,12 @@ ROUTE_TRANSLATIONS = {
         "geocode_failed": "Could not find coordinates for address",
         "no_route_shifts": "No shifts for the selected date/worker.",
         "client_address": "Client address",
+        "api_missing": "ORS_API_KEY is not set in Render Environment.",
     },
     "fr": {
         "route_optimizer": "Optimisation de tournée",
         "route_title": "Optimisation de tournée par employé",
-        "route_desc": "Choisissez une date et un employé. Le système proposera l’ordre des clients avec le moins de trajet approximatif.",
+        "route_desc": "Choisissez une date et un employé. Le système propose l’ordre des clients avec le moins de trajet approximatif.",
         "start_address": "Adresse de départ",
         "start_address_help": "Par exemple l’adresse de la société ou le départ de l’employé",
         "optimize_route": "Optimiser la tournée",
@@ -167,6 +169,7 @@ ROUTE_TRANSLATIONS = {
         "geocode_failed": "Impossible de trouver les coordonnées pour l’adresse",
         "no_route_shifts": "Aucune mission pour la date/l’employé sélectionné.",
         "client_address": "Adresse client",
+        "api_missing": "ORS_API_KEY n’est pas ajouté dans Render Environment.",
     },
     "de": {
         "route_optimizer": "Routenoptimierung",
@@ -183,6 +186,7 @@ ROUTE_TRANSLATIONS = {
         "geocode_failed": "Koordinaten für die Adresse konnten nicht gefunden werden",
         "no_route_shifts": "Keine Einsätze für das gewählte Datum/den Mitarbeiter.",
         "client_address": "Kundenadresse",
+        "api_missing": "ORS_API_KEY ist nicht in Render Environment gesetzt.",
     },
     "pt": {
         "route_optimizer": "Otimização de rota",
@@ -199,10 +203,104 @@ ROUTE_TRANSLATIONS = {
         "geocode_failed": "Não foi possível encontrar coordenadas para o endereço",
         "no_route_shifts": "Não há turnos para a data/trabalhador selecionado.",
         "client_address": "Endereço do cliente",
+        "api_missing": "ORS_API_KEY não foi adicionado no Render Environment.",
     },
 }
 for _lang, _values in ROUTE_TRANSLATIONS.items():
     TRANSLATIONS[_lang].update(_values)
+
+PRO_UI_TRANSLATIONS = {
+    "bos": {
+        "dashboard": "Dashboard", "overview": "Pregled", "quick_actions": "Brze akcije",
+        "today_shifts": "Današnje smjene", "active_workers": "Aktivni radnici", "registered_clients": "Klijenti",
+        "this_month_hours": "Sati ovog mjeseca", "today": "Danas", "management": "Administracija",
+        "planning_tools": "Alati za planiranje", "professional_menu": "Profesionalni meni",
+        "open_maps": "Otvori mapu", "route_distance_return": "Kilometraža sa povratkom",
+        "copy_active": "Copy aktivan - klikni + Paste na željeni datum.", "clear": "Poništi",
+        "add_data": "Unos podataka", "reports_exports": "Izvještaji i export",
+    },
+    "fr": {
+        "dashboard": "Tableau de bord", "overview": "Aperçu", "quick_actions": "Actions rapides",
+        "today_shifts": "Missions aujourd’hui", "active_workers": "Employés actifs", "registered_clients": "Clients",
+        "this_month_hours": "Heures ce mois-ci", "today": "Aujourd’hui", "management": "Administration",
+        "planning_tools": "Outils de planification", "professional_menu": "Menu professionnel",
+        "open_maps": "Ouvrir la carte", "route_distance_return": "Kilométrage avec retour",
+        "copy_active": "Copie active - cliquez sur + Paste à la date souhaitée.", "clear": "Annuler",
+        "add_data": "Saisie des données", "reports_exports": "Rapports et export",
+        "logged_as": "Connecté en tant que", "username": "Nom d’utilisateur", "password": "Mot de passe",
+        "worker_name": "Nom de l’employé", "client_name": "Nom du client", "address": "Adresse",
+        "choose_worker": "Choisir l’employé", "choose_client": "Choisir le client", "filter_btn": "Filtrer",
+        "reset": "Réinitialiser", "plan": "PLANNING", "no_shifts": "Aucune mission enregistrée.",
+        "copy": "Copier", "copy_shift": "Copier la mission", "paste": "+ Coller",
+        "pdf": "PDF planning", "month_pdf": "PDF calendrier mensuel", "pdf_title": "Planning des employés",
+        "pdf_user": "Utilisateur", "pdf_date": "Date", "pdf_time": "Heure", "pdf_worker": "Employés",
+        "pdf_client": "Client", "pdf_no_shifts": "Aucune mission", "user_mgmt": "Gestion des utilisateurs",
+        "add_user": "Ajouter utilisateur", "role_admin": "admin", "role_worker": "employé",
+        "existing_users": "Utilisateurs existants", "delete_user": "Supprimer utilisateur",
+        "status": "Statut", "status_planned": "Planifié", "status_in_progress": "En cours", "status_done": "Terminé",
+        "monthly_absence_days": "Jours d’absence mensuels", "hours": "heures", "days": "jours",
+        "all_workers": "Tous les employés", "all_clients": "Tous les clients", "theme": "Thème",
+        "light_theme": "Clair", "dark_theme": "Sombre", "worker_colors": "Couleurs des employés",
+        "update_color": "Mettre à jour", "prev_month": "Mois précédent", "next_month": "Mois suivant",
+        "prev_week": "Semaine précédente", "next_week": "Semaine suivante", "current_week": "Semaine actuelle",
+        "change_password": "Changer le mot de passe", "new_password": "Nouveau mot de passe",
+        "search_shifts": "Recherche des missions", "search_placeholder": "Rechercher client, employé, heure...",
+        "week_period": "Période", "menu": "Menu", "start_time": "Début", "end_time": "Fin",
+        "team": "Équipe", "add_holiday": "Ajouter jour férié / non ouvré", "holiday_name": "Nom du jour",
+        "holiday": "Jour férié", "absence_type": "Type d’absence", "other_absence": "Autre",
+        "date_from": "Du", "date_to": "Au", "note": "Note", "add_absence": "Ajouter absence",
+        "active_absences": "Absences enregistrées", "monday": "Lun", "tuesday": "Mar", "wednesday": "Mer",
+        "thursday": "Jeu", "friday": "Ven", "saturday": "Sam", "sunday": "Dim", "cancel": "Annuler",
+    },
+    "en": {
+        "dashboard": "Dashboard", "overview": "Overview", "quick_actions": "Quick actions",
+        "today_shifts": "Today’s shifts", "active_workers": "Active workers", "registered_clients": "Clients",
+        "this_month_hours": "Hours this month", "today": "Today", "management": "Management",
+        "planning_tools": "Planning tools", "professional_menu": "Professional menu",
+        "open_maps": "Open map", "route_distance_return": "Mileage with return",
+        "copy_active": "Copy active - click + Paste on the desired date.", "clear": "Clear",
+        "add_data": "Data entry", "reports_exports": "Reports and export",
+        "worker_name": "Worker name", "client_name": "Client name", "choose_worker": "Choose worker",
+        "choose_client": "Choose client", "filter_btn": "Filter", "reset": "Reset", "plan": "SCHEDULE",
+        "no_shifts": "No shifts entered yet.", "copy": "Copy", "paste": "+ Paste", "pdf": "PDF schedule",
+        "user_mgmt": "User management", "existing_users": "Existing users", "status_planned": "Planned",
+        "status_in_progress": "In progress", "status_done": "Done", "all_workers": "All workers",
+        "all_clients": "All clients", "theme": "Theme", "light_theme": "Light", "dark_theme": "Dark",
+        "worker_colors": "Worker colors", "update_color": "Update color", "change_password": "Change password",
+        "new_password": "New password", "search_shifts": "Shift search", "menu": "Menu", "team": "Team",
+        "other_absence": "Other", "date_from": "From date", "date_to": "To date", "note": "Note",
+        "add_absence": "Add absence", "active_absences": "Registered absences",
+    },
+    "de": {
+        "dashboard": "Dashboard", "overview": "Übersicht", "quick_actions": "Schnellaktionen",
+        "today_shifts": "Heutige Einsätze", "active_workers": "Aktive Mitarbeiter", "registered_clients": "Kunden",
+        "this_month_hours": "Stunden diesen Monat", "today": "Heute", "management": "Verwaltung",
+        "planning_tools": "Planungstools", "professional_menu": "Professionelles Menü",
+        "open_maps": "Karte öffnen", "route_distance_return": "Kilometer mit Rückfahrt",
+        "copy_active": "Kopie aktiv - klicken Sie + Einfügen am gewünschten Datum.", "clear": "Zurücksetzen",
+        "add_data": "Dateneingabe", "reports_exports": "Berichte und Export",
+        "status_planned": "Geplant", "status_in_progress": "In Arbeit", "status_done": "Fertig",
+        "choose_worker": "Mitarbeiter auswählen", "choose_client": "Kunde auswählen", "filter_btn": "Filtern",
+        "reset": "Zurücksetzen", "plan": "PLAN", "no_shifts": "Keine Einsätze vorhanden.",
+        "team": "Team", "menu": "Menü", "open_in_maps": "In Google Maps öffnen",
+    },
+    "pt": {
+        "dashboard": "Painel", "overview": "Visão geral", "quick_actions": "Ações rápidas",
+        "today_shifts": "Turnos de hoje", "active_workers": "Trabalhadores ativos", "registered_clients": "Clientes",
+        "this_month_hours": "Horas este mês", "today": "Hoje", "management": "Administração",
+        "planning_tools": "Ferramentas de planeamento", "professional_menu": "Menu profissional",
+        "open_maps": "Abrir mapa", "route_distance_return": "Quilometragem com regresso",
+        "copy_active": "Cópia ativa - clique + Colar na data desejada.", "clear": "Limpar",
+        "add_data": "Entrada de dados", "reports_exports": "Relatórios e exportação",
+        "status_planned": "Planeado", "status_in_progress": "Em curso", "status_done": "Concluído",
+        "choose_worker": "Escolher trabalhador", "choose_client": "Escolher cliente", "filter_btn": "Filtrar",
+        "reset": "Repor", "plan": "PLANO", "no_shifts": "Ainda não há turnos.",
+        "team": "Equipa", "menu": "Menu", "open_in_maps": "Abrir no Google Maps",
+    },
+}
+for _lang, _values in PRO_UI_TRANSLATIONS.items():
+    TRANSLATIONS[_lang].update(_values)
+
 
 
 def get_lang():
@@ -218,7 +316,105 @@ def get_theme():
 
 
 def lux_now():
-    return datetime.now(ZoneInfo("Europe/Luxembourg")).replace(tzinfo=None)
+    try:
+        if ZoneInfo is not None:
+            return datetime.now(ZoneInfo("Europe/Luxembourg")).replace(tzinfo=None)
+    except Exception as e:
+        print("TIMEZONE ERROR:", e)
+    return datetime.now()
+
+
+def normalize_lux_address(address):
+    address = (address or "").strip()
+    if address and "luxembourg" not in address.lower():
+        address += ", Luxembourg"
+    return address
+
+
+def get_coords(address):
+    """Return (lat, lon) for an address using OpenRouteService geocoding."""
+    api_key = os.environ.get("ORS_API_KEY", "").strip()
+    address = normalize_lux_address(address)
+
+    if not api_key:
+        print("ROUTE ERROR: ORS_API_KEY is missing in Render Environment")
+        return None
+    if not address or len(address) < 3:
+        print("ROUTE ERROR: bad/empty address", address)
+        return None
+
+    try:
+        params = urllib.parse.urlencode({
+            "api_key": api_key,
+            "text": address,
+            "size": 1,
+            "boundary.country": "LU",
+        })
+        url = f"https://api.openrouteservice.org/geocode/search?{params}"
+        req = urllib.request.Request(url, headers={"User-Agent": "LuxmannPlanner/1.0"})
+        with urllib.request.urlopen(req, timeout=10) as response:
+            data = json.loads(response.read().decode("utf-8"))
+
+        if not data.get("features"):
+            print("ROUTE ERROR: no coordinates found for", address)
+            return None
+
+        lon, lat = data["features"][0]["geometry"]["coordinates"][:2]
+        return float(lat), float(lon)
+    except Exception as e:
+        print("ROUTE GEOCODING ERROR:", address, e)
+        return None
+
+
+def haversine_km(a, b):
+    lat1, lon1 = a
+    lat2, lon2 = b
+    r = 6371.0
+    p1 = math.radians(lat1)
+    p2 = math.radians(lat2)
+    dp = math.radians(lat2 - lat1)
+    dl = math.radians(lon2 - lon1)
+    x = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * r * math.atan2(math.sqrt(x), math.sqrt(1 - x))
+
+
+def optimize_nearest_neighbor(start_coords, stops):
+    remaining = stops[:]
+    ordered = []
+    total_km = 0.0
+    current = start_coords
+
+    while remaining:
+        next_stop = min(remaining, key=lambda item: haversine_km(current, item["coords"]))
+        total_km += haversine_km(current, next_stop["coords"])
+        ordered.append(next_stop)
+        current = next_stop["coords"]
+        remaining.remove(next_stop)
+
+    # Include return to the start address so mileage is useful for payroll/fuel planning.
+    if ordered:
+        total_km += haversine_km(current, start_coords)
+
+    return ordered, total_km
+
+
+def google_maps_directions_url(start_address, ordered_stops):
+    # Start and finish at the worker start address. Stops become waypoints.
+    waypoints = [stop["address"] for stop in ordered_stops]
+    params = {
+        "api": "1",
+        "origin": normalize_lux_address(start_address),
+        "destination": normalize_lux_address(start_address),
+        "travelmode": "driving",
+    }
+    if waypoints:
+        params["waypoints"] = "|".join(normalize_lux_address(x) for x in waypoints)
+    return "https://www.google.com/maps/dir/?" + urllib.parse.urlencode(params)
+
+
+def google_maps_embed_url(start_address, ordered_stops):
+    # Simple embedded directions-style map. If Google blocks embed in some browsers, the normal Google Maps link still works.
+    return google_maps_directions_url(start_address, ordered_stops) + "&output=embed"
 
 
 class _PgCursor:
@@ -380,7 +576,7 @@ def get_auto_status(shift_date, time_range):
         start_str, end_str = [x.strip() for x in time_range.split("-")]
         start_dt = datetime.strptime(f"{shift_date} {start_str}", "%Y-%m-%d %H:%M")
         end_dt = datetime.strptime(f"{shift_date} {end_str}", "%Y-%m-%d %H:%M")
-        now = lux_now()
+        now = datetime.now()
 
         if now < start_dt:
             return "planned"
@@ -389,101 +585,6 @@ def get_auto_status(shift_date, time_range):
         return "done"
     except Exception:
         return "planned"
-
-
-
-def normalize_address_for_maps(address):
-    address = (address or "").strip()
-    if address and "luxembourg" not in address.lower() and "luxembourg" not in address.lower():
-        address = f"{address}, Luxembourg"
-    return address
-
-
-def haversine_km(lat1, lng1, lat2, lng2):
-    r = 6371.0
-    phi1 = math.radians(float(lat1))
-    phi2 = math.radians(float(lat2))
-    d_phi = math.radians(float(lat2) - float(lat1))
-    d_lam = math.radians(float(lng2) - float(lng1))
-    a = math.sin(d_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lam / 2) ** 2
-    return 2 * r * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-
-def geocode_address(address):
-    try:
-        api_key = os.environ.get("ORS_API_KEY")
-
-        if not api_key:
-            return None, None, "Nema API key"
-
-        if not address:
-            return None, None, "Prazna adresa"
-
-        url = "https://api.openrouteservice.org/geocode/search"
-
-        params = {
-            "api_key": api_key,
-            "text": address,
-            "size": 1,
-        }
-
-        r = requests.get(url, params=params, timeout=10)
-
-        print("GEOCODE STATUS:", r.status_code)
-        print("GEOCODE RESPONSE:", r.text)
-
-        data = r.json()
-
-        if "features" not in data:
-            return None, None, "Nema features"
-
-        if len(data["features"]) == 0:
-            return None, None, "Adresa nije pronađena"
-
-        coords = data["features"][0]["geometry"]["coordinates"]
-
-        lng = coords[0]
-        lat = coords[1]
-
-        return lat, lng, None
-
-    except Exception as e:
-        print("GEOCODE ERROR:", e)
-        return None, None, str(e)
-
-
-def optimize_route_points(start_point, points):
-    """Nearest-neighbor route optimization. Returns ordered points and approximate km."""
-    ordered = []
-    remaining = points[:]
-    current = start_point
-    total_km = 0.0
-    while remaining:
-        next_point = min(
-            remaining,
-            key=lambda p: haversine_km(current["lat"], current["lng"], p["lat"], p["lng"]),
-        )
-        leg_km = haversine_km(current["lat"], current["lng"], next_point["lat"], next_point["lng"])
-        remaining.remove(next_point)
-        next_point = dict(next_point)
-        next_point["leg_km"] = leg_km
-        total_km += leg_km
-        ordered.append(next_point)
-        current = next_point
-    return ordered, total_km
-
-
-def build_google_maps_url(start_address, ordered_points):
-    addresses = [normalize_address_for_maps(start_address)] + [p["address"] for p in ordered_points]
-    if len(addresses) < 2:
-        return "https://www.google.com/maps"
-    origin = urllib.parse.quote_plus(addresses[0])
-    destination = urllib.parse.quote_plus(addresses[-1])
-    waypoints = "|".join(urllib.parse.quote_plus(a) for a in addresses[1:-1])
-    url = f"https://www.google.com/maps/dir/?api=1&origin={origin}&destination={destination}&travelmode=driving"
-    if waypoints:
-        url += f"&waypoints={waypoints}"
-    return url
 
 
 def calculate_hours_for_user(shifts, username=None):
@@ -661,15 +762,6 @@ def init_db():
         )
     """)
 
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS geocode_cache (
-            address TEXT PRIMARY KEY,
-            lat REAL,
-            lng REAL,
-            updated_at TEXT
-        )
-    """)
-
     # Migration safety
     shift_cols = [row[1] for row in c.execute("PRAGMA table_info(shifts)").fetchall()]
     if "status" not in shift_cols:
@@ -728,6 +820,21 @@ BASE_STYLE = """
     .drop-target { outline:2px dashed #22c55e; }
     .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:50; }
     .modal-card { max-width:420px; margin:12vh auto; background:{{ '#111827' if dark else 'white' }}; color:{{ '#e5e7eb' if dark else '#111827' }}; border-radius:12px; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,0.25); }
+
+    .app-shell { display:grid; grid-template-columns:240px 1fr; gap:18px; align-items:start; }
+    .sidebar { position:sticky; top:18px; padding:16px; }
+    .sidebar-title { font-weight:800; font-size:18px; margin-bottom:14px; color:{{ '#93c5fd' if dark else '#1f4f82' }}; }
+    .nav-link { display:block; padding:11px 12px; border-radius:10px; margin:6px 0; background:{{ '#1f2937' if dark else '#f8fafc' }}; color:{{ '#e5e7eb' if dark else '#1f4f82' }} !important; }
+    .nav-link:hover { transform:translateX(2px); box-shadow:0 3px 10px rgba(0,0,0,0.08); }
+    .main-content { min-width:0; }
+    .hero { padding:22px; border-radius:16px; background:{{ 'linear-gradient(135deg,#111827,#1f2937)' if dark else 'linear-gradient(135deg,#ffffff,#eaf2fb)' }}; margin-bottom:18px; }
+    .hero h1 { margin:0 0 6px 0; }
+    .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; margin:14px 0 18px 0; }
+    .stat-card { padding:16px; border-radius:14px; background:{{ '#111827' if dark else 'white' }}; box-shadow:0 4px 14px rgba(0,0,0,0.06); border-left:5px solid #1f4f82; }
+    .stat-number { font-size:26px; font-weight:800; margin-top:6px; }
+    .section-title { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:22px 0 12px; }
+    .big-map-button { display:inline-block; padding:16px 26px; border-radius:14px; background:#16a34a; color:white !important; font-size:18px; font-weight:800; text-decoration:none; box-shadow:0 6px 18px rgba(0,0,0,0.18); }
+    @media (max-width: 900px) { .app-shell { grid-template-columns:1fr; } .sidebar { position:static; } body { margin:12px; } }
 </style>
 """
 
@@ -737,14 +844,17 @@ def header_html():
     <div class="brandbar">
         <div class="brandleft">
             <img src="{{ url_for('static', filename='logo.png') }}" alt="Luxmann Logo">
-            <div class="brandtitle">Luxmann Planner</div>
+            <div>
+                <div class="brandtitle">Luxmann Planner</div>
+                {% if session.get('user') %}<div class="muted">{{ tr["logged_as"] }}: <b>{{ session['user'] }}</b> ({{ session['role'] }})</div>{% endif %}
+            </div>
         </div>
         <div>
             <div class="langbar">
                 <a href="/set_lang/fr">FR</a><a href="/set_lang/en">EN</a><a href="/set_lang/bos">BOS</a><a href="/set_lang/de">DE</a><a href="/set_lang/pt">PT</a>
             </div>
             <div class="theme-links" style="text-align:right; margin-top:8px;">
-                {{ tr["theme"] }}: <a href="/set_theme/light">{{ tr["light_theme"] }}</a><a href="/set_theme/dark">{{ tr["dark_theme"] }}</a>
+                {{ tr["theme"] }}: <a href="/set_theme/light">{{ tr["light_theme"] }}</a><a href="/set_theme/dark">{{ tr["dark_theme"] }}</a>{% if session.get('user') %}<a href="/logout">{{ tr["logout"] }}</a>{% endif %}
             </div>
         </div>
     </div>
@@ -892,6 +1002,10 @@ def load_index_data():
         "week_period": f"{format_date(week_start.strftime('%Y-%m-%d'))} - {format_date(week_end.strftime('%Y-%m-%d'))}",
         "month_period": today.strftime("%m/%Y"), "weeks_grouped": group_shifts_by_week(shifts),
         "absences": absences, "absence_summary": absence_summary,
+        "today_shift_count": len([s for s in all_shifts_for_hours if s[3] == today.strftime("%Y-%m-%d")]),
+        "worker_count": len([w for w in workers if w[0] != "admin"]),
+        "client_count": len(clients),
+        "month_total_hours": sum(calculate_hours_for_user(month_shifts, None if is_admin else current_user).values()),
     }
 
 
@@ -904,8 +1018,27 @@ def index():
     data = load_index_data()
 
     return render_template_string(BASE_STYLE + header_html() + """
-    <h1>{{ tr["title"] }}</h1>
-    <div class="topbar">{{ tr["logged_as"] }}: <b>{{ session['user'] }}</b> ({{ session['role'] }})<br><br><a href="/logout">{{ tr["logout"] }}</a></div>
+    <div class="app-shell">
+        <aside class="card sidebar">
+            <div class="sidebar-title">{{ tr["professional_menu"] }}</div>
+            <a class="nav-link" href="/">🏠 {{ tr["dashboard"] }}</a>
+            <a class="nav-link" href="/week">📅 {{ tr["week_calendar"] }}</a>
+            <a class="nav-link" href="/month">🗓️ {{ tr["month_calendar"] }}</a>
+            {% if is_admin %}<a class="nav-link" href="/route_optimizer">🧭 {{ tr["route_optimizer"] }}</a>{% endif %}
+            <a class="nav-link" href="/month_pdf" target="_blank">📄 {{ tr["month_pdf"] }}</a>
+        </aside>
+        <main class="main-content">
+            <div class="hero">
+                <h1>{{ tr["dashboard"] }}</h1>
+                <div class="muted">Luxmann Planner · {{ tr["overview"] }}</div>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card"><div class="muted">{{ tr["today_shifts"] }}</div><div class="stat-number">{{ today_shift_count }}</div></div>
+                <div class="stat-card"><div class="muted">{{ tr["active_workers"] }}</div><div class="stat-number">{{ worker_count }}</div></div>
+                <div class="stat-card"><div class="muted">{{ tr["registered_clients"] }}</div><div class="stat-number">{{ client_count }}</div></div>
+                <div class="stat-card"><div class="muted">{{ tr["this_month_hours"] }}</div><div class="stat-number">{{ "%.1f"|format(month_total_hours) }}</div></div>
+            </div>
+            <div class="section-title"><h2>{{ tr["quick_actions"] }}</h2></div>
 
     <div class="grid">
         {% if is_admin %}
@@ -924,7 +1057,7 @@ def index():
         </div>
 
         <div class="card"><h3>{{ tr["add_worker"] }}</h3><form method="post" action="/add_worker" autocomplete="off"><input name="worker_name" placeholder="{{ tr['worker_name'] }}" required autocomplete="off"><input name="address" placeholder="{{ tr['address'] }}" autocomplete="off"><button>{{ tr["add_worker"] }}</button></form></div>
-        <div class="card"><h3>{{ tr["add_client"] }}</h3><form method="post" action="/add_client" autocomplete="off"><input name="client_name" placeholder="{{ tr['client_name'] }}" required autocomplete="off"><input name="address" placeholder="{{ tr['address'] }}" autocomplete="off"><button>{{ tr["add_client"] }}</button></form></div>
+        <div class="card"><h3>{{ tr["add_client"] }}</h3><form method="post" action="/add_client" autocomplete="off"><input name="client_name" placeholder="{{ tr['client_name'] }}" required autocomplete="off"><input name="address" placeholder="{{ tr['address'] }}" required autocomplete="off"><button>{{ tr["add_client"] }}</button></form></div>
 
         <div class="card">
             <h3>{{ tr["add_shift"] }}</h3>
@@ -977,6 +1110,8 @@ def index():
         {% endfor %}
         </div>
         <a class="week-link" href="/week">{{ tr["week_calendar"] }}</a><a class="week-link" href="/month">{{ tr["month_calendar"] }}</a><a class="week-link" href="/route_optimizer">{{ tr["route_optimizer"] }}</a><a class="pdf-link" href="/export_pdf{% if request.args.get('date') %}?date={{ request.args.get('date') }}{% endif %}" target="_blank">{{ tr["pdf"] }}</a>
+    </div>
+        </main>
     </div>
 
     <script>
@@ -1154,7 +1289,7 @@ def month_view():
     day_names = [tr["monday"], tr["tuesday"], tr["wednesday"], tr["thursday"], tr["friday"], tr["saturday"], tr["sunday"]]
     return render_template_string(BASE_STYLE + header_html() + """
     <div><a href="/">{{ tr["back"] }}</a><a href="/week">{{ tr["week_calendar"] }}</a><a href="/month_pdf?year={{ year }}&month={{ month }}" target="_blank">{{ tr["month_pdf"] }}</a></div>
-    {% if is_admin and copied_shift_id %}<div style="background:#16a34a;color:white;padding:8px 12px;border-radius:8px;display:inline-block;margin:10px 0;font-weight:bold;">Copy aktivan - klikni + Paste na zeljeni datum. <a style="color:white;" href="/clear_copy">Ponisti</a></div>{% endif %}
+    {% if is_admin and copied_shift_id %}<div style="background:#16a34a;color:white;padding:8px 12px;border-radius:8px;display:inline-block;margin:10px 0;font-weight:bold;">{{ tr["copy_active"] }} <a style="color:white;" href="/clear_copy">{{ tr["clear"] }}</a></div>{% endif %}
     <div style="display:flex; justify-content:space-between; align-items:center; margin:16px 0; gap:12px;"><a href="/month?year={{ prev_year }}&month={{ prev_month }}">{{ tr["prev_month"] }}</a><h2>{{ tr["month_calendar"] }} - {{ "%02d/%04d"|format(month, year) }}</h2><a href="/month?year={{ next_year }}&month={{ next_month }}">{{ tr["next_month"] }}</a></div>
     <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:10px;">
         {% for dn in day_names %}<div class="card" style="min-height:auto; text-align:center; font-weight:bold;">{{ dn }}</div>{% endfor %}
@@ -1174,6 +1309,126 @@ def month_view():
     </script>
     """, tr=tr, dark=dark, year=year, month=month, prev_year=prev_year, prev_month=prev_month, next_year=next_year, next_month=next_month, month_days=month_days, day_names=day_names, shifts_by_date=shifts_by_date, worker_colors=worker_colors, holidays_map=holidays_map, is_admin=is_admin, copied_shift_id=copied_shift_id, get_auto_status=get_auto_status, split_workers=split_workers)
 
+
+
+@app.route("/route_optimizer", methods=["GET", "POST"])
+def route_optimizer():
+    if "user" not in session:
+        return redirect("/login")
+    tr = t()
+    dark = get_theme() == "dark"
+    is_admin = session.get("role") == "admin"
+    current_user = session.get("user")
+
+    conn = get_conn()
+    c = conn.cursor()
+    workers = c.execute("SELECT name, address FROM workers ORDER BY name").fetchall()
+
+    selected_date = request.values.get("date", lux_now().strftime("%Y-%m-%d")).strip()
+    selected_worker = request.values.get("worker", current_user if not is_admin else "").strip()
+    start_address = request.values.get("start_address", "Wiltz, Luxembourg").strip()
+    result = None
+    error = ""
+
+    if request.method == "POST":
+        if not os.environ.get("ORS_API_KEY", "").strip():
+            error = tr["api_missing"]
+        elif not start_address:
+            error = tr["missing_address"] + ": " + tr["start_address"]
+        elif not selected_worker:
+            error = tr["choose_worker"]
+        else:
+            shifts = c.execute("SELECT * FROM shifts WHERE date = ? ORDER BY time", (selected_date,)).fetchall()
+            shifts = [s for s in shifts if worker_in_shift(selected_worker, s[1])]
+
+            if not shifts:
+                error = tr["no_route_shifts"]
+            else:
+                start_coords = get_coords(start_address)
+                if not start_coords:
+                    error = f"{tr['geocode_failed']}: {start_address}"
+                else:
+                    stops = []
+                    bad_addresses = []
+                    for s in shifts:
+                        client_name = s[2]
+                        client = c.execute("SELECT name, address FROM clients WHERE name = ?", (client_name,)).fetchone()
+                        client_address = client[1] if client and len(client) > 1 else ""
+                        if not client_address:
+                            bad_addresses.append(f"{client_name} ({tr['missing_address']})")
+                            continue
+                        coords = get_coords(client_address)
+                        if not coords:
+                            bad_addresses.append(f"{client_name} - {client_address}")
+                            continue
+                        stops.append({
+                            "client": client_name,
+                            "address": client_address,
+                            "time": s[4],
+                            "coords": coords,
+                        })
+
+                    if not stops:
+                        error = tr["geocode_failed"] + ": " + ", ".join(bad_addresses)
+                    else:
+                        ordered, total_km = optimize_nearest_neighbor(start_coords, stops)
+                        result = {
+                            "ordered": ordered,
+                            "total_km": total_km,
+                            "bad_addresses": bad_addresses,
+                            "maps_url": google_maps_directions_url(start_address, ordered),
+                            "embed_url": google_maps_embed_url(start_address, ordered),
+                        }
+    conn.close()
+
+    return render_template_string(BASE_STYLE + header_html() + """
+    <h1>{{ tr["route_title"] }}</h1>
+    <a href="/">{{ tr["back"] }}</a>
+    <div class="card" style="margin-top:16px; max-width:900px;">
+        <p class="muted">{{ tr["route_desc"] }}</p>
+        <form method="post">
+            <label>{{ tr["pdf_date"] }}</label>
+            <input type="date" name="date" value="{{ selected_date }}" required>
+            <label>{{ tr["choose_worker"] }}</label>
+            <select name="worker" required>
+                {% if is_admin %}<option value="">{{ tr["choose_worker"] }}</option>{% endif %}
+                {% for w in workers %}
+                    {% if w[0] != 'admin' %}<option value="{{ w[0] }}" {% if selected_worker == w[0] %}selected{% endif %}>{{ w[0] }}</option>{% endif %}
+                {% endfor %}
+            </select>
+            <label>{{ tr["start_address"] }}</label>
+            <input name="start_address" value="{{ start_address }}" placeholder="{{ tr['start_address_help'] }}" required>
+            <button>{{ tr["optimize_route"] }}</button>
+        </form>
+        {% if error %}<div style="margin-top:15px; color:#ef4444; font-weight:bold;">{{ error }}</div>{% endif %}
+    </div>
+
+    {% if result %}
+    <div class="card" style="margin-top:16px; max-width:900px;">
+        <h2>{{ tr["optimized_order"] }}</h2>
+        <p><b>{{ tr["route_distance_return"] }}:</b> {{ "%.1f"|format(result.total_km) }} km</p>
+        <ol>
+            {% for stop in result.ordered %}
+                <li style="margin-bottom:10px;">
+                    <b>{{ stop.client }}</b> — {{ stop.time }}<br>
+                    <span class="muted">{{ tr["client_address"] }}: {{ stop.address }}</span>
+                </li>
+            {% endfor %}
+        </ol>
+        {% if result.bad_addresses %}
+            <div style="color:#f59e0b; font-weight:bold; margin:12px 0;">
+                {{ tr["geocode_failed"] }}:<br>
+                {% for bad in result.bad_addresses %}• {{ bad }}<br>{% endfor %}
+            </div>
+        {% endif %}
+        <p class="muted">{{ tr["route_warning"] }}</p>
+        <div style="margin-top:20px; text-align:center;">
+            <a class="big-map-button" href="{{ result.maps_url }}" target="_blank">🗺️ {{ tr["open_in_maps"] }}</a>
+        </div>
+    </div>
+    {% endif %}
+    """, tr=tr, dark=dark, workers=workers, selected_date=selected_date,
+       selected_worker=selected_worker, start_address=start_address, result=result, error=error, is_admin=is_admin)
 
 @app.route("/export_pdf")
 def export_pdf():
@@ -1214,166 +1469,7 @@ def month_pdf():
     if absence_lines: elements += [Spacer(1, 12), Paragraph(tr["monthly_absence_days"], styles["Heading2"])] + [Paragraph(x, styles["Normal"]) for x in absence_lines]
     doc.build(elements); buffer.seek(0)
     return send_file(buffer, as_attachment=True, download_name=f"month_calendar_{year}_{month:02d}.pdf", mimetype="application/pdf")
-    
 
-def get_coords(address):
-    try:
-        api_key = os.environ.get("ORS_API_KEY")
-
-        if not api_key:
-            print("NEMA ORS_API_KEY")
-            return None
-
-        headers = {
-            "Authorization": api_key
-        }
-
-        url = "https://api.openrouteservice.org/geocode/search"
-
-        params = {
-            "text": address,
-            "size": 1
-        }
-
-        r = requests.get(url, headers=headers, params=params, timeout=10)
-
-        print("STATUS:", r.status_code)
-        print("RESPONSE:", r.text)
-
-        data = r.json()
-
-        if "features" not in data:
-            return None
-
-        if len(data["features"]) == 0:
-            return None
-
-        coords = data["features"][0]["geometry"]["coordinates"]
-
-        return coords[1], coords[0]
-
-    except Exception as e:
-        print("GET_COORDS ERROR:", e)
-        return None
-
-
-
-@app.route("/route_optimizer", methods=["GET", "POST"])
-def route_optimizer():
-    if "user" not in session:
-        return redirect("/login")
-    tr = t()
-    dark = get_theme() == "dark"
-    is_admin = session.get("role") == "admin"
-    current_user = session.get("user")
-
-    conn = get_conn()
-    c = conn.cursor()
-    workers = c.execute("SELECT name, address FROM workers ORDER BY name").fetchall()
-    conn.close()
-
-    today_str = lux_now().strftime("%Y-%m-%d")
-    selected_date = request.values.get("date", today_str)
-    selected_worker = request.values.get("worker", current_user if not is_admin else "").strip()
-    start_address = request.values.get("start_address", "Wiltz, Luxembourg").strip() or "Wiltz, Luxembourg"
-
-    route_result = None
-    errors = []
-    if request.method == "POST" and selected_date and selected_worker:
-        conn = get_conn()
-        c = conn.cursor()
-        rows = c.execute(
-            """
-            SELECT shifts.id, shifts.worker, shifts.client, shifts.date, shifts.time, clients.address
-            FROM shifts
-            LEFT JOIN clients ON shifts.client = clients.name
-            WHERE shifts.date = ?
-            ORDER BY shifts.time
-            """,
-            (selected_date,),
-        ).fetchall()
-        conn.close()
-        rows = [r for r in rows if worker_in_shift(selected_worker, r[1])]
-
-        start_lat, start_lng, start_error = geocode_address(start_address)
-        points = []
-        for r in rows:
-            client_name = r[2]
-            client_address = (r[5] or "").strip()
-            if not client_address:
-                errors.append(f"{client_name}: {tr['missing_address']}")
-                continue
-            lat, lng, err = geocode_address(client_address)
-            if err:
-                errors.append(f"{client_name}: {tr['geocode_failed']} - {client_address}")
-                continue
-            points.append({
-                "shift_id": r[0],
-                "worker": r[1],
-                "client": client_name,
-                "date": r[3],
-                "time": r[4],
-                "address": normalize_address_for_maps(client_address),
-                "lat": lat,
-                "lng": lng,
-            })
-
-        if start_error:
-            errors.append(f"{tr['start_address']}: {tr['geocode_failed']} - {start_address}")
-        elif points:
-            ordered, total_km = optimize_route_points({"lat": start_lat, "lng": start_lng, "address": normalize_address_for_maps(start_address)}, points)
-            route_result = {
-                "ordered": ordered,
-                "total_km": total_km,
-                "maps_url": build_google_maps_url(start_address, ordered),
-            }
-        elif not rows:
-            errors.append(tr["no_route_shifts"])
-
-    return render_template_string(BASE_STYLE + header_html() + """
-    <h1>{{ tr["route_title"] }}</h1>
-    <a href="/">{{ tr["back"] }}</a>
-    <div class="card" style="margin-top:18px; max-width:760px;">
-        <p class="muted">{{ tr["route_desc"] }}</p>
-        <form method="post">
-            <label>{{ tr["pdf_date"] }}</label>
-            <input type="date" name="date" value="{{ selected_date }}" required>
-            <label>{{ tr["pdf_worker"] }}</label>
-            <select name="worker" required>
-                <option value="">{{ tr["choose_worker"] }}</option>
-                {% for w in workers %}{% if w[0] != 'admin' %}<option value="{{ w[0] }}" {% if selected_worker == w[0] %}selected{% endif %}>{{ w[0] }}</option>{% endif %}{% endfor %}
-            </select>
-            <label>{{ tr["start_address"] }}</label>
-            <input name="start_address" value="{{ start_address }}" placeholder="{{ tr['start_address_help'] }}" required>
-            <button>{{ tr["optimize_route"] }}</button>
-        </form>
-    </div>
-
-    {% if errors %}
-    <div class="card" style="margin-top:18px; border-left:6px solid #ef4444; max-width:760px;">
-        {% for e in errors %}<div class="user-row">{{ e }}</div>{% endfor %}
-    </div>
-    {% endif %}
-
-    {% if route_result %}
-    <div class="card" style="margin-top:18px; max-width:900px;">
-        <h2>{{ tr["optimized_order"] }}</h2>
-        <p><b>{{ tr["approx_distance"] }}:</b> {{ "%.1f"|format(route_result.total_km) }} km</p>
-        <p class="muted">{{ tr["route_warning"] }}</p>
-        <ol>
-            {% for p in route_result.ordered %}
-            <li style="margin-bottom:12px;">
-                <b>{{ p.client }}</b> — {{ p.time }}<br>
-                <span class="muted">{{ tr["client_address"] }}: {{ p.address }}</span><br>
-                <span class="muted">+ {{ "%.1f"|format(p.leg_km) }} km</span>
-            </li>
-            {% endfor %}
-        </ol>
-        <a class="week-link" href="{{ route_result.maps_url }}" target="_blank">{{ tr["open_in_maps"] }}</a>
-    </div>
-    {% endif %}
-    """, tr=tr, dark=dark, workers=workers, selected_date=selected_date, selected_worker=selected_worker,
-       start_address=start_address, route_result=route_result, errors=errors)
 
 # CRUD routes
 @app.route("/update_worker_color", methods=["POST"])
@@ -1441,7 +1537,7 @@ def edit_client(name):
         conn.commit(); conn.close(); return redirect("/")
     client = c.execute("SELECT name, address FROM clients WHERE name = ?", (name,)).fetchone(); conn.close()
     if not client: return redirect("/")
-    return render_template_string(BASE_STYLE + """<div class="card" style="max-width:500px;margin:auto;"><h2>{{ tr["clients"] }} - {{ tr["edit"] }}</h2><form method="post"><input name="name" value="{{ client[0] }}" required><input name="address" value="{{ client[1] }}" placeholder="{{ tr['address'] }}"><button>{{ tr["save"] }}</button></form><br><a href="/">{{ tr["back"] }}</a></div>""", tr=tr, client=client, dark=dark)
+    return render_template_string(BASE_STYLE + """<div class="card" style="max-width:500px;margin:auto;"><h2>{{ tr["clients"] }} - {{ tr["edit"] }}</h2><form method="post"><input name="name" value="{{ client[0] }}" required><input name="address" value="{{ client[1] }}" placeholder="{{ tr['address'] }}" required><button>{{ tr["save"] }}</button></form><br><a href="/">{{ tr["back"] }}</a></div>""", tr=tr, client=client, dark=dark)
 
 @app.route("/edit_shift/<int:id>", methods=["GET", "POST"])
 def edit_shift(id):
@@ -1468,7 +1564,7 @@ def add_worker():
 def add_client():
     if session.get("role") != "admin": return redirect("/")
     name = request.form["client_name"].strip(); address = request.form.get("address", "").strip()
-    if name:
+    if name and address:
         conn = get_conn(); c = conn.cursor(); c.execute("INSERT OR IGNORE INTO clients (name, address) VALUES (?, ?)", (name, address)); conn.commit(); conn.close()
     return redirect("/")
 
