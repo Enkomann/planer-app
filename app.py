@@ -368,6 +368,12 @@ LANGUAGE_COMPLETION = {
 for _lang, _values in LANGUAGE_COMPLETION.items():
     TRANSLATIONS[_lang].update(_values)
 
+TRANSLATIONS["bos"].update({"navigate_to_address": "Pokreni Google Maps do adrese"})
+TRANSLATIONS["en"].update({"navigate_to_address": "Start Google Maps to address"})
+TRANSLATIONS["fr"].update({"navigate_to_address": "Lancer Google Maps vers l'adresse"})
+TRANSLATIONS["de"].update({"navigate_to_address": "Google Maps zur Adresse starten"})
+TRANSLATIONS["pt"].update({"navigate_to_address": "Abrir Google Maps ate ao endereco"})
+
 MONTH_NAMES = {
     "bos": ["", "Januar", "Februar", "Mart", "April", "Maj", "Juni", "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"],
     "en": ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
@@ -506,6 +512,15 @@ def google_maps_directions_url(start_address, ordered_stops):
 def google_maps_embed_url(start_address, ordered_stops):
     # Simple embedded directions-style map. If Google blocks embed in some browsers, the normal Google Maps link still works.
     return google_maps_directions_url(start_address, ordered_stops) + "&output=embed"
+
+
+def google_maps_navigation_url(address):
+    params = {
+        "api": "1",
+        "destination": normalize_lux_address(address),
+        "travelmode": "driving",
+    }
+    return "https://www.google.com/maps/dir/?" + urllib.parse.urlencode(params)
 
 
 class _PgCursor:
@@ -1466,10 +1481,15 @@ def route_optimizer():
     conn = get_conn()
     c = conn.cursor()
     workers = c.execute("SELECT name, address FROM workers ORDER BY name").fetchall()
+    worker_lookup = {w[0]: w[1] for w in workers}
 
     selected_date = request.values.get("date", lux_now().strftime("%Y-%m-%d")).strip()
-    selected_worker = request.values.get("worker", current_user if not is_admin else "").strip()
-    start_address = request.values.get("start_address", "Wiltz, Luxembourg").strip()
+    if is_admin:
+        selected_worker = request.values.get("worker", "").strip()
+    else:
+        selected_worker = current_user
+    default_start_address = worker_lookup.get(selected_worker) or "Wiltz, Luxembourg"
+    start_address = request.values.get("start_address", default_start_address).strip()
     result = None
     error = ""
 
@@ -1509,6 +1529,7 @@ def route_optimizer():
                             "address": client_address,
                             "time": s[4],
                             "coords": coords,
+                            "maps_url": google_maps_navigation_url(client_address),
                         })
 
                     if not stops:
@@ -1532,13 +1553,18 @@ def route_optimizer():
         <form method="post">
             <label>{{ tr["pdf_date"] }}</label>
             <input type="date" name="date" value="{{ selected_date }}" required>
-            <label>{{ tr["choose_worker"] }}</label>
-            <select name="worker" required>
-                {% if is_admin %}<option value="">{{ tr["choose_worker"] }}</option>{% endif %}
-                {% for w in workers %}
-                    {% if w[0] != 'admin' %}<option value="{{ w[0] }}" {% if selected_worker == w[0] %}selected{% endif %}>{{ w[0] }}</option>{% endif %}
-                {% endfor %}
-            </select>
+            {% if is_admin %}
+                <label>{{ tr["choose_worker"] }}</label>
+                <select name="worker" required>
+                    <option value="">{{ tr["choose_worker"] }}</option>
+                    {% for w in workers %}
+                        {% if w[0] != 'admin' %}<option value="{{ w[0] }}" {% if selected_worker == w[0] %}selected{% endif %}>{{ w[0] }}</option>{% endif %}
+                    {% endfor %}
+                </select>
+            {% else %}
+                <label>{{ tr["pdf_worker"] }}</label>
+                <input value="{{ selected_worker }}" readonly>
+            {% endif %}
             <label>{{ tr["start_address"] }}</label>
             <input name="start_address" value="{{ start_address }}" placeholder="{{ tr['start_address_help'] }}" required>
             <button>{{ tr["optimize_route"] }}</button>
@@ -1554,7 +1580,8 @@ def route_optimizer():
             {% for stop in result.ordered %}
                 <li style="margin-bottom:10px;">
                     <b>{{ stop.client }}</b> — {{ stop.time }}<br>
-                    <span class="muted">{{ tr["client_address"] }}: {{ stop.address }}</span>
+                    <span class="muted">{{ tr["client_address"] }}: {{ stop.address }}</span><br>
+                    <a class="big-map-button" style="display:inline-block;margin-top:8px;padding:8px 12px;font-size:13px;" href="{{ stop.maps_url }}" target="_blank">{{ tr["navigate_to_address"] }}</a>
                 </li>
             {% endfor %}
         </ol>
