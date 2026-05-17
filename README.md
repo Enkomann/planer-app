@@ -31,3 +31,9 @@ Render start command:
 ```bash
 gunicorn app:app
 ```
+
+Recommended Python version on Render:
+
+```text
+3.12.7
+```
