@@ -314,6 +314,68 @@ PRO_UI_TRANSLATIONS = {
 for _lang, _values in PRO_UI_TRANSLATIONS.items():
     TRANSLATIONS[_lang].update(_values)
 
+LANGUAGE_COMPLETION = {
+    "de": {
+        "username": "Benutzername", "password": "Passwort", "login_error": "Falscher Benutzername oder falsches Passwort",
+        "logged_as": "Angemeldet als", "worker_name": "Name des Mitarbeiters", "client_name": "Name des Kunden",
+        "address": "Adresse", "choose_worker": "Mitarbeiter auswaehlen", "choose_client": "Kunden auswaehlen",
+        "filter_btn": "Filtern", "reset": "Zuruecksetzen", "plan": "PLAN", "no_shifts": "Keine Einsaetze vorhanden.",
+        "copy": "Kopieren", "copy_shift": "Einsatz kopieren", "paste": "+ Einfuegen", "pdf": "PDF Arbeitsplan",
+        "month_pdf": "PDF Monatskalender", "pdf_title": "Arbeitsplan der Mitarbeiter", "pdf_user": "Benutzer",
+        "pdf_date": "Datum", "pdf_time": "Zeit", "pdf_worker": "Mitarbeiter", "pdf_client": "Kunde",
+        "pdf_no_shifts": "Keine Einsaetze", "user_mgmt": "Benutzerverwaltung", "add_user": "Benutzer hinzufuegen",
+        "role_admin": "admin", "role_worker": "Mitarbeiter", "existing_users": "Bestehende Benutzer",
+        "delete_user": "Benutzer loeschen", "status": "Status", "monthly_absence_days": "Monatliche Abwesenheitstage",
+        "hours": "Stunden", "days": "Tage", "all_workers": "Alle Mitarbeiter", "all_clients": "Alle Kunden",
+        "theme": "Design", "light_theme": "Hell", "dark_theme": "Dunkel", "worker_colors": "Mitarbeiterfarben",
+        "update_color": "Farbe aktualisieren", "prev_month": "Vorheriger Monat", "next_month": "Naechster Monat",
+        "prev_week": "Vorherige Woche", "next_week": "Naechste Woche", "current_week": "Aktuelle Woche",
+        "change_password": "Passwort aendern", "new_password": "Neues Passwort", "search_shifts": "Einsaetze suchen",
+        "search_placeholder": "Nach Kunde, Mitarbeiter, Zeit suchen...", "week_period": "Zeitraum",
+        "start_time": "Beginn", "end_time": "Ende", "add_holiday": "Feiertag / arbeitsfreien Tag hinzufuegen",
+        "holiday_name": "Name des Feiertags", "holiday": "Feiertag", "sick_vacation": "Krankheit / Urlaub",
+        "absence_type": "Art der Abwesenheit", "sick": "Krankheit", "vacation": "Urlaub", "other_absence": "Andere",
+        "date_from": "Von", "date_to": "Bis", "note": "Notiz", "add_absence": "Abwesenheit hinzufuegen",
+        "active_absences": "Eingetragene Abwesenheiten", "monday": "Mo", "tuesday": "Di", "wednesday": "Mi",
+        "thursday": "Do", "friday": "Fr", "saturday": "Sa", "sunday": "So", "cancel": "Abbrechen",
+    },
+    "pt": {
+        "username": "Nome de utilizador", "password": "Palavra-passe", "login_error": "Nome de utilizador ou palavra-passe incorretos",
+        "logged_as": "Sessao iniciada como", "worker_name": "Nome do trabalhador", "client_name": "Nome do cliente",
+        "address": "Endereco", "choose_worker": "Escolher trabalhadores", "choose_client": "Escolher cliente",
+        "filter_btn": "Filtrar", "reset": "Repor", "plan": "PLANO", "no_shifts": "Ainda nao ha turnos registados.",
+        "copy": "Copiar", "copy_shift": "Copiar turno", "paste": "+ Colar", "pdf": "PDF do plano",
+        "month_pdf": "PDF calendario mensal", "pdf_title": "Plano dos trabalhadores", "pdf_user": "Utilizador",
+        "pdf_date": "Data", "pdf_time": "Hora", "pdf_worker": "Trabalhadores", "pdf_client": "Cliente",
+        "pdf_no_shifts": "Sem turnos", "user_mgmt": "Gestao de utilizadores", "add_user": "Adicionar utilizador",
+        "role_admin": "admin", "role_worker": "trabalhador", "existing_users": "Utilizadores existentes",
+        "delete_user": "Apagar utilizador", "status": "Estado", "status_planned": "Planeado",
+        "status_in_progress": "Em curso", "status_done": "Concluido", "monthly_absence_days": "Dias de ausencia mensais",
+        "hours": "horas", "days": "dias", "all_workers": "Todos os trabalhadores", "all_clients": "Todos os clientes",
+        "theme": "Tema", "light_theme": "Claro", "dark_theme": "Escuro", "worker_colors": "Cores dos trabalhadores",
+        "update_color": "Atualizar cor", "prev_month": "Mes anterior", "next_month": "Mes seguinte",
+        "prev_week": "Semana anterior", "next_week": "Semana seguinte", "current_week": "Semana atual",
+        "change_password": "Alterar palavra-passe", "new_password": "Nova palavra-passe", "search_shifts": "Pesquisa de turnos",
+        "search_placeholder": "Pesquisar por cliente, trabalhador, hora...", "week_period": "Periodo",
+        "start_time": "Inicio", "end_time": "Fim", "team": "Equipa", "add_holiday": "Adicionar feriado / dia nao util",
+        "holiday_name": "Nome do feriado", "holiday": "Feriado", "sick_vacation": "Baixa / Ferias",
+        "absence_type": "Tipo de ausencia", "sick": "Baixa medica", "vacation": "Ferias", "other_absence": "Outro",
+        "date_from": "De", "date_to": "Ate", "note": "Nota", "add_absence": "Adicionar ausencia",
+        "active_absences": "Ausencias registadas", "monday": "Seg", "tuesday": "Ter", "wednesday": "Qua",
+        "thursday": "Qui", "friday": "Sex", "saturday": "Sab", "sunday": "Dom", "cancel": "Cancelar",
+    },
+}
+for _lang, _values in LANGUAGE_COMPLETION.items():
+    TRANSLATIONS[_lang].update(_values)
+
+MONTH_NAMES = {
+    "bos": ["", "Januar", "Februar", "Mart", "April", "Maj", "Juni", "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"],
+    "en": ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+    "fr": ["", "Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin", "Juillet", "Aout", "Septembre", "Octobre", "Novembre", "Decembre"],
+    "de": ["", "Januar", "Februar", "Maerz", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"],
+    "pt": ["", "Janeiro", "Fevereiro", "Marco", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"],
+}
+
 
 
 def get_lang():
@@ -527,6 +589,17 @@ def format_date(date_str):
         return datetime.strptime(date_str, "%Y-%m-%d").strftime("%d/%m/%Y")
     except Exception:
         return date_str
+
+
+def month_name(month, lang=None):
+    names = MONTH_NAMES.get(lang or get_lang(), MONTH_NAMES["bos"])
+    if 1 <= int(month) <= 12:
+        return names[int(month)]
+    return str(month)
+
+
+def format_month_year(year, month, lang=None):
+    return f"{month_name(month, lang)} {year}"
 
 
 def split_workers(worker_text):
@@ -1349,7 +1422,7 @@ def month_view():
     return render_template_string(BASE_STYLE + header_html() + """
     <div><a href="/">{{ tr["back"] }}</a><a href="/week">{{ tr["week_calendar"] }}</a><a href="/month_pdf?year={{ year }}&month={{ month }}" target="_blank">{{ tr["month_pdf"] }}</a></div>
     {% if is_admin and copied_shift_id %}<div style="background:#16a34a;color:white;padding:8px 12px;border-radius:8px;display:inline-block;margin:10px 0;font-weight:bold;">{{ tr["copy_active"] }} <a style="color:white;" href="/clear_copy">{{ tr["clear"] }}</a></div>{% endif %}
-    <div style="display:flex; justify-content:space-between; align-items:center; margin:16px 0; gap:12px;"><a href="/month?year={{ prev_year }}&month={{ prev_month }}">{{ tr["prev_month"] }}</a><h2>{{ tr["month_calendar"] }} - {{ "%02d/%04d"|format(month, year) }}</h2><a href="/month?year={{ next_year }}&month={{ next_month }}">{{ tr["next_month"] }}</a></div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin:16px 0; gap:12px;"><a href="/month?year={{ prev_year }}&month={{ prev_month }}">{{ tr["prev_month"] }}</a><h2>{{ tr["month_calendar"] }} - {{ format_month_year(year, month) }}</h2><a href="/month?year={{ next_year }}&month={{ next_month }}">{{ tr["next_month"] }}</a></div>
     <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:10px;">
         {% for dn in day_names %}<div class="card" style="min-height:auto; text-align:center; font-weight:bold;">{{ dn }}</div>{% endfor %}
         {% for week in month_days %}{% for day in week %}{% set daystr = day.strftime('%Y-%m-%d') %}{% set holiday_name = holidays_map.get(daystr) %}
@@ -1377,7 +1450,7 @@ def month_view():
     });
 });
     </script>
-    """, tr=tr, dark=dark, year=year, month=month, prev_year=prev_year, prev_month=prev_month, next_year=next_year, next_month=next_month, month_days=month_days, day_names=day_names, shifts_by_date=shifts_by_date, worker_colors=worker_colors, holidays_map=holidays_map, is_admin=is_admin, copied_shift_id=copied_shift_id, get_auto_status=get_auto_status, split_workers=split_workers)
+    """, tr=tr, dark=dark, year=year, month=month, prev_year=prev_year, prev_month=prev_month, next_year=next_year, next_month=next_month, month_days=month_days, day_names=day_names, shifts_by_date=shifts_by_date, worker_colors=worker_colors, holidays_map=holidays_map, is_admin=is_admin, copied_shift_id=copied_shift_id, get_auto_status=get_auto_status, split_workers=split_workers, format_month_year=format_month_year)
 
 
 
@@ -1527,7 +1600,7 @@ def month_pdf():
     start_date = f"{year:04d}-{month:02d}-01"; end_date = f"{year:04d}-{month:02d}-{calendar.monthrange(year, month)[1]:02d}"
     conn = get_conn(); c = conn.cursor(); shifts = c.execute("SELECT * FROM shifts WHERE date >= ? AND date <= ? ORDER BY date, time", (start_date, end_date)).fetchall(); absences = c.execute("SELECT id, worker, type, date_from, date_to, note FROM absences ORDER BY worker, date_from").fetchall(); conn.close()
     if not is_admin: shifts = [s for s in shifts if worker_in_shift(current_user, s[1])]; absences = [a for a in absences if a[1] == current_user]
-    buffer = io.BytesIO(); doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=1*cm, leftMargin=1*cm, topMargin=1*cm, bottomMargin=1*cm); styles = getSampleStyleSheet(); elements = [Paragraph(f"{tr['month_calendar']} {month:02d}/{year}", styles["Title"]), Spacer(1, 10)]
+    buffer = io.BytesIO(); doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=1*cm, leftMargin=1*cm, topMargin=1*cm, bottomMargin=1*cm); styles = getSampleStyleSheet(); elements = [Paragraph(f"{tr['month_calendar']} {format_month_year(year, month)}", styles["Title"]), Spacer(1, 10)]
     table_data = [[tr["pdf_date"], tr["pdf_time"], tr["pdf_worker"], tr["pdf_client"], tr["status"]]]
     for s in shifts: table_data.append([format_date(s[3]), s[4], s[1], s[2], get_status_label(get_auto_status(s[3], s[4]), tr)])
     if len(table_data) == 1: table_data.append(["-", "-", "-", "-", tr["pdf_no_shifts"]])
