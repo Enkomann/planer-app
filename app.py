@@ -1,3 +1,4 @@
+print("LUXMANN NEW VERSION ACTIVE")
 from flask import Flask, request, redirect, render_template_string, session, send_file, url_for
 import sqlite3
 import re
