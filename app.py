@@ -1050,7 +1050,11 @@ def index():
                     <div class="card"><h3>{{ tr["user_mgmt"] }}</h3><form method="post" action="/add_user"><input name="username" placeholder="{{ tr['username'] }}" required><input name="password" placeholder="{{ tr['password'] }}" required><select name="role"><option value="admin">{{ tr['role_admin'] }}</option><option value="worker">{{ tr['role_worker'] }}</option></select><button>{{ tr["add_user"] }}</button></form></div>
                     <div class="card"><h3>{{ tr["existing_users"] }}</h3>{% for u in db_users %}<div class="user-row"><b>{{ u[1] }}</b> ({{ u[2] }}){% if u[1] != 'admin' %}<a class="delete-link" href="/delete_user/{{ u[0] }}">{{ tr["delete"] }}</a>{% endif %}</div>{% endfor %}</div>
                     <div class="card"><h3>{{ tr["worker_colors"] }}</h3>{% for w in workers %}<form method="post" action="/update_worker_color"><input type="hidden" name="worker_name" value="{{ w[0] }}"><div style="display:flex; gap:10px; align-items:center;"><div style="min-width:110px;">{{ w[0] }}</div><input type="color" name="color" value="{{ worker_colors.get(w[0], '#1f4f82') }}"><button>{{ tr["update_color"] }}</button></div></form>{% endfor %}</div>
-                    <div class="card"><h3>{{ tr["workers"] }}</h3>{% for w in workers %}<div class="user-row"><b>{{ w[0] }}</b><br><small>{{ w[1] }}</small><br><a class="edit-link" href="/edit_worker/{{ w[0] }}">{{ tr["edit"] }}</a>{% if w[0] != 'admin' %}<a class="delete-link" href="/delete_worker/{{ w[0] }}">{{ tr["delete"] }}</a>{% endif %}</div>{% endfor %}</div>
+                    <div class="card"><h3>{{ tr["workers"] }}</h3>{% for w in workers %}<div class="user-row"><b>{{ w[0] }}</b><br><small>{{ w[1] }}</small><br><a class="edit-link" href="/edit_worker/{{ w[0] }}">{{ tr["edit"] }}</a>{% if w[0] != 'admin' %}<a class="delete-link"
+   href="/delete_worker/{{ w[0] }}"
+   onclick="return confirm('Da li ste sigurni?');">
+   {{ tr["delete"] }}
+</a>{% endif %}</div>{% endfor %}</div>
                     <div class="card"><h3>{{ tr["clients"] }}</h3>{% for c in clients %}<div class="user-row"><b>{{ c[0] }}</b><br><small>{{ c[1] }}</small><br><a class="edit-link" href="/edit_client/{{ c[0] }}">{{ tr["edit"] }}</a><a class="delete-link" href="/delete_client/{{ c[0] }}">{{ tr["delete"] }}</a></div>{% endfor %}</div>
                 </div>
             </div>
