@@ -10,6 +10,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, date as dt_date
 
+APP_VERSION = "TEST-2026-05-17"
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 USE_POSTGRES = bool(DATABASE_URL)
 
@@ -742,6 +743,7 @@ def header_html():
             </div>
         </div>
     </div>
+    <div style="color:red;font-weight:bold;">TEST-2026-05-17</div>
     """
 
 
