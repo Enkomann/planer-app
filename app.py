@@ -374,6 +374,32 @@ TRANSLATIONS["fr"].update({"navigate_to_address": "Lancer Google Maps vers l'adr
 TRANSLATIONS["de"].update({"navigate_to_address": "Google Maps zur Adresse starten"})
 TRANSLATIONS["pt"].update({"navigate_to_address": "Abrir Google Maps ate ao endereco"})
 
+TRANSLATIONS["bos"].update({
+    "contract_type": "Vrsta ugovora", "contract_end_date": "Istek ugovora",
+    "contract_reminders": "Podsjetnik za ugovore", "contract_expired": "Ugovor je istekao",
+    "contract_expires_soon": "Ugovor uskoro istice", "worked_hours": "Odradjeni sati",
+})
+TRANSLATIONS["en"].update({
+    "contract_type": "Contract type", "contract_end_date": "Contract end date",
+    "contract_reminders": "Contract reminders", "contract_expired": "Contract expired",
+    "contract_expires_soon": "Contract expires soon", "worked_hours": "Worked hours",
+})
+TRANSLATIONS["fr"].update({
+    "contract_type": "Type de contrat", "contract_end_date": "Fin du contrat",
+    "contract_reminders": "Rappels contrats", "contract_expired": "Contrat expire",
+    "contract_expires_soon": "Contrat bientot expire", "worked_hours": "Heures travaillees",
+})
+TRANSLATIONS["de"].update({
+    "contract_type": "Vertragsart", "contract_end_date": "Vertragsende",
+    "contract_reminders": "Vertragserinnerungen", "contract_expired": "Vertrag abgelaufen",
+    "contract_expires_soon": "Vertrag laeuft bald ab", "worked_hours": "Geleistete Stunden",
+})
+TRANSLATIONS["pt"].update({
+    "contract_type": "Tipo de contrato", "contract_end_date": "Fim do contrato",
+    "contract_reminders": "Lembretes de contrato", "contract_expired": "Contrato expirado",
+    "contract_expires_soon": "Contrato termina em breve", "worked_hours": "Horas trabalhadas",
+})
+
 MONTH_NAMES = {
     "bos": ["", "Januar", "Februar", "Mart", "April", "Maj", "Juni", "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"],
     "en": ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
@@ -819,6 +845,42 @@ def absence_days_in_month(absence, year, month):
         return 0
 
 
+def absence_totals_by_worker(absences, year, month):
+    totals = {}
+    for absence in absences:
+        worker = absence[1]
+        absence_type = absence[2]
+        days = absence_days_in_month(absence, year, month)
+        if days <= 0:
+            continue
+        totals.setdefault(worker, {"sick": 0, "vacation": 0, "other": 0})
+        totals[worker][absence_type if absence_type in totals[worker] else "other"] += days
+    return totals
+
+
+def contract_reminders(workers, days_before=30):
+    today = lux_now().date()
+    reminders = []
+    for worker in workers:
+        name = worker[0]
+        if name == "admin":
+            continue
+        contract_type = worker[2] if len(worker) > 2 else ""
+        contract_end = worker[3] if len(worker) > 3 else ""
+        if not contract_end:
+            continue
+        try:
+            end_date = datetime.strptime(contract_end, "%Y-%m-%d").date()
+        except Exception:
+            continue
+        days_left = (end_date - today).days
+        if days_left < 0:
+            reminders.append({"worker": name, "contract_type": contract_type, "contract_end": contract_end, "status": "expired", "days_left": days_left})
+        elif days_left <= days_before:
+            reminders.append({"worker": name, "contract_type": contract_type, "contract_end": contract_end, "status": "soon", "days_left": days_left})
+    return reminders
+
+
 def init_db():
     conn = get_conn()
     c = conn.cursor()
@@ -835,7 +897,9 @@ def init_db():
         CREATE TABLE IF NOT EXISTS workers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT UNIQUE,
-            address TEXT DEFAULT ''
+            address TEXT DEFAULT '',
+            contract_type TEXT DEFAULT '',
+            contract_end_date TEXT DEFAULT ''
         )
     """)
     c.execute("""
@@ -886,6 +950,10 @@ def init_db():
     worker_cols = [row[1] for row in c.execute("PRAGMA table_info(workers)").fetchall()]
     if "address" not in worker_cols:
         c.execute("ALTER TABLE workers ADD COLUMN address TEXT DEFAULT ''")
+    if "contract_type" not in worker_cols:
+        c.execute("ALTER TABLE workers ADD COLUMN contract_type TEXT DEFAULT ''")
+    if "contract_end_date" not in worker_cols:
+        c.execute("ALTER TABLE workers ADD COLUMN contract_end_date TEXT DEFAULT ''")
     client_cols = [row[1] for row in c.execute("PRAGMA table_info(clients)").fetchall()]
     if "address" not in client_cols:
         c.execute("ALTER TABLE clients ADD COLUMN address TEXT DEFAULT ''")
@@ -1127,6 +1195,7 @@ def load_index_data():
         "worker_count": len([w for w in workers if w[0] != "admin"]),
         "client_count": len(clients),
         "month_total_hours": sum(calculate_hours_for_user(month_shifts, None if is_admin else current_user).values()),
+        "contract_reminders": contract_reminders(workers) if is_admin else [],
     }
 
 
@@ -1159,6 +1228,18 @@ def index():
                 <div class="stat-card"><div class="muted">{{ tr["registered_clients"] }}</div><div class="stat-number">{{ client_count }}</div></div>
                 <div class="stat-card"><div class="muted">{{ tr["this_month_hours"] }}</div><div class="stat-number">{{ "%.1f"|format(month_total_hours) }}</div></div>
             </div>
+            {% if is_admin and contract_reminders %}
+            <div class="card" style="border-left:6px solid #f59e0b; margin-bottom:16px;">
+                <h3>{{ tr["contract_reminders"] }}</h3>
+                {% for r in contract_reminders %}
+                    <div class="user-row">
+                        <b>{{ r.worker }}</b> - {{ r.contract_type or tr["contract_type"] }}<br>
+                        <small>{{ tr["contract_end_date"] }}: {{ format_date(r.contract_end) }}</small><br>
+                        <span style="color:#ef4444;font-weight:bold;">{{ tr["contract_expired"] if r.status == "expired" else tr["contract_expires_soon"] }}{% if r.status == "soon" %}: {{ r.days_left }} {{ tr["days"] }}{% endif %}</span>
+                    </div>
+                {% endfor %}
+            </div>
+            {% endif %}
             <div class="section-title"><h2>{{ tr["quick_actions"] }}</h2></div>
 
     <div class="grid">
@@ -1171,7 +1252,7 @@ def index():
                     <div class="card"><h3>{{ tr["user_mgmt"] }}</h3><form method="post" action="/add_user"><input name="username" placeholder="{{ tr['username'] }}" required><input name="password" placeholder="{{ tr['password'] }}" required><select name="role"><option value="admin">{{ tr['role_admin'] }}</option><option value="worker">{{ tr['role_worker'] }}</option></select><button>{{ tr["add_user"] }}</button></form></div>
                     <div class="card"><h3>{{ tr["existing_users"] }}</h3>{% for u in db_users %}<div class="user-row"><b>{{ u[1] }}</b> ({{ u[2] }}){% if u[1] != 'admin' %}<a class="delete-link" href="/delete_user/{{ u[0] }}">{{ tr["delete"] }}</a>{% endif %}</div>{% endfor %}</div>
                     <div class="card"><h3>{{ tr["worker_colors"] }}</h3>{% for w in workers %}<form method="post" action="/update_worker_color"><input type="hidden" name="worker_name" value="{{ w[0] }}"><div style="display:flex; gap:10px; align-items:center;"><div style="min-width:110px;">{{ w[0] }}</div><input type="color" name="color" value="{{ worker_colors.get(w[0], '#1f4f82') }}"><button>{{ tr["update_color"] }}</button></div></form>{% endfor %}</div>
-                    <div class="card"><h3>{{ tr["workers"] }}</h3>{% for w in workers %}<div class="user-row"><b>{{ w[0] }}</b><br><small>{{ w[1] }}</small><br><a class="edit-link" href="/edit_worker/{{ w[0] }}">{{ tr["edit"] }}</a>{% if w[0] != 'admin' %}<a class="delete-link"
+                    <div class="card"><h3>{{ tr["workers"] }}</h3>{% for w in workers %}<div class="user-row"><b>{{ w[0] }}</b><br><small>{{ w[1] }}</small>{% if w[2] or w[3] %}<br><small>{{ tr["contract_type"] }}: {{ w[2] or "-" }}{% if w[3] %} | {{ tr["contract_end_date"] }}: {{ format_date(w[3]) }}{% endif %}</small>{% endif %}<br><a class="edit-link" href="/edit_worker/{{ w[0] }}">{{ tr["edit"] }}</a>{% if w[0] != 'admin' %}<a class="delete-link"
    href="/delete_worker/{{ w[0] }}"
    onclick="return confirm('Da li ste sigurni?');">
    {{ tr["delete"] }}
@@ -1181,7 +1262,7 @@ def index():
             </div>
         </div>
 
-        <div class="card"><h3>{{ tr["add_worker"] }}</h3><form method="post" action="/add_worker" autocomplete="off"><input name="worker_name" placeholder="{{ tr['worker_name'] }}" required autocomplete="off"><input name="address" placeholder="{{ tr['address'] }}" autocomplete="off"><button>{{ tr["add_worker"] }}</button></form></div>
+        <div class="card"><h3>{{ tr["add_worker"] }}</h3><form method="post" action="/add_worker" autocomplete="off"><input name="worker_name" placeholder="{{ tr['worker_name'] }}" required autocomplete="off"><input name="address" placeholder="{{ tr['address'] }}" autocomplete="off"><input name="contract_type" placeholder="{{ tr['contract_type'] }}" autocomplete="off"><label>{{ tr["contract_end_date"] }}</label><input name="contract_end_date" type="date"><button>{{ tr["add_worker"] }}</button></form></div>
         <div class="card"><h3>{{ tr["add_client"] }}</h3><form method="post" action="/add_client" autocomplete="off"><input name="client_name" placeholder="{{ tr['client_name'] }}" required autocomplete="off"><input name="address" placeholder="{{ tr['address'] }}" required autocomplete="off"><button>{{ tr["add_client"] }}</button></form></div>
 
         <div class="card">
@@ -1480,7 +1561,7 @@ def route_optimizer():
 
     conn = get_conn()
     c = conn.cursor()
-    workers = c.execute("SELECT name, address FROM workers ORDER BY name").fetchall()
+    workers = c.execute("SELECT name, address, contract_type, contract_end_date FROM workers ORDER BY name").fetchall()
     worker_lookup = {w[0]: w[1] for w in workers}
 
     selected_date = request.values.get("date", lux_now().strftime("%Y-%m-%d")).strip()
@@ -1628,6 +1709,23 @@ def month_pdf():
     conn = get_conn(); c = conn.cursor(); shifts = c.execute("SELECT * FROM shifts WHERE date >= ? AND date <= ? ORDER BY date, time", (start_date, end_date)).fetchall(); absences = c.execute("SELECT id, worker, type, date_from, date_to, note FROM absences ORDER BY worker, date_from").fetchall(); conn.close()
     if not is_admin: shifts = [s for s in shifts if worker_in_shift(current_user, s[1])]; absences = [a for a in absences if a[1] == current_user]
     buffer = io.BytesIO(); doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=1*cm, leftMargin=1*cm, topMargin=1*cm, bottomMargin=1*cm); styles = getSampleStyleSheet(); elements = [Paragraph(f"{tr['month_calendar']} {format_month_year(year, month)}", styles["Title"]), Spacer(1, 10)]
+    month_hours = calculate_hours_for_user(shifts, current_user if not is_admin else None)
+    absence_totals = absence_totals_by_worker(absences, year, month)
+    summary_workers = sorted(set(month_hours.keys()) | set(absence_totals.keys()))
+    if summary_workers:
+        summary_data = [[tr["pdf_worker"], tr["worked_hours"], tr["sick"], tr["vacation"], tr["other_absence"]]]
+        for worker in summary_workers:
+            totals = absence_totals.get(worker, {})
+            summary_data.append([
+                worker,
+                f"{month_hours.get(worker, 0):.2f}",
+                str(totals.get("sick", 0)),
+                str(totals.get("vacation", 0)),
+                str(totals.get("other", 0)),
+            ])
+        summary_table = Table(summary_data, colWidths=[6*cm, 4*cm, 4*cm, 4*cm, 4*cm])
+        summary_table.setStyle(TableStyle([("BACKGROUND", (0,0), (-1,0), colors.HexColor("#1f4f82")), ("TEXTCOLOR", (0,0), (-1,0), colors.white), ("GRID", (0,0), (-1,-1), 0.5, colors.grey), ("FONTSIZE", (0,0), (-1,-1), 9)]))
+        elements += [Paragraph(tr["monthly_hours"], styles["Heading2"]), summary_table, Spacer(1, 12)]
     table_data = [[tr["pdf_date"], tr["pdf_time"], tr["pdf_worker"], tr["pdf_client"], tr["status"]]]
     for s in shifts: table_data.append([format_date(s[3]), s[4], s[1], s[2], get_status_label(get_auto_status(s[3], s[4]), tr)])
     if len(table_data) == 1: table_data.append(["-", "-", "-", "-", tr["pdf_no_shifts"]])
@@ -1687,15 +1785,15 @@ def edit_worker(name):
     if session.get("role") != "admin": return redirect("/")
     tr = t(); dark = get_theme() == "dark"; conn = get_conn(); c = conn.cursor()
     if request.method == "POST":
-        new_name = request.form["name"].strip(); address = request.form["address"].strip()
+        new_name = request.form["name"].strip(); address = request.form["address"].strip(); contract_type = request.form.get("contract_type", "").strip(); contract_end_date = request.form.get("contract_end_date", "").strip()
         if new_name:
-            old_color = c.execute("SELECT color FROM worker_colors WHERE worker_name = ?", (name,)).fetchone(); color_value = old_color[0] if old_color else "#f97316"; c.execute("UPDATE workers SET name = ?, address = ? WHERE name = ?", (new_name, address, name))
+            old_color = c.execute("SELECT color FROM worker_colors WHERE worker_name = ?", (name,)).fetchone(); color_value = old_color[0] if old_color else "#f97316"; c.execute("UPDATE workers SET name = ?, address = ?, contract_type = ?, contract_end_date = ? WHERE name = ?", (new_name, address, contract_type, contract_end_date, name))
             for shift_id, worker_text in c.execute("SELECT id, worker FROM shifts").fetchall(): c.execute("UPDATE shifts SET worker = ? WHERE id = ?", (replace_worker_in_shift(worker_text, name, new_name), shift_id))
             c.execute("DELETE FROM worker_colors WHERE worker_name = ?", (name,)); c.execute("INSERT OR REPLACE INTO worker_colors (worker_name, color) VALUES (?, ?)", (new_name, color_value))
         conn.commit(); conn.close(); return redirect("/")
-    worker = c.execute("SELECT name, address FROM workers WHERE name = ?", (name,)).fetchone(); conn.close()
+    worker = c.execute("SELECT name, address, contract_type, contract_end_date FROM workers WHERE name = ?", (name,)).fetchone(); conn.close()
     if not worker: return redirect("/")
-    return render_template_string(BASE_STYLE + """<div class="card" style="max-width:500px;margin:auto;"><h2>{{ tr["workers"] }} - {{ tr["edit"] }}</h2><form method="post"><input name="name" value="{{ worker[0] }}" required><input name="address" value="{{ worker[1] }}" placeholder="{{ tr['address'] }}"><button>{{ tr["save"] }}</button></form><br><a href="/">{{ tr["back"] }}</a></div>""", tr=tr, worker=worker, dark=dark)
+    return render_template_string(BASE_STYLE + """<div class="card" style="max-width:500px;margin:auto;"><h2>{{ tr["workers"] }} - {{ tr["edit"] }}</h2><form method="post"><input name="name" value="{{ worker[0] }}" required><input name="address" value="{{ worker[1] }}" placeholder="{{ tr['address'] }}"><input name="contract_type" value="{{ worker[2] }}" placeholder="{{ tr['contract_type'] }}"><label>{{ tr["contract_end_date"] }}</label><input type="date" name="contract_end_date" value="{{ worker[3] }}"><button>{{ tr["save"] }}</button></form><br><a href="/">{{ tr["back"] }}</a></div>""", tr=tr, worker=worker, dark=dark)
 
 @app.route("/edit_client/<path:name>", methods=["GET", "POST"])
 def edit_client(name):
@@ -1725,9 +1823,9 @@ def edit_shift(id):
 @app.route("/add_worker", methods=["POST"])
 def add_worker():
     if session.get("role") != "admin": return redirect("/")
-    name = request.form["worker_name"].strip(); address = request.form.get("address", "").strip()
+    name = request.form["worker_name"].strip(); address = request.form.get("address", "").strip(); contract_type = request.form.get("contract_type", "").strip(); contract_end_date = request.form.get("contract_end_date", "").strip()
     if name:
-        conn = get_conn(); c = conn.cursor(); c.execute("INSERT OR IGNORE INTO workers (name, address) VALUES (?, ?)", (name, address)); c.execute("INSERT OR IGNORE INTO worker_colors (worker_name, color) VALUES (?, ?)", (name, "#f97316")); conn.commit(); conn.close()
+        conn = get_conn(); c = conn.cursor(); c.execute("INSERT OR IGNORE INTO workers (name, address, contract_type, contract_end_date) VALUES (?, ?, ?, ?)", (name, address, contract_type, contract_end_date)); c.execute("INSERT OR IGNORE INTO worker_colors (worker_name, color) VALUES (?, ?)", (name, "#f97316")); conn.commit(); conn.close()
     return redirect("/")
 
 @app.route("/add_client", methods=["POST"])
