@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+*.sqlite
+*.sqlite3
+db.sqlite
+.env
+.venv/
+venv/
+instance/
+*.bak
+backup-*/
