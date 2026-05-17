@@ -1270,7 +1270,8 @@ def index():
             <form method="post" action="/add_shift">
                 <label>{{ tr["choose_worker"] }}</label>
                 {% for w in workers %}{% if w[0] != 'admin' %}<label class="check-row"><input type="checkbox" name="workers" value="{{ w[0] }}">{{ w[0] }}</label>{% endif %}{% endfor %}
-                <select name="client" required><option value="">{{ tr["choose_client"] }}</option>{% for c in clients %}<option value="{{ c[0] }}">{{ c[0] }}</option>{% endfor %}</select>
+                <input id="clientSearchAddShift" placeholder="{{ tr['search_placeholder'] }}" autocomplete="off" oninput="filterClientOptions('clientSearchAddShift', 'clientSelectAddShift')">
+                <select id="clientSelectAddShift" name="client" required><option value="">{{ tr["choose_client"] }}</option>{% for c in clients %}<option value="{{ c[0] }}">{{ c[0] }}</option>{% endfor %}</select>
                 <input name="date" type="date" value="{{ selected_date }}" required>
                 <label>{{ tr["start_time"] }}</label>
                 <div style="display:flex; gap:6px;"><select name="start_hour">{% for h in time_hours %}<option value="{{ h }}">{{ h }}</option>{% endfor %}</select><select name="start_minute"><option value="00" selected>00</option><option value="15">15</option><option value="30">30</option><option value="45">45</option></select></div>
@@ -1332,6 +1333,31 @@ function toggleMenu(){
 
 function dragShift(ev, shiftId){
     ev.dataTransfer.setData('shift_id', shiftId);
+}
+
+function filterClientOptions(inputId, selectId){
+    var input = document.getElementById(inputId);
+    var select = document.getElementById(selectId);
+    if(!input || !select){return;}
+    var query = input.value.trim().toLowerCase();
+    var firstVisible = null;
+    Array.prototype.forEach.call(select.options, function(option, index){
+        if(index === 0){
+            option.hidden = false;
+            return;
+        }
+        var text = option.text.toLowerCase();
+        var match = !query || text.indexOf(query) === 0;
+        option.hidden = !match;
+        if(match && !firstVisible){
+            firstVisible = option;
+        }
+    });
+    if(firstVisible){
+        select.value = firstVisible.value;
+    } else {
+        select.value = "";
+    }
 }
 
 document.addEventListener('DOMContentLoaded', function(){
