@@ -1122,10 +1122,28 @@ def index():
         </main>
     </div>
 
-    <script>
-    function toggleMenu(){var m=document.getElementById('menuBox');m.style.display=(m.style.display==='none')?'block':'none';}
-    function dragShift(ev, shiftId){ev.dataTransfer.setData('shift_id', shiftId);}
-    </script>
+  <script>
+function toggleMenu(){
+    var m=document.getElementById('menuBox');
+    if(m){m.style.display=(m.style.display==='none')?'block':'none';}
+}
+
+function dragShift(ev, shiftId){
+    ev.dataTransfer.setData('shift_id', shiftId);
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+    document.querySelectorAll('a.delete-link').forEach(function(link){
+        link.addEventListener('click', function(e){
+            var ok = confirm('Da li ste sigurni da želite obrisati?');
+            if(!ok){
+                e.preventDefault();
+                return false;
+            }
+        });
+    });
+});
+</script>
     """, tr=tr, dark=dark, datetime=datetime, timedelta=timedelta, format_date=format_date,
        time_hours=time_hours(), time_minutes=time_minutes(), status_colors=STATUS_COLORS,
        get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers, **data)
