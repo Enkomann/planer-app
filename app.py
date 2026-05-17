@@ -1,4 +1,6 @@
 from flask import Flask, request, redirect, render_template_string, session, send_file, url_for
+from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.security import check_password_hash, generate_password_hash
 import sqlite3
 import re
 import io
@@ -27,7 +29,18 @@ from reportlab.lib.units import cm
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "luxmann_secret_key")
+SECRET_KEY = os.environ.get("SECRET_KEY", "").strip()
+if not SECRET_KEY:
+    if os.environ.get("RENDER"):
+        raise RuntimeError("SECRET_KEY must be set in Render Environment variables.")
+    SECRET_KEY = "dev-only-change-me"
+app.secret_key = SECRET_KEY
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=bool(os.environ.get("RENDER") or os.environ.get("SESSION_COOKIE_SECURE") == "1"),
+)
 
 DEFAULT_WORKER_COLORS = {"admin": "#1f4f82", "worker1": "#16a34a"}
 STATUS_COLORS = {
@@ -313,6 +326,22 @@ def t():
 
 def get_theme():
     return session.get("theme", "light")
+
+
+def hash_password(password):
+    return generate_password_hash(password, method="pbkdf2:sha256", salt_length=16)
+
+
+def is_password_hash(value):
+    return bool(value) and value.startswith(("pbkdf2:", "scrypt:"))
+
+
+def verify_password(stored_password, submitted_password):
+    if not stored_password:
+        return False
+    if is_password_hash(stored_password):
+        return check_password_hash(stored_password, submitted_password)
+    return stored_password == submitted_password
 
 
 def lux_now():
@@ -773,8 +802,8 @@ def init_db():
     if "address" not in client_cols:
         c.execute("ALTER TABLE clients ADD COLUMN address TEXT DEFAULT ''")
 
-    c.execute("INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)", ("admin", "admin123", "admin"))
-    c.execute("INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)", ("worker1", "1234", "worker"))
+    c.execute("INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)", ("admin", hash_password("admin123"), "admin"))
+    c.execute("INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)", ("worker1", hash_password("1234"), "worker"))
     c.execute("INSERT OR IGNORE INTO workers (name, address) VALUES (?, ?)", ("admin", ""))
     c.execute("INSERT OR IGNORE INTO workers (name, address) VALUES (?, ?)", ("worker1", ""))
 
@@ -886,11 +915,15 @@ def login():
         conn = get_conn()
         c = conn.cursor()
         user = c.execute("SELECT username, password, role FROM users WHERE username = ?", (username,)).fetchone()
-        conn.close()
-        if user and user[1] == password:
+        if user and verify_password(user[1], password):
+            if not is_password_hash(user[1]):
+                c.execute("UPDATE users SET password = ? WHERE username = ?", (hash_password(password), user[0]))
+                conn.commit()
+            conn.close()
             session["user"] = user[0]
             session["role"] = user[2]
             return redirect("/")
+        conn.close()
         error = tr["login_error"]
 
     return render_template_string(BASE_STYLE + """
@@ -924,7 +957,7 @@ def change_password():
     if new_password:
         conn = get_conn()
         c = conn.cursor()
-        c.execute("UPDATE users SET password = ? WHERE username = ?", (new_password, session["user"]))
+        c.execute("UPDATE users SET password = ? WHERE username = ?", (hash_password(new_password), session["user"]))
         conn.commit()
         conn.close()
     return redirect("/")
@@ -1522,7 +1555,7 @@ def add_user():
     if session.get("role") != "admin": return redirect("/")
     username = request.form["username"].strip(); password = request.form["password"].strip(); role = request.form["role"].strip()
     if username and password and role in ("admin", "worker"):
-        conn = get_conn(); c = conn.cursor(); c.execute("INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)", (username, password, role))
+        conn = get_conn(); c = conn.cursor(); c.execute("INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)", (username, hash_password(password), role))
         if role == "worker": c.execute("INSERT OR IGNORE INTO workers (name, address) VALUES (?, ?)", (username, "")); c.execute("INSERT OR IGNORE INTO worker_colors (worker_name, color) VALUES (?, ?)", (username, "#f97316"))
         conn.commit(); conn.close()
     return redirect("/")
