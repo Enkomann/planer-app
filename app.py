@@ -423,6 +423,8 @@ INVOICE_TRANSLATIONS = {
         "company_settings": "Podaci firme", "sent": "Poslati", "quote": "Ponuda", "quote_number": "Broj ponude",
         "quote_date": "Datum ponude", "quote_text": "Tekst ponude", "quote_price": "Cijena ponude",
         "generate_quote": "Generisi ponudu", "client_email": "Email klijenta",
+        "sent_status": "Status slanja", "sent_yes": "Poslato", "sent_no": "Neposlato",
+        "mark_sent": "Oznaci poslato", "mark_unsent": "Oznaci neposlato",
     }
 }
 INVOICE_TRANSLATIONS["en"] = {
@@ -443,6 +445,8 @@ INVOICE_TRANSLATIONS["en"] = {
     "mark_paid": "Mark paid", "mark_unpaid": "Mark unpaid", "payment_status": "Payment status", "company_settings": "Company details",
     "sent": "Sent", "quote": "Quote", "quote_number": "Quote number", "quote_date": "Quote date",
     "quote_text": "Quote text", "quote_price": "Quote price", "generate_quote": "Generate quote", "client_email": "Client email",
+    "sent_status": "Sending status", "sent_yes": "Sent", "sent_no": "Not sent",
+    "mark_sent": "Mark sent", "mark_unsent": "Mark not sent",
 }
 INVOICE_TRANSLATIONS["fr"] = {
     "invoices": "Factures", "invoice_settings": "Parametres des factures", "invoice_text": "Texte sur la facture",
@@ -462,6 +466,8 @@ INVOICE_TRANSLATIONS["fr"] = {
     "mark_paid": "Marquer payee", "mark_unpaid": "Marquer non payee", "payment_status": "Statut paiement", "company_settings": "Informations societe",
     "sent": "Envoye", "quote": "Devis", "quote_number": "Numero de devis", "quote_date": "Date de devis",
     "quote_text": "Texte du devis", "quote_price": "Montant du devis", "generate_quote": "Generer devis", "client_email": "Email client",
+    "sent_status": "Statut d'envoi", "sent_yes": "Envoye", "sent_no": "Non envoye",
+    "mark_sent": "Marquer envoye", "mark_unsent": "Marquer non envoye",
 }
 INVOICE_TRANSLATIONS["de"] = {
     "invoices": "Rechnungen", "invoice_settings": "Rechnungseinstellungen", "invoice_text": "Rechnungstext",
@@ -481,6 +487,8 @@ INVOICE_TRANSLATIONS["de"] = {
     "mark_paid": "Als bezahlt markieren", "mark_unpaid": "Als unbezahlt markieren", "payment_status": "Zahlungsstatus", "company_settings": "Firmendaten",
     "sent": "Gesendet", "quote": "Angebot", "quote_number": "Angebotsnummer", "quote_date": "Angebotsdatum",
     "quote_text": "Angebotstext", "quote_price": "Angebotspreis", "generate_quote": "Angebot erstellen", "client_email": "Kunden-E-Mail",
+    "sent_status": "Sendestatus", "sent_yes": "Gesendet", "sent_no": "Nicht gesendet",
+    "mark_sent": "Als gesendet markieren", "mark_unsent": "Als nicht gesendet markieren",
 }
 INVOICE_TRANSLATIONS["pt"] = {
     "invoices": "Faturas", "invoice_settings": "Definicoes de faturas", "invoice_text": "Texto na fatura",
@@ -500,6 +508,8 @@ INVOICE_TRANSLATIONS["pt"] = {
     "mark_paid": "Marcar paga", "mark_unpaid": "Marcar nao paga", "payment_status": "Estado do pagamento", "company_settings": "Dados da empresa",
     "sent": "Enviadas", "quote": "Orcamento", "quote_number": "Numero do orcamento", "quote_date": "Data do orcamento",
     "quote_text": "Texto do orcamento", "quote_price": "Valor do orcamento", "generate_quote": "Gerar orcamento", "client_email": "Email do cliente",
+    "sent_status": "Estado de envio", "sent_yes": "Enviada", "sent_no": "Nao enviada",
+    "mark_sent": "Marcar enviada", "mark_unsent": "Marcar nao enviada",
 }
 for _lang, _values in INVOICE_TRANSLATIONS.items():
     TRANSLATIONS[_lang].update(_values)
@@ -1107,25 +1117,27 @@ def build_invoice_rows(conn, date_from, date_to, fixed_amount=None, settings=Non
 def save_invoice_records(conn, rows, date_from, date_to, invoice_date):
     c = conn.cursor()
     existing = {
-        row[0]: {"paid": int(row[1] or 0), "paid_date": row[2] or "", "deleted": int(row[3] or 0)}
-        for row in c.execute("SELECT invoice_number, paid, paid_date, COALESCE(deleted, 0) FROM invoice_records").fetchall()
+        row[0]: {"paid": int(row[1] or 0), "paid_date": row[2] or "", "deleted": int(row[3] or 0), "sent": int(row[4] or 0)}
+        for row in c.execute("SELECT invoice_number, paid, paid_date, COALESCE(deleted, 0), COALESCE(sent, 0) FROM invoice_records").fetchall()
     }
     for row in rows:
         invoice_number = str(row["invoice_number"])
-        previous = existing.get(invoice_number, {"paid": 0, "paid_date": ""})
+        previous = existing.get(invoice_number, {"paid": 0, "paid_date": "", "sent": 0})
         if previous.get("deleted"):
             continue
         c.execute("""
-            INSERT INTO invoice_records (invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date, deleted)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+            INSERT INTO invoice_records (invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date, sent, deleted)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
             ON CONFLICT(invoice_number) DO UPDATE SET client_name = excluded.client_name, date_from = excluded.date_from,
             date_to = excluded.date_to, invoice_date = excluded.invoice_date, amount = excluded.amount,
-            vat_amount = excluded.vat_amount, total = excluded.total, paid = excluded.paid, paid_date = excluded.paid_date
+            vat_amount = excluded.vat_amount, total = excluded.total, paid = excluded.paid, paid_date = excluded.paid_date,
+            sent = excluded.sent
         """, (
             invoice_number, row["client"], date_from, date_to, invoice_date,
-            row["amount"], row["vat_amount"], row["total"], previous["paid"], previous["paid_date"],
+            row["amount"], row["vat_amount"], row["total"], previous["paid"], previous["paid_date"], previous["sent"],
         ))
         row["paid"] = bool(previous["paid"])
+        row["sent"] = bool(previous["sent"])
     conn.commit()
 
 
@@ -1141,6 +1153,8 @@ def invoice_record_to_dict(record):
         "total": float(record[7] or 0),
         "paid": bool(record[8]),
         "paid_date": record[9] or "",
+        "sent": bool(record[10]) if len(record) > 10 else False,
+        "sent_date": record[11] if len(record) > 11 and record[11] else "",
     }
 
 
@@ -1156,6 +1170,7 @@ def get_invoice_row_for_record(conn, record):
         row["amount"] = record["amount"]
         row["vat_amount"] = record["vat_amount"]
         row["total"] = record["total"]
+        row["sent"] = record.get("sent", False)
         return row, settings
     return None, settings
 
@@ -1180,7 +1195,7 @@ def fetch_invoice_records(conn, date_from=None, date_to=None, client=None, statu
         conditions.append("paid = 0")
     where = (" WHERE " + " AND ".join(conditions)) if conditions else ""
     query = f"""
-        SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date
+        SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date, COALESCE(sent, 0), COALESCE(sent_date, '')
         FROM invoice_records
         {where}
         ORDER BY invoice_date DESC, CAST(invoice_number AS INTEGER) DESC
@@ -1487,6 +1502,8 @@ def init_db():
             total REAL DEFAULT 0,
             paid INTEGER DEFAULT 0,
             paid_date TEXT DEFAULT '',
+            sent INTEGER DEFAULT 0,
+            sent_date TEXT DEFAULT '',
             deleted INTEGER DEFAULT 0
         )
     """)
@@ -1517,6 +1534,10 @@ def init_db():
     invoice_record_cols = [row[1] for row in c.execute("PRAGMA table_info(invoice_records)").fetchall()]
     if "deleted" not in invoice_record_cols:
         c.execute("ALTER TABLE invoice_records ADD COLUMN deleted INTEGER DEFAULT 0")
+    if "sent" not in invoice_record_cols:
+        c.execute("ALTER TABLE invoice_records ADD COLUMN sent INTEGER DEFAULT 0")
+    if "sent_date" not in invoice_record_cols:
+        c.execute("ALTER TABLE invoice_records ADD COLUMN sent_date TEXT DEFAULT ''")
 
     c.execute("INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)", ("admin", hash_password("admin123"), "admin"))
     c.execute("INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)", ("worker1", hash_password("1234"), "worker"))
@@ -2310,6 +2331,8 @@ def invoices():
         .invoice-table th, .invoice-table td { padding:14px 10px; border-bottom:1px solid #9ca3af; text-align:left; }
         .invoice-table th { font-size:13px; text-transform:uppercase; color:#f3f4f6; }
         .paid-text { color:#34d399; font-weight:bold; } .unpaid-text { color:#fb7185; font-weight:bold; }
+        .sent-badge { display:inline-block; padding:4px 8px; border-radius:999px; font-size:12px; font-weight:bold; color:#111; }
+        .sent-badge.sent { background:#34d399; } .sent-badge.unsent { background:#fb7185; color:white; }
         .invoice-totals { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-top:16px; }
         .invoice-total-card { background:#3d3d3d; border-radius:8px; padding:14px; }
         .invoice-actions { display:flex; gap:10px; flex-wrap:wrap; margin:16px 0; }
@@ -2350,12 +2373,11 @@ def invoices():
                 <a class="invoice-tab active" href="#">{{ tr["total_invoices"] }} <span class="pill">{{ rows|length }}</span></a>
                 <a class="invoice-tab" href="#" onclick="filterInvoiceStatus('unpaid', this);return false;">{{ tr["unpaid"] }} <span class="pill red">{{ unpaid_rows|length }}</span></a>
                 <a class="invoice-tab" href="#" onclick="filterInvoiceStatus('paid', this);return false;">{{ tr["paid"] }} <span class="pill green">{{ paid_rows|length }}</span></a>
-                <a class="invoice-tab" href="#" onclick="filterInvoiceStatus('all', this);return false;">{{ tr["sent"] }} <span class="pill">{{ rows|length }}</span></a>
                 <a class="invoice-tab" href="/invoices/quote">{{ tr["quote"] }}</a>
             </div>
 
             <table class="invoice-table">
-                <tr><th></th><th>{{ tr["client_name"] }}</th><th>Document</th><th>{{ tr["invoice_number"] }}</th><th>{{ tr["invoice_date"] }}</th><th>{{ tr["payment_status"] }}</th><th>{{ tr["amount_with_vat"] }}</th><th>PDF</th><th></th></tr>
+                <tr><th></th><th>{{ tr["client_name"] }}</th><th>Document</th><th>{{ tr["invoice_number"] }}</th><th>{{ tr["invoice_date"] }}</th><th>{{ tr["payment_status"] }}</th><th>{{ tr["sent_status"] }}</th><th>{{ tr["amount_with_vat"] }}</th><th>PDF</th><th></th></tr>
                 {% for row in rows %}
                 <tr class="invoice-row" data-paid="{{ 1 if row.paid else 0 }}" data-search="{{ (row.client ~ ' ' ~ row.invoice_number)|lower }}">
                     <td><input type="checkbox" style="width:auto;"></td>
@@ -2366,6 +2388,10 @@ def invoices():
                     <td>
                         <span class="{{ 'paid-text' if row.paid else 'unpaid-text' }}">{{ tr["paid"] if row.paid else tr["unpaid"] }}</span><br>
                         <a href="/invoices/mark_paid?invoice_number={{ row.invoice_number }}&paid={{ 0 if row.paid else 1 }}&client={{ row.client|urlencode }}&date_from={{ row.date_from }}&date_to={{ row.date_to }}&invoice_date={{ row.invoice_date }}&amount={{ row.amount }}&vat_amount={{ row.vat_amount }}&total={{ row.total }}" style="color:#e5e7eb;">{{ tr["mark_unpaid"] if row.paid else tr["mark_paid"] }}</a>
+                    </td>
+                    <td>
+                        <span class="sent-badge {{ 'sent' if row.sent else 'unsent' }}">{{ tr["sent_yes"] if row.sent else tr["sent_no"] }}</span><br>
+                        <a href="/invoices/mark_sent?invoice_number={{ row.invoice_number }}&sent={{ 0 if row.sent else 1 }}" style="color:#e5e7eb;">{{ tr["mark_unsent"] if row.sent else tr["mark_sent"] }}</a>
                     </td>
                     <td><b>{{ "%.2f"|format(row.total) }} EUR</b></td>
                     <td><a href="/invoices/download?client={{ row.client|urlencode }}&date_from={{ row.date_from }}&date_to={{ row.date_to }}&invoice_date={{ row.invoice_date }}" style="color:#93c5fd;">PDF</a></td>
@@ -2882,6 +2908,21 @@ def invoices_mark_paid():
     if next_url.startswith("/invoices"):
         return redirect(next_url)
     return redirect(f"/invoices?date_from={urllib.parse.quote(date_from)}&date_to={urllib.parse.quote(date_to)}&invoice_date={urllib.parse.quote(invoice_date)}")
+
+
+@app.route("/invoices/mark_sent")
+def invoices_mark_sent():
+    if session.get("role") != "admin":
+        return redirect("/")
+    invoice_no = request.args.get("invoice_number", "").strip()
+    sent = 1 if request.args.get("sent", "0") == "1" else 0
+    if invoice_no:
+        conn = get_conn(); c = conn.cursor()
+        c.execute("UPDATE invoice_records SET sent = ?, sent_date = ? WHERE invoice_number = ?", (
+            sent, lux_now().strftime("%Y-%m-%d") if sent else "", invoice_no,
+        ))
+        conn.commit(); conn.close()
+    return redirect(request.referrer or "/invoices")
 
 
 @app.route("/invoices/download")
