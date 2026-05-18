@@ -11,6 +11,7 @@ import math
 import zipfile
 import urllib.parse
 import urllib.request
+import unicodedata
 from datetime import datetime, timedelta, date as dt_date
 try:
     from zoneinfo import ZoneInfo
@@ -419,7 +420,9 @@ INVOICE_TRANSLATIONS = {
         "invoice_design": "Dizajn fakture", "service_details": "Detalji usluge", "service_dates": "Datumi rada",
         "invoice_start_number": "Pocetni broj fakture", "paid": "Placena", "unpaid": "Nije placena",
         "mark_paid": "Oznaci placeno", "mark_unpaid": "Oznaci neplaceno", "payment_status": "Status placanja",
-        "company_settings": "Podaci firme",
+        "company_settings": "Podaci firme", "sent": "Poslati", "quote": "Ponuda", "quote_number": "Broj ponude",
+        "quote_date": "Datum ponude", "quote_text": "Tekst ponude", "quote_price": "Cijena ponude",
+        "generate_quote": "Generisi ponudu", "client_email": "Email klijenta",
     }
 }
 INVOICE_TRANSLATIONS["en"] = {
@@ -438,6 +441,8 @@ INVOICE_TRANSLATIONS["en"] = {
     "save_client_profile": "Save client profile", "invoice_design": "Invoice design", "service_details": "Service details",
     "service_dates": "Work dates", "invoice_start_number": "Starting invoice number", "paid": "Paid", "unpaid": "Unpaid",
     "mark_paid": "Mark paid", "mark_unpaid": "Mark unpaid", "payment_status": "Payment status", "company_settings": "Company details",
+    "sent": "Sent", "quote": "Quote", "quote_number": "Quote number", "quote_date": "Quote date",
+    "quote_text": "Quote text", "quote_price": "Quote price", "generate_quote": "Generate quote", "client_email": "Client email",
 }
 INVOICE_TRANSLATIONS["fr"] = {
     "invoices": "Factures", "invoice_settings": "Parametres des factures", "invoice_text": "Texte sur la facture",
@@ -455,6 +460,8 @@ INVOICE_TRANSLATIONS["fr"] = {
     "save_client_profile": "Enregistrer profil client", "invoice_design": "Design de facture", "service_details": "Details de prestation",
     "service_dates": "Dates de travail", "invoice_start_number": "Numero de facture initial", "paid": "Payee", "unpaid": "Non payee",
     "mark_paid": "Marquer payee", "mark_unpaid": "Marquer non payee", "payment_status": "Statut paiement", "company_settings": "Informations societe",
+    "sent": "Envoye", "quote": "Devis", "quote_number": "Numero de devis", "quote_date": "Date de devis",
+    "quote_text": "Texte du devis", "quote_price": "Montant du devis", "generate_quote": "Generer devis", "client_email": "Email client",
 }
 INVOICE_TRANSLATIONS["de"] = {
     "invoices": "Rechnungen", "invoice_settings": "Rechnungseinstellungen", "invoice_text": "Rechnungstext",
@@ -472,6 +479,8 @@ INVOICE_TRANSLATIONS["de"] = {
     "save_client_profile": "Kundenprofil speichern", "invoice_design": "Rechnungsdesign", "service_details": "Leistungsdetails",
     "service_dates": "Arbeitstage", "invoice_start_number": "Start-Rechnungsnummer", "paid": "Bezahlt", "unpaid": "Nicht bezahlt",
     "mark_paid": "Als bezahlt markieren", "mark_unpaid": "Als unbezahlt markieren", "payment_status": "Zahlungsstatus", "company_settings": "Firmendaten",
+    "sent": "Gesendet", "quote": "Angebot", "quote_number": "Angebotsnummer", "quote_date": "Angebotsdatum",
+    "quote_text": "Angebotstext", "quote_price": "Angebotspreis", "generate_quote": "Angebot erstellen", "client_email": "Kunden-E-Mail",
 }
 INVOICE_TRANSLATIONS["pt"] = {
     "invoices": "Faturas", "invoice_settings": "Definicoes de faturas", "invoice_text": "Texto na fatura",
@@ -489,6 +498,8 @@ INVOICE_TRANSLATIONS["pt"] = {
     "save_client_profile": "Guardar perfil do cliente", "invoice_design": "Design da fatura", "service_details": "Detalhes do servico",
     "service_dates": "Datas de trabalho", "invoice_start_number": "Numero inicial da fatura", "paid": "Paga", "unpaid": "Nao paga",
     "mark_paid": "Marcar paga", "mark_unpaid": "Marcar nao paga", "payment_status": "Estado do pagamento", "company_settings": "Dados da empresa",
+    "sent": "Enviadas", "quote": "Orcamento", "quote_number": "Numero do orcamento", "quote_date": "Data do orcamento",
+    "quote_text": "Texto do orcamento", "quote_price": "Valor do orcamento", "generate_quote": "Gerar orcamento", "client_email": "Email do cliente",
 }
 for _lang, _values in INVOICE_TRANSLATIONS.items():
     TRANSLATIONS[_lang].update(_values)
@@ -723,6 +734,13 @@ def format_date(date_str):
         return datetime.strptime(date_str, "%Y-%m-%d").strftime("%d/%m/%Y")
     except Exception:
         return date_str
+
+
+def safe_pdf_name(*parts):
+    raw = "_".join(str(part or "").strip() for part in parts if str(part or "").strip())
+    normalized = unicodedata.normalize("NFKD", raw).encode("ascii", "ignore").decode("ascii")
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", normalized).strip("._")
+    return cleaned or "document"
 
 
 def month_name(month, lang=None):
@@ -1229,6 +1247,50 @@ def build_invoice_pdf(row, settings, invoice_date, date_from, date_to, document_
 
     payment_lines = [settings.get("payment_terms", ""), settings.get("company_vat", "")]
     elements += [Paragraph("<b>Conditions et modalites de paiement</b>", normal), Paragraph("<br/>".join([x for x in payment_lines if x]), normal)]
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+
+def build_quote_pdf(data, settings):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
+    styles = getSampleStyleSheet()
+    accent = {"orange": "#ff7a2f", "blue": "#1f4f82", "green": "#2f7d32"}.get(settings.get("invoice_template", "orange"), "#ff7a2f")
+    normal = styles["Normal"]
+    document_title = data.get("document_title") or "DEVIS"
+    header = Table([[Paragraph(f"<b>{settings['company_name']}</b>", styles["Title"]), Paragraph(f"<b>{document_title}</b>", styles["Title"])]], colWidths=[12.5*cm, 5*cm])
+    header.setStyle(TableStyle([("BACKGROUND", (0,0), (-1,-1), colors.HexColor(accent)), ("TEXTCOLOR", (0,0), (-1,-1), colors.white), ("ALIGN", (1,0), (1,0), "RIGHT"), ("LEFTPADDING", (0,0), (-1,-1), 8), ("RIGHTPADDING", (0,0), (-1,-1), 8)]))
+    company_lines = [settings.get("company_address", "").replace("\n", "<br/>")]
+    if settings.get("company_phone"):
+        company_lines.append(f"Tel: {settings['company_phone']}")
+    if settings.get("company_email"):
+        company_lines.append(settings["company_email"])
+    logo_cell = Image("static/logo.png", width=4.5*cm, height=2.4*cm) if os.path.exists("static/logo.png") else ""
+    client_block = f"<b>Devis pour</b><br/>{data['client_name']}<br/>{data['client_address'].replace(chr(10), '<br/>')}"
+    if data.get("client_email"):
+        client_block += f"<br/>{data['client_email']}"
+    amount = float(data.get("amount") or 0)
+    vat_rate = float(data.get("vat_rate") or 0)
+    vat_amount = amount * vat_rate
+    total = amount + vat_amount
+    elements = [
+        header, Spacer(1, 18),
+        Table([[Paragraph("<br/>".join([x for x in company_lines if x]), normal), logo_cell]], colWidths=[10*cm, 7.5*cm], style=[("ALIGN", (1,0), (1,0), "RIGHT"), ("VALIGN", (0,0), (-1,-1), "TOP")]),
+        Spacer(1, 34),
+        Table([[Paragraph(client_block, normal), Paragraph(f"<b>Devis no</b>&nbsp;&nbsp;&nbsp; {data['quote_number']}<br/><b>Date</b>&nbsp;&nbsp;&nbsp; {format_date(data['quote_date'])}", normal)]], colWidths=[10*cm, 7.5*cm], style=[("ALIGN", (1,0), (1,0), "RIGHT"), ("VALIGN", (0,0), (-1,-1), "TOP")]),
+        Spacer(1, 28),
+    ]
+    quote_table = Table([
+        [Paragraph("<b>DESIGNATION</b>", normal), Paragraph("<b>MONTANT</b>", normal)],
+        [Paragraph((data.get("quote_text") or "-").replace("\n", "<br/>"), normal), Paragraph(f"{amount:.2f}", normal)],
+        ["", Paragraph(f"Total HT&nbsp;&nbsp;&nbsp; {amount:.2f}", normal)],
+        ["", Paragraph(f"TVA {vat_rate*100:.1f}%&nbsp;&nbsp;&nbsp; {vat_amount:.2f}", normal)],
+        [Paragraph("<b>TOTAL TTC</b>", styles["Heading2"]), Paragraph(f"<b>{total:.2f} EUR</b>", styles["Heading2"])],
+    ], colWidths=[12.8*cm, 4.7*cm])
+    quote_table.setStyle(TableStyle([("GRID", (0,0), (-1,-1), 0.5, colors.grey), ("BACKGROUND", (0,0), (-1,0), colors.whitesmoke), ("ALIGN", (1,1), (1,-1), "RIGHT"), ("VALIGN", (0,0), (-1,-1), "TOP"), ("SPAN", (0,2), (0,3)), ("BACKGROUND", (1,4), (1,4), colors.whitesmoke), ("MINROWHEIGHT", (0,1), (-1,1), 4.2*cm)]))
+    payment_lines = [settings.get("payment_terms", ""), settings.get("company_vat", "")]
+    elements += [quote_table, Spacer(1, 80), Paragraph("<b>Conditions et modalites</b>", normal), Paragraph("<br/>".join([x for x in payment_lines if x]), normal)]
     doc.build(elements)
     buffer.seek(0)
     return buffer
@@ -2288,7 +2350,8 @@ def invoices():
                 <a class="invoice-tab active" href="#">{{ tr["total_invoices"] }} <span class="pill">{{ rows|length }}</span></a>
                 <a class="invoice-tab" href="#" onclick="filterInvoiceStatus('unpaid', this);return false;">{{ tr["unpaid"] }} <span class="pill red">{{ unpaid_rows|length }}</span></a>
                 <a class="invoice-tab" href="#" onclick="filterInvoiceStatus('paid', this);return false;">{{ tr["paid"] }} <span class="pill green">{{ paid_rows|length }}</span></a>
-                <a class="invoice-tab" href="#" onclick="filterInvoiceStatus('all', this);return false;">Envoye <span class="pill">{{ rows|length }}</span></a>
+                <a class="invoice-tab" href="#" onclick="filterInvoiceStatus('all', this);return false;">{{ tr["sent"] }} <span class="pill">{{ rows|length }}</span></a>
+                <a class="invoice-tab" href="/invoices/quote">{{ tr["quote"] }}</a>
             </div>
 
             <table class="invoice-table">
@@ -2297,7 +2360,7 @@ def invoices():
                 <tr class="invoice-row" data-paid="{{ 1 if row.paid else 0 }}" data-search="{{ (row.client ~ ' ' ~ row.invoice_number)|lower }}">
                     <td><input type="checkbox" style="width:auto;"></td>
                     <td><a href="/invoices/client?client={{ row.client|urlencode }}&date_from={{ date_from }}&date_to={{ date_to }}" style="color:white;text-decoration:underline;">{{ row.client }}</a></td>
-                    <td>Facture</td>
+                    <td>{{ tr["invoices"] }}</td>
                     <td><a href="/invoices/view?invoice_number={{ row.invoice_number }}" style="color:white;text-decoration:underline;">{{ row.invoice_number }}</a></td>
                     <td>{{ format_date(row.invoice_date) }}</td>
                     <td>
@@ -2305,7 +2368,7 @@ def invoices():
                         <a href="/invoices/mark_paid?invoice_number={{ row.invoice_number }}&paid={{ 0 if row.paid else 1 }}&client={{ row.client|urlencode }}&date_from={{ row.date_from }}&date_to={{ row.date_to }}&invoice_date={{ row.invoice_date }}&amount={{ row.amount }}&vat_amount={{ row.vat_amount }}&total={{ row.total }}" style="color:#e5e7eb;">{{ tr["mark_unpaid"] if row.paid else tr["mark_paid"] }}</a>
                     </td>
                     <td><b>{{ "%.2f"|format(row.total) }} EUR</b></td>
-                    <td><a href="/invoices/preview_pdf?invoice_number={{ row.invoice_number }}" style="color:#93c5fd;">PDF</a> | <a href="/invoices/devis_pdf?invoice_number={{ row.invoice_number }}" style="color:#93c5fd;">Devis</a></td>
+                    <td><a href="/invoices/download?client={{ row.client|urlencode }}&date_from={{ row.date_from }}&date_to={{ row.date_to }}&invoice_date={{ row.invoice_date }}" style="color:#93c5fd;">PDF</a></td>
                     <td><a href="/invoices/delete?invoice_number={{ row.invoice_number }}" onclick="return confirm('Obrisati fakturu?');" style="color:#fb7185;">{{ tr["delete"] }}</a></td>
                 </tr>
                 {% endfor %}
@@ -2520,7 +2583,7 @@ def invoices_view():
         <div class="viewer-panel">
             <div class="toolbar">
                 <span class="tool active">Facture</span>
-                <a class="tool" href="/invoices/devis_pdf?invoice_number={{ row.invoice_number }}">Devis</a>
+                <a class="tool" href="/invoices/devis_pdf?invoice_number={{ row.invoice_number }}">{{ tr["quote"] }}</a>
                 <a class="tool" href="/invoices#invoice-profiles">Modifier</a>
                 <a class="tool" href="/invoices#invoice-settings">Modeles</a>
                 <span class="tool">E-mail</span>
@@ -2637,10 +2700,96 @@ def invoices_list_pdf():
     return send_file(pdf, as_attachment=True, download_name=f"liste_factures_{date_from}_{date_to}.pdf", mimetype="application/pdf")
 
 
+@app.route("/invoices/quote", methods=["GET", "POST"])
+def invoices_quote():
+    if session.get("role") != "admin":
+        return redirect("/")
+    tr = t(); dark = get_theme() == "dark"
+    conn = get_conn()
+    settings = get_invoice_settings(conn)
+    profiles = get_invoice_profiles(conn)
+    conn.close()
+    if request.method == "POST":
+        data = {
+            "quote_number": request.form.get("quote_number", "").strip() or f"DEV-{lux_now().strftime('%Y%m%d')}",
+            "quote_date": request.form.get("quote_date", lux_now().strftime("%Y-%m-%d")).strip(),
+            "client_name": request.form.get("client_name", "").strip(),
+            "client_address": request.form.get("client_address", "").strip(),
+            "client_email": request.form.get("client_email", "").strip(),
+            "amount": request.form.get("amount", "0").strip(),
+            "vat_rate": request.form.get("vat_rate", "0.08").strip(),
+            "quote_text": request.form.get("quote_text", "").strip(),
+            "document_title": tr["quote"].upper(),
+        }
+        if not data["client_name"]:
+            data["client_name"] = "Client"
+        pdf = build_quote_pdf(data, settings)
+        filename = safe_pdf_name(data["quote_number"], data["client_name"])
+        return send_file(pdf, as_attachment=True, download_name=f"{filename}.pdf", mimetype="application/pdf")
+    profiles_json = json.dumps(profiles)
+    return render_template_string(BASE_STYLE + header_html() + """
+    <div class="card" style="max-width:820px;margin:auto;">
+        <h2>{{ tr["quote"] }}</h2>
+        <p class="muted">Ponuda je odvojena od smjena i radnika. Unesi podatke klijenta, tekst usluge i cijenu.</p>
+        <form method="post">
+            <div class="grid">
+                <div>
+                    <label>{{ tr["quote_number"] }}</label>
+                    <input name="quote_number" value="DEV-{{ now_code }}" required>
+                </div>
+                <div>
+                    <label>{{ tr["quote_date"] }}</label>
+                    <input type="date" name="quote_date" value="{{ today }}" required>
+                </div>
+            </div>
+            <label>{{ tr["search_client"] }}</label>
+            <input id="quoteClientSearch" list="quoteClientList" placeholder="{{ tr['search_client'] }}" oninput="fillQuoteClient()" autocomplete="off">
+            <datalist id="quoteClientList">{% for p in profiles %}<option value="{{ p.client }}"></option>{% endfor %}</datalist>
+            <label>{{ tr["client_name"] }}</label>
+            <input id="quoteClientName" name="client_name" required>
+            <label>{{ tr["address"] }}</label>
+            <textarea id="quoteClientAddress" name="client_address" style="width:100%;min-height:70px;" required></textarea>
+            <label>{{ tr["client_email"] }}</label>
+            <input id="quoteClientEmail" name="client_email">
+            <div class="grid">
+                <div>
+                    <label>{{ tr["quote_price"] }}</label>
+                    <input type="number" step="0.01" name="amount" required>
+                </div>
+                <div>
+                    <label>{{ tr["vat_rate"] }}</label>
+                    <select name="vat_rate">
+                        <option value="0.08">8%</option>
+                        <option value="0.17">17%</option>
+                        <option value="0">0%</option>
+                    </select>
+                </div>
+            </div>
+            <label>{{ tr["quote_text"] }}</label>
+            <textarea name="quote_text" style="width:100%;min-height:150px;" required>Entretien et nettoyage de la maison.</textarea>
+            <button>{{ tr["generate_quote"] }}</button>
+        </form>
+        <br><a href="/invoices">{{ tr["back"] }}</a>
+    </div>
+    <script>
+    var quoteProfiles = {{ profiles_json|safe }};
+    function fillQuoteClient(){
+        var name = document.getElementById('quoteClientSearch').value;
+        var profile = quoteProfiles.find(function(p){ return p.client === name; });
+        if(!profile){ return; }
+        document.getElementById('quoteClientName').value = profile.client || "";
+        document.getElementById('quoteClientAddress').value = profile.address || "";
+        document.getElementById('quoteClientEmail').value = profile.email || "";
+    }
+    </script>
+    """, tr=tr, dark=dark, profiles=profiles, profiles_json=profiles_json, today=lux_now().strftime("%Y-%m-%d"), now_code=lux_now().strftime("%Y%m%d"))
+
+
 @app.route("/invoices/devis_pdf")
 def invoices_devis_pdf():
     if session.get("role") != "admin":
         return redirect("/")
+    tr = t()
     invoice_number = request.args.get("invoice_number", "").strip()
     conn = get_conn(); c = conn.cursor()
     record_row = c.execute("""
@@ -2656,7 +2805,8 @@ def invoices_devis_pdf():
     if not row:
         return redirect("/invoices")
     pdf = build_invoice_pdf(row, settings, record["invoice_date"], record["date_from"], record["date_to"], "DEVIS")
-    return send_file(pdf, as_attachment=True, download_name=f"devis_{invoice_number}.pdf", mimetype="application/pdf")
+    filename = safe_pdf_name(tr["quote"], invoice_number, row["client"])
+    return send_file(pdf, as_attachment=True, download_name=f"{filename}.pdf", mimetype="application/pdf")
 
 
 @app.route("/invoices/delete")
@@ -2744,7 +2894,8 @@ def invoices_download():
     if not row:
         return redirect("/invoices")
     pdf = build_invoice_pdf(row, settings, invoice_date, date_from, date_to)
-    return send_file(pdf, as_attachment=True, download_name=f"facture_{row['invoice_number']}.pdf", mimetype="application/pdf")
+    filename = safe_pdf_name(row["invoice_number"], row["client"])
+    return send_file(pdf, as_attachment=True, download_name=f"{filename}.pdf", mimetype="application/pdf")
 
 
 @app.route("/invoices/download_all")
@@ -2764,7 +2915,7 @@ def invoices_download_all():
             if not row:
                 continue
             pdf = build_invoice_pdf(row, settings, record["invoice_date"], record["date_from"], record["date_to"])
-            zf.writestr(f"facture_{record['invoice_number']}.pdf", pdf.getvalue())
+            zf.writestr(f"{safe_pdf_name(record['invoice_number'], record['client'])}.pdf", pdf.getvalue())
         list_pdf = build_invoice_list_pdf(records, date_from, date_to)
         zf.writestr(f"liste_factures_{date_from}_{date_to}.pdf", list_pdf.getvalue())
     conn.close()
