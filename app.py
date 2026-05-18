@@ -8,6 +8,7 @@ import os
 import calendar
 import json
 import math
+import zipfile
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, date as dt_date
@@ -399,6 +400,24 @@ TRANSLATIONS["pt"].update({
     "contract_reminders": "Lembretes de contrato", "contract_expired": "Contrato expirado",
     "contract_expires_soon": "Contrato termina em breve", "worked_hours": "Horas trabalhadas",
 })
+
+INVOICE_TRANSLATIONS = {
+    "bos": {
+        "invoices": "Fakture", "invoice_settings": "Podesavanja faktura", "invoice_text": "Tekst na fakturi",
+        "payment_terms": "Modalitet placanja", "bank_account": "Racun za uplatu", "invoice_profiles": "Profili klijenata za fakture",
+        "client_type": "Tip klijenta", "private_client": "Privatno lice", "pro_client": "Profesionalni klijent",
+        "hourly_rate": "Cijena po satu", "email": "Email", "vat_rate": "TVA", "generate_invoice": "Generisi fakturu",
+        "download_all_invoices": "Preuzmi sve fakture PDF", "annual_certificate": "Godisnji certifikat",
+        "date_from": "Od datuma", "date_to": "Do datuma", "invoice_date": "Datum fakture",
+        "invoice_number": "Broj fakture", "amount_without_vat": "Iznos bez TVA", "amount_with_vat": "Iznos sa TVA",
+        "fixed_amount": "Zeljeni iznos", "use_fixed_amount": "Koristi zeljeni iznos", "invoice_list": "Lista faktura",
+        "total_invoices": "Ukupno faktura", "save_settings": "Sacuvaj podesavanja",
+    }
+}
+for _lang in ["en", "fr", "de", "pt"]:
+    INVOICE_TRANSLATIONS[_lang] = INVOICE_TRANSLATIONS["bos"].copy()
+for _lang, _values in INVOICE_TRANSLATIONS.items():
+    TRANSLATIONS[_lang].update(_values)
 
 MONTH_NAMES = {
     "bos": ["", "Januar", "Februar", "Mart", "April", "Maj", "Juni", "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"],
@@ -881,6 +900,130 @@ def contract_reminders(workers, days_before=30):
     return reminders
 
 
+def previous_month_range():
+    today = lux_now().date()
+    first_this_month = dt_date(today.year, today.month, 1)
+    last_prev_month = first_this_month - timedelta(days=1)
+    first_prev_month = dt_date(last_prev_month.year, last_prev_month.month, 1)
+    return first_prev_month.strftime("%Y-%m-%d"), last_prev_month.strftime("%Y-%m-%d")
+
+
+def get_invoice_settings(conn):
+    c = conn.cursor()
+    row = c.execute("SELECT invoice_text, payment_terms, bank_account FROM invoice_settings WHERE id = 1").fetchone()
+    if not row:
+        return {"invoice_text": "", "payment_terms": "", "bank_account": ""}
+    return {"invoice_text": row[0] or "", "payment_terms": row[1] or "", "bank_account": row[2] or ""}
+
+
+def sync_invoice_profiles(conn):
+    c = conn.cursor()
+    clients = c.execute("SELECT name, address FROM clients ORDER BY name").fetchall()
+    for client in clients:
+        c.execute("INSERT OR IGNORE INTO client_invoice_profiles (client_name, custom_address) VALUES (?, ?)", (client[0], client[1] or ""))
+    conn.commit()
+
+
+def get_invoice_profiles(conn):
+    sync_invoice_profiles(conn)
+    c = conn.cursor()
+    rows = c.execute("""
+        SELECT c.name, c.address, p.email, p.client_type, p.hourly_rate, p.custom_address
+        FROM clients c
+        LEFT JOIN client_invoice_profiles p ON p.client_name = c.name
+        ORDER BY c.name
+    """).fetchall()
+    profiles = []
+    for row in rows:
+        profiles.append({
+            "client": row[0],
+            "base_address": row[1] or "",
+            "email": row[2] or "",
+            "client_type": row[3] or "private",
+            "hourly_rate": float(row[4] or 0),
+            "address": row[5] or row[1] or "",
+        })
+    return profiles
+
+
+def invoice_vat_rate(client_type):
+    return 0.17 if client_type == "pro" else 0.08
+
+
+def build_invoice_rows(conn, date_from, date_to, fixed_amount=None):
+    c = conn.cursor()
+    profiles = {p["client"]: p for p in get_invoice_profiles(conn)}
+    shifts = c.execute("SELECT client, time FROM shifts WHERE date >= ? AND date <= ?", (date_from, date_to)).fetchall()
+    hours_by_client = {}
+    for client, time_range in shifts:
+        hours_by_client[client] = hours_by_client.get(client, 0) + parse_shift_hours(time_range)
+
+    rows = []
+    for client, hours in sorted(hours_by_client.items()):
+        profile = profiles.get(client)
+        if not profile:
+            continue
+        base_amount = float(fixed_amount) if fixed_amount not in (None, "") else hours * profile["hourly_rate"]
+        vat_rate = invoice_vat_rate(profile["client_type"])
+        vat_amount = base_amount * vat_rate
+        rows.append({
+            "client": client,
+            "address": profile["address"],
+            "email": profile["email"],
+            "client_type": profile["client_type"],
+            "hours": hours,
+            "hourly_rate": profile["hourly_rate"],
+            "amount": base_amount,
+            "vat_rate": vat_rate,
+            "vat_amount": vat_amount,
+            "total": base_amount + vat_amount,
+        })
+    return rows
+
+
+def invoice_number(client_name, invoice_date):
+    safe = re.sub(r"[^A-Za-z0-9]+", "", client_name.upper())[:6] or "CLIENT"
+    return f"INV-{invoice_date.replace('-', '')}-{safe}"
+
+
+def build_invoice_pdf(row, settings, invoice_date, date_from, date_to):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
+    styles = getSampleStyleSheet()
+    elements = [Paragraph("LUXMANN CLEANING SERVICES", styles["Title"]), Spacer(1, 10)]
+    elements += [Paragraph(f"Facture: {invoice_number(row['client'], invoice_date)}", styles["Heading2"])]
+    elements += [Paragraph(f"Date: {format_date(invoice_date)}", styles["Normal"]), Paragraph(f"Periode: {format_date(date_from)} - {format_date(date_to)}", styles["Normal"]), Spacer(1, 10)]
+    elements += [Paragraph(f"Client: {row['client']}", styles["Heading3"]), Paragraph(row["address"] or "-", styles["Normal"])]
+    if row["email"]:
+        elements.append(Paragraph(f"Email: {row['email']}", styles["Normal"]))
+    elements.append(Spacer(1, 12))
+    data = [["Description", "Heures", "Prix/h", "HTVA", "TVA", "Total"], ["Prestations de nettoyage", f"{row['hours']:.2f}", f"{row['hourly_rate']:.2f}", f"{row['amount']:.2f}", f"{int(row['vat_rate']*100)}% ({row['vat_amount']:.2f})", f"{row['total']:.2f}"]]
+    table = Table(data, colWidths=[6*cm, 2*cm, 2.5*cm, 2.5*cm, 3*cm, 3*cm])
+    table.setStyle(TableStyle([("BACKGROUND", (0,0), (-1,0), colors.HexColor("#1f4f82")), ("TEXTCOLOR", (0,0), (-1,0), colors.white), ("GRID", (0,0), (-1,-1), 0.5, colors.grey), ("FONTSIZE", (0,0), (-1,-1), 9)]))
+    elements.append(table)
+    elements += [Spacer(1, 14), Paragraph(settings["invoice_text"], styles["Normal"]), Spacer(1, 8), Paragraph(settings["payment_terms"], styles["Normal"]), Paragraph(settings["bank_account"], styles["Normal"])]
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+
+def build_invoice_certificate_pdf(rows, invoice_date, date_from, date_to):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
+    styles = getSampleStyleSheet()
+    elements = [Paragraph("Certificat annuel des factures", styles["Title"]), Spacer(1, 10), Paragraph(f"Periode: {format_date(date_from)} - {format_date(date_to)}", styles["Normal"]), Paragraph(f"Date: {format_date(invoice_date)}", styles["Normal"]), Spacer(1, 12)]
+    data = [["Client", "Heures", "HTVA", "TVA", "Total"]]
+    for row in rows:
+        data.append([row["client"], f"{row['hours']:.2f}", f"{row['amount']:.2f}", f"{row['vat_amount']:.2f}", f"{row['total']:.2f}"])
+    data.append(["TOTAL", "", f"{sum(r['amount'] for r in rows):.2f}", f"{sum(r['vat_amount'] for r in rows):.2f}", f"{sum(r['total'] for r in rows):.2f}"])
+    table = Table(data, colWidths=[7*cm, 2.5*cm, 3*cm, 3*cm, 3*cm])
+    table.setStyle(TableStyle([("BACKGROUND", (0,0), (-1,0), colors.HexColor("#1f4f82")), ("TEXTCOLOR", (0,0), (-1,0), colors.white), ("GRID", (0,0), (-1,-1), 0.5, colors.grey), ("FONTNAME", (0,-1), (-1,-1), "Helvetica-Bold")]))
+    elements.append(table)
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+
 def init_db():
     conn = get_conn()
     c = conn.cursor()
@@ -942,6 +1085,23 @@ def init_db():
             note TEXT DEFAULT ''
         )
     """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS invoice_settings (
+            id INTEGER PRIMARY KEY,
+            invoice_text TEXT DEFAULT '',
+            payment_terms TEXT DEFAULT '',
+            bank_account TEXT DEFAULT ''
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS client_invoice_profiles (
+            client_name TEXT PRIMARY KEY,
+            email TEXT DEFAULT '',
+            client_type TEXT DEFAULT 'private',
+            hourly_rate REAL DEFAULT 0,
+            custom_address TEXT DEFAULT ''
+        )
+    """)
 
     # Migration safety
     shift_cols = [row[1] for row in c.execute("PRAGMA table_info(shifts)").fetchall()]
@@ -962,6 +1122,7 @@ def init_db():
     c.execute("INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)", ("worker1", hash_password("1234"), "worker"))
     c.execute("INSERT OR IGNORE INTO workers (name, address) VALUES (?, ?)", ("admin", ""))
     c.execute("INSERT OR IGNORE INTO workers (name, address) VALUES (?, ?)", ("worker1", ""))
+    c.execute("INSERT OR IGNORE INTO invoice_settings (id, invoice_text, payment_terms, bank_account) VALUES (?, ?, ?, ?)", (1, "Facture pour prestations de nettoyage.", "Paiement a reception de facture.", "IBAN: LU00 0000 0000 0000 0000"))
 
     for worker_name, color in DEFAULT_WORKER_COLORS.items():
         c.execute("INSERT OR IGNORE INTO worker_colors (worker_name, color) VALUES (?, ?)", (worker_name, color))
@@ -1124,7 +1285,7 @@ def load_index_data():
     current_user = session.get("user")
     conn = get_conn()
     c = conn.cursor()
-    workers = c.execute("SELECT name, address FROM workers ORDER BY name").fetchall()
+    workers = c.execute("SELECT name, address, contract_type, contract_end_date FROM workers ORDER BY name").fetchall()
     clients = c.execute("SELECT name, address FROM clients ORDER BY name").fetchall()
     db_users = c.execute("SELECT id, username, role FROM users ORDER BY username").fetchall() if is_admin else []
     worker_colors = get_worker_colors(conn)
@@ -1215,6 +1376,7 @@ def index():
             <a class="nav-link" href="/week">📅 {{ tr["week_calendar"] }}</a>
             <a class="nav-link" href="/month">🗓️ {{ tr["month_calendar"] }}</a>
             {% if is_admin %}<a class="nav-link" href="/route_optimizer">🧭 {{ tr["route_optimizer"] }}</a>{% endif %}
+            {% if is_admin %}<a class="nav-link" href="/invoices">📄 {{ tr["invoices"] }}</a>{% endif %}
             <a class="nav-link" href="/month_pdf" target="_blank">📄 {{ tr["month_pdf"] }}</a>
         </aside>
         <main class="main-content">
@@ -1706,6 +1868,152 @@ def route_optimizer():
     {% endif %}
     """, tr=tr, dark=dark, workers=workers, selected_date=selected_date,
        selected_worker=selected_worker, start_address=start_address, result=result, error=error, is_admin=is_admin)
+
+@app.route("/invoices")
+def invoices():
+    if session.get("role") != "admin":
+        return redirect("/")
+    tr = t(); dark = get_theme() == "dark"
+    default_from, default_to = previous_month_range()
+    date_from = request.args.get("date_from", default_from).strip()
+    date_to = request.args.get("date_to", default_to).strip()
+    invoice_date = request.args.get("invoice_date", lux_now().strftime("%Y-%m-%d")).strip()
+    fixed_amount = request.args.get("fixed_amount", "").strip()
+    conn = get_conn()
+    settings = get_invoice_settings(conn)
+    profiles = get_invoice_profiles(conn)
+    rows = build_invoice_rows(conn, date_from, date_to, fixed_amount if fixed_amount else None)
+    conn.close()
+    return render_template_string(BASE_STYLE + header_html() + """
+    <h1>{{ tr["invoices"] }}</h1>
+    <a href="/">{{ tr["back"] }}</a>
+    <div class="grid" style="margin-top:16px;">
+        <div class="card">
+            <h3>{{ tr["invoice_settings"] }}</h3>
+            <form method="post" action="/invoices/settings">
+                <label>{{ tr["invoice_text"] }}</label>
+                <textarea name="invoice_text" style="width:100%;min-height:90px;">{{ settings.invoice_text }}</textarea>
+                <label>{{ tr["payment_terms"] }}</label>
+                <textarea name="payment_terms" style="width:100%;min-height:70px;">{{ settings.payment_terms }}</textarea>
+                <label>{{ tr["bank_account"] }}</label>
+                <input name="bank_account" value="{{ settings.bank_account }}">
+                <button>{{ tr["save_settings"] }}</button>
+            </form>
+        </div>
+        <div class="card">
+            <h3>{{ tr["generate_invoice"] }}</h3>
+            <form method="get" action="/invoices">
+                <label>{{ tr["date_from"] }}</label><input type="date" name="date_from" value="{{ date_from }}">
+                <label>{{ tr["date_to"] }}</label><input type="date" name="date_to" value="{{ date_to }}">
+                <label>{{ tr["invoice_date"] }}</label><input type="date" name="invoice_date" value="{{ invoice_date }}">
+                <label>{{ tr["fixed_amount"] }}</label><input type="number" step="0.01" name="fixed_amount" value="{{ fixed_amount }}" placeholder="{{ tr['use_fixed_amount'] }}">
+                <button>{{ tr["filter_btn"] }}</button>
+            </form>
+            <a class="pdf-link" href="/invoices/download_all?date_from={{ date_from }}&date_to={{ date_to }}&invoice_date={{ invoice_date }}&fixed_amount={{ fixed_amount }}">{{ tr["download_all_invoices"] }}</a><br>
+            <a class="pdf-link" href="/invoices/certificate?date_from={{ date_from }}&date_to={{ date_to }}&invoice_date={{ invoice_date }}&fixed_amount={{ fixed_amount }}">{{ tr["annual_certificate"] }}</a>
+        </div>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+        <h3>{{ tr["invoice_list"] }}</h3>
+        <table style="width:100%;border-collapse:collapse;">
+            <tr><th>{{ tr["client_name"] }}</th><th>{{ tr["worked_hours"] }}</th><th>{{ tr["amount_without_vat"] }}</th><th>{{ tr["vat_rate"] }}</th><th>{{ tr["amount_with_vat"] }}</th><th>PDF</th></tr>
+            {% for row in rows %}
+            <tr>
+                <td>{{ row.client }}</td>
+                <td>{{ "%.2f"|format(row.hours) }}</td>
+                <td>{{ "%.2f"|format(row.amount) }}</td>
+                <td>{{ (row.vat_rate * 100)|int }}%</td>
+                <td><b>{{ "%.2f"|format(row.total) }}</b></td>
+                <td><a class="pdf-link" href="/invoices/download?client={{ row.client|urlencode }}&date_from={{ date_from }}&date_to={{ date_to }}&invoice_date={{ invoice_date }}&fixed_amount={{ fixed_amount }}">PDF</a></td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% if rows|length == 0 %}<div class="muted">{{ tr["no_shifts"] }}</div>{% endif %}
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+        <h3>{{ tr["invoice_profiles"] }}</h3>
+        {% for p in profiles %}
+        <form method="post" action="/invoices/profile" style="border-bottom:1px solid #cbd5e1;padding:10px 0;">
+            <input type="hidden" name="client_name" value="{{ p.client }}">
+            <b>{{ p.client }}</b>
+            <input name="custom_address" value="{{ p.address }}" placeholder="{{ tr['address'] }}">
+            <input name="email" value="{{ p.email }}" placeholder="{{ tr['email'] }}">
+            <select name="client_type">
+                <option value="private" {% if p.client_type == 'private' %}selected{% endif %}>{{ tr["private_client"] }} - 8%</option>
+                <option value="pro" {% if p.client_type == 'pro' %}selected{% endif %}>{{ tr["pro_client"] }} - 17%</option>
+            </select>
+            <input type="number" step="0.01" name="hourly_rate" value="{{ p.hourly_rate }}" placeholder="{{ tr['hourly_rate'] }}">
+            <button>{{ tr["save"] }}</button>
+        </form>
+        {% endfor %}
+    </div>
+    """, tr=tr, dark=dark, settings=settings, profiles=profiles, rows=rows, date_from=date_from, date_to=date_to, invoice_date=invoice_date, fixed_amount=fixed_amount)
+
+
+@app.route("/invoices/settings", methods=["POST"])
+def invoices_settings():
+    if session.get("role") != "admin":
+        return redirect("/")
+    conn = get_conn(); c = conn.cursor()
+    c.execute("INSERT INTO invoice_settings (id, invoice_text, payment_terms, bank_account) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET invoice_text = excluded.invoice_text, payment_terms = excluded.payment_terms, bank_account = excluded.bank_account", (1, request.form.get("invoice_text", "").strip(), request.form.get("payment_terms", "").strip(), request.form.get("bank_account", "").strip()))
+    conn.commit(); conn.close()
+    return redirect("/invoices")
+
+
+@app.route("/invoices/profile", methods=["POST"])
+def invoices_profile():
+    if session.get("role") != "admin":
+        return redirect("/")
+    client_name = request.form.get("client_name", "").strip()
+    if client_name:
+        conn = get_conn(); c = conn.cursor()
+        c.execute("""
+            INSERT INTO client_invoice_profiles (client_name, email, client_type, hourly_rate, custom_address)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(client_name) DO UPDATE SET email = excluded.email, client_type = excluded.client_type, hourly_rate = excluded.hourly_rate, custom_address = excluded.custom_address
+        """, (client_name, request.form.get("email", "").strip(), request.form.get("client_type", "private").strip(), request.form.get("hourly_rate", 0) or 0, request.form.get("custom_address", "").strip()))
+        conn.commit(); conn.close()
+    return redirect("/invoices")
+
+
+@app.route("/invoices/download")
+def invoices_download():
+    if session.get("role") != "admin":
+        return redirect("/")
+    date_from = request.args.get("date_from", "").strip(); date_to = request.args.get("date_to", "").strip(); invoice_date = request.args.get("invoice_date", lux_now().strftime("%Y-%m-%d")).strip(); client = request.args.get("client", "").strip(); fixed_amount = request.args.get("fixed_amount", "").strip()
+    conn = get_conn(); settings = get_invoice_settings(conn); rows = build_invoice_rows(conn, date_from, date_to, fixed_amount if fixed_amount else None); conn.close()
+    row = next((r for r in rows if r["client"] == client), None)
+    if not row:
+        return redirect("/invoices")
+    pdf = build_invoice_pdf(row, settings, invoice_date, date_from, date_to)
+    return send_file(pdf, as_attachment=True, download_name=f"{invoice_number(client, invoice_date)}.pdf", mimetype="application/pdf")
+
+
+@app.route("/invoices/download_all")
+def invoices_download_all():
+    if session.get("role") != "admin":
+        return redirect("/")
+    date_from = request.args.get("date_from", "").strip(); date_to = request.args.get("date_to", "").strip(); invoice_date = request.args.get("invoice_date", lux_now().strftime("%Y-%m-%d")).strip(); fixed_amount = request.args.get("fixed_amount", "").strip()
+    conn = get_conn(); settings = get_invoice_settings(conn); rows = build_invoice_rows(conn, date_from, date_to, fixed_amount if fixed_amount else None); conn.close()
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for row in rows:
+            pdf = build_invoice_pdf(row, settings, invoice_date, date_from, date_to)
+            zf.writestr(f"{invoice_number(row['client'], invoice_date)}.pdf", pdf.getvalue())
+    zip_buffer.seek(0)
+    return send_file(zip_buffer, as_attachment=True, download_name=f"factures_{date_from}_{date_to}.zip", mimetype="application/zip")
+
+
+@app.route("/invoices/certificate")
+def invoices_certificate():
+    if session.get("role") != "admin":
+        return redirect("/")
+    date_from = request.args.get("date_from", "").strip(); date_to = request.args.get("date_to", "").strip(); invoice_date = request.args.get("invoice_date", lux_now().strftime("%Y-%m-%d")).strip(); fixed_amount = request.args.get("fixed_amount", "").strip()
+    conn = get_conn(); rows = build_invoice_rows(conn, date_from, date_to, fixed_amount if fixed_amount else None); conn.close()
+    pdf = build_invoice_certificate_pdf(rows, invoice_date, date_from, date_to)
+    return send_file(pdf, as_attachment=True, download_name=f"certificat_factures_{date_from}_{date_to}.pdf", mimetype="application/pdf")
 
 @app.route("/export_pdf")
 def export_pdf():
