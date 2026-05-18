@@ -2058,9 +2058,102 @@ def invoices():
     rows = build_invoice_rows(conn, date_from, date_to, fixed_amount if fixed_amount else None, settings)
     conn.close()
     profiles_json = json.dumps(profiles)
+    paid_rows = [r for r in rows if r.get("paid")]
+    unpaid_rows = [r for r in rows if not r.get("paid")]
+    total_paid = sum(r["total"] for r in paid_rows)
+    total_unpaid = sum(r["total"] for r in unpaid_rows)
+    total_all = sum(r["total"] for r in rows)
     return render_template_string(BASE_STYLE + header_html() + """
-    <h1>{{ tr["invoices"] }}</h1>
-    <a href="/">{{ tr["back"] }}</a>
+    <style>
+        .invoice-shell { background:#2b2b2b; color:white; border-radius:10px; padding:0 0 22px 0; overflow:hidden; }
+        .invoice-top { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:18px 22px; background:#3d3d3d; }
+        .invoice-brand { font-size:26px; font-weight:800; }
+        .invoice-brand span { background:#ffd429; color:#111; border-radius:6px; padding:2px 6px; }
+        .invoice-search { flex:1; display:flex; max-width:720px; }
+        .invoice-search input { border-radius:0; margin:0; }
+        .invoice-search button { width:130px; margin:0; border-radius:0; background:#111; }
+        .invoice-panel { max-width:1280px; margin:34px auto 0 auto; background:#4a4a4a; border-radius:8px; padding:22px 30px; }
+        .invoice-tabs { display:flex; gap:6px; flex-wrap:wrap; margin:14px 0 22px; }
+        .invoice-tab { padding:12px 16px; background:#737373; color:white; border-radius:8px 8px 0 0; font-weight:bold; }
+        .invoice-tab.active { background:#5a5a5a; }
+        .pill { display:inline-block; margin-left:6px; padding:2px 8px; border-radius:999px; font-size:12px; color:#111; background:#e5e7eb; }
+        .pill.red { background:#fb7185; color:white; } .pill.green { background:#34d399; }
+        .invoice-table { width:100%; border-collapse:collapse; color:white; }
+        .invoice-table th, .invoice-table td { padding:14px 10px; border-bottom:1px solid #9ca3af; text-align:left; }
+        .invoice-table th { font-size:13px; text-transform:uppercase; color:#f3f4f6; }
+        .paid-text { color:#34d399; font-weight:bold; } .unpaid-text { color:#fb7185; font-weight:bold; }
+        .invoice-totals { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-top:16px; }
+        .invoice-total-card { background:#3d3d3d; border-radius:8px; padding:14px; }
+        .invoice-actions { display:flex; gap:10px; flex-wrap:wrap; margin:16px 0; }
+        .invoice-actions a { background:#111; color:white; padding:10px 14px; border-radius:6px; }
+        .settings-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:16px; margin-top:18px; }
+    </style>
+    <div class="invoice-shell">
+        <div class="invoice-top">
+            <div class="invoice-brand">Luxmann <span>Factures</span></div>
+            <form class="invoice-search" method="get" action="/invoices">
+                <input type="hidden" name="date_from" value="{{ date_from }}">
+                <input type="hidden" name="date_to" value="{{ date_to }}">
+                <input type="hidden" name="invoice_date" value="{{ invoice_date }}">
+                <input type="hidden" name="fixed_amount" value="{{ fixed_amount }}">
+                <input id="invoiceDashboardSearch" name="q" value="{{ request.args.get('q', '') }}" placeholder="{{ tr['search_client'] }}, adresse ou numero">
+                <button>{{ tr["filter_btn"] }}</button>
+            </form>
+            <a href="/" style="color:white;">{{ tr["back"] }}</a>
+        </div>
+
+        <div class="invoice-panel">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+                <h1 style="color:white;margin:0;">{{ tr["invoices"] }}</h1>
+                <div class="invoice-actions">
+                    <a href="/invoices/download_all?date_from={{ date_from }}&date_to={{ date_to }}&invoice_date={{ invoice_date }}&fixed_amount={{ fixed_amount }}">{{ tr["download_all_invoices"] }}</a>
+                    <a href="/invoices/certificate?date_from={{ date_from }}&date_to={{ date_to }}&invoice_date={{ invoice_date }}&fixed_amount={{ fixed_amount }}">{{ tr["annual_certificate"] }}</a>
+                </div>
+            </div>
+
+            <form method="get" action="/invoices" class="settings-grid">
+                <div><label>{{ tr["date_from"] }}</label><input type="date" name="date_from" value="{{ date_from }}"></div>
+                <div><label>{{ tr["date_to"] }}</label><input type="date" name="date_to" value="{{ date_to }}"></div>
+                <div><label>{{ tr["invoice_date"] }}</label><input type="date" name="invoice_date" value="{{ invoice_date }}"></div>
+                <div><label>{{ tr["fixed_amount"] }}</label><input type="number" step="0.01" name="fixed_amount" value="{{ fixed_amount }}" placeholder="{{ tr['use_fixed_amount'] }}"></div>
+                <div style="align-self:end;"><button>{{ tr["generate_invoice"] }}</button></div>
+            </form>
+
+            <div class="invoice-tabs">
+                <a class="invoice-tab active" href="#">{{ tr["total_invoices"] }} <span class="pill">{{ rows|length }}</span></a>
+                <a class="invoice-tab" href="#" onclick="filterInvoiceStatus('unpaid', this);return false;">{{ tr["unpaid"] }} <span class="pill red">{{ unpaid_rows|length }}</span></a>
+                <a class="invoice-tab" href="#" onclick="filterInvoiceStatus('paid', this);return false;">{{ tr["paid"] }} <span class="pill green">{{ paid_rows|length }}</span></a>
+                <a class="invoice-tab" href="#" onclick="filterInvoiceStatus('all', this);return false;">Envoye <span class="pill">{{ rows|length }}</span></a>
+            </div>
+
+            <table class="invoice-table">
+                <tr><th></th><th>{{ tr["client_name"] }}</th><th>Document</th><th>{{ tr["invoice_number"] }}</th><th>{{ tr["invoice_date"] }}</th><th>{{ tr["payment_status"] }}</th><th>{{ tr["amount_with_vat"] }}</th><th>PDF</th></tr>
+                {% for row in rows %}
+                <tr class="invoice-row" data-paid="{{ 1 if row.paid else 0 }}" data-search="{{ (row.client ~ ' ' ~ row.invoice_number ~ ' ' ~ row.address)|lower }}">
+                    <td><input type="checkbox" style="width:auto;"></td>
+                    <td>{{ row.client }}</td>
+                    <td>Facture</td>
+                    <td>{{ row.invoice_number }}</td>
+                    <td>{{ format_date(invoice_date) }}</td>
+                    <td>
+                        <span class="{{ 'paid-text' if row.paid else 'unpaid-text' }}">{{ tr["paid"] if row.paid else tr["unpaid"] }}</span><br>
+                        <a href="/invoices/mark_paid?invoice_number={{ row.invoice_number }}&paid={{ 0 if row.paid else 1 }}&client={{ row.client|urlencode }}&date_from={{ date_from }}&date_to={{ date_to }}&invoice_date={{ invoice_date }}&amount={{ row.amount }}&vat_amount={{ row.vat_amount }}&total={{ row.total }}" style="color:#e5e7eb;">{{ tr["mark_unpaid"] if row.paid else tr["mark_paid"] }}</a>
+                    </td>
+                    <td><b>{{ "%.2f"|format(row.total) }} EUR</b></td>
+                    <td><a href="/invoices/download?client={{ row.client|urlencode }}&date_from={{ date_from }}&date_to={{ date_to }}&invoice_date={{ invoice_date }}&fixed_amount={{ fixed_amount }}" style="color:#93c5fd;">PDF</a></td>
+                </tr>
+                {% endfor %}
+            </table>
+            {% if rows|length == 0 %}<div class="muted">{{ tr["no_shifts"] }}</div>{% endif %}
+
+            <div class="invoice-totals">
+                <div class="invoice-total-card"><div class="muted">{{ tr["paid"] }}</div><div class="paid-text">{{ "%.2f"|format(total_paid) }} EUR</div></div>
+                <div class="invoice-total-card"><div class="muted">{{ tr["unpaid"] }}</div><div class="unpaid-text">{{ "%.2f"|format(total_unpaid) }} EUR</div></div>
+                <div class="invoice-total-card"><div class="muted">{{ tr["total_invoices"] }}</div><div><b>{{ "%.2f"|format(total_all) }} EUR</b></div></div>
+            </div>
+        </div>
+    </div>
+
     <div class="grid" style="margin-top:16px;">
         <div class="card">
             <h3>{{ tr["invoice_settings"] }}</h3>
@@ -2088,43 +2181,6 @@ def invoices():
                 <button>{{ tr["save_settings"] }}</button>
             </form>
         </div>
-        <div class="card">
-            <h3>{{ tr["generate_invoice"] }}</h3>
-            <form method="get" action="/invoices">
-                <label>{{ tr["date_from"] }}</label><input type="date" name="date_from" value="{{ date_from }}">
-                <label>{{ tr["date_to"] }}</label><input type="date" name="date_to" value="{{ date_to }}">
-                <label>{{ tr["invoice_date"] }}</label><input type="date" name="invoice_date" value="{{ invoice_date }}">
-                <label>{{ tr["fixed_amount"] }}</label><input type="number" step="0.01" name="fixed_amount" value="{{ fixed_amount }}" placeholder="{{ tr['use_fixed_amount'] }}">
-                <button>{{ tr["filter_btn"] }}</button>
-            </form>
-            <a class="pdf-link" href="/invoices/download_all?date_from={{ date_from }}&date_to={{ date_to }}&invoice_date={{ invoice_date }}&fixed_amount={{ fixed_amount }}">{{ tr["download_all_invoices"] }}</a><br>
-            <a class="pdf-link" href="/invoices/certificate?date_from={{ date_from }}&date_to={{ date_to }}&invoice_date={{ invoice_date }}&fixed_amount={{ fixed_amount }}">{{ tr["annual_certificate"] }}</a>
-        </div>
-    </div>
-
-    <div class="card" style="margin-top:16px;">
-        <h3>{{ tr["invoice_list"] }}</h3>
-        <table style="width:100%;border-collapse:collapse;">
-            <tr><th>{{ tr["invoice_number"] }}</th><th>{{ tr["client_name"] }}</th><th>{{ tr["worked_hours"] }}</th><th>{{ tr["amount_without_vat"] }}</th><th>{{ tr["vat_rate"] }}</th><th>{{ tr["amount_with_vat"] }}</th><th>{{ tr["payment_status"] }}</th><th>PDF</th></tr>
-            {% for row in rows %}
-            <tr>
-                <td>{{ row.invoice_number }}</td>
-                <td>{{ row.client }}</td>
-                <td>{{ "%.2f"|format(row.hours) }}</td>
-                <td>{{ "%.2f"|format(row.amount) }}</td>
-                <td>{{ (row.vat_rate * 100)|int }}%</td>
-                <td><b>{{ "%.2f"|format(row.total) }}</b></td>
-                <td>
-                    <b style="color:{{ '#16a34a' if row.paid else '#ef4444' }}">{{ tr["paid"] if row.paid else tr["unpaid"] }}</b><br>
-                    <a class="pdf-link" href="/invoices/mark_paid?invoice_number={{ row.invoice_number }}&paid={{ 0 if row.paid else 1 }}&client={{ row.client|urlencode }}&date_from={{ date_from }}&date_to={{ date_to }}&invoice_date={{ invoice_date }}&amount={{ row.amount }}&vat_amount={{ row.vat_amount }}&total={{ row.total }}">{{ tr["mark_unpaid"] if row.paid else tr["mark_paid"] }}</a>
-                </td>
-                <td><a class="pdf-link" href="/invoices/download?client={{ row.client|urlencode }}&date_from={{ date_from }}&date_to={{ date_to }}&invoice_date={{ invoice_date }}&fixed_amount={{ fixed_amount }}">PDF</a></td>
-            </tr>
-            {% endfor %}
-        </table>
-        {% if rows|length == 0 %}<div class="muted">{{ tr["no_shifts"] }}</div>{% endif %}
-    </div>
-
     <div class="card" style="margin-top:16px;">
         <h3>{{ tr["invoice_profiles"] }}</h3>
         <form method="post" action="/invoices/profile">
@@ -2144,6 +2200,23 @@ def invoices():
     </div>
     <script>
     var invoiceProfiles = {{ profiles_json|safe }};
+    var currentInvoiceStatus = "all";
+    function filterInvoiceStatus(status, el){
+        currentInvoiceStatus = status;
+        document.querySelectorAll('.invoice-tab').forEach(function(tab){tab.classList.remove('active');});
+        if(el){el.classList.add('active');}
+        filterInvoiceRows();
+    }
+    function filterInvoiceRows(){
+        var queryInput = document.getElementById('invoiceDashboardSearch');
+        var query = queryInput ? queryInput.value.trim().toLowerCase() : "";
+        document.querySelectorAll('.invoice-row').forEach(function(row){
+            var paid = row.getAttribute('data-paid') === '1';
+            var statusOk = currentInvoiceStatus === 'all' || (currentInvoiceStatus === 'paid' && paid) || (currentInvoiceStatus === 'unpaid' && !paid);
+            var textOk = !query || (row.getAttribute('data-search') || '').indexOf(query) !== -1;
+            row.style.display = statusOk && textOk ? '' : 'none';
+        });
+    }
     function fillInvoiceProfile(){
         var name = document.getElementById('invoiceClientSearch').value;
         var profile = invoiceProfiles.find(function(p){ return p.client === name; });
@@ -2154,8 +2227,12 @@ def invoices():
         document.querySelector('select[name="client_type"]').value = profile.client_type || "private";
         document.getElementById('invoiceHourlyRate').value = profile.hourly_rate || 0;
     }
+    document.addEventListener('DOMContentLoaded', function(){
+        var search = document.getElementById('invoiceDashboardSearch');
+        if(search){search.addEventListener('input', filterInvoiceRows); filterInvoiceRows();}
+    });
     </script>
-    """, tr=tr, dark=dark, settings=settings, profiles=profiles, profiles_json=profiles_json, rows=rows, date_from=date_from, date_to=date_to, invoice_date=invoice_date, fixed_amount=fixed_amount)
+    """, tr=tr, dark=dark, settings=settings, profiles=profiles, profiles_json=profiles_json, rows=rows, paid_rows=paid_rows, unpaid_rows=unpaid_rows, total_paid=total_paid, total_unpaid=total_unpaid, total_all=total_all, format_date=format_date, date_from=date_from, date_to=date_to, invoice_date=invoice_date, fixed_amount=fixed_amount)
 
 
 @app.route("/invoices/settings", methods=["POST"])
