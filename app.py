@@ -1089,15 +1089,17 @@ def build_invoice_rows(conn, date_from, date_to, fixed_amount=None, settings=Non
 def save_invoice_records(conn, rows, date_from, date_to, invoice_date):
     c = conn.cursor()
     existing = {
-        row[0]: {"paid": int(row[1] or 0), "paid_date": row[2] or ""}
-        for row in c.execute("SELECT invoice_number, paid, paid_date FROM invoice_records").fetchall()
+        row[0]: {"paid": int(row[1] or 0), "paid_date": row[2] or "", "deleted": int(row[3] or 0)}
+        for row in c.execute("SELECT invoice_number, paid, paid_date, COALESCE(deleted, 0) FROM invoice_records").fetchall()
     }
     for row in rows:
         invoice_number = str(row["invoice_number"])
         previous = existing.get(invoice_number, {"paid": 0, "paid_date": ""})
+        if previous.get("deleted"):
+            continue
         c.execute("""
-            INSERT INTO invoice_records (invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO invoice_records (invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date, deleted)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
             ON CONFLICT(invoice_number) DO UPDATE SET client_name = excluded.client_name, date_from = excluded.date_from,
             date_to = excluded.date_to, invoice_date = excluded.invoice_date, amount = excluded.amount,
             vat_amount = excluded.vat_amount, total = excluded.total, paid = excluded.paid, paid_date = excluded.paid_date
@@ -1140,11 +1142,39 @@ def get_invoice_row_for_record(conn, record):
     return None, settings
 
 
+def fetch_invoice_records(conn, date_from=None, date_to=None, client=None, status="all"):
+    c = conn.cursor()
+    conditions = []
+    params = []
+    conditions.append("COALESCE(deleted, 0) = 0")
+    if date_from:
+        conditions.append("invoice_date >= ?")
+        params.append(date_from)
+    if date_to:
+        conditions.append("invoice_date <= ?")
+        params.append(date_to)
+    if client:
+        conditions.append("client_name = ?")
+        params.append(client)
+    if status == "paid":
+        conditions.append("paid = 1")
+    elif status == "unpaid":
+        conditions.append("paid = 0")
+    where = (" WHERE " + " AND ".join(conditions)) if conditions else ""
+    query = f"""
+        SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date
+        FROM invoice_records
+        {where}
+        ORDER BY invoice_date DESC, CAST(invoice_number AS INTEGER) DESC
+    """
+    return [invoice_record_to_dict(row) for row in c.execute(query, params).fetchall()]
+
+
 def invoice_number_from_index(settings, index):
     return str(int(settings.get("invoice_start_number") or 1) + index)
 
 
-def build_invoice_pdf(row, settings, invoice_date, date_from, date_to):
+def build_invoice_pdf(row, settings, invoice_date, date_from, date_to, document_title="FACTURE"):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
     styles = getSampleStyleSheet()
@@ -1155,7 +1185,7 @@ def build_invoice_pdf(row, settings, invoice_date, date_from, date_to):
     }
     accent = template_colors.get(settings.get("invoice_template", "orange"), "#ff7a2f")
     normal = styles["Normal"]
-    header = Table([[Paragraph(f"<b>{settings['company_name']}</b>", styles["Title"]), Paragraph("<b>FACTURE</b>", styles["Title"])]], colWidths=[12.5*cm, 5*cm])
+    header = Table([[Paragraph(f"<b>{settings['company_name']}</b>", styles["Title"]), Paragraph(f"<b>{document_title}</b>", styles["Title"])]], colWidths=[12.5*cm, 5*cm])
     header.setStyle(TableStyle([("BACKGROUND", (0,0), (-1,-1), colors.HexColor(accent)), ("TEXTCOLOR", (0,0), (-1,-1), colors.white), ("ALIGN", (1,0), (1,0), "RIGHT"), ("VALIGN", (0,0), (-1,-1), "MIDDLE"), ("LEFTPADDING", (0,0), (-1,-1), 8), ("RIGHTPADDING", (0,0), (-1,-1), 8)]))
     elements = [header, Spacer(1, 18)]
 
@@ -1257,6 +1287,47 @@ def build_client_statement_pdf(client_name, records, date_from, date_to):
     return buffer
 
 
+def build_invoice_list_pdf(records, date_from, date_to):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=1.2*cm, leftMargin=1.2*cm, topMargin=1.2*cm, bottomMargin=1.2*cm)
+    styles = getSampleStyleSheet()
+    total_ht = sum(r["amount"] for r in records)
+    total_tva = sum(r["vat_amount"] for r in records)
+    total_ttc = sum(r["total"] for r in records)
+    total_paid = sum(r["total"] for r in records if r["paid"])
+    total_unpaid = sum(r["total"] for r in records if not r["paid"])
+    elements = [
+        Paragraph("Liste des factures", styles["Title"]),
+        Spacer(1, 8),
+        Paragraph(f"Periode: {format_date(date_from)} - {format_date(date_to)}", styles["Normal"]),
+        Spacer(1, 12),
+    ]
+    data = [["No", "Client", "Date", "HT", "TVA", "TTC", "Statut"]]
+    for record in records:
+        data.append([
+            record["invoice_number"],
+            record["client"],
+            format_date(record["invoice_date"]),
+            f"{record['amount']:.2f}",
+            f"{record['vat_amount']:.2f}",
+            f"{record['total']:.2f}",
+            "Payee" if record["paid"] else "Non payee",
+        ])
+    data.append(["TOTAL", "", "", f"{total_ht:.2f}", f"{total_tva:.2f}", f"{total_ttc:.2f}", ""])
+    table = Table(data, colWidths=[2.2*cm, 7*cm, 3*cm, 3*cm, 3*cm, 3*cm, 3.5*cm])
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#4a4a4a")),
+        ("TEXTCOLOR", (0,0), (-1,0), colors.white),
+        ("GRID", (0,0), (-1,-1), 0.4, colors.grey),
+        ("FONTNAME", (0,-1), (-1,-1), "Helvetica-Bold"),
+        ("FONTSIZE", (0,0), (-1,-1), 9),
+    ]))
+    elements += [table, Spacer(1, 12), Paragraph(f"Payee: {total_paid:.2f} EUR | Non payee: {total_unpaid:.2f} EUR", styles["Normal"])]
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+
 def init_db():
     conn = get_conn()
     c = conn.cursor()
@@ -1353,7 +1424,8 @@ def init_db():
             vat_amount REAL DEFAULT 0,
             total REAL DEFAULT 0,
             paid INTEGER DEFAULT 0,
-            paid_date TEXT DEFAULT ''
+            paid_date TEXT DEFAULT '',
+            deleted INTEGER DEFAULT 0
         )
     """)
 
@@ -1380,6 +1452,9 @@ def init_db():
     ]:
         if col_name not in invoice_cols:
             c.execute(f"ALTER TABLE invoice_settings ADD COLUMN {col_name} {col_type}")
+    invoice_record_cols = [row[1] for row in c.execute("PRAGMA table_info(invoice_records)").fetchall()]
+    if "deleted" not in invoice_record_cols:
+        c.execute("ALTER TABLE invoice_records ADD COLUMN deleted INTEGER DEFAULT 0")
 
     c.execute("INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)", ("admin", hash_password("admin123"), "admin"))
     c.execute("INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)", ("worker1", hash_password("1234"), "worker"))
@@ -2141,12 +2216,12 @@ def invoices():
     date_from = request.args.get("date_from", default_from).strip()
     date_to = request.args.get("date_to", default_to).strip()
     invoice_date = request.args.get("invoice_date", lux_now().strftime("%Y-%m-%d")).strip()
-    fixed_amount = request.args.get("fixed_amount", "").strip()
     conn = get_conn()
     settings = get_invoice_settings(conn)
     profiles = get_invoice_profiles(conn)
-    rows = build_invoice_rows(conn, date_from, date_to, fixed_amount if fixed_amount else None, settings)
-    save_invoice_records(conn, rows, date_from, date_to, invoice_date)
+    generated_rows = build_invoice_rows(conn, date_from, date_to, None, settings)
+    save_invoice_records(conn, generated_rows, date_from, date_to, invoice_date)
+    rows = fetch_invoice_records(conn)
     conn.close()
     profiles_json = json.dumps(profiles)
     paid_rows = [r for r in rows if r.get("paid")]
@@ -2186,7 +2261,6 @@ def invoices():
                 <input type="hidden" name="date_from" value="{{ date_from }}">
                 <input type="hidden" name="date_to" value="{{ date_to }}">
                 <input type="hidden" name="invoice_date" value="{{ invoice_date }}">
-                <input type="hidden" name="fixed_amount" value="{{ fixed_amount }}">
                 <input id="invoiceDashboardSearch" name="q" value="{{ request.args.get('q', '') }}" placeholder="{{ tr['search_client'] }}, adresse ou numero">
                 <button>{{ tr["filter_btn"] }}</button>
             </form>
@@ -2197,8 +2271,9 @@ def invoices():
             <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
                 <h1 style="color:white;margin:0;">{{ tr["invoices"] }}</h1>
                 <div class="invoice-actions">
-                    <a href="/invoices/download_all?date_from={{ date_from }}&date_to={{ date_to }}&invoice_date={{ invoice_date }}&fixed_amount={{ fixed_amount }}">{{ tr["download_all_invoices"] }}</a>
-                    <a href="/invoices/certificate?date_from={{ date_from }}&date_to={{ date_to }}&invoice_date={{ invoice_date }}&fixed_amount={{ fixed_amount }}">{{ tr["annual_certificate"] }}</a>
+                    <a href="/invoices/export_options?type=all">{{ tr["download_all_invoices"] }}</a>
+                    <a href="/invoices/export_options?type=certificate">{{ tr["annual_certificate"] }}</a>
+                    <a href="/invoices/export_options?type=list">Lista faktura PDF</a>
                 </div>
             </div>
 
@@ -2206,7 +2281,6 @@ def invoices():
                 <div><label>{{ tr["date_from"] }}</label><input type="date" name="date_from" value="{{ date_from }}"></div>
                 <div><label>{{ tr["date_to"] }}</label><input type="date" name="date_to" value="{{ date_to }}"></div>
                 <div><label>{{ tr["invoice_date"] }}</label><input type="date" name="invoice_date" value="{{ invoice_date }}"></div>
-                <div><label>{{ tr["fixed_amount"] }}</label><input type="number" step="0.01" name="fixed_amount" value="{{ fixed_amount }}" placeholder="{{ tr['use_fixed_amount'] }}"></div>
                 <div style="align-self:end;"><button>{{ tr["generate_invoice"] }}</button></div>
             </form>
 
@@ -2218,20 +2292,21 @@ def invoices():
             </div>
 
             <table class="invoice-table">
-                <tr><th></th><th>{{ tr["client_name"] }}</th><th>Document</th><th>{{ tr["invoice_number"] }}</th><th>{{ tr["invoice_date"] }}</th><th>{{ tr["payment_status"] }}</th><th>{{ tr["amount_with_vat"] }}</th><th>PDF</th></tr>
+                <tr><th></th><th>{{ tr["client_name"] }}</th><th>Document</th><th>{{ tr["invoice_number"] }}</th><th>{{ tr["invoice_date"] }}</th><th>{{ tr["payment_status"] }}</th><th>{{ tr["amount_with_vat"] }}</th><th>PDF</th><th></th></tr>
                 {% for row in rows %}
-                <tr class="invoice-row" data-paid="{{ 1 if row.paid else 0 }}" data-search="{{ (row.client ~ ' ' ~ row.invoice_number ~ ' ' ~ row.address)|lower }}">
+                <tr class="invoice-row" data-paid="{{ 1 if row.paid else 0 }}" data-search="{{ (row.client ~ ' ' ~ row.invoice_number)|lower }}">
                     <td><input type="checkbox" style="width:auto;"></td>
                     <td><a href="/invoices/client?client={{ row.client|urlencode }}&date_from={{ date_from }}&date_to={{ date_to }}" style="color:white;text-decoration:underline;">{{ row.client }}</a></td>
                     <td>Facture</td>
                     <td><a href="/invoices/view?invoice_number={{ row.invoice_number }}" style="color:white;text-decoration:underline;">{{ row.invoice_number }}</a></td>
-                    <td>{{ format_date(invoice_date) }}</td>
+                    <td>{{ format_date(row.invoice_date) }}</td>
                     <td>
                         <span class="{{ 'paid-text' if row.paid else 'unpaid-text' }}">{{ tr["paid"] if row.paid else tr["unpaid"] }}</span><br>
-                        <a href="/invoices/mark_paid?invoice_number={{ row.invoice_number }}&paid={{ 0 if row.paid else 1 }}&client={{ row.client|urlencode }}&date_from={{ date_from }}&date_to={{ date_to }}&invoice_date={{ invoice_date }}&amount={{ row.amount }}&vat_amount={{ row.vat_amount }}&total={{ row.total }}" style="color:#e5e7eb;">{{ tr["mark_unpaid"] if row.paid else tr["mark_paid"] }}</a>
+                        <a href="/invoices/mark_paid?invoice_number={{ row.invoice_number }}&paid={{ 0 if row.paid else 1 }}&client={{ row.client|urlencode }}&date_from={{ row.date_from }}&date_to={{ row.date_to }}&invoice_date={{ row.invoice_date }}&amount={{ row.amount }}&vat_amount={{ row.vat_amount }}&total={{ row.total }}" style="color:#e5e7eb;">{{ tr["mark_unpaid"] if row.paid else tr["mark_paid"] }}</a>
                     </td>
                     <td><b>{{ "%.2f"|format(row.total) }} EUR</b></td>
-                    <td><a href="/invoices/download?client={{ row.client|urlencode }}&date_from={{ date_from }}&date_to={{ date_to }}&invoice_date={{ invoice_date }}&fixed_amount={{ fixed_amount }}" style="color:#93c5fd;">PDF</a></td>
+                    <td><a href="/invoices/preview_pdf?invoice_number={{ row.invoice_number }}" style="color:#93c5fd;">PDF</a> | <a href="/invoices/devis_pdf?invoice_number={{ row.invoice_number }}" style="color:#93c5fd;">Devis</a></td>
+                    <td><a href="/invoices/delete?invoice_number={{ row.invoice_number }}" onclick="return confirm('Obrisati fakturu?');" style="color:#fb7185;">{{ tr["delete"] }}</a></td>
                 </tr>
                 {% endfor %}
             </table>
@@ -2323,7 +2398,7 @@ def invoices():
         if(search){search.addEventListener('input', filterInvoiceRows); filterInvoiceRows();}
     });
     </script>
-    """, tr=tr, dark=dark, settings=settings, profiles=profiles, profiles_json=profiles_json, rows=rows, paid_rows=paid_rows, unpaid_rows=unpaid_rows, total_paid=total_paid, total_unpaid=total_unpaid, total_all=total_all, format_date=format_date, date_from=date_from, date_to=date_to, invoice_date=invoice_date, fixed_amount=fixed_amount)
+    """, tr=tr, dark=dark, settings=settings, profiles=profiles, profiles_json=profiles_json, rows=rows, paid_rows=paid_rows, unpaid_rows=unpaid_rows, total_paid=total_paid, total_unpaid=total_unpaid, total_all=total_all, format_date=format_date, date_from=date_from, date_to=date_to, invoice_date=invoice_date)
 
 
 @app.route("/invoices/client")
@@ -2336,21 +2411,9 @@ def invoices_client():
     date_from = request.args.get("date_from", default_from).strip()
     date_to = request.args.get("date_to", default_to).strip()
     status = request.args.get("status", "all").strip()
-    conn = get_conn(); c = conn.cursor()
-    rows = [
-        invoice_record_to_dict(r)
-        for r in c.execute("""
-            SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date
-            FROM invoice_records
-            WHERE client_name = ? AND invoice_date >= ? AND invoice_date <= ?
-            ORDER BY invoice_date DESC, CAST(invoice_number AS INTEGER) DESC
-        """, (client, date_from, date_to)).fetchall()
-    ]
+    conn = get_conn()
+    rows = fetch_invoice_records(conn, date_from, date_to, client, status)
     conn.close()
-    if status == "paid":
-        rows = [r for r in rows if r["paid"]]
-    elif status == "unpaid":
-        rows = [r for r in rows if not r["paid"]]
     total_paid = sum(r["total"] for r in rows if r["paid"])
     total_unpaid = sum(r["total"] for r in rows if not r["paid"])
     total_all = sum(r["total"] for r in rows)
@@ -2422,7 +2485,7 @@ def invoices_view():
     conn = get_conn(); c = conn.cursor()
     record_row = c.execute("""
         SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date
-        FROM invoice_records WHERE invoice_number = ?
+        FROM invoice_records WHERE invoice_number = ? AND COALESCE(deleted, 0) = 0
     """, (invoice_number,)).fetchone()
     if not record_row:
         conn.close()
@@ -2457,11 +2520,12 @@ def invoices_view():
         <div class="viewer-panel">
             <div class="toolbar">
                 <span class="tool active">Facture</span>
+                <a class="tool" href="/invoices/devis_pdf?invoice_number={{ row.invoice_number }}">Devis</a>
                 <a class="tool" href="/invoices#invoice-profiles">Modifier</a>
                 <a class="tool" href="/invoices#invoice-settings">Modeles</a>
                 <span class="tool">E-mail</span>
                 <span class="tool">Dupliquer</span>
-                <span class="tool">Supprimer</span>
+                <a class="tool" href="/invoices/delete?invoice_number={{ row.invoice_number }}" onclick="return confirm('Obrisati fakturu?');">Supprimer</a>
                 <a class="tool pay" href="{{ paid_url }}">{{ tr["mark_unpaid"] if record.paid else tr["mark_paid"] }}</a>
                 <span class="tool">Recurrent</span>
                 <a class="tool" href="{{ download_url }}">Telecharger</a>
@@ -2480,7 +2544,7 @@ def invoices_preview_pdf():
     conn = get_conn(); c = conn.cursor()
     record_row = c.execute("""
         SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date
-        FROM invoice_records WHERE invoice_number = ?
+        FROM invoice_records WHERE invoice_number = ? AND COALESCE(deleted, 0) = 0
     """, (invoice_number,)).fetchone()
     if not record_row:
         conn.close()
@@ -2502,19 +2566,109 @@ def invoices_client_statement():
     default_from, default_to = previous_month_range()
     date_from = request.args.get("date_from", default_from).strip()
     date_to = request.args.get("date_to", default_to).strip()
-    conn = get_conn(); c = conn.cursor()
-    records = [
-        invoice_record_to_dict(r)
-        for r in c.execute("""
-            SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date
-            FROM invoice_records
-            WHERE client_name = ? AND invoice_date >= ? AND invoice_date <= ?
-            ORDER BY invoice_date DESC, CAST(invoice_number AS INTEGER) DESC
-        """, (client, date_from, date_to)).fetchall()
-    ]
+    conn = get_conn()
+    records = fetch_invoice_records(conn, date_from, date_to, client, "all")
     conn.close()
     pdf = build_client_statement_pdf(client, records, date_from, date_to)
     return send_file(pdf, as_attachment=True, download_name=f"releve_{client}_{date_from}_{date_to}.pdf", mimetype="application/pdf")
+
+
+@app.route("/invoices/export_options")
+def invoices_export_options():
+    if session.get("role") != "admin":
+        return redirect("/")
+    tr = t(); dark = get_theme() == "dark"
+    export_type = request.args.get("type", "all").strip()
+    default_from, default_to = previous_month_range()
+    conn = get_conn()
+    profiles = get_invoice_profiles(conn)
+    conn.close()
+    title = {
+        "certificate": tr["annual_certificate"],
+        "list": "Lista faktura PDF",
+    }.get(export_type, tr["download_all_invoices"])
+    action = {
+        "certificate": "/invoices/client_statement",
+        "list": "/invoices/list_pdf",
+    }.get(export_type, "/invoices/download_all")
+    return render_template_string(BASE_STYLE + header_html() + """
+    <div class="card" style="max-width:760px;margin:auto;">
+        <h2>{{ title }}</h2>
+        <p class="muted">Izaberi tacan period i po potrebi klijenta.</p>
+        <form method="get" action="{{ action }}">
+            <label>{{ tr["date_from"] }}</label><input type="date" name="date_from" value="{{ default_from }}" required>
+            <label>{{ tr["date_to"] }}</label><input type="date" name="date_to" value="{{ default_to }}" required>
+            {% if export_type == 'certificate' %}
+                <label>{{ tr["search_client"] }}</label>
+                <input name="client" list="invoiceExportClients" required placeholder="{{ tr['search_client'] }}">
+            {% else %}
+                <label>{{ tr["search_client"] }}</label>
+                <input name="client" list="invoiceExportClients" placeholder="{{ tr['all_clients'] }}">
+            {% endif %}
+            {% if export_type == 'list' %}
+                <label>{{ tr["payment_status"] }}</label>
+                <select name="status">
+                    <option value="all">Sve</option>
+                    <option value="paid">{{ tr["paid"] }}</option>
+                    <option value="unpaid">{{ tr["unpaid"] }}</option>
+                </select>
+            {% endif %}
+            <datalist id="invoiceExportClients">{% for p in profiles %}<option value="{{ p.client }}"></option>{% endfor %}</datalist>
+            <button>{{ tr["download_all_invoices"] if export_type == 'all' else title }}</button>
+        </form>
+        <br><a href="/invoices">{{ tr["back"] }}</a>
+    </div>
+    """, tr=tr, dark=dark, title=title, action=action, export_type=export_type, profiles=profiles, default_from=default_from, default_to=default_to)
+
+
+@app.route("/invoices/list_pdf")
+def invoices_list_pdf():
+    if session.get("role") != "admin":
+        return redirect("/")
+    default_from, default_to = previous_month_range()
+    date_from = request.args.get("date_from", default_from).strip()
+    date_to = request.args.get("date_to", default_to).strip()
+    client = request.args.get("client", "").strip()
+    status = request.args.get("status", "all").strip()
+    conn = get_conn()
+    records = fetch_invoice_records(conn, date_from, date_to, client or None, status)
+    conn.close()
+    pdf = build_invoice_list_pdf(records, date_from, date_to)
+    return send_file(pdf, as_attachment=True, download_name=f"liste_factures_{date_from}_{date_to}.pdf", mimetype="application/pdf")
+
+
+@app.route("/invoices/devis_pdf")
+def invoices_devis_pdf():
+    if session.get("role") != "admin":
+        return redirect("/")
+    invoice_number = request.args.get("invoice_number", "").strip()
+    conn = get_conn(); c = conn.cursor()
+    record_row = c.execute("""
+        SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date
+        FROM invoice_records WHERE invoice_number = ? AND COALESCE(deleted, 0) = 0
+    """, (invoice_number,)).fetchone()
+    if not record_row:
+        conn.close()
+        return redirect("/invoices")
+    record = invoice_record_to_dict(record_row)
+    row, settings = get_invoice_row_for_record(conn, record)
+    conn.close()
+    if not row:
+        return redirect("/invoices")
+    pdf = build_invoice_pdf(row, settings, record["invoice_date"], record["date_from"], record["date_to"], "DEVIS")
+    return send_file(pdf, as_attachment=True, download_name=f"devis_{invoice_number}.pdf", mimetype="application/pdf")
+
+
+@app.route("/invoices/delete")
+def invoices_delete():
+    if session.get("role") != "admin":
+        return redirect("/")
+    invoice_number = request.args.get("invoice_number", "").strip()
+    if invoice_number:
+        conn = get_conn(); c = conn.cursor()
+        c.execute("UPDATE invoice_records SET deleted = 1 WHERE invoice_number = ?", (invoice_number,))
+        conn.commit(); conn.close()
+    return redirect("/invoices")
 
 
 @app.route("/invoices/settings", methods=["POST"])
@@ -2584,8 +2738,8 @@ def invoices_mark_paid():
 def invoices_download():
     if session.get("role") != "admin":
         return redirect("/")
-    date_from = request.args.get("date_from", "").strip(); date_to = request.args.get("date_to", "").strip(); invoice_date = request.args.get("invoice_date", lux_now().strftime("%Y-%m-%d")).strip(); client = request.args.get("client", "").strip(); fixed_amount = request.args.get("fixed_amount", "").strip()
-    conn = get_conn(); settings = get_invoice_settings(conn); rows = build_invoice_rows(conn, date_from, date_to, fixed_amount if fixed_amount else None, settings); conn.close()
+    date_from = request.args.get("date_from", "").strip(); date_to = request.args.get("date_to", "").strip(); invoice_date = request.args.get("invoice_date", lux_now().strftime("%Y-%m-%d")).strip(); client = request.args.get("client", "").strip()
+    conn = get_conn(); settings = get_invoice_settings(conn); rows = build_invoice_rows(conn, date_from, date_to, None, settings); conn.close()
     row = next((r for r in rows if r["client"] == client), None)
     if not row:
         return redirect("/invoices")
@@ -2597,13 +2751,23 @@ def invoices_download():
 def invoices_download_all():
     if session.get("role") != "admin":
         return redirect("/")
-    date_from = request.args.get("date_from", "").strip(); date_to = request.args.get("date_to", "").strip(); invoice_date = request.args.get("invoice_date", lux_now().strftime("%Y-%m-%d")).strip(); fixed_amount = request.args.get("fixed_amount", "").strip()
-    conn = get_conn(); settings = get_invoice_settings(conn); rows = build_invoice_rows(conn, date_from, date_to, fixed_amount if fixed_amount else None, settings); conn.close()
+    default_from, default_to = previous_month_range()
+    date_from = request.args.get("date_from", default_from).strip()
+    date_to = request.args.get("date_to", default_to).strip()
+    client = request.args.get("client", "").strip()
+    conn = get_conn()
+    records = fetch_invoice_records(conn, date_from, date_to, client or None, "all")
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        for row in rows:
-            pdf = build_invoice_pdf(row, settings, invoice_date, date_from, date_to)
-            zf.writestr(f"facture_{row['invoice_number']}.pdf", pdf.getvalue())
+        for record in records:
+            row, settings = get_invoice_row_for_record(conn, record)
+            if not row:
+                continue
+            pdf = build_invoice_pdf(row, settings, record["invoice_date"], record["date_from"], record["date_to"])
+            zf.writestr(f"facture_{record['invoice_number']}.pdf", pdf.getvalue())
+        list_pdf = build_invoice_list_pdf(records, date_from, date_to)
+        zf.writestr(f"liste_factures_{date_from}_{date_to}.pdf", list_pdf.getvalue())
+    conn.close()
     zip_buffer.seek(0)
     return send_file(zip_buffer, as_attachment=True, download_name=f"factures_{date_from}_{date_to}.zip", mimetype="application/zip")
 
