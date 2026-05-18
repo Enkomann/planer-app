@@ -417,6 +417,9 @@ INVOICE_TRANSLATIONS = {
         "template_orange": "Narandzasti", "template_blue": "Plavi", "template_green": "Zeleni",
         "search_client": "Pretrazi klijenta", "save_client_profile": "Sacuvaj profil klijenta",
         "invoice_design": "Dizajn fakture", "service_details": "Detalji usluge", "service_dates": "Datumi rada",
+        "invoice_start_number": "Pocetni broj fakture", "paid": "Placena", "unpaid": "Nije placena",
+        "mark_paid": "Oznaci placeno", "mark_unpaid": "Oznaci neplaceno", "payment_status": "Status placanja",
+        "company_settings": "Podaci firme",
     }
 }
 INVOICE_TRANSLATIONS["en"] = {
@@ -433,7 +436,8 @@ INVOICE_TRANSLATIONS["en"] = {
     "company_vat": "Company VAT number", "invoice_template": "Invoice template", "template_orange": "Orange",
     "template_blue": "Blue", "template_green": "Green", "search_client": "Search client",
     "save_client_profile": "Save client profile", "invoice_design": "Invoice design", "service_details": "Service details",
-    "service_dates": "Work dates",
+    "service_dates": "Work dates", "invoice_start_number": "Starting invoice number", "paid": "Paid", "unpaid": "Unpaid",
+    "mark_paid": "Mark paid", "mark_unpaid": "Mark unpaid", "payment_status": "Payment status", "company_settings": "Company details",
 }
 INVOICE_TRANSLATIONS["fr"] = {
     "invoices": "Factures", "invoice_settings": "Parametres des factures", "invoice_text": "Texte sur la facture",
@@ -449,7 +453,8 @@ INVOICE_TRANSLATIONS["fr"] = {
     "company_vat": "Numero TVA", "invoice_template": "Modele de facture", "template_orange": "Orange",
     "template_blue": "Bleu", "template_green": "Vert", "search_client": "Rechercher client",
     "save_client_profile": "Enregistrer profil client", "invoice_design": "Design de facture", "service_details": "Details de prestation",
-    "service_dates": "Dates de travail",
+    "service_dates": "Dates de travail", "invoice_start_number": "Numero de facture initial", "paid": "Payee", "unpaid": "Non payee",
+    "mark_paid": "Marquer payee", "mark_unpaid": "Marquer non payee", "payment_status": "Statut paiement", "company_settings": "Informations societe",
 }
 INVOICE_TRANSLATIONS["de"] = {
     "invoices": "Rechnungen", "invoice_settings": "Rechnungseinstellungen", "invoice_text": "Rechnungstext",
@@ -465,7 +470,8 @@ INVOICE_TRANSLATIONS["de"] = {
     "company_vat": "USt-IdNr.", "invoice_template": "Rechnungsvorlage", "template_orange": "Orange",
     "template_blue": "Blau", "template_green": "Gruen", "search_client": "Kunde suchen",
     "save_client_profile": "Kundenprofil speichern", "invoice_design": "Rechnungsdesign", "service_details": "Leistungsdetails",
-    "service_dates": "Arbeitstage",
+    "service_dates": "Arbeitstage", "invoice_start_number": "Start-Rechnungsnummer", "paid": "Bezahlt", "unpaid": "Nicht bezahlt",
+    "mark_paid": "Als bezahlt markieren", "mark_unpaid": "Als unbezahlt markieren", "payment_status": "Zahlungsstatus", "company_settings": "Firmendaten",
 }
 INVOICE_TRANSLATIONS["pt"] = {
     "invoices": "Faturas", "invoice_settings": "Definicoes de faturas", "invoice_text": "Texto na fatura",
@@ -481,7 +487,8 @@ INVOICE_TRANSLATIONS["pt"] = {
     "company_vat": "Numero IVA", "invoice_template": "Modelo da fatura", "template_orange": "Laranja",
     "template_blue": "Azul", "template_green": "Verde", "search_client": "Pesquisar cliente",
     "save_client_profile": "Guardar perfil do cliente", "invoice_design": "Design da fatura", "service_details": "Detalhes do servico",
-    "service_dates": "Datas de trabalho",
+    "service_dates": "Datas de trabalho", "invoice_start_number": "Numero inicial da fatura", "paid": "Paga", "unpaid": "Nao paga",
+    "mark_paid": "Marcar paga", "mark_unpaid": "Marcar nao paga", "payment_status": "Estado do pagamento", "company_settings": "Dados da empresa",
 }
 for _lang, _values in INVOICE_TRANSLATIONS.items():
     TRANSLATIONS[_lang].update(_values)
@@ -977,14 +984,14 @@ def previous_month_range():
 
 def get_invoice_settings(conn):
     c = conn.cursor()
-    row = c.execute("SELECT invoice_text, payment_terms, bank_account, company_name, company_address, company_phone, company_email, company_vat, invoice_template FROM invoice_settings WHERE id = 1").fetchone()
+    row = c.execute("SELECT invoice_text, payment_terms, bank_account, company_name, company_address, company_phone, company_email, company_vat, invoice_template, invoice_start_number FROM invoice_settings WHERE id = 1").fetchone()
     if not row:
-        return {"invoice_text": "", "payment_terms": "", "bank_account": "", "company_name": "Luxmann Services", "company_address": "", "company_phone": "", "company_email": "", "company_vat": "", "invoice_template": "orange"}
+        return {"invoice_text": "", "payment_terms": "", "bank_account": "", "company_name": "Luxmann Services", "company_address": "", "company_phone": "", "company_email": "", "company_vat": "", "invoice_template": "orange", "invoice_start_number": 1}
     return {
         "invoice_text": row[0] or "", "payment_terms": row[1] or "", "bank_account": row[2] or "",
         "company_name": row[3] or "Luxmann Services", "company_address": row[4] or "",
         "company_phone": row[5] or "", "company_email": row[6] or "", "company_vat": row[7] or "",
-        "invoice_template": row[8] or "orange",
+        "invoice_template": row[8] or "orange", "invoice_start_number": int(row[9] or 1),
     }
 
 
@@ -1032,8 +1039,14 @@ def invoice_service_title(date_from, date_to):
     return f"Entretien et nettoyage de la maison pour le mois {prefix}{month}'{str(start.year)[-2:]}"
 
 
-def build_invoice_rows(conn, date_from, date_to, fixed_amount=None):
+def get_invoice_paid_map(conn):
     c = conn.cursor()
+    return {row[0]: bool(row[1]) for row in c.execute("SELECT invoice_number, paid FROM invoice_records").fetchall()}
+
+
+def build_invoice_rows(conn, date_from, date_to, fixed_amount=None, settings=None):
+    c = conn.cursor()
+    settings = settings or get_invoice_settings(conn)
     profiles = {p["client"]: p for p in get_invoice_profiles(conn)}
     shifts = c.execute("SELECT client, time, worker, date FROM shifts WHERE date >= ? AND date <= ? ORDER BY date, time", (date_from, date_to)).fetchall()
     hours_by_client = {}
@@ -1045,14 +1058,17 @@ def build_invoice_rows(conn, date_from, date_to, fixed_amount=None):
         details_by_client.setdefault(client, []).append({"date": shift_date, "hours": hours, "time": time_range, "workers": worker_count})
 
     rows = []
-    for client, hours in sorted(hours_by_client.items()):
+    paid_map = get_invoice_paid_map(conn)
+    for index, (client, hours) in enumerate(sorted(hours_by_client.items())):
         profile = profiles.get(client)
         if not profile:
             continue
         base_amount = float(fixed_amount) if fixed_amount not in (None, "") else hours * profile["hourly_rate"]
         vat_rate = invoice_vat_rate(profile["client_type"])
         vat_amount = base_amount * vat_rate
+        number = invoice_number_from_index(settings, index)
         rows.append({
+            "invoice_number": number,
             "client": client,
             "address": profile["address"],
             "email": profile["email"],
@@ -1065,13 +1081,13 @@ def build_invoice_rows(conn, date_from, date_to, fixed_amount=None):
             "total": base_amount + vat_amount,
             "details": details_by_client.get(client, []),
             "service_title": invoice_service_title(date_from, date_to),
+            "paid": paid_map.get(str(number), False),
         })
     return rows
 
 
-def invoice_number(client_name, invoice_date):
-    safe = re.sub(r"[^A-Za-z0-9]+", "", client_name.upper())[:6] or "CLIENT"
-    return f"INV-{invoice_date.replace('-', '')}-{safe}"
+def invoice_number_from_index(settings, index):
+    return str(int(settings.get("invoice_start_number") or 1) + index)
 
 
 def build_invoice_pdf(row, settings, invoice_date, date_from, date_to):
@@ -1102,7 +1118,7 @@ def build_invoice_pdf(row, settings, invoice_date, date_from, date_to):
     elements += [company_table, Spacer(1, 34)]
 
     billing = Paragraph(f"<b>Facture a</b><br/>{row['client']}<br/>{(row['address'] or '-').replace(chr(10), '<br/>')}" + (f"<br/>{row['email']}" if row["email"] else ""), normal)
-    meta = Paragraph(f"<b>Facture no</b>&nbsp;&nbsp;&nbsp; {invoice_number(row['client'], invoice_date)}<br/><b>Date</b>&nbsp;&nbsp;&nbsp; {format_date(invoice_date)}", normal)
+    meta = Paragraph(f"<b>Facture no</b>&nbsp;&nbsp;&nbsp; {row['invoice_number']}<br/><b>Date</b>&nbsp;&nbsp;&nbsp; {format_date(invoice_date)}", normal)
     elements += [Table([[billing, meta]], colWidths=[10*cm, 7.5*cm], style=[("ALIGN", (1,0), (1,0), "RIGHT"), ("VALIGN", (0,0), (-1,-1), "TOP")]), Spacer(1, 28)]
 
     detail_lines = [row["service_title"]]
@@ -1110,7 +1126,7 @@ def build_invoice_pdf(row, settings, invoice_date, date_from, date_to):
         detail_lines.append(f"{format_date(detail['date'])[:5]} {detail['hours']:.2f}h")
     detail_lines += [f"Total {row['hours']:.2f}h", f"Prix {row['hourly_rate']:.2f} EUR l'heure"]
     if settings.get("invoice_text"):
-        detail_lines.append(settings["invoice_text"])
+        pass
 
     invoice_table = Table([
         [Paragraph("<b>DESIGNATION</b>", normal), Paragraph("<b>MONTANT</b>", normal)],
@@ -1127,7 +1143,7 @@ def build_invoice_pdf(row, settings, invoice_date, date_from, date_to):
     ]))
     elements += [invoice_table, Spacer(1, 90)]
 
-    payment_lines = [settings.get("payment_terms", ""), settings.get("bank_account", ""), "Lors du virement, veuillez indiquer reference suivante: ***Facture no***", settings.get("company_vat", "")]
+    payment_lines = [settings.get("payment_terms", ""), settings.get("company_vat", "")]
     elements += [Paragraph("<b>Conditions et modalites de paiement</b>", normal), Paragraph("<br/>".join([x for x in payment_lines if x]), normal)]
     doc.build(elements)
     buffer.seek(0)
@@ -1223,7 +1239,8 @@ def init_db():
             company_phone TEXT DEFAULT '',
             company_email TEXT DEFAULT '',
             company_vat TEXT DEFAULT '',
-            invoice_template TEXT DEFAULT 'orange'
+            invoice_template TEXT DEFAULT 'orange',
+            invoice_start_number INTEGER DEFAULT 1
         )
     """)
     c.execute("""
@@ -1233,6 +1250,20 @@ def init_db():
             client_type TEXT DEFAULT 'private',
             hourly_rate REAL DEFAULT 0,
             custom_address TEXT DEFAULT ''
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS invoice_records (
+            invoice_number TEXT PRIMARY KEY,
+            client_name TEXT,
+            date_from TEXT,
+            date_to TEXT,
+            invoice_date TEXT,
+            amount REAL DEFAULT 0,
+            vat_amount REAL DEFAULT 0,
+            total REAL DEFAULT 0,
+            paid INTEGER DEFAULT 0,
+            paid_date TEXT DEFAULT ''
         )
     """)
 
@@ -1255,6 +1286,7 @@ def init_db():
         ("company_name", "TEXT DEFAULT ''"), ("company_address", "TEXT DEFAULT ''"),
         ("company_phone", "TEXT DEFAULT ''"), ("company_email", "TEXT DEFAULT ''"),
         ("company_vat", "TEXT DEFAULT ''"), ("invoice_template", "TEXT DEFAULT 'orange'"),
+        ("invoice_start_number", "INTEGER DEFAULT 1"),
     ]:
         if col_name not in invoice_cols:
             c.execute(f"ALTER TABLE invoice_settings ADD COLUMN {col_name} {col_type}")
@@ -1263,7 +1295,7 @@ def init_db():
     c.execute("INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)", ("worker1", hash_password("1234"), "worker"))
     c.execute("INSERT OR IGNORE INTO workers (name, address) VALUES (?, ?)", ("admin", ""))
     c.execute("INSERT OR IGNORE INTO workers (name, address) VALUES (?, ?)", ("worker1", ""))
-    c.execute("INSERT OR IGNORE INTO invoice_settings (id, invoice_text, payment_terms, bank_account, company_name, company_address, company_phone, company_email, company_vat, invoice_template) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (1, "", "Paiement a 15 jours des reception de la facture.", "Post Luxembourg BIC (CCPLLULL) LU60 1111 7815 3607 0000", "Luxmann Services", "32, rue Aneschbach\nWiltz L-9511", "691642003", "lux@mann.lu", "TVA: LU33673043", "orange"))
+    c.execute("INSERT OR IGNORE INTO invoice_settings (id, invoice_text, payment_terms, bank_account, company_name, company_address, company_phone, company_email, company_vat, invoice_template, invoice_start_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (1, "", "Paiement a 15 jours des reception de la facture.\nPost Luxembourg BIC (CCPLLULL) LU60 1111 7815 3607 0000\nLors du virement, veuillez indiquer reference suivante: ***Facture no***", "", "Luxmann Services", "32, rue Aneschbach\nWiltz L-9511", "+352691642003", "lux@mann.lu", "TVA: LU33673043", "orange", 1))
 
     for worker_name, color in DEFAULT_WORKER_COLORS.items():
         c.execute("INSERT OR IGNORE INTO worker_colors (worker_name, color) VALUES (?, ?)", (worker_name, color))
@@ -2023,7 +2055,7 @@ def invoices():
     conn = get_conn()
     settings = get_invoice_settings(conn)
     profiles = get_invoice_profiles(conn)
-    rows = build_invoice_rows(conn, date_from, date_to, fixed_amount if fixed_amount else None)
+    rows = build_invoice_rows(conn, date_from, date_to, fixed_amount if fixed_amount else None, settings)
     conn.close()
     profiles_json = json.dumps(profiles)
     return render_template_string(BASE_STYLE + header_html() + """
@@ -2033,23 +2065,26 @@ def invoices():
         <div class="card">
             <h3>{{ tr["invoice_settings"] }}</h3>
             <form method="post" action="/invoices/settings">
-                <label>{{ tr["company_name"] }}</label><input name="company_name" value="{{ settings.company_name }}">
-                <label>{{ tr["company_address"] }}</label><textarea name="company_address" style="width:100%;min-height:70px;">{{ settings.company_address }}</textarea>
-                <label>{{ tr["company_phone"] }}</label><input name="company_phone" value="{{ settings.company_phone }}">
-                <label>{{ tr["company_email"] }}</label><input name="company_email" value="{{ settings.company_email }}">
-                <label>{{ tr["company_vat"] }}</label><input name="company_vat" value="{{ settings.company_vat }}">
+                <button type="button" onclick="var box=document.getElementById('companySettingsBox'); box.style.display = box.style.display === 'none' ? 'block' : 'none';">{{ tr["company_settings"] }}</button>
+                <div id="companySettingsBox" style="display:none;">
+                    <label>{{ tr["company_name"] }}</label><input name="company_name" value="{{ settings.company_name }}">
+                    <label>{{ tr["company_address"] }}</label><textarea name="company_address" style="width:100%;min-height:70px;">{{ settings.company_address }}</textarea>
+                    <label>{{ tr["company_phone"] }}</label><input name="company_phone" value="{{ settings.company_phone }}">
+                    <label>{{ tr["company_email"] }}</label><input name="company_email" value="{{ settings.company_email }}">
+                    <label>{{ tr["company_vat"] }}</label><input name="company_vat" value="{{ settings.company_vat }}">
+                </div>
                 <label>{{ tr["invoice_template"] }}</label>
                 <select name="invoice_template">
                     <option value="orange" {% if settings.invoice_template == 'orange' %}selected{% endif %}>{{ tr["template_orange"] }}</option>
                     <option value="blue" {% if settings.invoice_template == 'blue' %}selected{% endif %}>{{ tr["template_blue"] }}</option>
                     <option value="green" {% if settings.invoice_template == 'green' %}selected{% endif %}>{{ tr["template_green"] }}</option>
                 </select>
-                <label>{{ tr["invoice_text"] }}</label>
-                <textarea name="invoice_text" style="width:100%;min-height:90px;">{{ settings.invoice_text }}</textarea>
+                <label>{{ tr["invoice_start_number"] }}</label>
+                <input type="number" min="1" name="invoice_start_number" value="{{ settings.invoice_start_number }}">
                 <label>{{ tr["payment_terms"] }}</label>
                 <textarea name="payment_terms" style="width:100%;min-height:70px;">{{ settings.payment_terms }}</textarea>
-                <label>{{ tr["bank_account"] }}</label>
-                <input name="bank_account" value="{{ settings.bank_account }}">
+                <input type="hidden" name="invoice_text" value="">
+                <input type="hidden" name="bank_account" value="">
                 <button>{{ tr["save_settings"] }}</button>
             </form>
         </div>
@@ -2070,14 +2105,19 @@ def invoices():
     <div class="card" style="margin-top:16px;">
         <h3>{{ tr["invoice_list"] }}</h3>
         <table style="width:100%;border-collapse:collapse;">
-            <tr><th>{{ tr["client_name"] }}</th><th>{{ tr["worked_hours"] }}</th><th>{{ tr["amount_without_vat"] }}</th><th>{{ tr["vat_rate"] }}</th><th>{{ tr["amount_with_vat"] }}</th><th>PDF</th></tr>
+            <tr><th>{{ tr["invoice_number"] }}</th><th>{{ tr["client_name"] }}</th><th>{{ tr["worked_hours"] }}</th><th>{{ tr["amount_without_vat"] }}</th><th>{{ tr["vat_rate"] }}</th><th>{{ tr["amount_with_vat"] }}</th><th>{{ tr["payment_status"] }}</th><th>PDF</th></tr>
             {% for row in rows %}
             <tr>
+                <td>{{ row.invoice_number }}</td>
                 <td>{{ row.client }}</td>
                 <td>{{ "%.2f"|format(row.hours) }}</td>
                 <td>{{ "%.2f"|format(row.amount) }}</td>
                 <td>{{ (row.vat_rate * 100)|int }}%</td>
                 <td><b>{{ "%.2f"|format(row.total) }}</b></td>
+                <td>
+                    <b style="color:{{ '#16a34a' if row.paid else '#ef4444' }}">{{ tr["paid"] if row.paid else tr["unpaid"] }}</b><br>
+                    <a class="pdf-link" href="/invoices/mark_paid?invoice_number={{ row.invoice_number }}&paid={{ 0 if row.paid else 1 }}&client={{ row.client|urlencode }}&date_from={{ date_from }}&date_to={{ date_to }}&invoice_date={{ invoice_date }}&amount={{ row.amount }}&vat_amount={{ row.vat_amount }}&total={{ row.total }}">{{ tr["mark_unpaid"] if row.paid else tr["mark_paid"] }}</a>
+                </td>
                 <td><a class="pdf-link" href="/invoices/download?client={{ row.client|urlencode }}&date_from={{ date_from }}&date_to={{ date_to }}&invoice_date={{ invoice_date }}&fixed_amount={{ fixed_amount }}">PDF</a></td>
             </tr>
             {% endfor %}
@@ -2124,13 +2164,13 @@ def invoices_settings():
         return redirect("/")
     conn = get_conn(); c = conn.cursor()
     c.execute("""
-        INSERT INTO invoice_settings (id, invoice_text, payment_terms, bank_account, company_name, company_address, company_phone, company_email, company_vat, invoice_template)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO invoice_settings (id, invoice_text, payment_terms, bank_account, company_name, company_address, company_phone, company_email, company_vat, invoice_template, invoice_start_number)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET invoice_text = excluded.invoice_text, payment_terms = excluded.payment_terms,
         bank_account = excluded.bank_account, company_name = excluded.company_name, company_address = excluded.company_address,
         company_phone = excluded.company_phone, company_email = excluded.company_email, company_vat = excluded.company_vat,
-        invoice_template = excluded.invoice_template
-    """, (1, request.form.get("invoice_text", "").strip(), request.form.get("payment_terms", "").strip(), request.form.get("bank_account", "").strip(), request.form.get("company_name", "").strip(), request.form.get("company_address", "").strip(), request.form.get("company_phone", "").strip(), request.form.get("company_email", "").strip(), request.form.get("company_vat", "").strip(), request.form.get("invoice_template", "orange").strip()))
+        invoice_template = excluded.invoice_template, invoice_start_number = excluded.invoice_start_number
+    """, (1, request.form.get("invoice_text", "").strip(), request.form.get("payment_terms", "").strip(), request.form.get("bank_account", "").strip(), request.form.get("company_name", "").strip(), request.form.get("company_address", "").strip(), request.form.get("company_phone", "").strip(), request.form.get("company_email", "").strip(), request.form.get("company_vat", "").strip(), request.form.get("invoice_template", "orange").strip(), request.form.get("invoice_start_number", 1) or 1))
     conn.commit(); conn.close()
     return redirect("/invoices")
 
@@ -2151,17 +2191,44 @@ def invoices_profile():
     return redirect("/invoices")
 
 
+@app.route("/invoices/mark_paid")
+def invoices_mark_paid():
+    if session.get("role") != "admin":
+        return redirect("/")
+    invoice_no = request.args.get("invoice_number", "").strip()
+    paid = 1 if request.args.get("paid", "0") == "1" else 0
+    date_from = request.args.get("date_from", "").strip()
+    date_to = request.args.get("date_to", "").strip()
+    invoice_date = request.args.get("invoice_date", "").strip()
+    client = request.args.get("client", "").strip()
+    if invoice_no:
+        conn = get_conn(); c = conn.cursor()
+        c.execute("""
+            INSERT INTO invoice_records (invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(invoice_number) DO UPDATE SET client_name = excluded.client_name, date_from = excluded.date_from,
+            date_to = excluded.date_to, invoice_date = excluded.invoice_date, amount = excluded.amount,
+            vat_amount = excluded.vat_amount, total = excluded.total, paid = excluded.paid, paid_date = excluded.paid_date
+        """, (
+            invoice_no, client, date_from, date_to, invoice_date,
+            request.args.get("amount", 0) or 0, request.args.get("vat_amount", 0) or 0, request.args.get("total", 0) or 0,
+            paid, lux_now().strftime("%Y-%m-%d") if paid else "",
+        ))
+        conn.commit(); conn.close()
+    return redirect(f"/invoices?date_from={urllib.parse.quote(date_from)}&date_to={urllib.parse.quote(date_to)}&invoice_date={urllib.parse.quote(invoice_date)}")
+
+
 @app.route("/invoices/download")
 def invoices_download():
     if session.get("role") != "admin":
         return redirect("/")
     date_from = request.args.get("date_from", "").strip(); date_to = request.args.get("date_to", "").strip(); invoice_date = request.args.get("invoice_date", lux_now().strftime("%Y-%m-%d")).strip(); client = request.args.get("client", "").strip(); fixed_amount = request.args.get("fixed_amount", "").strip()
-    conn = get_conn(); settings = get_invoice_settings(conn); rows = build_invoice_rows(conn, date_from, date_to, fixed_amount if fixed_amount else None); conn.close()
+    conn = get_conn(); settings = get_invoice_settings(conn); rows = build_invoice_rows(conn, date_from, date_to, fixed_amount if fixed_amount else None, settings); conn.close()
     row = next((r for r in rows if r["client"] == client), None)
     if not row:
         return redirect("/invoices")
     pdf = build_invoice_pdf(row, settings, invoice_date, date_from, date_to)
-    return send_file(pdf, as_attachment=True, download_name=f"{invoice_number(client, invoice_date)}.pdf", mimetype="application/pdf")
+    return send_file(pdf, as_attachment=True, download_name=f"facture_{row['invoice_number']}.pdf", mimetype="application/pdf")
 
 
 @app.route("/invoices/download_all")
@@ -2169,12 +2236,12 @@ def invoices_download_all():
     if session.get("role") != "admin":
         return redirect("/")
     date_from = request.args.get("date_from", "").strip(); date_to = request.args.get("date_to", "").strip(); invoice_date = request.args.get("invoice_date", lux_now().strftime("%Y-%m-%d")).strip(); fixed_amount = request.args.get("fixed_amount", "").strip()
-    conn = get_conn(); settings = get_invoice_settings(conn); rows = build_invoice_rows(conn, date_from, date_to, fixed_amount if fixed_amount else None); conn.close()
+    conn = get_conn(); settings = get_invoice_settings(conn); rows = build_invoice_rows(conn, date_from, date_to, fixed_amount if fixed_amount else None, settings); conn.close()
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
         for row in rows:
             pdf = build_invoice_pdf(row, settings, invoice_date, date_from, date_to)
-            zf.writestr(f"{invoice_number(row['client'], invoice_date)}.pdf", pdf.getvalue())
+            zf.writestr(f"facture_{row['invoice_number']}.pdf", pdf.getvalue())
     zip_buffer.seek(0)
     return send_file(zip_buffer, as_attachment=True, download_name=f"factures_{date_from}_{date_to}.zip", mimetype="application/zip")
 
@@ -2184,7 +2251,7 @@ def invoices_certificate():
     if session.get("role") != "admin":
         return redirect("/")
     date_from = request.args.get("date_from", "").strip(); date_to = request.args.get("date_to", "").strip(); invoice_date = request.args.get("invoice_date", lux_now().strftime("%Y-%m-%d")).strip(); fixed_amount = request.args.get("fixed_amount", "").strip()
-    conn = get_conn(); rows = build_invoice_rows(conn, date_from, date_to, fixed_amount if fixed_amount else None); conn.close()
+    conn = get_conn(); settings = get_invoice_settings(conn); rows = build_invoice_rows(conn, date_from, date_to, fixed_amount if fixed_amount else None, settings); conn.close()
     pdf = build_invoice_certificate_pdf(rows, invoice_date, date_from, date_to)
     return send_file(pdf, as_attachment=True, download_name=f"certificat_factures_{date_from}_{date_to}.pdf", mimetype="application/pdf")
 
