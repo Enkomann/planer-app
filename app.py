@@ -1086,6 +1086,60 @@ def build_invoice_rows(conn, date_from, date_to, fixed_amount=None, settings=Non
     return rows
 
 
+def save_invoice_records(conn, rows, date_from, date_to, invoice_date):
+    c = conn.cursor()
+    existing = {
+        row[0]: {"paid": int(row[1] or 0), "paid_date": row[2] or ""}
+        for row in c.execute("SELECT invoice_number, paid, paid_date FROM invoice_records").fetchall()
+    }
+    for row in rows:
+        invoice_number = str(row["invoice_number"])
+        previous = existing.get(invoice_number, {"paid": 0, "paid_date": ""})
+        c.execute("""
+            INSERT INTO invoice_records (invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(invoice_number) DO UPDATE SET client_name = excluded.client_name, date_from = excluded.date_from,
+            date_to = excluded.date_to, invoice_date = excluded.invoice_date, amount = excluded.amount,
+            vat_amount = excluded.vat_amount, total = excluded.total, paid = excluded.paid, paid_date = excluded.paid_date
+        """, (
+            invoice_number, row["client"], date_from, date_to, invoice_date,
+            row["amount"], row["vat_amount"], row["total"], previous["paid"], previous["paid_date"],
+        ))
+        row["paid"] = bool(previous["paid"])
+    conn.commit()
+
+
+def invoice_record_to_dict(record):
+    return {
+        "invoice_number": record[0],
+        "client": record[1],
+        "date_from": record[2],
+        "date_to": record[3],
+        "invoice_date": record[4],
+        "amount": float(record[5] or 0),
+        "vat_amount": float(record[6] or 0),
+        "total": float(record[7] or 0),
+        "paid": bool(record[8]),
+        "paid_date": record[9] or "",
+    }
+
+
+def get_invoice_row_for_record(conn, record):
+    settings = get_invoice_settings(conn)
+    rows = build_invoice_rows(conn, record["date_from"], record["date_to"], None, settings)
+    row = next((r for r in rows if str(r["invoice_number"]) == str(record["invoice_number"])), None)
+    if not row:
+        row = next((r for r in rows if r["client"] == record["client"]), None)
+    if row:
+        row["invoice_number"] = record["invoice_number"]
+        row["paid"] = record["paid"]
+        row["amount"] = record["amount"]
+        row["vat_amount"] = record["vat_amount"]
+        row["total"] = record["total"]
+        return row, settings
+    return None, settings
+
+
 def invoice_number_from_index(settings, index):
     return str(int(settings.get("invoice_start_number") or 1) + index)
 
@@ -1162,6 +1216,42 @@ def build_invoice_certificate_pdf(rows, invoice_date, date_from, date_to):
     table = Table(data, colWidths=[7*cm, 2.5*cm, 3*cm, 3*cm, 3*cm])
     table.setStyle(TableStyle([("BACKGROUND", (0,0), (-1,0), colors.HexColor("#1f4f82")), ("TEXTCOLOR", (0,0), (-1,0), colors.white), ("GRID", (0,0), (-1,-1), 0.5, colors.grey), ("FONTNAME", (0,-1), (-1,-1), "Helvetica-Bold")]))
     elements.append(table)
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+
+def build_client_statement_pdf(client_name, records, date_from, date_to):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
+    styles = getSampleStyleSheet()
+    total_paid = sum(r["total"] for r in records if r["paid"])
+    total_unpaid = sum(r["total"] for r in records if not r["paid"])
+    elements = [
+        Paragraph(f"Releve de compte client - {client_name}", styles["Title"]),
+        Spacer(1, 10),
+        Paragraph(f"Periode: {format_date(date_from)} - {format_date(date_to)}", styles["Normal"]),
+        Spacer(1, 12),
+    ]
+    data = [["Facture", "Date", "Statut", "Paye", "Montant"]]
+    for record in records:
+        paid_amount = record["total"] if record["paid"] else 0
+        data.append([
+            record["invoice_number"],
+            format_date(record["invoice_date"]),
+            "Payee" if record["paid"] else "Non payee",
+            f"{paid_amount:.2f} EUR",
+            f"{record['total']:.2f} EUR",
+        ])
+    data.append(["TOTAL", "", "", f"{total_paid:.2f} EUR", f"{sum(r['total'] for r in records):.2f} EUR"])
+    table = Table(data, colWidths=[3*cm, 3*cm, 4*cm, 4*cm, 4*cm])
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#4a4a4a")),
+        ("TEXTCOLOR", (0,0), (-1,0), colors.white),
+        ("GRID", (0,0), (-1,-1), 0.5, colors.grey),
+        ("FONTNAME", (0,-1), (-1,-1), "Helvetica-Bold"),
+    ]))
+    elements += [table, Spacer(1, 12), Paragraph(f"Non paye: {total_unpaid:.2f} EUR", styles["Normal"])]
     doc.build(elements)
     buffer.seek(0)
     return buffer
@@ -2056,6 +2146,7 @@ def invoices():
     settings = get_invoice_settings(conn)
     profiles = get_invoice_profiles(conn)
     rows = build_invoice_rows(conn, date_from, date_to, fixed_amount if fixed_amount else None, settings)
+    save_invoice_records(conn, rows, date_from, date_to, invoice_date)
     conn.close()
     profiles_json = json.dumps(profiles)
     paid_rows = [r for r in rows if r.get("paid")]
@@ -2131,9 +2222,9 @@ def invoices():
                 {% for row in rows %}
                 <tr class="invoice-row" data-paid="{{ 1 if row.paid else 0 }}" data-search="{{ (row.client ~ ' ' ~ row.invoice_number ~ ' ' ~ row.address)|lower }}">
                     <td><input type="checkbox" style="width:auto;"></td>
-                    <td>{{ row.client }}</td>
+                    <td><a href="/invoices/client?client={{ row.client|urlencode }}&date_from={{ date_from }}&date_to={{ date_to }}" style="color:white;text-decoration:underline;">{{ row.client }}</a></td>
                     <td>Facture</td>
-                    <td>{{ row.invoice_number }}</td>
+                    <td><a href="/invoices/view?invoice_number={{ row.invoice_number }}" style="color:white;text-decoration:underline;">{{ row.invoice_number }}</a></td>
                     <td>{{ format_date(invoice_date) }}</td>
                     <td>
                         <span class="{{ 'paid-text' if row.paid else 'unpaid-text' }}">{{ tr["paid"] if row.paid else tr["unpaid"] }}</span><br>
@@ -2235,6 +2326,197 @@ def invoices():
     """, tr=tr, dark=dark, settings=settings, profiles=profiles, profiles_json=profiles_json, rows=rows, paid_rows=paid_rows, unpaid_rows=unpaid_rows, total_paid=total_paid, total_unpaid=total_unpaid, total_all=total_all, format_date=format_date, date_from=date_from, date_to=date_to, invoice_date=invoice_date, fixed_amount=fixed_amount)
 
 
+@app.route("/invoices/client")
+def invoices_client():
+    if session.get("role") != "admin":
+        return redirect("/")
+    tr = t(); dark = get_theme() == "dark"
+    client = request.args.get("client", "").strip()
+    default_from, default_to = previous_month_range()
+    date_from = request.args.get("date_from", default_from).strip()
+    date_to = request.args.get("date_to", default_to).strip()
+    status = request.args.get("status", "all").strip()
+    conn = get_conn(); c = conn.cursor()
+    rows = [
+        invoice_record_to_dict(r)
+        for r in c.execute("""
+            SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date
+            FROM invoice_records
+            WHERE client_name = ? AND invoice_date >= ? AND invoice_date <= ?
+            ORDER BY invoice_date DESC, CAST(invoice_number AS INTEGER) DESC
+        """, (client, date_from, date_to)).fetchall()
+    ]
+    conn.close()
+    if status == "paid":
+        rows = [r for r in rows if r["paid"]]
+    elif status == "unpaid":
+        rows = [r for r in rows if not r["paid"]]
+    total_paid = sum(r["total"] for r in rows if r["paid"])
+    total_unpaid = sum(r["total"] for r in rows if not r["paid"])
+    total_all = sum(r["total"] for r in rows)
+    return render_template_string(BASE_STYLE + header_html() + """
+    <style>
+        .invoice-shell { background:#2b2b2b; color:white; border-radius:10px; padding:24px; }
+        .invoice-panel { max-width:1280px; margin:0 auto; background:#4a4a4a; border-radius:8px; padding:22px 30px; }
+        .doc-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px; }
+        .doc-tab { background:#777; color:white; padding:12px 16px; border-radius:8px 8px 0 0; font-weight:bold; }
+        .doc-tab.active { background:#4a4a4a; }
+        .invoice-table { width:100%; border-collapse:collapse; color:white; }
+        .invoice-table th, .invoice-table td { padding:14px 10px; border-bottom:1px solid #a3a3a3; text-align:left; }
+        .invoice-table th { text-transform:uppercase; font-size:13px; }
+        .paid-text { color:#34d399; font-weight:bold; } .unpaid-text { color:#fb7185; font-weight:bold; }
+        .filters { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; margin:18px 0 28px; }
+        .totals { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-top:18px; }
+        .total-card { background:#3d3d3d; border-radius:8px; padding:14px; }
+    </style>
+    <div class="invoice-shell">
+        <div class="doc-tabs">
+            <a class="doc-tab" href="/invoices">Mes documents</a>
+            <a class="doc-tab" href="/invoices#invoice-profiles">Mes clients</a>
+            <a class="doc-tab" href="/invoices">Mes rapports</a>
+            <span class="doc-tab active">{{ client }} <a href="/invoices" style="color:white;margin-left:8px;">x</a></span>
+        </div>
+        <div class="invoice-panel">
+            <div style="display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap;">
+                <h2 style="margin:0;color:white;">Documents de {{ client }} <span style="background:#111;border-radius:999px;padding:2px 8px;font-size:13px;">{{ rows|length }}</span></h2>
+                <a href="/invoices/client_statement?client={{ client|urlencode }}&date_from={{ date_from }}&date_to={{ date_to }}" style="background:#888;color:white;padding:10px 14px;border-radius:6px;">Releve de compte client PDF</a>
+            </div>
+            <form class="filters" method="get" action="/invoices/client">
+                <input type="hidden" name="client" value="{{ client }}">
+                <div><label>Date du</label><input type="date" name="date_from" value="{{ date_from }}"></div>
+                <div><label>Date au</label><input type="date" name="date_to" value="{{ date_to }}"></div>
+                <div><label>Statut</label><select name="status"><option value="all" {% if status == 'all' %}selected{% endif %}>--Tous--</option><option value="paid" {% if status == 'paid' %}selected{% endif %}>{{ tr["paid"] }}</option><option value="unpaid" {% if status == 'unpaid' %}selected{% endif %}>{{ tr["unpaid"] }}</option></select></div>
+                <div style="align-self:end;"><button>Rechercher</button></div>
+            </form>
+            <table class="invoice-table">
+                <tr><th></th><th>Client</th><th>Document</th><th>Numero</th><th>Date</th><th>Paye</th><th>Montant</th></tr>
+                {% for row in rows %}
+                <tr>
+                    <td><input type="checkbox" style="width:auto;"></td>
+                    <td>{{ row.client }}</td>
+                    <td>Facture</td>
+                    <td><a href="/invoices/view?invoice_number={{ row.invoice_number }}" style="color:white;text-decoration:underline;">{{ row.invoice_number }}</a></td>
+                    <td>{{ format_date(row.invoice_date) }}</td>
+                    <td class="{{ 'paid-text' if row.paid else 'unpaid-text' }}">{{ "%.2f"|format(row.total if row.paid else 0) }} EUR</td>
+                    <td>{{ "%.2f"|format(row.total) }} EUR</td>
+                </tr>
+                {% endfor %}
+            </table>
+            {% if rows|length == 0 %}<p class="muted">Nema faktura za izabrani period.</p>{% endif %}
+            <div class="totals">
+                <div class="total-card"><div class="muted">{{ tr["paid"] }}</div><div class="paid-text">{{ "%.2f"|format(total_paid) }} EUR</div></div>
+                <div class="total-card"><div class="muted">{{ tr["unpaid"] }}</div><div class="unpaid-text">{{ "%.2f"|format(total_unpaid) }} EUR</div></div>
+                <div class="total-card"><div class="muted">Ukupno</div><b>{{ "%.2f"|format(total_all) }} EUR</b></div>
+            </div>
+        </div>
+    </div>
+    """, tr=tr, dark=dark, client=client, rows=rows, date_from=date_from, date_to=date_to, status=status, format_date=format_date, total_paid=total_paid, total_unpaid=total_unpaid, total_all=total_all)
+
+
+@app.route("/invoices/view")
+def invoices_view():
+    if session.get("role") != "admin":
+        return redirect("/")
+    tr = t(); dark = get_theme() == "dark"
+    invoice_number = request.args.get("invoice_number", "").strip()
+    conn = get_conn(); c = conn.cursor()
+    record_row = c.execute("""
+        SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date
+        FROM invoice_records WHERE invoice_number = ?
+    """, (invoice_number,)).fetchone()
+    if not record_row:
+        conn.close()
+        return redirect("/invoices")
+    record = invoice_record_to_dict(record_row)
+    row, settings = get_invoice_row_for_record(conn, record)
+    conn.close()
+    if not row:
+        return redirect("/invoices")
+    pdf_url = f"/invoices/preview_pdf?invoice_number={urllib.parse.quote(invoice_number)}"
+    download_url = f"/invoices/download?client={urllib.parse.quote(row['client'])}&date_from={record['date_from']}&date_to={record['date_to']}&invoice_date={record['invoice_date']}"
+    paid_url = f"/invoices/mark_paid?invoice_number={urllib.parse.quote(invoice_number)}&paid={0 if record['paid'] else 1}&client={urllib.parse.quote(row['client'])}&date_from={record['date_from']}&date_to={record['date_to']}&invoice_date={record['invoice_date']}&amount={row['amount']}&vat_amount={row['vat_amount']}&total={row['total']}&next={urllib.parse.quote('/invoices/view?invoice_number=' + invoice_number)}"
+    return render_template_string(BASE_STYLE + header_html() + """
+    <style>
+        .viewer-shell { background:#2b2b2b; color:white; border-radius:10px; padding:24px; }
+        .viewer-panel { max-width:1280px; margin:0 auto; background:#555; border-radius:8px; padding:22px 30px; }
+        .doc-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:0; }
+        .doc-tab { background:#777; color:white; padding:12px 16px; border-radius:8px 8px 0 0; font-weight:bold; }
+        .doc-tab.active { background:#555; }
+        .toolbar { display:flex; flex-wrap:wrap; gap:4px; margin:22px 0 0; }
+        .tool { background:#888; color:white; border-radius:8px 8px 0 0; padding:12px 16px; font-weight:bold; }
+        .tool.active { background:white; color:#111; }
+        .tool.pay { background:{{ '#16a34a' if record.paid else '#ef4444' }}; }
+        .pdf-frame { background:white; width:100%; height:900px; border:0; }
+    </style>
+    <div class="viewer-shell">
+        <div class="doc-tabs">
+            <a class="doc-tab" href="/invoices">Mes documents</a>
+            <a class="doc-tab" href="/invoices/client?client={{ row.client|urlencode }}"> {{ row.client }}</a>
+            <span class="doc-tab active">{{ row.invoice_number }} <a href="/invoices/client?client={{ row.client|urlencode }}" style="color:white;margin-left:8px;">x</a></span>
+        </div>
+        <div class="viewer-panel">
+            <div class="toolbar">
+                <span class="tool active">Facture</span>
+                <a class="tool" href="/invoices#invoice-profiles">Modifier</a>
+                <a class="tool" href="/invoices#invoice-settings">Modeles</a>
+                <span class="tool">E-mail</span>
+                <span class="tool">Dupliquer</span>
+                <span class="tool">Supprimer</span>
+                <a class="tool pay" href="{{ paid_url }}">{{ tr["mark_unpaid"] if record.paid else tr["mark_paid"] }}</a>
+                <span class="tool">Recurrent</span>
+                <a class="tool" href="{{ download_url }}">Telecharger</a>
+            </div>
+            <iframe class="pdf-frame" src="{{ pdf_url }}"></iframe>
+        </div>
+    </div>
+    """, tr=tr, dark=dark, row=row, record=record, pdf_url=pdf_url, download_url=download_url, paid_url=paid_url)
+
+
+@app.route("/invoices/preview_pdf")
+def invoices_preview_pdf():
+    if session.get("role") != "admin":
+        return redirect("/")
+    invoice_number = request.args.get("invoice_number", "").strip()
+    conn = get_conn(); c = conn.cursor()
+    record_row = c.execute("""
+        SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date
+        FROM invoice_records WHERE invoice_number = ?
+    """, (invoice_number,)).fetchone()
+    if not record_row:
+        conn.close()
+        return redirect("/invoices")
+    record = invoice_record_to_dict(record_row)
+    row, settings = get_invoice_row_for_record(conn, record)
+    conn.close()
+    if not row:
+        return redirect("/invoices")
+    pdf = build_invoice_pdf(row, settings, record["invoice_date"], record["date_from"], record["date_to"])
+    return send_file(pdf, as_attachment=False, download_name=f"facture_{invoice_number}.pdf", mimetype="application/pdf")
+
+
+@app.route("/invoices/client_statement")
+def invoices_client_statement():
+    if session.get("role") != "admin":
+        return redirect("/")
+    client = request.args.get("client", "").strip()
+    default_from, default_to = previous_month_range()
+    date_from = request.args.get("date_from", default_from).strip()
+    date_to = request.args.get("date_to", default_to).strip()
+    conn = get_conn(); c = conn.cursor()
+    records = [
+        invoice_record_to_dict(r)
+        for r in c.execute("""
+            SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date
+            FROM invoice_records
+            WHERE client_name = ? AND invoice_date >= ? AND invoice_date <= ?
+            ORDER BY invoice_date DESC, CAST(invoice_number AS INTEGER) DESC
+        """, (client, date_from, date_to)).fetchall()
+    ]
+    conn.close()
+    pdf = build_client_statement_pdf(client, records, date_from, date_to)
+    return send_file(pdf, as_attachment=True, download_name=f"releve_{client}_{date_from}_{date_to}.pdf", mimetype="application/pdf")
+
+
 @app.route("/invoices/settings", methods=["POST"])
 def invoices_settings():
     if session.get("role") != "admin":
@@ -2278,6 +2560,7 @@ def invoices_mark_paid():
     date_to = request.args.get("date_to", "").strip()
     invoice_date = request.args.get("invoice_date", "").strip()
     client = request.args.get("client", "").strip()
+    next_url = request.args.get("next", "").strip()
     if invoice_no:
         conn = get_conn(); c = conn.cursor()
         c.execute("""
@@ -2292,6 +2575,8 @@ def invoices_mark_paid():
             paid, lux_now().strftime("%Y-%m-%d") if paid else "",
         ))
         conn.commit(); conn.close()
+    if next_url.startswith("/invoices"):
+        return redirect(next_url)
     return redirect(f"/invoices?date_from={urllib.parse.quote(date_from)}&date_to={urllib.parse.quote(date_to)}&invoice_date={urllib.parse.quote(invoice_date)}")
 
 
