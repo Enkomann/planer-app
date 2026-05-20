@@ -1603,6 +1603,40 @@ BASE_STYLE = """
     .big-map-button { display:inline-block; padding:16px 26px; border-radius:14px; background:#16a34a; color:white !important; font-size:18px; font-weight:800; text-decoration:none; box-shadow:0 6px 18px rgba(0,0,0,0.18); }
     @media (max-width: 900px) { .app-shell { grid-template-columns:1fr; } .sidebar { position:static; } body { margin:12px; } }
 </style>
+<script>
+(function(){
+    var scrollKey = "luxmann_scroll_y";
+    var restoreKey = "luxmann_restore_scroll";
+    function rememberScroll(){
+        try {
+            sessionStorage.setItem(scrollKey, String(window.scrollY || window.pageYOffset || 0));
+            sessionStorage.setItem(restoreKey, "1");
+        } catch(e) {}
+    }
+    document.addEventListener("click", function(event){
+        var link = event.target.closest ? event.target.closest("a") : null;
+        if(!link){ return; }
+        var href = link.getAttribute("href") || "";
+        if(!href || href.charAt(0) === "#" || href.indexOf("javascript:") === 0 || link.target === "_blank"){ return; }
+        var keepPositionActions = [
+            "/copy_shift/", "/paste_shift/", "/clear_copy", "/delete_shift/",
+            "/invoices/mark_paid", "/invoices/mark_sent", "/invoices/delete"
+        ];
+        var shouldRemember = keepPositionActions.some(function(part){ return href.indexOf(part) === 0; });
+        if(!shouldRemember){ return; }
+        rememberScroll();
+    }, true);
+    document.addEventListener("submit", function(){ rememberScroll(); }, true);
+    document.addEventListener("DOMContentLoaded", function(){
+        try {
+            if(sessionStorage.getItem(restoreKey) !== "1"){ return; }
+            var y = parseInt(sessionStorage.getItem(scrollKey) || "0", 10);
+            sessionStorage.removeItem(restoreKey);
+            window.setTimeout(function(){ window.scrollTo(0, y); }, 80);
+        } catch(e) {}
+    });
+})();
+</script>
 """
 
 
