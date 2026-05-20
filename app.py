@@ -1076,7 +1076,7 @@ def build_invoice_rows(conn, date_from, date_to, fixed_amount=None, settings=Non
     c = conn.cursor()
     settings = settings or get_invoice_settings(conn)
     profiles = {p["client"]: p for p in get_invoice_profiles(conn)}
-    shifts = c.execute("SELECT client, time, worker, date FROM shifts WHERE date >= ? AND date <= ? ORDER BY date, time", (date_from, date_to)).fetchall()
+    shifts = c.execute("SELECT client, time, worker, date FROM shifts WHERE date >= ? AND date <= ? ORDER BY date, time, id", (date_from, date_to)).fetchall()
     hours_by_client = {}
     details_by_client = {}
     for client, time_range, worker_text, shift_date in shifts:
@@ -1782,7 +1782,7 @@ def load_index_data():
     if is_admin and client_filter:
         base_query += " AND client = ?"
         params.append(client_filter)
-    base_query += " ORDER BY date, time"
+    base_query += " ORDER BY date, time, id"
     all_loaded_shifts = c.execute(base_query, tuple(params)).fetchall()
 
     shifts = []
@@ -2022,7 +2022,7 @@ def copy_shift(id):
     if "user" not in session or session.get("role") != "admin":
         return redirect("/")
     session["copied_shift_id"] = id
-    return redirect("/month")
+    return redirect(request.referrer or "/month")
 
 
 @app.route("/paste_shift/<date>")
@@ -2051,7 +2051,7 @@ def paste_shift(date):
 def clear_copy():
     if session.get("role") == "admin":
         session.pop("copied_shift_id", None)
-    return redirect("/month")
+    return redirect(request.referrer or "/month")
 
 
 @app.route("/add_holiday", methods=["POST"])
@@ -2133,7 +2133,7 @@ def week_view():
     c = conn.cursor()
     worker_colors = get_worker_colors(conn)
     week_days = [(start_week + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
-    shifts = c.execute("SELECT * FROM shifts WHERE date >= ? AND date <= ? ORDER BY date, time", (week_days[0], week_days[-1])).fetchall()
+    shifts = c.execute("SELECT * FROM shifts WHERE date >= ? AND date <= ? ORDER BY date, time, id", (week_days[0], week_days[-1])).fetchall()
     if not is_admin:
         shifts = [s for s in shifts if worker_in_shift(current_user, s[1])]
     holidays_map = get_all_holidays(conn, {start_week.year, week_end.year})
@@ -2175,7 +2175,7 @@ def month_view():
     prev_year, prev_month = month_navigation(year, month, -1); next_year, next_month = month_navigation(year, month, 1)
     conn = get_conn(); c = conn.cursor(); worker_colors = get_worker_colors(conn)
     start_date = f"{year:04d}-{month:02d}-01"; end_date = f"{year:04d}-{month:02d}-{calendar.monthrange(year, month)[1]:02d}"
-    shifts = c.execute("SELECT * FROM shifts WHERE date >= ? AND date <= ? ORDER BY date, time", (start_date, end_date)).fetchall()
+    shifts = c.execute("SELECT * FROM shifts WHERE date >= ? AND date <= ? ORDER BY date, time, id", (start_date, end_date)).fetchall()
     if not is_admin: shifts = [s for s in shifts if worker_in_shift(current_user, s[1])]
     cal = calendar.Calendar(firstweekday=0); month_days = cal.monthdatescalendar(year, month)
     holiday_years = {d.year for wk in month_days for d in wk}; holidays_map = get_all_holidays(conn, holiday_years); conn.close()
@@ -2248,7 +2248,7 @@ def route_optimizer():
         elif not selected_worker:
             error = tr["choose_worker"]
         else:
-            shifts = c.execute("SELECT * FROM shifts WHERE date = ? ORDER BY time", (selected_date,)).fetchall()
+            shifts = c.execute("SELECT * FROM shifts WHERE date = ? ORDER BY time, id", (selected_date,)).fetchall()
             shifts = [s for s in shifts if worker_in_shift(selected_worker, s[1])]
 
             if not shifts:
@@ -3068,7 +3068,7 @@ def export_pdf():
     if "user" not in session: return redirect("/login")
     tr = t(); is_admin = session.get("role") == "admin"; current_user = session.get("user")
     conn = get_conn(); c = conn.cursor(); date_filter = request.args.get("date", "").strip()
-    shifts = c.execute("SELECT * FROM shifts WHERE date = ? ORDER BY date, time", (date_filter,)).fetchall() if date_filter else c.execute("SELECT * FROM shifts ORDER BY date, time").fetchall()
+    shifts = c.execute("SELECT * FROM shifts WHERE date = ? ORDER BY date, time, id", (date_filter,)).fetchall() if date_filter else c.execute("SELECT * FROM shifts ORDER BY date, time, id").fetchall()
     if not is_admin: shifts = [s for s in shifts if worker_in_shift(current_user, s[1])]
     conn.close(); buffer = io.BytesIO(); doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
     styles = getSampleStyleSheet(); elements = []
@@ -3088,7 +3088,7 @@ def month_pdf():
     tr = t(); is_admin = session.get("role") == "admin"; current_user = session.get("user")
     year = request.args.get("year", type=int) or datetime.today().year; month = request.args.get("month", type=int) or datetime.today().month
     start_date = f"{year:04d}-{month:02d}-01"; end_date = f"{year:04d}-{month:02d}-{calendar.monthrange(year, month)[1]:02d}"
-    conn = get_conn(); c = conn.cursor(); shifts = c.execute("SELECT * FROM shifts WHERE date >= ? AND date <= ? ORDER BY date, time", (start_date, end_date)).fetchall(); absences = c.execute("SELECT id, worker, type, date_from, date_to, note FROM absences ORDER BY worker, date_from").fetchall(); conn.close()
+    conn = get_conn(); c = conn.cursor(); shifts = c.execute("SELECT * FROM shifts WHERE date >= ? AND date <= ? ORDER BY date, time, id", (start_date, end_date)).fetchall(); absences = c.execute("SELECT id, worker, type, date_from, date_to, note FROM absences ORDER BY worker, date_from").fetchall(); conn.close()
     if not is_admin: shifts = [s for s in shifts if worker_in_shift(current_user, s[1])]; absences = [a for a in absences if a[1] == current_user]
     buffer = io.BytesIO(); doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=1*cm, leftMargin=1*cm, topMargin=1*cm, bottomMargin=1*cm); styles = getSampleStyleSheet(); elements = [Paragraph(f"{tr['month_calendar']} {format_month_year(year, month)}", styles["Title"]), Spacer(1, 10)]
     month_hours = calculate_hours_for_user(shifts, current_user if not is_admin else None)
