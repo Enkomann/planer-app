@@ -1616,7 +1616,6 @@ BASE_STYLE = """
         shouldRestore = sessionStorage.getItem(restoreKey) === "1";
         restoreY = parseInt(sessionStorage.getItem(scrollKey) || "0", 10) || 0;
         if(shouldRestore){
-            document.documentElement.style.visibility = "hidden";
             window.scrollTo(0, restoreY);
         }
     } catch(e) {}
@@ -1632,17 +1631,13 @@ BASE_STYLE = """
             window.scrollTo(0, restoreY);
             requestAnimationFrame(function(){
                 window.scrollTo(0, restoreY);
-                document.documentElement.style.visibility = "";
                 sessionStorage.removeItem(restoreKey);
             });
             window.setTimeout(function(){
                 window.scrollTo(0, restoreY);
-                document.documentElement.style.visibility = "";
                 sessionStorage.removeItem(restoreKey);
-            }, 120);
-        } catch(e) {
-            document.documentElement.style.visibility = "";
-        }
+            }, 40);
+        } catch(e) {}
     }
     document.addEventListener("click", function(event){
         var link = event.target.closest ? event.target.closest("a") : null;
