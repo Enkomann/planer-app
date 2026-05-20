@@ -2443,12 +2443,12 @@ def invoices():
                     <td><a href="/invoices/view?invoice_number={{ row.invoice_number }}" style="color:white;text-decoration:underline;">{{ row.invoice_number }}</a></td>
                     <td>{{ format_date(row.invoice_date) }}</td>
                     <td>
-                        <span class="{{ 'paid-text' if row.paid else 'unpaid-text' }}">{{ tr["paid"] if row.paid else tr["unpaid"] }}</span><br>
-                        <a href="/invoices/mark_paid?invoice_number={{ row.invoice_number }}&paid={{ 0 if row.paid else 1 }}&client={{ row.client|urlencode }}&date_from={{ row.date_from }}&date_to={{ row.date_to }}&invoice_date={{ row.invoice_date }}&amount={{ row.amount }}&vat_amount={{ row.vat_amount }}&total={{ row.total }}" style="color:#e5e7eb;">{{ tr["mark_unpaid"] if row.paid else tr["mark_paid"] }}</a>
+                        <span class="payment-label {{ 'paid-text' if row.paid else 'unpaid-text' }}">{{ tr["paid"] if row.paid else tr["unpaid"] }}</span><br>
+                        <a class="ajax-invoice-toggle" data-kind="paid" data-paid-label="{{ tr['paid'] }}" data-unpaid-label="{{ tr['unpaid'] }}" data-mark-paid="{{ tr['mark_paid'] }}" data-mark-unpaid="{{ tr['mark_unpaid'] }}" href="/invoices/mark_paid?invoice_number={{ row.invoice_number }}&paid={{ 0 if row.paid else 1 }}&client={{ row.client|urlencode }}&date_from={{ row.date_from }}&date_to={{ row.date_to }}&invoice_date={{ row.invoice_date }}&amount={{ row.amount }}&vat_amount={{ row.vat_amount }}&total={{ row.total }}&ajax=1" style="color:#e5e7eb;">{{ tr["mark_unpaid"] if row.paid else tr["mark_paid"] }}</a>
                     </td>
                     <td>
                         <span class="sent-badge {{ 'sent' if row.sent else 'unsent' }}">{{ tr["sent_yes"] if row.sent else tr["sent_no"] }}</span><br>
-                        <a href="/invoices/mark_sent?invoice_number={{ row.invoice_number }}&sent={{ 0 if row.sent else 1 }}" style="color:#e5e7eb;">{{ tr["mark_unsent"] if row.sent else tr["mark_sent"] }}</a>
+                        <a class="ajax-invoice-toggle" data-kind="sent" data-sent-label="{{ tr['sent_yes'] }}" data-unsent-label="{{ tr['sent_no'] }}" data-mark-sent="{{ tr['mark_sent'] }}" data-mark-unsent="{{ tr['mark_unsent'] }}" href="/invoices/mark_sent?invoice_number={{ row.invoice_number }}&sent={{ 0 if row.sent else 1 }}&ajax=1" style="color:#e5e7eb;">{{ tr["mark_unsent"] if row.sent else tr["mark_sent"] }}</a>
                     </td>
                     <td><b>{{ "%.2f"|format(row.total) }} EUR</b></td>
                     <td><a href="/invoices/download?client={{ row.client|urlencode }}&date_from={{ row.date_from }}&date_to={{ row.date_to }}&invoice_date={{ row.invoice_date }}" style="color:#93c5fd;">PDF</a></td>
@@ -2542,6 +2542,35 @@ def invoices():
     document.addEventListener('DOMContentLoaded', function(){
         var search = document.getElementById('invoiceDashboardSearch');
         if(search){search.addEventListener('input', filterInvoiceRows); filterInvoiceRows();}
+        document.querySelectorAll('.ajax-invoice-toggle').forEach(function(link){
+            link.addEventListener('click', function(event){
+                event.preventDefault();
+                var row = link.closest('.invoice-row');
+                fetch(link.href, {headers:{'X-Requested-With':'fetch'}})
+                    .then(function(resp){ return resp.json(); })
+                    .then(function(data){
+                        if(!data.ok){ window.location.href = link.href.replace('&ajax=1', ''); return; }
+                        if(link.dataset.kind === 'sent'){
+                            var badge = row.querySelector('.sent-badge');
+                            badge.textContent = data.sent ? link.dataset.sentLabel : link.dataset.unsentLabel;
+                            badge.classList.toggle('sent', data.sent);
+                            badge.classList.toggle('unsent', !data.sent);
+                            link.textContent = data.sent ? link.dataset.markUnsent : link.dataset.markSent;
+                            link.href = link.href.replace(/sent=[01]/, 'sent=' + (data.sent ? '0' : '1'));
+                        } else if(link.dataset.kind === 'paid'){
+                            var label = row.querySelector('.payment-label');
+                            label.textContent = data.paid ? link.dataset.paidLabel : link.dataset.unpaidLabel;
+                            label.classList.toggle('paid-text', data.paid);
+                            label.classList.toggle('unpaid-text', !data.paid);
+                            row.setAttribute('data-paid', data.paid ? '1' : '0');
+                            link.textContent = data.paid ? link.dataset.markUnpaid : link.dataset.markPaid;
+                            link.href = link.href.replace(/paid=[01]/, 'paid=' + (data.paid ? '0' : '1'));
+                            filterInvoiceRows();
+                        }
+                    })
+                    .catch(function(){ window.location.href = link.href.replace('&ajax=1', ''); });
+            });
+        });
     });
     </script>
     """, tr=tr, dark=dark, settings=settings, profiles=profiles, profiles_json=profiles_json, rows=rows, paid_rows=paid_rows, unpaid_rows=unpaid_rows, total_paid=total_paid, total_unpaid=total_unpaid, total_all=total_all, format_date=format_date, date_from=date_from, date_to=date_to, invoice_date=invoice_date)
@@ -2962,6 +2991,8 @@ def invoices_mark_paid():
             paid, lux_now().strftime("%Y-%m-%d") if paid else "",
         ))
         conn.commit(); conn.close()
+    if request.args.get("ajax") == "1":
+        return {"ok": True, "paid": bool(paid)}
     if next_url.startswith("/invoices"):
         return redirect(next_url)
     return redirect(f"/invoices?date_from={urllib.parse.quote(date_from)}&date_to={urllib.parse.quote(date_to)}&invoice_date={urllib.parse.quote(invoice_date)}")
@@ -2979,6 +3010,8 @@ def invoices_mark_sent():
             sent, lux_now().strftime("%Y-%m-%d") if sent else "", invoice_no,
         ))
         conn.commit(); conn.close()
+    if request.args.get("ajax") == "1":
+        return {"ok": True, "sent": bool(sent)}
     return redirect(request.referrer or "/invoices")
 
 
