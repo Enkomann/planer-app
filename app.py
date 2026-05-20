@@ -1607,11 +1607,42 @@ BASE_STYLE = """
 (function(){
     var scrollKey = "luxmann_scroll_y";
     var restoreKey = "luxmann_restore_scroll";
+    var shouldRestore = false;
+    var restoreY = 0;
+    try {
+        if ("scrollRestoration" in history) {
+            history.scrollRestoration = "manual";
+        }
+        shouldRestore = sessionStorage.getItem(restoreKey) === "1";
+        restoreY = parseInt(sessionStorage.getItem(scrollKey) || "0", 10) || 0;
+        if(shouldRestore){
+            document.documentElement.style.visibility = "hidden";
+            window.scrollTo(0, restoreY);
+        }
+    } catch(e) {}
     function rememberScroll(){
         try {
             sessionStorage.setItem(scrollKey, String(window.scrollY || window.pageYOffset || 0));
             sessionStorage.setItem(restoreKey, "1");
         } catch(e) {}
+    }
+    function restoreScroll(){
+        if(!shouldRestore){ return; }
+        try {
+            window.scrollTo(0, restoreY);
+            requestAnimationFrame(function(){
+                window.scrollTo(0, restoreY);
+                document.documentElement.style.visibility = "";
+                sessionStorage.removeItem(restoreKey);
+            });
+            window.setTimeout(function(){
+                window.scrollTo(0, restoreY);
+                document.documentElement.style.visibility = "";
+                sessionStorage.removeItem(restoreKey);
+            }, 120);
+        } catch(e) {
+            document.documentElement.style.visibility = "";
+        }
     }
     document.addEventListener("click", function(event){
         var link = event.target.closest ? event.target.closest("a") : null;
@@ -1627,14 +1658,11 @@ BASE_STYLE = """
         rememberScroll();
     }, true);
     document.addEventListener("submit", function(){ rememberScroll(); }, true);
-    document.addEventListener("DOMContentLoaded", function(){
-        try {
-            if(sessionStorage.getItem(restoreKey) !== "1"){ return; }
-            var y = parseInt(sessionStorage.getItem(scrollKey) || "0", 10);
-            sessionStorage.removeItem(restoreKey);
-            window.setTimeout(function(){ window.scrollTo(0, y); }, 80);
-        } catch(e) {}
-    });
+    if(document.readyState === "loading"){
+        document.addEventListener("DOMContentLoaded", restoreScroll);
+    } else {
+        restoreScroll();
+    }
 })();
 </script>
 """
