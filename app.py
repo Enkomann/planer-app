@@ -1,4 +1,4 @@
-from flask import Flask, request, redirect, render_template_string, session, send_file, url_for
+from flask import Flask, request, redirect, render_template_string, session, send_file, url_for, flash
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 import sqlite3
@@ -90,6 +90,7 @@ TRANSLATIONS = {
         "note": "Napomena", "add_absence": "Dodaj odsustvo", "active_absences": "Upisana odsustva",
         "monday": "Pon", "tuesday": "Uto", "wednesday": "Sri", "thursday": "Cet",
         "friday": "Pet", "saturday": "Sub", "sunday": "Ned", "cancel": "Odustani",
+        "duplicate_shift_warning": "Ova smjena sa istim radnicima, istim vremenom i istim klijentom vec postoji.",
     }
 }
 
@@ -105,6 +106,7 @@ TRANSLATIONS["fr"].update({
     "monthly_hours": "Heures mensuelles", "weekly_hours": "Heures hebdomadaires",
     "back": "Retour", "save": "Enregistrer", "delete": "Supprimer", "edit": "Modifier",
     "sick": "Maladie", "vacation": "Conge", "sick_vacation": "Maladie / Conge",
+    "duplicate_shift_warning": "Cette mission avec les memes employes, horaires et client existe deja.",
 })
 TRANSLATIONS["en"].update({
     "login_title": "Login", "login_btn": "Login", "logout": "Logout",
@@ -114,6 +116,7 @@ TRANSLATIONS["en"].update({
     "monthly_hours": "Monthly hours", "weekly_hours": "Weekly hours",
     "back": "Back", "save": "Save", "delete": "Delete", "edit": "Edit",
     "sick": "Sick leave", "vacation": "Vacation", "sick_vacation": "Sick leave / Vacation",
+    "duplicate_shift_warning": "This shift with the same workers, time and client already exists.",
 })
 TRANSLATIONS["de"].update({
     "login_title": "Anmeldung", "login_btn": "Anmelden", "logout": "Abmelden",
@@ -123,6 +126,7 @@ TRANSLATIONS["de"].update({
     "monthly_hours": "Monatsstunden", "weekly_hours": "Wochenstunden",
     "back": "Zuruck", "save": "Speichern", "delete": "Loschen", "edit": "Bearbeiten",
     "sick": "Krankheit", "vacation": "Urlaub", "sick_vacation": "Krankheit / Urlaub",
+    "duplicate_shift_warning": "Dieser Einsatz mit denselben Mitarbeitern, derselben Zeit und demselben Kunden existiert bereits.",
 })
 TRANSLATIONS["pt"].update({
     "login_title": "Entrar", "login_btn": "Entrar", "logout": "Sair",
@@ -132,6 +136,7 @@ TRANSLATIONS["pt"].update({
     "monthly_hours": "Horas mensais", "weekly_hours": "Horas semanais",
     "back": "Voltar", "save": "Guardar", "delete": "Apagar", "edit": "Editar",
     "sick": "Baixa medica", "vacation": "Ferias", "sick_vacation": "Baixa / Ferias",
+    "duplicate_shift_warning": "Este turno com os mesmos trabalhadores, horario e cliente ja existe.",
 })
 
 ROUTE_TRANSLATIONS = {
@@ -776,6 +781,22 @@ def join_workers(worker_list):
 
 def worker_in_shift(worker_name, worker_text):
     return worker_name in split_workers(worker_text)
+
+
+def worker_signature(worker_text):
+    return tuple(sorted(split_workers(worker_text)))
+
+
+def duplicate_shift_exists(conn, worker, client, date, time_range, exclude_id=None):
+    c = conn.cursor()
+    rows = c.execute("SELECT id, worker FROM shifts WHERE client = ? AND date = ? AND time = ?", (client, date, time_range)).fetchall()
+    target = worker_signature(worker)
+    for row_id, existing_worker in rows:
+        if exclude_id and int(row_id) == int(exclude_id):
+            continue
+        if worker_signature(existing_worker) == target:
+            return True
+    return False
 
 
 def replace_worker_in_shift(worker_text, old_name, new_name):
@@ -1601,6 +1622,9 @@ BASE_STYLE = """
     .stat-number { font-size:26px; font-weight:800; margin-top:6px; }
     .section-title { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:22px 0 12px; }
     .big-map-button { display:inline-block; padding:16px 26px; border-radius:14px; background:#16a34a; color:white !important; font-size:18px; font-weight:800; text-decoration:none; box-shadow:0 6px 18px rgba(0,0,0,0.18); }
+    .back-button { display:inline-flex; align-items:center; gap:7px; width:auto; padding:10px 14px; border-radius:999px; background:{{ '#e5e7eb' if dark else '#111827' }}; color:{{ '#111827' if dark else 'white' }} !important; box-shadow:0 4px 12px rgba(0,0,0,0.14); margin-right:14px; }
+    .back-button::before { content:'<'; font-weight:900; }
+    .flash-message { padding:12px 14px; border-radius:10px; margin:-6px 0 14px 0; background:#f59e0b; color:#111827; font-weight:800; box-shadow:0 4px 14px rgba(0,0,0,0.12); }
     @media (max-width: 900px) { .app-shell { grid-template-columns:1fr; } .sidebar { position:static; } body { margin:12px; } }
 </style>
 <script>
@@ -1682,6 +1706,11 @@ def header_html():
             </div>
         </div>
     </div>
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for message in messages %}<div class="flash-message">{{ message }}</div>{% endfor %}
+        {% endif %}
+    {% endwith %}
     """
 
 
@@ -2037,6 +2066,14 @@ def paste_shift(date):
     original_shift = c.execute("SELECT worker, client, time, status FROM shifts WHERE id = ?", (copied_id,)).fetchone()
     if original_shift:
         worker, client, time, status = original_shift
+        if duplicate_shift_exists(conn, worker, client, date, time):
+            conn.close()
+            flash(t()["duplicate_shift_warning"])
+            try:
+                d = datetime.strptime(date, "%Y-%m-%d")
+                return redirect(f"/month?year={d.year}&month={d.month}")
+            except Exception:
+                return redirect(request.referrer or "/month")
         c.execute("INSERT INTO shifts (worker, client, date, time, status) VALUES (?, ?, ?, ?, ?)", (worker, client, date, time, status))
         conn.commit()
     conn.close()
@@ -2079,6 +2116,10 @@ def move_shift():
         return ("Bad request", 400)
     conn = get_conn()
     c = conn.cursor()
+    existing = c.execute("SELECT worker, client, time FROM shifts WHERE id = ?", (shift_id,)).fetchone()
+    if existing and duplicate_shift_exists(conn, existing[0], existing[1], new_date, existing[2], exclude_id=shift_id):
+        conn.close()
+        return (t()["duplicate_shift_warning"], 409)
     c.execute("UPDATE shifts SET date = ? WHERE id = ?", (new_date, shift_id))
     conn.commit()
     conn.close()
@@ -2141,7 +2182,7 @@ def week_view():
     day_names = [tr["monday"], tr["tuesday"], tr["wednesday"], tr["thursday"], tr["friday"], tr["saturday"], tr["sunday"]]
 
     return render_template_string(BASE_STYLE + header_html() + """
-    <h1>{{ tr["week_calendar"] }}</h1><a href="/">{{ tr["back"] }}</a>
+    <h1>{{ tr["week_calendar"] }}</h1><a class="back-button" href="/">{{ tr["back"] }}</a>
     <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin:16px 0; flex-wrap:wrap;">
         <a href="/week?start={{ prev_week }}">{{ tr["prev_week"] }}</a><strong>{{ format_date(week_days[0]) }} - {{ format_date(week_days[-1]) }}</strong><a href="/week?start={{ next_week }}">{{ tr["next_week"] }}</a><a href="/week?start={{ current_week }}">{{ tr["current_week"] }}</a>
     </div>
@@ -2160,7 +2201,7 @@ def week_view():
     function openHolidayModal(dateStr){var m=document.getElementById('holidayModal');var d=document.getElementById('holidayDate');if(m&&d){d.value=dateStr;m.style.display='block';}}
     function closeHolidayModal(){var m=document.getElementById('holidayModal');if(m){m.style.display='none';}}
     function dragShift(ev, shiftId){ev.dataTransfer.setData('shift_id', shiftId);} function allowDrop(ev){ev.preventDefault();ev.currentTarget.classList.add('drop-target');} function clearDrop(ev){ev.currentTarget.classList.remove('drop-target');}
-    function dropShift(ev, dateStr){ev.preventDefault();ev.currentTarget.classList.remove('drop-target');var shiftId=ev.dataTransfer.getData('shift_id');if(!shiftId)return;fetch('/move_shift',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'shift_id='+encodeURIComponent(shiftId)+'&date='+encodeURIComponent(dateStr)}).then(function(){window.location.reload();});}
+    function dropShift(ev, dateStr){ev.preventDefault();ev.currentTarget.classList.remove('drop-target');var shiftId=ev.dataTransfer.getData('shift_id');if(!shiftId)return;fetch('/move_shift',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'shift_id='+encodeURIComponent(shiftId)+'&date='+encodeURIComponent(dateStr)}).then(function(resp){if(resp.status===409){return resp.text().then(function(msg){alert(msg);});}window.location.reload();});}
     </script>
     """, tr=tr, dark=dark, week_days=week_days, shifts=shifts, worker_colors=worker_colors, format_date=format_date, holidays_map=holidays_map, day_names=day_names, status_colors=STATUS_COLORS, get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers, is_weekend=is_weekend, is_admin=is_admin, prev_week=prev_week, next_week=next_week, current_week=current_week)
 
@@ -2182,7 +2223,7 @@ def month_view():
     shifts_by_date = {}; [shifts_by_date.setdefault(s[3], []).append(s) for s in shifts]
     day_names = [tr["monday"], tr["tuesday"], tr["wednesday"], tr["thursday"], tr["friday"], tr["saturday"], tr["sunday"]]
     return render_template_string(BASE_STYLE + header_html() + """
-    <div><a href="/">{{ tr["back"] }}</a><a href="/week">{{ tr["week_calendar"] }}</a><a href="/month_pdf?year={{ year }}&month={{ month }}" target="_blank">{{ tr["month_pdf"] }}</a></div>
+    <div><a class="back-button" href="/">{{ tr["back"] }}</a><a href="/week">{{ tr["week_calendar"] }}</a><a href="/month_pdf?year={{ year }}&month={{ month }}" target="_blank">{{ tr["month_pdf"] }}</a></div>
     {% if is_admin and copied_shift_id %}<div style="background:#16a34a;color:white;padding:8px 12px;border-radius:8px;display:inline-block;margin:10px 0;font-weight:bold;">{{ tr["copy_active"] }} <a style="color:white;" href="/clear_copy">{{ tr["clear"] }}</a></div>{% endif %}
     <div style="display:flex; justify-content:space-between; align-items:center; margin:16px 0; gap:12px;"><a href="/month?year={{ prev_year }}&month={{ prev_month }}">{{ tr["prev_month"] }}</a><h2>{{ tr["month_calendar"] }} - {{ format_month_year(year, month) }}</h2><a href="/month?year={{ next_year }}&month={{ next_month }}">{{ tr["next_month"] }}</a></div>
     <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:10px;">
@@ -2199,7 +2240,7 @@ def month_view():
     <script>
     function openHolidayModal(dateStr){var m=document.getElementById('holidayModal');var d=document.getElementById('holidayDate');if(m&&d){d.value=dateStr;m.style.display='block';}} function closeHolidayModal(){var m=document.getElementById('holidayModal');if(m){m.style.display='none';}}
     function dragShift(ev, shiftId){ev.dataTransfer.setData('shift_id', shiftId);} function allowDrop(ev){ev.preventDefault();ev.currentTarget.classList.add('drop-target');} function clearDrop(ev){ev.currentTarget.classList.remove('drop-target');}
-    function dropShift(ev, dateStr){ev.preventDefault();ev.currentTarget.classList.remove('drop-target');var shiftId=ev.dataTransfer.getData('shift_id');if(!shiftId)return;fetch('/move_shift',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'shift_id='+encodeURIComponent(shiftId)+'&date='+encodeURIComponent(dateStr)}).then(function(){window.location.reload();});}
+    function dropShift(ev, dateStr){ev.preventDefault();ev.currentTarget.classList.remove('drop-target');var shiftId=ev.dataTransfer.getData('shift_id');if(!shiftId)return;fetch('/move_shift',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'shift_id='+encodeURIComponent(shiftId)+'&date='+encodeURIComponent(dateStr)}).then(function(resp){if(resp.status===409){return resp.text().then(function(msg){alert(msg);});}window.location.reload();});}
     document.addEventListener('DOMContentLoaded', function(){
     document.querySelectorAll('a.delete-link').forEach(function(link){
         link.addEventListener('click', function(e){
@@ -2294,7 +2335,7 @@ def route_optimizer():
 
     return render_template_string(BASE_STYLE + header_html() + """
     <h1>{{ tr["route_title"] }}</h1>
-    <a href="/">{{ tr["back"] }}</a>
+    <a class="back-button" href="/">{{ tr["back"] }}</a>
     <div class="card" style="margin-top:16px; max-width:900px;">
         <p class="muted">{{ tr["route_desc"] }}</p>
         <form method="post">
@@ -2406,7 +2447,7 @@ def invoices():
                 <input id="invoiceDashboardSearch" name="q" value="{{ request.args.get('q', '') }}" placeholder="{{ tr['search_client'] }}, adresse ou numero">
                 <button>{{ tr["filter_btn"] }}</button>
             </form>
-            <a href="/" style="color:white;">{{ tr["back"] }}</a>
+            <a class="back-button" href="/">{{ tr["back"] }}</a>
         </div>
 
         <div class="invoice-panel">
@@ -2791,7 +2832,7 @@ def invoices_export_options():
             <datalist id="invoiceExportClients">{% for p in profiles %}<option value="{{ p.client }}"></option>{% endfor %}</datalist>
             <button>{{ tr["download_all_invoices"] if export_type == 'all' else title }}</button>
         </form>
-        <br><a href="/invoices">{{ tr["back"] }}</a>
+        <br><a class="back-button" href="/invoices">{{ tr["back"] }}</a>
     </div>
     """, tr=tr, dark=dark, title=title, action=action, export_type=export_type, profiles=profiles, default_from=default_from, default_to=default_to)
 
@@ -2881,7 +2922,7 @@ def invoices_quote():
             <textarea name="quote_text" style="width:100%;min-height:150px;" required>Entretien et nettoyage de la maison.</textarea>
             <button>{{ tr["generate_quote"] }}</button>
         </form>
-        <br><a href="/invoices">{{ tr["back"] }}</a>
+        <br><a class="back-button" href="/invoices">{{ tr["back"] }}</a>
     </div>
     <script>
     var quoteProfiles = {{ profiles_json|safe }};
@@ -3175,7 +3216,7 @@ def edit_worker(name):
         conn.commit(); conn.close(); return redirect("/")
     worker = c.execute("SELECT name, address, contract_type, contract_end_date FROM workers WHERE name = ?", (name,)).fetchone(); conn.close()
     if not worker: return redirect("/")
-    return render_template_string(BASE_STYLE + """<div class="card" style="max-width:500px;margin:auto;"><h2>{{ tr["workers"] }} - {{ tr["edit"] }}</h2><form method="post"><input name="name" value="{{ worker[0] }}" required><input name="address" value="{{ worker[1] }}" placeholder="{{ tr['address'] }}"><input name="contract_type" value="{{ worker[2] }}" placeholder="{{ tr['contract_type'] }}"><label>{{ tr["contract_end_date"] }}</label><input type="date" name="contract_end_date" value="{{ worker[3] }}"><button>{{ tr["save"] }}</button></form><br><a href="/">{{ tr["back"] }}</a></div>""", tr=tr, worker=worker, dark=dark)
+    return render_template_string(BASE_STYLE + """<div class="card" style="max-width:500px;margin:auto;"><h2>{{ tr["workers"] }} - {{ tr["edit"] }}</h2><form method="post"><input name="name" value="{{ worker[0] }}" required><input name="address" value="{{ worker[1] }}" placeholder="{{ tr['address'] }}"><input name="contract_type" value="{{ worker[2] }}" placeholder="{{ tr['contract_type'] }}"><label>{{ tr["contract_end_date"] }}</label><input type="date" name="contract_end_date" value="{{ worker[3] }}"><button>{{ tr["save"] }}</button></form><br><a class="back-button" href="/">{{ tr["back"] }}</a></div>""", tr=tr, worker=worker, dark=dark)
 
 @app.route("/edit_client/<path:name>", methods=["GET", "POST"])
 def edit_client(name):
@@ -3187,7 +3228,7 @@ def edit_client(name):
         conn.commit(); conn.close(); return redirect("/")
     client = c.execute("SELECT name, address FROM clients WHERE name = ?", (name,)).fetchone(); conn.close()
     if not client: return redirect("/")
-    return render_template_string(BASE_STYLE + """<div class="card" style="max-width:500px;margin:auto;"><h2>{{ tr["clients"] }} - {{ tr["edit"] }}</h2><form method="post"><input name="name" value="{{ client[0] }}" required><input name="address" value="{{ client[1] }}" placeholder="{{ tr['address'] }}" required><button>{{ tr["save"] }}</button></form><br><a href="/">{{ tr["back"] }}</a></div>""", tr=tr, client=client, dark=dark)
+    return render_template_string(BASE_STYLE + """<div class="card" style="max-width:500px;margin:auto;"><h2>{{ tr["clients"] }} - {{ tr["edit"] }}</h2><form method="post"><input name="name" value="{{ client[0] }}" required><input name="address" value="{{ client[1] }}" placeholder="{{ tr['address'] }}" required><button>{{ tr["save"] }}</button></form><br><a class="back-button" href="/">{{ tr["back"] }}</a></div>""", tr=tr, client=client, dark=dark)
 
 @app.route("/edit_shift/<int:id>", methods=["GET", "POST"])
 def edit_shift(id):
@@ -3195,12 +3236,17 @@ def edit_shift(id):
     tr = t(); dark = get_theme() == "dark"; conn = get_conn(); c = conn.cursor()
     if request.method == "POST":
         worker = join_workers(request.form.getlist("workers")); client = request.form["client"].strip(); date = request.form["date"].strip(); start_time = f"{request.form['start_hour']}:{request.form['start_minute']}"; end_time = f"{request.form['end_hour']}:{request.form['end_minute']}"; status = request.form["status"].strip()
-        if worker: c.execute("UPDATE shifts SET worker = ?, client = ?, date = ?, time = ?, status = ? WHERE id = ?", (worker, client, date, f"{start_time}-{end_time}", status, id)); conn.commit()
+        time_range = f"{start_time}-{end_time}"
+        if worker and duplicate_shift_exists(conn, worker, client, date, time_range, exclude_id=id):
+            conn.close()
+            flash(tr["duplicate_shift_warning"])
+            return redirect(request.referrer or f"/edit_shift/{id}")
+        if worker: c.execute("UPDATE shifts SET worker = ?, client = ?, date = ?, time = ?, status = ? WHERE id = ?", (worker, client, date, time_range, status, id)); conn.commit()
         conn.close(); return redirect("/")
     shift = c.execute("SELECT * FROM shifts WHERE id = ?", (id,)).fetchone(); workers = c.execute("SELECT name, address FROM workers ORDER BY name").fetchall(); clients = c.execute("SELECT name, address FROM clients ORDER BY name").fetchall(); conn.close()
     if not shift: return redirect("/")
     start_time, end_time = split_time_range(shift[4]); sh, sm = split_hour_min(start_time); eh, em = split_hour_min(end_time); selected_workers = split_workers(shift[1])
-    return render_template_string(BASE_STYLE + """<div class="card" style="max-width:520px;margin:auto;"><h2>{{ tr["edit_shift"] }}</h2><form method="post"><label>{{ tr["choose_worker"] }}</label>{% for w in workers %}{% if w[0] != 'admin' %}<label class="check-row"><input type="checkbox" name="workers" value="{{ w[0] }}" {% if w[0] in selected_workers %}checked{% endif %}>{{ w[0] }}</label>{% endif %}{% endfor %}<select name="client" required>{% for c in clients %}<option value="{{ c[0] }}" {% if c[0] == shift[2] %}selected{% endif %}>{{ c[0] }}</option>{% endfor %}</select><input type="date" name="date" value="{{ shift[3] }}" required><label>{{ tr["start_time"] }}</label><div style="display:flex;gap:6px;"><select name="start_hour">{% for h in time_hours %}<option value="{{ h }}" {% if h == sh %}selected{% endif %}>{{ h }}</option>{% endfor %}</select><select name="start_minute">{% for m in time_minutes %}<option value="{{ m }}" {% if m == sm %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></div><label>{{ tr["end_time"] }}</label><div style="display:flex;gap:6px;"><select name="end_hour">{% for h in time_hours %}<option value="{{ h }}" {% if h == eh %}selected{% endif %}>{{ h }}</option>{% endfor %}</select><select name="end_minute">{% for m in time_minutes %}<option value="{{ m }}" {% if m == em %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></div><select name="status"><option value="planned" {% if shift[5] == 'planned' %}selected{% endif %}>{{ tr["status_planned"] }}</option><option value="in_progress" {% if shift[5] == 'in_progress' %}selected{% endif %}>{{ tr["status_in_progress"] }}</option><option value="done" {% if shift[5] == 'done' %}selected{% endif %}>{{ tr["status_done"] }}</option></select><button>{{ tr["save"] }}</button></form><br><a href="/">{{ tr["back"] }}</a></div>""", tr=tr, dark=dark, shift=shift, workers=workers, clients=clients, selected_workers=selected_workers, sh=sh, sm=sm, eh=eh, em=em, time_hours=time_hours(), time_minutes=time_minutes())
+    return render_template_string(BASE_STYLE + """<div class="card" style="max-width:520px;margin:auto;"><h2>{{ tr["edit_shift"] }}</h2><form method="post"><label>{{ tr["choose_worker"] }}</label>{% for w in workers %}{% if w[0] != 'admin' %}<label class="check-row"><input type="checkbox" name="workers" value="{{ w[0] }}" {% if w[0] in selected_workers %}checked{% endif %}>{{ w[0] }}</label>{% endif %}{% endfor %}<select name="client" required>{% for c in clients %}<option value="{{ c[0] }}" {% if c[0] == shift[2] %}selected{% endif %}>{{ c[0] }}</option>{% endfor %}</select><input type="date" name="date" value="{{ shift[3] }}" required><label>{{ tr["start_time"] }}</label><div style="display:flex;gap:6px;"><select name="start_hour">{% for h in time_hours %}<option value="{{ h }}" {% if h == sh %}selected{% endif %}>{{ h }}</option>{% endfor %}</select><select name="start_minute">{% for m in time_minutes %}<option value="{{ m }}" {% if m == sm %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></div><label>{{ tr["end_time"] }}</label><div style="display:flex;gap:6px;"><select name="end_hour">{% for h in time_hours %}<option value="{{ h }}" {% if h == eh %}selected{% endif %}>{{ h }}</option>{% endfor %}</select><select name="end_minute">{% for m in time_minutes %}<option value="{{ m }}" {% if m == em %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></div><select name="status"><option value="planned" {% if shift[5] == 'planned' %}selected{% endif %}>{{ tr["status_planned"] }}</option><option value="in_progress" {% if shift[5] == 'in_progress' %}selected{% endif %}>{{ tr["status_in_progress"] }}</option><option value="done" {% if shift[5] == 'done' %}selected{% endif %}>{{ tr["status_done"] }}</option></select><button>{{ tr["save"] }}</button></form><br><a class="back-button" href="/">{{ tr["back"] }}</a></div>""", tr=tr, dark=dark, shift=shift, workers=workers, clients=clients, selected_workers=selected_workers, sh=sh, sm=sm, eh=eh, em=em, time_hours=time_hours(), time_minutes=time_minutes())
 
 @app.route("/add_worker", methods=["POST"])
 def add_worker():
@@ -3223,8 +3269,14 @@ def add_shift():
     if "user" not in session or session.get("role") != "admin": return redirect("/")
     worker = join_workers(request.form.getlist("workers")); client = request.form["client"].strip(); date = request.form["date"].strip(); start_time = f"{request.form['start_hour']}:{request.form['start_minute']}"; end_time = f"{request.form['end_hour']}:{request.form['end_minute']}"; status = request.form["status"].strip()
     if worker and client and date:
-        conn = get_conn(); c = conn.cursor(); c.execute("INSERT INTO shifts (worker, client, date, time, status) VALUES (?, ?, ?, ?, ?)", (worker, client, date, f"{start_time}-{end_time}", status)); conn.commit(); conn.close()
-    return redirect("/")
+        time_range = f"{start_time}-{end_time}"
+        conn = get_conn(); c = conn.cursor()
+        if duplicate_shift_exists(conn, worker, client, date, time_range):
+            conn.close()
+            flash(t()["duplicate_shift_warning"])
+            return redirect(request.referrer or "/")
+        c.execute("INSERT INTO shifts (worker, client, date, time, status) VALUES (?, ?, ?, ?, ?)", (worker, client, date, time_range, status)); conn.commit(); conn.close()
+    return redirect(request.referrer or "/")
 
 
 if __name__ == "__main__":
