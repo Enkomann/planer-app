@@ -1624,7 +1624,11 @@ BASE_STYLE = """
     .big-map-button { display:inline-block; padding:16px 26px; border-radius:14px; background:#16a34a; color:white !important; font-size:18px; font-weight:800; text-decoration:none; box-shadow:0 6px 18px rgba(0,0,0,0.18); }
     .back-button { display:inline-flex; align-items:center; gap:7px; width:auto; padding:10px 14px; border-radius:999px; background:{{ '#e5e7eb' if dark else '#111827' }}; color:{{ '#111827' if dark else 'white' }} !important; box-shadow:0 4px 12px rgba(0,0,0,0.14); margin-right:14px; }
     .back-button::before { content:'<'; font-weight:900; }
-    .flash-message { padding:12px 14px; border-radius:10px; margin:-6px 0 14px 0; background:#f59e0b; color:#111827; font-weight:800; box-shadow:0 4px 14px rgba(0,0,0,0.12); }
+    .alert-backdrop { display:none; position:fixed; inset:0; z-index:100; background:rgba(15,23,42,0.55); align-items:center; justify-content:center; padding:20px; }
+    .alert-dialog { width:min(460px, 94vw); background:{{ '#111827' if dark else 'white' }}; color:{{ '#e5e7eb' if dark else '#111827' }}; border-radius:16px; padding:22px; box-shadow:0 20px 50px rgba(0,0,0,0.35); border-top:6px solid #f59e0b; }
+    .alert-dialog h3 { margin:0 0 10px 0; }
+    .alert-dialog p { margin:0 0 18px 0; line-height:1.45; }
+    .alert-dialog button { width:auto; min-width:110px; float:right; }
     @media (max-width: 900px) { .app-shell { grid-template-columns:1fr; } .sidebar { position:static; } body { margin:12px; } }
 </style>
 <script>
@@ -1649,6 +1653,19 @@ BASE_STYLE = """
             sessionStorage.setItem(restoreKey, "1");
         } catch(e) {}
     }
+    window.showPlannerAlert = function(message){
+        var backdrop = document.getElementById("plannerAlertBackdrop");
+        var text = document.getElementById("plannerAlertText");
+        if(!backdrop || !text){ alert(message); return; }
+        text.textContent = message || "";
+        backdrop.style.display = "flex";
+        var btn = document.getElementById("plannerAlertOk");
+        if(btn){ btn.focus(); }
+    };
+    window.closePlannerAlert = function(){
+        var backdrop = document.getElementById("plannerAlertBackdrop");
+        if(backdrop){ backdrop.style.display = "none"; }
+    };
     function restoreScroll(){
         if(!shouldRestore){ return; }
         try {
@@ -1682,6 +1699,16 @@ BASE_STYLE = """
     } else {
         restoreScroll();
     }
+    document.addEventListener("DOMContentLoaded", function(){
+        var params = new URLSearchParams(window.location.search);
+        var message = params.get("notice");
+        if(message){
+            window.showPlannerAlert(message);
+            params.delete("notice");
+            var cleanUrl = window.location.pathname + (params.toString() ? "?" + params.toString() : "") + window.location.hash;
+            window.history.replaceState({}, "", cleanUrl);
+        }
+    });
 })();
 </script>
 """
@@ -1706,11 +1733,14 @@ def header_html():
             </div>
         </div>
     </div>
-    {% with messages = get_flashed_messages() %}
-        {% if messages %}
-            {% for message in messages %}<div class="flash-message">{{ message }}</div>{% endfor %}
-        {% endif %}
-    {% endwith %}
+    <div id="plannerAlertBackdrop" class="alert-backdrop" onclick="if(event.target===this)closePlannerAlert();">
+        <div class="alert-dialog" role="dialog" aria-modal="true">
+            <h3>{{ tr["status"] }}</h3>
+            <p id="plannerAlertText"></p>
+            <button id="plannerAlertOk" type="button" onclick="closePlannerAlert()">OK</button>
+            <div style="clear:both;"></div>
+        </div>
+    </div>
     """
 
 
@@ -2068,12 +2098,12 @@ def paste_shift(date):
         worker, client, time, status = original_shift
         if duplicate_shift_exists(conn, worker, client, date, time):
             conn.close()
-            flash(t()["duplicate_shift_warning"])
+            notice = urllib.parse.quote(t()["duplicate_shift_warning"])
             try:
                 d = datetime.strptime(date, "%Y-%m-%d")
-                return redirect(f"/month?year={d.year}&month={d.month}")
+                return redirect(f"/month?year={d.year}&month={d.month}&notice={notice}")
             except Exception:
-                return redirect(request.referrer or "/month")
+                return redirect((request.referrer or "/month") + ("&" if "?" in (request.referrer or "/month") else "?") + f"notice={notice}")
         c.execute("INSERT INTO shifts (worker, client, date, time, status) VALUES (?, ?, ?, ?, ?)", (worker, client, date, time, status))
         conn.commit()
     conn.close()
@@ -2201,7 +2231,7 @@ def week_view():
     function openHolidayModal(dateStr){var m=document.getElementById('holidayModal');var d=document.getElementById('holidayDate');if(m&&d){d.value=dateStr;m.style.display='block';}}
     function closeHolidayModal(){var m=document.getElementById('holidayModal');if(m){m.style.display='none';}}
     function dragShift(ev, shiftId){ev.dataTransfer.setData('shift_id', shiftId);} function allowDrop(ev){ev.preventDefault();ev.currentTarget.classList.add('drop-target');} function clearDrop(ev){ev.currentTarget.classList.remove('drop-target');}
-    function dropShift(ev, dateStr){ev.preventDefault();ev.currentTarget.classList.remove('drop-target');var shiftId=ev.dataTransfer.getData('shift_id');if(!shiftId)return;fetch('/move_shift',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'shift_id='+encodeURIComponent(shiftId)+'&date='+encodeURIComponent(dateStr)}).then(function(resp){if(resp.status===409){return resp.text().then(function(msg){alert(msg);});}window.location.reload();});}
+    function dropShift(ev, dateStr){ev.preventDefault();ev.currentTarget.classList.remove('drop-target');var shiftId=ev.dataTransfer.getData('shift_id');if(!shiftId)return;fetch('/move_shift',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'shift_id='+encodeURIComponent(shiftId)+'&date='+encodeURIComponent(dateStr)}).then(function(resp){if(resp.status===409){return resp.text().then(function(msg){showPlannerAlert(msg);});}window.location.reload();});}
     </script>
     """, tr=tr, dark=dark, week_days=week_days, shifts=shifts, worker_colors=worker_colors, format_date=format_date, holidays_map=holidays_map, day_names=day_names, status_colors=STATUS_COLORS, get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers, is_weekend=is_weekend, is_admin=is_admin, prev_week=prev_week, next_week=next_week, current_week=current_week)
 
@@ -2240,7 +2270,7 @@ def month_view():
     <script>
     function openHolidayModal(dateStr){var m=document.getElementById('holidayModal');var d=document.getElementById('holidayDate');if(m&&d){d.value=dateStr;m.style.display='block';}} function closeHolidayModal(){var m=document.getElementById('holidayModal');if(m){m.style.display='none';}}
     function dragShift(ev, shiftId){ev.dataTransfer.setData('shift_id', shiftId);} function allowDrop(ev){ev.preventDefault();ev.currentTarget.classList.add('drop-target');} function clearDrop(ev){ev.currentTarget.classList.remove('drop-target');}
-    function dropShift(ev, dateStr){ev.preventDefault();ev.currentTarget.classList.remove('drop-target');var shiftId=ev.dataTransfer.getData('shift_id');if(!shiftId)return;fetch('/move_shift',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'shift_id='+encodeURIComponent(shiftId)+'&date='+encodeURIComponent(dateStr)}).then(function(resp){if(resp.status===409){return resp.text().then(function(msg){alert(msg);});}window.location.reload();});}
+    function dropShift(ev, dateStr){ev.preventDefault();ev.currentTarget.classList.remove('drop-target');var shiftId=ev.dataTransfer.getData('shift_id');if(!shiftId)return;fetch('/move_shift',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'shift_id='+encodeURIComponent(shiftId)+'&date='+encodeURIComponent(dateStr)}).then(function(resp){if(resp.status===409){return resp.text().then(function(msg){showPlannerAlert(msg);});}window.location.reload();});}
     document.addEventListener('DOMContentLoaded', function(){
     document.querySelectorAll('a.delete-link').forEach(function(link){
         link.addEventListener('click', function(e){
@@ -3239,8 +3269,9 @@ def edit_shift(id):
         time_range = f"{start_time}-{end_time}"
         if worker and duplicate_shift_exists(conn, worker, client, date, time_range, exclude_id=id):
             conn.close()
-            flash(tr["duplicate_shift_warning"])
-            return redirect(request.referrer or f"/edit_shift/{id}")
+            notice = urllib.parse.quote(tr["duplicate_shift_warning"])
+            ref = request.referrer or f"/edit_shift/{id}"
+            return redirect(ref + ("&" if "?" in ref else "?") + f"notice={notice}")
         if worker: c.execute("UPDATE shifts SET worker = ?, client = ?, date = ?, time = ?, status = ? WHERE id = ?", (worker, client, date, time_range, status, id)); conn.commit()
         conn.close(); return redirect("/")
     shift = c.execute("SELECT * FROM shifts WHERE id = ?", (id,)).fetchone(); workers = c.execute("SELECT name, address FROM workers ORDER BY name").fetchall(); clients = c.execute("SELECT name, address FROM clients ORDER BY name").fetchall(); conn.close()
@@ -3273,8 +3304,9 @@ def add_shift():
         conn = get_conn(); c = conn.cursor()
         if duplicate_shift_exists(conn, worker, client, date, time_range):
             conn.close()
-            flash(t()["duplicate_shift_warning"])
-            return redirect(request.referrer or "/")
+            notice = urllib.parse.quote(t()["duplicate_shift_warning"])
+            ref = request.referrer or "/"
+            return redirect(ref + ("&" if "?" in ref else "?") + f"notice={notice}")
         c.execute("INSERT INTO shifts (worker, client, date, time, status) VALUES (?, ?, ?, ?, ?)", (worker, client, date, time_range, status)); conn.commit(); conn.close()
     return redirect(request.referrer or "/")
 
