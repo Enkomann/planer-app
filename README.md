@@ -26,6 +26,7 @@ Set these in Render before deploying:
 - `DATABASE_URL`: Render PostgreSQL internal database URL
 - `ORS_API_KEY`: OpenRouteService key for route optimization
 - `DOCUMENT_STORAGE_DIR` is optional. By default uploaded documents are stored in `storage/documents`.
+- `MAX_UPLOAD_MB` is optional. Folder/document upload requests default to 600 MB; split very large folders into smaller batches when needed.
 
 The `render.yaml` blueprint attaches a 10 GB persistent disk at:
 

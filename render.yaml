@@ -11,6 +11,8 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.7
+      - key: MAX_UPLOAD_MB
+        value: 600
       - key: SECRET_KEY
         generateValue: true
       - key: DATABASE_URL

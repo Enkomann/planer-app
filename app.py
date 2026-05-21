@@ -1,5 +1,6 @@
 from flask import Flask, request, redirect, render_template_string, session, send_file, url_for, flash
 from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 import sqlite3
@@ -45,7 +46,7 @@ app.config.update(
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=bool(os.environ.get("RENDER") or os.environ.get("SESSION_COOKIE_SECURE") == "1"),
 )
-app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_UPLOAD_MB", "200")) * 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_UPLOAD_MB", "600")) * 1024 * 1024
 
 DOCUMENT_ROOT = os.path.abspath(os.environ.get("DOCUMENT_STORAGE_DIR", os.path.join("storage", "documents")))
 DOCUMENT_EXTENSIONS = {"pdf", "png", "jpg", "jpeg", "webp", "doc", "docx", "xls", "xlsx", "csv", "txt"}
@@ -432,6 +433,7 @@ DOCUMENT_TRANSLATIONS = {
         "single_document": "Pojedinacni dokument", "upload_documents": "Dodaj dokumente",
         "multiple_documents": "Vise dokumenata", "folder_documents": "Cijela fascikla",
         "documents_uploaded": "Dokumenata dodato", "documents_skipped": "Preskoceno",
+        "upload_too_large": "Upload je prevelik. Izaberi manju fasciklu ili je podijeli u vise uploada.",
     },
     "en": {
         "documents": "Documents", "upload_document": "Upload document", "document_name": "Document name",
@@ -449,6 +451,7 @@ DOCUMENT_TRANSLATIONS = {
         "single_document": "Single document", "upload_documents": "Upload documents",
         "multiple_documents": "Multiple documents", "folder_documents": "Whole folder",
         "documents_uploaded": "Documents uploaded", "documents_skipped": "Skipped",
+        "upload_too_large": "Upload is too large. Choose a smaller folder or split it into several uploads.",
     },
     "fr": {
         "documents": "Documents", "upload_document": "Ajouter document", "document_name": "Nom du document",
@@ -466,6 +469,7 @@ DOCUMENT_TRANSLATIONS = {
         "single_document": "Document individuel", "upload_documents": "Ajouter documents",
         "multiple_documents": "Plusieurs documents", "folder_documents": "Dossier complet",
         "documents_uploaded": "Documents ajoutes", "documents_skipped": "Ignores",
+        "upload_too_large": "Upload trop volumineux. Choisissez un dossier plus petit ou divisez l'envoi.",
     },
     "de": {
         "documents": "Dokumente", "upload_document": "Dokument hochladen", "document_name": "Dokumentname",
@@ -483,6 +487,7 @@ DOCUMENT_TRANSLATIONS = {
         "single_document": "Ein Dokument", "upload_documents": "Dokumente hochladen",
         "multiple_documents": "Mehrere Dokumente", "folder_documents": "Ganzer Ordner",
         "documents_uploaded": "Dokumente hochgeladen", "documents_skipped": "Uebersprungen",
+        "upload_too_large": "Upload zu gross. Waehlen Sie einen kleineren Ordner oder teilen Sie ihn auf.",
     },
     "pt": {
         "documents": "Documentos", "upload_document": "Carregar documento", "document_name": "Nome do documento",
@@ -500,6 +505,7 @@ DOCUMENT_TRANSLATIONS = {
         "single_document": "Documento individual", "upload_documents": "Carregar documentos",
         "multiple_documents": "Varios documentos", "folder_documents": "Pasta completa",
         "documents_uploaded": "Documentos carregados", "documents_skipped": "Ignorados",
+        "upload_too_large": "Upload demasiado grande. Escolha uma pasta menor ou divida o envio.",
     },
 }
 for _lang, _values in DOCUMENT_TRANSLATIONS.items():
@@ -2008,6 +2014,14 @@ def header_html():
         </div>
     </div>
     """
+
+
+@app.errorhandler(RequestEntityTooLarge)
+def upload_too_large(_error):
+    tr = t()
+    if request.path.startswith("/documents/"):
+        return redirect("/documents?notice=" + urllib.parse.quote(tr["upload_too_large"]))
+    return tr["upload_too_large"], 413
 
 
 @app.route("/set_lang/<lang>")
