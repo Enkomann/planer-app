@@ -4,6 +4,10 @@ services:
     runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app
+    disk:
+      name: planner-documents
+      mountPath: /opt/render/project/src/storage
+      sizeGB: 10
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.7

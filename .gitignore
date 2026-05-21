@@ -9,3 +9,4 @@ venv/
 instance/
 *.bak
 backup-*/
+storage/

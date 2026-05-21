@@ -25,6 +25,15 @@ Set these in Render before deploying:
 - `SECRET_KEY`: long random secret used for Flask sessions
 - `DATABASE_URL`: Render PostgreSQL internal database URL
 - `ORS_API_KEY`: OpenRouteService key for route optimization
+- `DOCUMENT_STORAGE_DIR` is optional. By default uploaded documents are stored in `storage/documents`.
+
+The `render.yaml` blueprint attaches a 10 GB persistent disk at:
+
+```text
+/opt/render/project/src/storage
+```
+
+Only upload business documents after the disk is attached on Render. Otherwise files written to the normal web-service filesystem are not persistent across deploys and restarts.
 
 Render start command:
 

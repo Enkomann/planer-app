@@ -1,10 +1,12 @@
 from flask import Flask, request, redirect, render_template_string, session, send_file, url_for, flash
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.utils import secure_filename
 import sqlite3
 import re
 import io
 import os
+import secrets
 import calendar
 import json
 import math
@@ -43,6 +45,12 @@ app.config.update(
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=bool(os.environ.get("RENDER") or os.environ.get("SESSION_COOKIE_SECURE") == "1"),
 )
+app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_UPLOAD_MB", "25")) * 1024 * 1024
+
+DOCUMENT_ROOT = os.path.abspath(os.environ.get("DOCUMENT_STORAGE_DIR", os.path.join("storage", "documents")))
+DOCUMENT_EXTENSIONS = {"pdf", "png", "jpg", "jpeg", "webp", "doc", "docx", "xls", "xlsx", "csv", "txt"}
+DOCUMENT_INLINE_MIME_PREFIXES = ("application/pdf", "image/")
+os.makedirs(DOCUMENT_ROOT, exist_ok=True)
 
 DEFAULT_WORKER_COLORS = {"admin": "#1f4f82", "worker1": "#16a34a"}
 STATUS_COLORS = {
@@ -406,6 +414,81 @@ TRANSLATIONS["pt"].update({
     "contract_reminders": "Lembretes de contrato", "contract_expired": "Contrato expirado",
     "contract_expires_soon": "Contrato termina em breve", "worked_hours": "Horas trabalhadas",
 })
+
+DOCUMENT_TRANSLATIONS = {
+    "bos": {
+        "documents": "Dokumenti", "upload_document": "Dodaj dokument", "document_name": "Naziv dokumenta",
+        "document_file": "Datoteka", "document_category": "Kategorija", "document_note": "Napomena",
+        "document_accounting": "Racunovodstvo", "document_clients": "Klijenti", "document_workers": "Radnici",
+        "document_contracts": "Ugovori", "document_invoices": "Fakture", "document_other": "Ostalo",
+        "uploaded_at": "Dodato", "file_size": "Velicina", "preview": "Pregledaj", "download": "Preuzmi",
+        "share_link": "Link za dijeljenje", "create_share_link": "Kreiraj link", "shared_links": "Aktivni linkovi",
+        "expires_in": "Istice za", "expires_never": "Bez isteka", "expires_days": "dana",
+        "revoke_link": "Ukini link", "document_search": "Pretrazi dokumente", "all_categories": "Sve kategorije",
+        "document_missing": "Dokument nije dostupan.", "share_expired": "Ovaj link je istekao ili je ukinut.",
+        "accountant_access": "Pristup preko ovog linka vazi samo za ovaj dokument.",
+        "file_type_error": "Dozvoljeni su PDF, slike, Word, Excel, CSV i TXT dokumenti.",
+        "document_upload_error": "Izaberi datoteku za upload.", "open_document": "Otvori dokument",
+    },
+    "en": {
+        "documents": "Documents", "upload_document": "Upload document", "document_name": "Document name",
+        "document_file": "File", "document_category": "Category", "document_note": "Note",
+        "document_accounting": "Accounting", "document_clients": "Clients", "document_workers": "Workers",
+        "document_contracts": "Contracts", "document_invoices": "Invoices", "document_other": "Other",
+        "uploaded_at": "Uploaded", "file_size": "Size", "preview": "Preview", "download": "Download",
+        "share_link": "Share link", "create_share_link": "Create link", "shared_links": "Active links",
+        "expires_in": "Expires in", "expires_never": "No expiry", "expires_days": "days",
+        "revoke_link": "Revoke link", "document_search": "Search documents", "all_categories": "All categories",
+        "document_missing": "Document is not available.", "share_expired": "This link expired or was revoked.",
+        "accountant_access": "This link grants access only to this document.",
+        "file_type_error": "PDF, image, Word, Excel, CSV and TXT documents are allowed.",
+        "document_upload_error": "Choose a file to upload.", "open_document": "Open document",
+    },
+    "fr": {
+        "documents": "Documents", "upload_document": "Ajouter document", "document_name": "Nom du document",
+        "document_file": "Fichier", "document_category": "Categorie", "document_note": "Note",
+        "document_accounting": "Comptabilite", "document_clients": "Clients", "document_workers": "Employes",
+        "document_contracts": "Contrats", "document_invoices": "Factures", "document_other": "Autre",
+        "uploaded_at": "Ajoute", "file_size": "Taille", "preview": "Apercu", "download": "Telecharger",
+        "share_link": "Lien de partage", "create_share_link": "Creer lien", "shared_links": "Liens actifs",
+        "expires_in": "Expire dans", "expires_never": "Sans expiration", "expires_days": "jours",
+        "revoke_link": "Revoquer lien", "document_search": "Rechercher documents", "all_categories": "Toutes categories",
+        "document_missing": "Document indisponible.", "share_expired": "Ce lien a expire ou a ete revoque.",
+        "accountant_access": "Ce lien donne acces uniquement a ce document.",
+        "file_type_error": "PDF, images, Word, Excel, CSV et TXT sont autorises.",
+        "document_upload_error": "Choisissez un fichier.", "open_document": "Ouvrir document",
+    },
+    "de": {
+        "documents": "Dokumente", "upload_document": "Dokument hochladen", "document_name": "Dokumentname",
+        "document_file": "Datei", "document_category": "Kategorie", "document_note": "Notiz",
+        "document_accounting": "Buchhaltung", "document_clients": "Kunden", "document_workers": "Mitarbeiter",
+        "document_contracts": "Vertraege", "document_invoices": "Rechnungen", "document_other": "Andere",
+        "uploaded_at": "Hochgeladen", "file_size": "Groesse", "preview": "Vorschau", "download": "Herunterladen",
+        "share_link": "Freigabelink", "create_share_link": "Link erstellen", "shared_links": "Aktive Links",
+        "expires_in": "Laeuft ab in", "expires_never": "Ohne Ablauf", "expires_days": "Tagen",
+        "revoke_link": "Link widerrufen", "document_search": "Dokumente suchen", "all_categories": "Alle Kategorien",
+        "document_missing": "Dokument nicht verfuegbar.", "share_expired": "Dieser Link ist abgelaufen oder widerrufen.",
+        "accountant_access": "Dieser Link gibt nur Zugriff auf dieses Dokument.",
+        "file_type_error": "PDF, Bilder, Word, Excel, CSV und TXT sind erlaubt.",
+        "document_upload_error": "Waehlen Sie eine Datei.", "open_document": "Dokument oeffnen",
+    },
+    "pt": {
+        "documents": "Documentos", "upload_document": "Carregar documento", "document_name": "Nome do documento",
+        "document_file": "Ficheiro", "document_category": "Categoria", "document_note": "Nota",
+        "document_accounting": "Contabilidade", "document_clients": "Clientes", "document_workers": "Trabalhadores",
+        "document_contracts": "Contratos", "document_invoices": "Faturas", "document_other": "Outro",
+        "uploaded_at": "Carregado", "file_size": "Tamanho", "preview": "Prever", "download": "Descarregar",
+        "share_link": "Link de partilha", "create_share_link": "Criar link", "shared_links": "Links ativos",
+        "expires_in": "Expira em", "expires_never": "Sem expiracao", "expires_days": "dias",
+        "revoke_link": "Revogar link", "document_search": "Pesquisar documentos", "all_categories": "Todas categorias",
+        "document_missing": "Documento indisponivel.", "share_expired": "Este link expirou ou foi revogado.",
+        "accountant_access": "Este link da acesso apenas a este documento.",
+        "file_type_error": "PDF, imagens, Word, Excel, CSV e TXT sao permitidos.",
+        "document_upload_error": "Escolha um ficheiro.", "open_document": "Abrir documento",
+    },
+}
+for _lang, _values in DOCUMENT_TRANSLATIONS.items():
+    TRANSLATIONS[_lang].update(_values)
 
 INVOICE_TRANSLATIONS = {
     "bos": {
@@ -775,6 +858,60 @@ def client_city_from_address(address):
 
 def client_city_map(clients):
     return {client[0]: client_city_from_address(client[1] if len(client) > 1 else "") for client in clients}
+
+
+def allowed_document_name(filename):
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in DOCUMENT_EXTENSIONS
+
+
+def document_path(stored_name):
+    safe_name = os.path.basename(stored_name or "")
+    return os.path.join(DOCUMENT_ROOT, safe_name)
+
+
+def document_inline_allowed(mime_type):
+    return any((mime_type or "").startswith(prefix) for prefix in DOCUMENT_INLINE_MIME_PREFIXES)
+
+
+def document_size_label(size_bytes):
+    size = float(size_bytes or 0)
+    for unit in ["B", "KB", "MB", "GB"]:
+        if size < 1024 or unit == "GB":
+            return f"{size:.0f} {unit}" if unit == "B" else f"{size:.1f} {unit}"
+        size /= 1024
+    return "0 B"
+
+
+def document_categories(tr):
+    return [
+        ("accounting", tr["document_accounting"]),
+        ("clients", tr["document_clients"]),
+        ("workers", tr["document_workers"]),
+        ("contracts", tr["document_contracts"]),
+        ("invoices", tr["document_invoices"]),
+        ("other", tr["document_other"]),
+    ]
+
+
+def share_expiry(days):
+    try:
+        days = int(days)
+    except Exception:
+        days = 7
+    if days <= 0:
+        return ""
+    return (lux_now() + timedelta(days=min(days, 365))).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def share_is_active(expires_at, revoked):
+    if revoked:
+        return False
+    if not expires_at:
+        return True
+    try:
+        return datetime.strptime(expires_at, "%Y-%m-%d %H:%M:%S") > lux_now().replace(tzinfo=None)
+    except Exception:
+        return False
 
 
 def pdf_doc(buffer, title, **kwargs):
@@ -1516,6 +1653,29 @@ def init_db():
         )
     """)
     c.execute("""
+        CREATE TABLE IF NOT EXISTS documents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            original_name TEXT,
+            stored_name TEXT UNIQUE,
+            mime_type TEXT DEFAULT '',
+            file_size INTEGER DEFAULT 0,
+            category TEXT DEFAULT 'other',
+            note TEXT DEFAULT '',
+            uploaded_at TEXT DEFAULT '',
+            uploaded_by TEXT DEFAULT ''
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS document_shares (
+            token TEXT PRIMARY KEY,
+            document_id INTEGER,
+            created_at TEXT DEFAULT '',
+            expires_at TEXT DEFAULT '',
+            allow_download INTEGER DEFAULT 1,
+            revoked INTEGER DEFAULT 0
+        )
+    """)
+    c.execute("""
         CREATE TABLE IF NOT EXISTS invoice_settings (
             id INTEGER PRIMARY KEY,
             invoice_text TEXT DEFAULT '',
@@ -1976,6 +2136,7 @@ def index():
         <aside class="card sidebar">
             <div class="sidebar-title">{{ tr["professional_menu"] }}</div>
             <a class="nav-link" href="/">🏠 {{ tr["dashboard"] }}</a>
+            {% if is_admin %}<a class="nav-link" href="/documents">Files {{ tr["documents"] }}</a>{% endif %}
             <a class="nav-link" href="/week">📅 {{ tr["week_calendar"] }}</a>
             <a class="nav-link" href="/month">🗓️ {{ tr["month_calendar"] }}</a>
             {% if is_admin %}<a class="nav-link" href="/route_optimizer">🧭 {{ tr["route_optimizer"] }}</a>{% endif %}
@@ -2504,6 +2665,311 @@ def route_optimizer():
     {% endif %}
     """, tr=tr, dark=dark, workers=workers, selected_date=selected_date,
        selected_worker=selected_worker, start_address=start_address, result=result, error=error, is_admin=is_admin)
+
+
+def document_row(row):
+    return {
+        "id": row[0], "original_name": row[1], "stored_name": row[2], "mime_type": row[3] or "",
+        "file_size": int(row[4] or 0), "category": row[5] or "other", "note": row[6] or "",
+        "uploaded_at": row[7] or "", "uploaded_by": row[8] or "",
+    }
+
+
+def get_document_record(conn, document_id):
+    row = conn.cursor().execute("""
+        SELECT id, original_name, stored_name, mime_type, file_size, category, note, uploaded_at, uploaded_by
+        FROM documents WHERE id = ?
+    """, (document_id,)).fetchone()
+    return document_row(row) if row else None
+
+
+def get_shared_document(conn, token):
+    row = conn.cursor().execute("""
+        SELECT d.id, d.original_name, d.stored_name, d.mime_type, d.file_size, d.category, d.note, d.uploaded_at, d.uploaded_by,
+               s.expires_at, s.allow_download, s.revoked
+        FROM document_shares s
+        JOIN documents d ON d.id = s.document_id
+        WHERE s.token = ?
+    """, (token,)).fetchone()
+    if not row or not share_is_active(row[9] or "", row[11]):
+        return None
+    document = document_row(row[:9])
+    document["expires_at"] = row[9] or ""
+    document["allow_download"] = bool(row[10])
+    return document
+
+
+@app.route("/documents")
+def documents():
+    if session.get("role") != "admin":
+        return redirect("/")
+    tr = t()
+    dark = get_theme() == "dark"
+    query = request.args.get("q", "").strip().lower()
+    category = request.args.get("category", "").strip()
+    conn = get_conn()
+    rows = conn.cursor().execute("""
+        SELECT id, original_name, stored_name, mime_type, file_size, category, note, uploaded_at, uploaded_by
+        FROM documents ORDER BY uploaded_at DESC, id DESC
+    """).fetchall()
+    docs = []
+    for row in rows:
+        document = document_row(row)
+        haystack = f"{document['original_name']} {document['category']} {document['note']} {document['uploaded_by']}".lower()
+        if query and query not in haystack:
+            continue
+        if category and document["category"] != category:
+            continue
+        docs.append(document)
+    share_rows = conn.cursor().execute("""
+        SELECT token, document_id, created_at, expires_at, allow_download, revoked
+        FROM document_shares ORDER BY created_at DESC
+    """).fetchall()
+    conn.close()
+    shares_by_document = {}
+    for token, document_id, created_at, expires_at, allow_download, revoked in share_rows:
+        if not share_is_active(expires_at or "", revoked):
+            continue
+        shares_by_document.setdefault(document_id, []).append({
+            "token": token,
+            "created_at": created_at or "",
+            "expires_at": expires_at or "",
+            "allow_download": bool(allow_download),
+            "url": url_for("shared_document", token=token, _external=True),
+        })
+    return render_template_string(BASE_STYLE + header_html() + """
+    <style>
+        .document-shell { display:grid; grid-template-columns:minmax(300px,420px) 1fr; gap:16px; align-items:start; }
+        .document-table { width:100%; border-collapse:collapse; }
+        .document-table th, .document-table td { padding:11px 8px; border-bottom:1px solid {{ '#334155' if dark else '#dbe3ee' }}; text-align:left; vertical-align:top; }
+        .document-table th { font-size:12px; text-transform:uppercase; color:{{ '#cbd5e1' if dark else '#475569' }}; }
+        .document-actions { display:flex; gap:6px; flex-wrap:wrap; }
+        .document-actions a, .document-actions button { width:auto; margin:0; padding:7px 9px; font-size:12px; }
+        .share-row { padding:8px; margin-top:7px; border-radius:8px; background:{{ '#172334' if dark else '#eef5ff' }}; }
+        .share-row input { margin:0 0 5px; font-size:12px; }
+        .inline-form { display:inline; } .inline-form button { display:inline-block; }
+        @media (max-width:900px) { .document-shell { grid-template-columns:1fr; } .document-table { display:block; overflow-x:auto; } }
+    </style>
+    <h1>{{ tr["documents"] }}</h1>
+    <a class="back-button" href="/">{{ tr["back"] }}</a>
+    <div class="document-shell" style="margin-top:16px;">
+        <div class="card">
+            <h2>{{ tr["upload_document"] }}</h2>
+            <form method="post" action="/documents/upload" enctype="multipart/form-data">
+                <label>{{ tr["document_file"] }}</label><input type="file" name="file" required accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.csv,.txt">
+                <label>{{ tr["document_name"] }}</label><input name="display_name" placeholder="{{ tr['document_name'] }}">
+                <label>{{ tr["document_category"] }}</label>
+                <select name="category">{% for key, label in categories %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select>
+                <label>{{ tr["document_note"] }}</label><textarea name="note" style="width:100%;min-height:72px;"></textarea>
+                <button>{{ tr["upload_document"] }}</button>
+            </form>
+            <p class="muted">PDF, JPG, PNG, WEBP, Word, Excel, CSV, TXT. Max {{ max_upload_mb }} MB.</p>
+        </div>
+        <div class="card">
+            <form method="get" style="display:grid;grid-template-columns:minmax(180px,1fr) 210px auto;gap:8px;align-items:end;">
+                <div><label>{{ tr["document_search"] }}</label><input name="q" value="{{ query }}"></div>
+                <div><label>{{ tr["document_category"] }}</label><select name="category"><option value="">{{ tr["all_categories"] }}</option>{% for key, label in categories %}<option value="{{ key }}" {% if category == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+                <button>{{ tr["filter_btn"] }}</button>
+            </form>
+            <table class="document-table">
+                <tr><th>{{ tr["document_name"] }}</th><th>{{ tr["document_category"] }}</th><th>{{ tr["file_size"] }}</th><th>{{ tr["uploaded_at"] }}</th><th></th></tr>
+                {% for doc in docs %}
+                <tr>
+                    <td><b>{{ doc.original_name }}</b>{% if doc.note %}<br><small class="muted">{{ doc.note }}</small>{% endif %}</td>
+                    <td>{{ category_labels.get(doc.category, doc.category) }}</td>
+                    <td>{{ size_label(doc.file_size) }}</td>
+                    <td>{{ doc.uploaded_at[:10] }}<br><small class="muted">{{ doc.uploaded_by }}</small></td>
+                    <td>
+                        <div class="document-actions">
+                            <a href="/documents/view/{{ doc.id }}">{{ tr["preview"] }}</a>
+                            <a href="/documents/file/{{ doc.id }}?download=1">{{ tr["download"] }}</a>
+                            <form class="inline-form" method="post" action="/documents/delete/{{ doc.id }}" onsubmit="return confirm('Obrisati dokument?');"><button>{{ tr["delete"] }}</button></form>
+                        </div>
+                        <form method="post" action="/documents/share/{{ doc.id }}" style="display:flex;gap:6px;align-items:center;margin-top:7px;">
+                            <select name="days" style="width:auto;">
+                                <option value="7">7 {{ tr["expires_days"] }}</option>
+                                <option value="30">30 {{ tr["expires_days"] }}</option>
+                                <option value="1">1 {{ tr["expires_days"] }}</option>
+                                <option value="0">{{ tr["expires_never"] }}</option>
+                            </select>
+                            <button style="width:auto;">{{ tr["create_share_link"] }}</button>
+                        </form>
+                        {% for share in shares_by_document.get(doc.id, []) %}
+                        <div class="share-row">
+                            <small>{{ tr["share_link"] }}{% if share.expires_at %} | {{ tr["expires_in"] }} {{ share.expires_at[:10] }}{% endif %}</small>
+                            <input value="{{ share.url }}" readonly onclick="this.select();">
+                            <form class="inline-form" method="post" action="/documents/share/revoke/{{ share.token }}"><button>{{ tr["revoke_link"] }}</button></form>
+                        </div>
+                        {% endfor %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+            {% if docs|length == 0 %}<p class="muted">{{ tr["document_missing"] }}</p>{% endif %}
+        </div>
+    </div>
+    """, tr=tr, dark=dark, docs=docs, query=query, category=category, categories=document_categories(tr),
+       category_labels=dict(document_categories(tr)), shares_by_document=shares_by_document,
+       size_label=document_size_label, max_upload_mb=app.config["MAX_CONTENT_LENGTH"] // (1024 * 1024))
+
+
+@app.route("/documents/upload", methods=["POST"])
+def documents_upload():
+    if session.get("role") != "admin":
+        return redirect("/")
+    tr = t()
+    upload = request.files.get("file")
+    if not upload or not upload.filename:
+        return redirect("/documents?notice=" + urllib.parse.quote(tr["document_upload_error"]))
+    clean_upload_name = secure_filename(upload.filename)
+    if not clean_upload_name or not allowed_document_name(clean_upload_name):
+        return redirect("/documents?notice=" + urllib.parse.quote(tr["file_type_error"]))
+    display_name = secure_filename(request.form.get("display_name", "").strip()) or clean_upload_name
+    if not allowed_document_name(display_name):
+        display_name = clean_upload_name
+    extension = clean_upload_name.rsplit(".", 1)[1].lower()
+    stored_name = f"{secrets.token_hex(18)}.{extension}"
+    saved_path = document_path(stored_name)
+    upload.save(saved_path)
+    file_size = os.path.getsize(saved_path)
+    category_keys = {key for key, _ in document_categories(tr)}
+    category = request.form.get("category", "other").strip()
+    if category not in category_keys:
+        category = "other"
+    conn = get_conn()
+    conn.cursor().execute("""
+        INSERT INTO documents (original_name, stored_name, mime_type, file_size, category, note, uploaded_at, uploaded_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        display_name, stored_name, upload.mimetype or "", file_size, category,
+        request.form.get("note", "").strip(), lux_now().strftime("%Y-%m-%d %H:%M:%S"), session.get("user", ""),
+    ))
+    conn.commit()
+    conn.close()
+    return redirect("/documents")
+
+
+@app.route("/documents/view/<int:document_id>")
+def documents_view(document_id):
+    if session.get("role") != "admin":
+        return redirect("/")
+    tr = t()
+    dark = get_theme() == "dark"
+    conn = get_conn()
+    document = get_document_record(conn, document_id)
+    conn.close()
+    if not document or not os.path.exists(document_path(document["stored_name"])):
+        return redirect("/documents?notice=" + urllib.parse.quote(tr["document_missing"]))
+    return render_template_string(BASE_STYLE + header_html() + """
+    <h1>{{ doc.original_name }}</h1>
+    <a class="back-button" href="/documents">{{ tr["back"] }}</a>
+    <a class="pdf-link" href="/documents/file/{{ doc.id }}?download=1">{{ tr["download"] }}</a>
+    <div class="card" style="margin-top:16px;">
+        {% if inline %}
+            <iframe src="/documents/file/{{ doc.id }}" title="{{ doc.original_name }}" style="width:100%;height:78vh;border:0;background:white;border-radius:8px;"></iframe>
+        {% else %}
+            <p>{{ tr["open_document"] }}: <a href="/documents/file/{{ doc.id }}?download=1">{{ doc.original_name }}</a></p>
+        {% endif %}
+    </div>
+    """, tr=tr, dark=dark, doc=document, inline=document_inline_allowed(document["mime_type"]))
+
+
+@app.route("/documents/file/<int:document_id>")
+def documents_file(document_id):
+    if session.get("role") != "admin":
+        return redirect("/")
+    conn = get_conn()
+    document = get_document_record(conn, document_id)
+    conn.close()
+    if not document or not os.path.exists(document_path(document["stored_name"])):
+        return ("Not found", 404)
+    download = request.args.get("download") == "1" or not document_inline_allowed(document["mime_type"])
+    return send_file(document_path(document["stored_name"]), as_attachment=download, download_name=document["original_name"], mimetype=document["mime_type"] or None)
+
+
+@app.route("/documents/delete/<int:document_id>", methods=["POST"])
+def documents_delete(document_id):
+    if session.get("role") != "admin":
+        return redirect("/")
+    conn = get_conn()
+    document = get_document_record(conn, document_id)
+    if document:
+        path = document_path(document["stored_name"])
+        if os.path.exists(path):
+            os.remove(path)
+        conn.cursor().execute("DELETE FROM document_shares WHERE document_id = ?", (document_id,))
+        conn.cursor().execute("DELETE FROM documents WHERE id = ?", (document_id,))
+        conn.commit()
+    conn.close()
+    return redirect("/documents")
+
+
+@app.route("/documents/share/<int:document_id>", methods=["POST"])
+def documents_share(document_id):
+    if session.get("role") != "admin":
+        return redirect("/")
+    conn = get_conn()
+    document = get_document_record(conn, document_id)
+    if not document or not os.path.exists(document_path(document["stored_name"])):
+        conn.close()
+        return redirect("/documents?notice=" + urllib.parse.quote(t()["document_missing"]))
+    token = secrets.token_urlsafe(32)
+    conn.cursor().execute("""
+        INSERT INTO document_shares (token, document_id, created_at, expires_at, allow_download, revoked)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (token, document_id, lux_now().strftime("%Y-%m-%d %H:%M:%S"), share_expiry(request.form.get("days", "7")), 1, 0))
+    conn.commit()
+    conn.close()
+    return redirect("/documents")
+
+
+@app.route("/documents/share/revoke/<token>", methods=["POST"])
+def documents_share_revoke(token):
+    if session.get("role") != "admin":
+        return redirect("/")
+    conn = get_conn()
+    conn.cursor().execute("UPDATE document_shares SET revoked = 1 WHERE token = ?", (token,))
+    conn.commit()
+    conn.close()
+    return redirect("/documents")
+
+
+@app.route("/share/document/<token>")
+def shared_document(token):
+    tr = t()
+    dark = False
+    conn = get_conn()
+    document = get_shared_document(conn, token)
+    conn.close()
+    if not document or not os.path.exists(document_path(document["stored_name"])):
+        return render_template_string(BASE_STYLE + """
+        <div class="card" style="max-width:620px;margin:12vh auto;text-align:center;"><h1>Luxmann Services</h1><p>{{ tr["share_expired"] }}</p></div>
+        """, tr=tr, dark=dark), 404
+    return render_template_string(BASE_STYLE + """
+    <div class="card" style="max-width:1100px;margin:24px auto;">
+        <h1>Luxmann Services</h1>
+        <h2>{{ doc.original_name }}</h2>
+        <p class="muted">{{ tr["accountant_access"] }}</p>
+        {% if doc.allow_download %}<a class="pdf-link" href="/share/document/{{ token }}/file?download=1">{{ tr["download"] }}</a>{% endif %}
+        {% if inline %}
+            <iframe src="/share/document/{{ token }}/file" title="{{ doc.original_name }}" style="display:block;width:100%;height:78vh;border:0;background:white;border-radius:8px;margin-top:14px;"></iframe>
+        {% endif %}
+    </div>
+    """, tr=tr, dark=dark, doc=document, token=token, inline=document_inline_allowed(document["mime_type"]))
+
+
+@app.route("/share/document/<token>/file")
+def shared_document_file(token):
+    conn = get_conn()
+    document = get_shared_document(conn, token)
+    conn.close()
+    if not document or not os.path.exists(document_path(document["stored_name"])):
+        return ("Not found", 404)
+    download = request.args.get("download") == "1" or not document_inline_allowed(document["mime_type"])
+    if download and not document["allow_download"]:
+        return ("Forbidden", 403)
+    return send_file(document_path(document["stored_name"]), as_attachment=download, download_name=document["original_name"], mimetype=document["mime_type"] or None)
+
 
 @app.route("/invoices")
 def invoices():
