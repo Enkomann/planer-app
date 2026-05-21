@@ -917,6 +917,15 @@ def document_display_name(filename):
     return re.sub(r"\s+", " ", normalized.replace("_", " ")).strip()
 
 
+def document_relative_parts(path):
+    parts = []
+    for raw_part in str(path or "").replace("\\", "/").split("/"):
+        clean_part = document_display_name(raw_part)
+        if clean_part and clean_part not in (".", ".."):
+            parts.append(clean_part[:140])
+    return parts
+
+
 def document_path(stored_name):
     safe_name = os.path.basename(stored_name or "")
     return os.path.join(DOCUMENT_ROOT, safe_name)
@@ -967,6 +976,35 @@ def folder_breadcrumb(conn, folder_id):
         folders.append({"id": row[0], "name": row[1], "parent_id": row[2]})
         current_id = document_parent_id(row[2])
     return list(reversed(folders))
+
+
+def get_or_create_document_folder(conn, name, parent_id=None):
+    clean_name = re.sub(r"\s+", " ", str(name or "")).strip()[:140]
+    if not clean_name:
+        return parent_id
+    c = conn.cursor()
+    existing = c.execute(
+        "SELECT id FROM document_folders WHERE name = ? AND " + ("parent_id = ?" if parent_id else "parent_id IS NULL"),
+        (clean_name, parent_id) if parent_id else (clean_name,),
+    ).fetchone()
+    if existing:
+        return existing[0]
+    c.execute("""
+        INSERT INTO document_folders (name, parent_id, created_at, created_by)
+        VALUES (?, ?, ?, ?)
+    """, (clean_name, parent_id, lux_now().strftime("%Y-%m-%d %H:%M:%S"), session.get("user", "")))
+    inserted = c.execute(
+        "SELECT id FROM document_folders WHERE name = ? AND " + ("parent_id = ?" if parent_id else "parent_id IS NULL"),
+        (clean_name, parent_id) if parent_id else (clean_name,),
+    ).fetchone()
+    return inserted[0] if inserted else parent_id
+
+
+def uploaded_document_folder(conn, parent_id, relative_path):
+    path_parts = document_relative_parts(relative_path)
+    for folder_name in path_parts[:-1]:
+        parent_id = get_or_create_document_folder(conn, folder_name, parent_id)
+    return parent_id
 
 
 def share_expiry(days):
@@ -2974,11 +3012,12 @@ def documents():
                     <textarea name="note" placeholder="{{ tr['document_note'] }}" style="width:100%;min-height:60px;"></textarea>
                     <button>{{ tr["upload_document"] }}</button>
                 </form>
-                <form class="upload-panel" method="post" action="/documents/upload" enctype="multipart/form-data">
+                <form id="folderUploadForm" class="upload-panel" method="post" action="/documents/upload" enctype="multipart/form-data" onsubmit="syncFolderUploadPaths();">
                     {% if folder_id %}<input type="hidden" name="folder_id" value="{{ folder_id }}">{% endif %}
                     <h3>{{ tr["folder_documents"] }}</h3>
                     <label>{{ tr["multiple_documents"] }}</label><input type="file" name="files" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.csv,.txt">
-                    <label>{{ tr["folder_documents"] }}</label><input type="file" name="folder_files" webkitdirectory directory multiple>
+                    <label>{{ tr["folder_documents"] }}</label><input id="folderFilesInput" type="file" name="folder_files" webkitdirectory directory multiple onchange="syncFolderUploadPaths();">
+                    <div id="folderPathFields"></div>
                     <select name="category">{% for key, label in categories %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select>
                     <textarea name="note" placeholder="{{ tr['document_note'] }}" style="width:100%;min-height:60px;"></textarea>
                     <button>{{ tr["upload_documents"] }}</button>
@@ -3027,6 +3066,22 @@ def documents():
             {% if docs|length == 0 and folders|length == 0 %}<p class="muted">{{ tr["document_missing"] }}</p>{% endif %}
         </section>
     </div>
+    <script>
+    window.syncFolderUploadPaths = function() {
+        const fileInput = document.getElementById('folderFilesInput');
+        const pathFields = document.getElementById('folderPathFields');
+        if (!fileInput || !pathFields) return;
+        pathFields.replaceChildren();
+        Array.from(fileInput.files || []).forEach((file) => {
+            const relativePath = file.webkitRelativePath || file.name;
+            const field = document.createElement('input');
+            field.type = 'hidden';
+            field.name = 'folder_paths';
+            field.value = relativePath;
+            pathFields.appendChild(field);
+        });
+    };
+    </script>
     """, tr=tr, dark=dark, docs=docs, folders=folder_rows, query=query, category=category, view=view,
        folder_id=folder_id, current_folder=current_folder, breadcrumbs=breadcrumbs, total_size=total_size,
        storage_percent=min(100, round((total_size / (10 * 1024 * 1024 * 1024)) * 100, 2)),
@@ -3043,11 +3098,15 @@ def documents_upload():
     uploads = []
     single_upload = request.files.get("file")
     if single_upload and single_upload.filename:
-        uploads.append((single_upload, request.form.get("display_name", "").strip() or single_upload.filename))
-    for field_name in ("files", "folder_files"):
-        for upload in request.files.getlist(field_name):
-            if upload and upload.filename:
-                uploads.append((upload, upload.filename))
+        uploads.append((single_upload, request.form.get("display_name", "").strip() or single_upload.filename, None))
+    for upload in request.files.getlist("files"):
+        if upload and upload.filename:
+            uploads.append((upload, upload.filename, None))
+    folder_paths = request.form.getlist("folder_paths")
+    for index, upload in enumerate(request.files.getlist("folder_files")):
+        if upload and upload.filename:
+            relative_path = folder_paths[index] if index < len(folder_paths) else upload.filename
+            uploads.append((upload, upload.filename, relative_path))
     if not uploads:
         return redirect("/documents?notice=" + urllib.parse.quote(tr["document_upload_error"]))
     category_keys = {key for key, _ in document_categories(tr)}
@@ -3061,8 +3120,9 @@ def documents_upload():
         folder_id = None
     saved_count = 0
     skipped_count = 0
-    for upload, original_name in uploads:
-        if save_uploaded_document(conn, upload, original_name, category, note, folder_id):
+    for upload, original_name, relative_path in uploads:
+        upload_folder_id = uploaded_document_folder(conn, folder_id, relative_path) if relative_path else folder_id
+        if save_uploaded_document(conn, upload, original_name, category, note, upload_folder_id):
             saved_count += 1
         else:
             skipped_count += 1
