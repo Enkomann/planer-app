@@ -438,6 +438,8 @@ DOCUMENT_TRANSLATIONS = {
         "images": "Slike", "new_folder": "Nova fascikla", "folder_name": "Naziv fascikle",
         "addition_time": "Datum dodavanja", "root_folder": "Glavna fascikla", "folder_exists": "Fascikla vec postoji.",
         "folder_created": "Fascikla je kreirana.", "open_folder": "Otvori fasciklu",
+        "delete_folder": "Obrisi fasciklu",
+        "delete_folder_confirm": "Da li zelite obrisati ovu fasciklu i sve dokumente u njoj?",
     },
     "en": {
         "documents": "Documents", "upload_document": "Upload document", "document_name": "Document name",
@@ -460,6 +462,8 @@ DOCUMENT_TRANSLATIONS = {
         "images": "Images", "new_folder": "New folder", "folder_name": "Folder name",
         "addition_time": "Added", "root_folder": "Root folder", "folder_exists": "Folder already exists.",
         "folder_created": "Folder created.", "open_folder": "Open folder",
+        "delete_folder": "Delete folder",
+        "delete_folder_confirm": "Delete this folder and all documents inside it?",
     },
     "fr": {
         "documents": "Documents", "upload_document": "Ajouter document", "document_name": "Nom du document",
@@ -482,6 +486,8 @@ DOCUMENT_TRANSLATIONS = {
         "images": "Images", "new_folder": "Nouveau dossier", "folder_name": "Nom du dossier",
         "addition_time": "Ajoute", "root_folder": "Dossier principal", "folder_exists": "Le dossier existe deja.",
         "folder_created": "Dossier cree.", "open_folder": "Ouvrir dossier",
+        "delete_folder": "Supprimer dossier",
+        "delete_folder_confirm": "Supprimer ce dossier et tous les documents qu'il contient?",
     },
     "de": {
         "documents": "Dokumente", "upload_document": "Dokument hochladen", "document_name": "Dokumentname",
@@ -504,6 +510,8 @@ DOCUMENT_TRANSLATIONS = {
         "images": "Bilder", "new_folder": "Neuer Ordner", "folder_name": "Ordnername",
         "addition_time": "Hinzugefuegt", "root_folder": "Hauptordner", "folder_exists": "Ordner existiert bereits.",
         "folder_created": "Ordner erstellt.", "open_folder": "Ordner oeffnen",
+        "delete_folder": "Ordner loeschen",
+        "delete_folder_confirm": "Diesen Ordner und alle Dokumente darin loeschen?",
     },
     "pt": {
         "documents": "Documentos", "upload_document": "Carregar documento", "document_name": "Nome do documento",
@@ -526,6 +534,8 @@ DOCUMENT_TRANSLATIONS = {
         "images": "Imagens", "new_folder": "Nova pasta", "folder_name": "Nome da pasta",
         "addition_time": "Adicionado", "root_folder": "Pasta principal", "folder_exists": "A pasta ja existe.",
         "folder_created": "Pasta criada.", "open_folder": "Abrir pasta",
+        "delete_folder": "Apagar pasta",
+        "delete_folder_confirm": "Apagar esta pasta e todos os documentos dentro dela?",
     },
 }
 for _lang, _values in DOCUMENT_TRANSLATIONS.items():
@@ -1005,6 +1015,23 @@ def uploaded_document_folder(conn, parent_id, relative_path):
     for folder_name in path_parts[:-1]:
         parent_id = get_or_create_document_folder(conn, folder_name, parent_id)
     return parent_id
+
+
+def document_folder_tree_ids(conn, folder_id):
+    c = conn.cursor()
+    folder_ids = []
+    pending = [folder_id]
+    seen = set()
+    while pending:
+        current_id = document_parent_id(pending.pop())
+        if not current_id or current_id in seen:
+            continue
+        if not c.execute("SELECT id FROM document_folders WHERE id = ?", (current_id,)).fetchone():
+            continue
+        seen.add(current_id)
+        folder_ids.append(current_id)
+        pending.extend(row[0] for row in c.execute("SELECT id FROM document_folders WHERE parent_id = ?", (current_id,)).fetchall())
+    return folder_ids
 
 
 def share_expiry(days):
@@ -2960,6 +2987,8 @@ def documents():
         .file-row:hover { background:{{ '#172334' if dark else '#f8fbff' }}; }
         .document-actions { display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
         .document-actions a, .document-actions button { width:auto; margin:0; padding:7px 9px; font-size:12px; }
+        .folder-actions { display:flex; align-items:center; justify-content:flex-end; gap:8px; }
+        .folder-delete-button { color:#dc2626!important; border:1px solid {{ '#7f1d1d' if dark else '#fecaca' }}!important; background:{{ '#2f1519' if dark else '#fff1f2' }}!important; min-width:36px; min-height:36px; padding:6px!important; font-size:18px!important; line-height:1; }
         .share-row { padding:8px; margin-top:7px; border-radius:8px; background:{{ '#172334' if dark else '#eef5ff' }}; }
         .share-row input { margin:0 0 5px; font-size:12px; }
         .inline-form { display:inline; } .inline-form button { display:inline-block; }
@@ -3029,7 +3058,15 @@ def documents():
                 {% for folder in folders %}
                 <tr class="file-row">
                     <td><a class="file-name" href="/documents?folder={{ folder[0] }}"><span class="file-icon">&#128193;</span><b>{{ folder[1] }}</b></a></td>
-                    <td>{{ folder[3][:10] }}</td><td>-</td><td><a href="/documents?folder={{ folder[0] }}">{{ tr["open_folder"] }}</a></td>
+                    <td>{{ folder[3][:10] }}</td><td>-</td>
+                    <td>
+                        <div class="folder-actions">
+                            <a href="/documents?folder={{ folder[0] }}">{{ tr["open_folder"] }}</a>
+                            <form class="inline-form" method="post" action="/documents/folder/delete/{{ folder[0] }}" onsubmit='return confirm({{ tr["delete_folder_confirm"]|tojson }});'>
+                                <button class="folder-delete-button" type="submit" title="{{ tr["delete_folder"] }}" aria-label="{{ tr["delete_folder"] }}">&#128465;</button>
+                            </form>
+                        </div>
+                    </td>
                 </tr>
                 {% endfor %}
                 {% for doc in docs %}
@@ -3168,6 +3205,37 @@ def documents_folder_create():
     conn.commit()
     conn.close()
     return redirect(redirect_url + ("&" if "?" in redirect_url else "?") + "notice=" + urllib.parse.quote(tr["folder_created"]))
+
+
+@app.route("/documents/folder/delete/<int:folder_id>", methods=["POST"])
+def documents_folder_delete(folder_id):
+    if session.get("role") != "admin":
+        return redirect("/")
+    conn = get_conn()
+    c = conn.cursor()
+    folder = c.execute("SELECT id, parent_id FROM document_folders WHERE id = ?", (folder_id,)).fetchone()
+    if not folder:
+        conn.close()
+        return redirect("/documents")
+    parent_id = document_parent_id(folder[1])
+    folder_ids = document_folder_tree_ids(conn, folder_id)
+    for current_id in folder_ids:
+        rows = c.execute("""
+            SELECT id, original_name, stored_name, mime_type, file_size, category, folder_id, note, uploaded_at, uploaded_by
+            FROM documents WHERE folder_id = ?
+        """, (current_id,)).fetchall()
+        for row in rows:
+            document = document_row(row)
+            path = document_path(document["stored_name"])
+            if os.path.exists(path):
+                os.remove(path)
+            c.execute("DELETE FROM document_shares WHERE document_id = ?", (document["id"],))
+            c.execute("DELETE FROM documents WHERE id = ?", (document["id"],))
+    for current_id in reversed(folder_ids):
+        c.execute("DELETE FROM document_folders WHERE id = ?", (current_id,))
+    conn.commit()
+    conn.close()
+    return redirect(f"/documents?folder={parent_id}" if parent_id else "/documents")
 
 
 @app.route("/documents/view/<int:document_id>")
