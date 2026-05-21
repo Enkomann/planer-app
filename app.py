@@ -910,6 +910,13 @@ def safe_document_name(filename):
     return secure_filename(normalized)
 
 
+def document_display_name(filename):
+    normalized = str(filename or "").replace("\\", "/").rsplit("/", 1)[-1]
+    normalized = re.sub(r"[\x00-\x1f\x7f]", "", normalized).strip()
+    normalized = re.sub(r"^(?:&#(?:128196|128444);)+\s*", "", normalized)
+    return re.sub(r"\s+", " ", normalized.replace("_", " ")).strip()
+
+
 def document_path(stored_name):
     safe_name = os.path.basename(stored_name or "")
     return os.path.join(DOCUMENT_ROOT, safe_name)
@@ -987,9 +994,9 @@ def save_uploaded_document(conn, upload, original_name, category, note, folder_i
     clean_upload_name = safe_document_name(upload.filename)
     if not clean_upload_name or not allowed_document_name(clean_upload_name):
         return False
-    clean_original_name = safe_document_name(original_name) or clean_upload_name
-    if not allowed_document_name(clean_original_name):
-        clean_original_name = clean_upload_name
+    clean_original_name = document_display_name(original_name) or document_display_name(clean_upload_name)
+    if not allowed_document_name(safe_document_name(clean_original_name)):
+        clean_original_name = document_display_name(clean_upload_name)
     extension = clean_upload_name.rsplit(".", 1)[1].lower()
     stored_name = f"{secrets.token_hex(18)}.{extension}"
     saved_path = document_path(stored_name)
@@ -2781,7 +2788,8 @@ def route_optimizer():
 
 def document_row(row):
     return {
-        "id": row[0], "original_name": row[1], "stored_name": row[2], "mime_type": row[3] or "",
+        "id": row[0], "original_name": document_display_name(row[1]) or safe_document_name(row[1]),
+        "stored_name": row[2], "mime_type": row[3] or "",
         "file_size": int(row[4] or 0), "category": row[5] or "other", "folder_id": row[6],
         "note": row[7] or "", "uploaded_at": row[8] or "", "uploaded_by": row[9] or "",
     }
@@ -2987,7 +2995,7 @@ def documents():
                 {% endfor %}
                 {% for doc in docs %}
                 <tr class="file-row">
-                    <td><a class="file-name" href="/documents/view/{{ doc.id }}"><span class="file-icon">{{ '&#128444;' if doc.mime_type.startswith('image/') else '&#128196;' }}</span><span><b>{{ doc.original_name }}</b>{% if doc.note %}<br><small class="muted">{{ doc.note }}</small>{% endif %}</span></a></td>
+                    <td><a class="file-name" href="/documents/view/{{ doc.id }}"><span class="file-icon">{% if doc.mime_type.startswith('image/') %}&#128444;{% else %}&#128196;{% endif %}</span><span><b>{{ doc.original_name }}</b>{% if doc.note %}<br><small class="muted">{{ doc.note }}</small>{% endif %}</span></a></td>
                     <td>{{ doc.uploaded_at[:10] }}</td>
                     <td>{{ size_label(doc.file_size) }}</td>
                     <td>
