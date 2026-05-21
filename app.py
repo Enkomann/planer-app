@@ -434,6 +434,10 @@ DOCUMENT_TRANSLATIONS = {
         "multiple_documents": "Vise dokumenata", "folder_documents": "Cijela fascikla",
         "documents_uploaded": "Dokumenata dodato", "documents_skipped": "Preskoceno",
         "upload_too_large": "Upload je prevelik. Izaberi manju fasciklu ili je podijeli u vise uploada.",
+        "all_files": "Sve datoteke", "folders": "Fascikle", "pdf_documents": "PDF dokumenti",
+        "images": "Slike", "new_folder": "Nova fascikla", "folder_name": "Naziv fascikle",
+        "addition_time": "Datum dodavanja", "root_folder": "Glavna fascikla", "folder_exists": "Fascikla vec postoji.",
+        "folder_created": "Fascikla je kreirana.", "open_folder": "Otvori fasciklu",
     },
     "en": {
         "documents": "Documents", "upload_document": "Upload document", "document_name": "Document name",
@@ -452,6 +456,10 @@ DOCUMENT_TRANSLATIONS = {
         "multiple_documents": "Multiple documents", "folder_documents": "Whole folder",
         "documents_uploaded": "Documents uploaded", "documents_skipped": "Skipped",
         "upload_too_large": "Upload is too large. Choose a smaller folder or split it into several uploads.",
+        "all_files": "All files", "folders": "Folders", "pdf_documents": "PDF documents",
+        "images": "Images", "new_folder": "New folder", "folder_name": "Folder name",
+        "addition_time": "Added", "root_folder": "Root folder", "folder_exists": "Folder already exists.",
+        "folder_created": "Folder created.", "open_folder": "Open folder",
     },
     "fr": {
         "documents": "Documents", "upload_document": "Ajouter document", "document_name": "Nom du document",
@@ -470,6 +478,10 @@ DOCUMENT_TRANSLATIONS = {
         "multiple_documents": "Plusieurs documents", "folder_documents": "Dossier complet",
         "documents_uploaded": "Documents ajoutes", "documents_skipped": "Ignores",
         "upload_too_large": "Upload trop volumineux. Choisissez un dossier plus petit ou divisez l'envoi.",
+        "all_files": "Tous les fichiers", "folders": "Dossiers", "pdf_documents": "Documents PDF",
+        "images": "Images", "new_folder": "Nouveau dossier", "folder_name": "Nom du dossier",
+        "addition_time": "Ajoute", "root_folder": "Dossier principal", "folder_exists": "Le dossier existe deja.",
+        "folder_created": "Dossier cree.", "open_folder": "Ouvrir dossier",
     },
     "de": {
         "documents": "Dokumente", "upload_document": "Dokument hochladen", "document_name": "Dokumentname",
@@ -488,6 +500,10 @@ DOCUMENT_TRANSLATIONS = {
         "multiple_documents": "Mehrere Dokumente", "folder_documents": "Ganzer Ordner",
         "documents_uploaded": "Dokumente hochgeladen", "documents_skipped": "Uebersprungen",
         "upload_too_large": "Upload zu gross. Waehlen Sie einen kleineren Ordner oder teilen Sie ihn auf.",
+        "all_files": "Alle Dateien", "folders": "Ordner", "pdf_documents": "PDF Dokumente",
+        "images": "Bilder", "new_folder": "Neuer Ordner", "folder_name": "Ordnername",
+        "addition_time": "Hinzugefuegt", "root_folder": "Hauptordner", "folder_exists": "Ordner existiert bereits.",
+        "folder_created": "Ordner erstellt.", "open_folder": "Ordner oeffnen",
     },
     "pt": {
         "documents": "Documentos", "upload_document": "Carregar documento", "document_name": "Nome do documento",
@@ -506,6 +522,10 @@ DOCUMENT_TRANSLATIONS = {
         "multiple_documents": "Varios documentos", "folder_documents": "Pasta completa",
         "documents_uploaded": "Documentos carregados", "documents_skipped": "Ignorados",
         "upload_too_large": "Upload demasiado grande. Escolha uma pasta menor ou divida o envio.",
+        "all_files": "Todos os ficheiros", "folders": "Pastas", "pdf_documents": "Documentos PDF",
+        "images": "Imagens", "new_folder": "Nova pasta", "folder_name": "Nome da pasta",
+        "addition_time": "Adicionado", "root_folder": "Pasta principal", "folder_exists": "A pasta ja existe.",
+        "folder_created": "Pasta criada.", "open_folder": "Abrir pasta",
     },
 }
 for _lang, _values in DOCUMENT_TRANSLATIONS.items():
@@ -919,6 +939,29 @@ def document_categories(tr):
     ]
 
 
+def document_parent_id(value):
+    try:
+        parent_id = int(value or 0)
+    except Exception:
+        parent_id = 0
+    return parent_id or None
+
+
+def folder_breadcrumb(conn, folder_id):
+    folders = []
+    seen = set()
+    current_id = document_parent_id(folder_id)
+    c = conn.cursor()
+    while current_id and current_id not in seen:
+        seen.add(current_id)
+        row = c.execute("SELECT id, name, parent_id FROM document_folders WHERE id = ?", (current_id,)).fetchone()
+        if not row:
+            break
+        folders.append({"id": row[0], "name": row[1], "parent_id": row[2]})
+        current_id = document_parent_id(row[2])
+    return list(reversed(folders))
+
+
 def share_expiry(days):
     try:
         days = int(days)
@@ -940,7 +983,7 @@ def share_is_active(expires_at, revoked):
         return False
 
 
-def save_uploaded_document(conn, upload, original_name, category, note):
+def save_uploaded_document(conn, upload, original_name, category, note, folder_id=None):
     clean_upload_name = safe_document_name(upload.filename)
     if not clean_upload_name or not allowed_document_name(clean_upload_name):
         return False
@@ -952,10 +995,10 @@ def save_uploaded_document(conn, upload, original_name, category, note):
     saved_path = document_path(stored_name)
     upload.save(saved_path)
     conn.cursor().execute("""
-        INSERT INTO documents (original_name, stored_name, mime_type, file_size, category, note, uploaded_at, uploaded_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO documents (original_name, stored_name, mime_type, file_size, category, folder_id, note, uploaded_at, uploaded_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
-        clean_original_name, stored_name, upload.mimetype or "", os.path.getsize(saved_path), category,
+        clean_original_name, stored_name, upload.mimetype or "", os.path.getsize(saved_path), category, folder_id,
         note, lux_now().strftime("%Y-%m-%d %H:%M:%S"), session.get("user", ""),
     ))
     return True
@@ -1700,6 +1743,16 @@ def init_db():
         )
     """)
     c.execute("""
+        CREATE TABLE IF NOT EXISTS document_folders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            parent_id INTEGER,
+            created_at TEXT DEFAULT '',
+            created_by TEXT DEFAULT '',
+            UNIQUE(name, parent_id)
+        )
+    """)
+    c.execute("""
         CREATE TABLE IF NOT EXISTS documents (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             original_name TEXT,
@@ -1707,6 +1760,7 @@ def init_db():
             mime_type TEXT DEFAULT '',
             file_size INTEGER DEFAULT 0,
             category TEXT DEFAULT 'other',
+            folder_id INTEGER,
             note TEXT DEFAULT '',
             uploaded_at TEXT DEFAULT '',
             uploaded_by TEXT DEFAULT ''
@@ -1794,6 +1848,9 @@ def init_db():
         c.execute("ALTER TABLE invoice_records ADD COLUMN sent INTEGER DEFAULT 0")
     if "sent_date" not in invoice_record_cols:
         c.execute("ALTER TABLE invoice_records ADD COLUMN sent_date TEXT DEFAULT ''")
+    document_cols = [row[1] for row in c.execute("PRAGMA table_info(documents)").fetchall()]
+    if "folder_id" not in document_cols:
+        c.execute("ALTER TABLE documents ADD COLUMN folder_id INTEGER")
 
     c.execute("INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)", ("admin", hash_password("admin123"), "admin"))
     c.execute("INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)", ("worker1", hash_password("1234"), "worker"))
@@ -2725,14 +2782,14 @@ def route_optimizer():
 def document_row(row):
     return {
         "id": row[0], "original_name": row[1], "stored_name": row[2], "mime_type": row[3] or "",
-        "file_size": int(row[4] or 0), "category": row[5] or "other", "note": row[6] or "",
-        "uploaded_at": row[7] or "", "uploaded_by": row[8] or "",
+        "file_size": int(row[4] or 0), "category": row[5] or "other", "folder_id": row[6],
+        "note": row[7] or "", "uploaded_at": row[8] or "", "uploaded_by": row[9] or "",
     }
 
 
 def get_document_record(conn, document_id):
     row = conn.cursor().execute("""
-        SELECT id, original_name, stored_name, mime_type, file_size, category, note, uploaded_at, uploaded_by
+        SELECT id, original_name, stored_name, mime_type, file_size, category, folder_id, note, uploaded_at, uploaded_by
         FROM documents WHERE id = ?
     """, (document_id,)).fetchone()
     return document_row(row) if row else None
@@ -2740,17 +2797,17 @@ def get_document_record(conn, document_id):
 
 def get_shared_document(conn, token):
     row = conn.cursor().execute("""
-        SELECT d.id, d.original_name, d.stored_name, d.mime_type, d.file_size, d.category, d.note, d.uploaded_at, d.uploaded_by,
+        SELECT d.id, d.original_name, d.stored_name, d.mime_type, d.file_size, d.category, d.folder_id, d.note, d.uploaded_at, d.uploaded_by,
                s.expires_at, s.allow_download, s.revoked
         FROM document_shares s
         JOIN documents d ON d.id = s.document_id
         WHERE s.token = ?
     """, (token,)).fetchone()
-    if not row or not share_is_active(row[9] or "", row[11]):
+    if not row or not share_is_active(row[10] or "", row[12]):
         return None
-    document = document_row(row[:9])
-    document["expires_at"] = row[9] or ""
-    document["allow_download"] = bool(row[10])
+    document = document_row(row[:10])
+    document["expires_at"] = row[10] or ""
+    document["allow_download"] = bool(row[11])
     return document
 
 
@@ -2762,9 +2819,33 @@ def documents():
     dark = get_theme() == "dark"
     query = request.args.get("q", "").strip().lower()
     category = request.args.get("category", "").strip()
+    view = request.args.get("view", "all").strip()
+    folder_id = document_parent_id(request.args.get("folder"))
     conn = get_conn()
+    current_folder = None
+    if folder_id:
+        current_folder = conn.cursor().execute("SELECT id, name, parent_id FROM document_folders WHERE id = ?", (folder_id,)).fetchone()
+        if not current_folder:
+            folder_id = None
+    folder_rows = []
+    if not query and view in ("all", "folders"):
+        if folder_id:
+            folder_rows = conn.cursor().execute("""
+                SELECT id, name, parent_id, created_at, created_by
+                FROM document_folders WHERE parent_id = ? ORDER BY name
+            """, (folder_id,)).fetchall()
+        elif view == "folders":
+            folder_rows = conn.cursor().execute("""
+                SELECT id, name, parent_id, created_at, created_by
+                FROM document_folders ORDER BY name
+            """).fetchall()
+        else:
+            folder_rows = conn.cursor().execute("""
+                SELECT id, name, parent_id, created_at, created_by
+                FROM document_folders WHERE parent_id IS NULL ORDER BY name
+            """).fetchall()
     rows = conn.cursor().execute("""
-        SELECT id, original_name, stored_name, mime_type, file_size, category, note, uploaded_at, uploaded_by
+        SELECT id, original_name, stored_name, mime_type, file_size, category, folder_id, note, uploaded_at, uploaded_by
         FROM documents ORDER BY uploaded_at DESC, id DESC
     """).fetchall()
     docs = []
@@ -2773,9 +2854,21 @@ def documents():
         haystack = f"{document['original_name']} {document['category']} {document['note']} {document['uploaded_by']}".lower()
         if query and query not in haystack:
             continue
+        if not query and folder_id and document["folder_id"] != folder_id:
+            continue
+        if not query and not folder_id and view == "all" and document["folder_id"] is not None:
+            continue
         if category and document["category"] != category:
             continue
+        if view == "pdf" and not document["mime_type"].startswith("application/pdf") and not document["original_name"].lower().endswith(".pdf"):
+            continue
+        if view == "images" and not document["mime_type"].startswith("image/"):
+            continue
+        if view == "folders":
+            continue
         docs.append(document)
+    breadcrumbs = folder_breadcrumb(conn, folder_id)
+    total_size = sum(row[0] or 0 for row in conn.cursor().execute("SELECT file_size FROM documents").fetchall())
     share_rows = conn.cursor().execute("""
         SELECT token, document_id, created_at, expires_at, allow_download, revoked
         FROM document_shares ORDER BY created_at DESC
@@ -2794,56 +2887,109 @@ def documents():
         })
     return render_template_string(BASE_STYLE + header_html() + """
     <style>
-        .document-shell { display:grid; grid-template-columns:minmax(300px,420px) 1fr; gap:16px; align-items:start; }
+        .file-manager { display:grid; grid-template-columns:245px minmax(0,1fr); min-height:72vh; overflow:hidden; border-radius:12px; background:{{ '#111827' if dark else 'white' }}; box-shadow:0 4px 14px rgba(0,0,0,0.08); }
+        .file-nav { border-right:1px solid {{ '#334155' if dark else '#e2e8f0' }}; padding:18px 12px; display:flex; flex-direction:column; gap:6px; }
+        .file-nav a { display:flex; align-items:center; gap:10px; padding:11px 12px; border-radius:10px; margin:0; color:inherit; font-weight:600; }
+        .file-nav a.active { background:{{ '#1d3557' if dark else '#e8f1ff' }}; color:{{ '#bfdbfe' if dark else '#2563eb' }}; }
+        .file-main { padding:26px 30px; min-width:0; }
+        .file-head { display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; }
+        .file-search { width:min(520px,100%); display:flex; gap:8px; border:1px solid {{ '#334155' if dark else '#dbe3ee' }}; border-radius:999px; padding:2px 10px; background:{{ '#0f172a' if dark else '#f4f6f8' }}; }
+        .file-search input { border:0; box-shadow:none; background:transparent; margin:0; }
+        .file-search button { width:auto; border-radius:999px; margin:4px 0; padding:8px 12px; }
+        .file-toolbar { display:flex; gap:9px; align-items:center; flex-wrap:wrap; margin:18px 0; }
+        .toolbar-button, .toolbar-link { width:auto; display:inline-flex; align-items:center; gap:8px; margin:0; padding:11px 14px; border-radius:9px; }
+        .toolbar-link { border:1px solid {{ '#334155' if dark else '#cbd5e1' }}; color:inherit; }
+        .upload-drawer { display:none; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px; margin-bottom:16px; }
+        .upload-drawer.open { display:grid; }
+        .upload-panel { padding:14px; border-radius:10px; border:1px solid {{ '#334155' if dark else '#dbe3ee' }}; background:{{ '#172334' if dark else '#f8fbff' }}; }
+        .breadcrumb { display:flex; gap:7px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+        .breadcrumb a { margin:0; } .storage-meter { margin-top:auto; padding:18px 10px 4px; }
+        .storage-track { height:7px; border-radius:999px; background:{{ '#334155' if dark else '#e5e7eb' }}; overflow:hidden; margin:8px 0; }
+        .storage-fill { height:100%; min-width:4px; background:#3b82f6; width:{{ storage_percent }}%; }
         .document-table { width:100%; border-collapse:collapse; }
-        .document-table th, .document-table td { padding:11px 8px; border-bottom:1px solid {{ '#334155' if dark else '#dbe3ee' }}; text-align:left; vertical-align:top; }
+        .document-table th, .document-table td { padding:14px 8px; border-bottom:1px solid {{ '#334155' if dark else '#e2e8f0' }}; text-align:left; vertical-align:middle; }
         .document-table th { font-size:12px; text-transform:uppercase; color:{{ '#cbd5e1' if dark else '#475569' }}; }
-        .document-actions { display:flex; gap:6px; flex-wrap:wrap; }
+        .file-name { display:flex; gap:12px; align-items:center; min-width:250px; }
+        .file-icon { display:inline-grid; place-items:center; width:32px; height:32px; border-radius:8px; font-size:20px; background:{{ '#1e293b' if dark else '#eff6ff' }}; }
+        .file-row:hover { background:{{ '#172334' if dark else '#f8fbff' }}; }
+        .document-actions { display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
         .document-actions a, .document-actions button { width:auto; margin:0; padding:7px 9px; font-size:12px; }
         .share-row { padding:8px; margin-top:7px; border-radius:8px; background:{{ '#172334' if dark else '#eef5ff' }}; }
         .share-row input { margin:0 0 5px; font-size:12px; }
         .inline-form { display:inline; } .inline-form button { display:inline-block; }
-        @media (max-width:900px) { .document-shell { grid-template-columns:1fr; } .document-table { display:block; overflow-x:auto; } }
+        @media (max-width:900px) { .file-manager { grid-template-columns:1fr; } .file-nav { border-right:0; border-bottom:1px solid {{ '#334155' if dark else '#e2e8f0' }}; } .file-main { padding:18px; } .document-table { display:block; overflow-x:auto; } }
     </style>
-    <h1>{{ tr["documents"] }}</h1>
-    <a class="back-button" href="/">{{ tr["back"] }}</a>
-    <div class="document-shell" style="margin-top:16px;">
-        <div class="card">
-            <h2>{{ tr["upload_document"] }}</h2>
-            <form method="post" action="/documents/upload" enctype="multipart/form-data">
-                <h3>{{ tr["single_document"] }}</h3>
-                <label>{{ tr["document_file"] }}</label><input type="file" name="file" required accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.csv,.txt">
-                <label>{{ tr["document_name"] }}</label><input name="display_name" placeholder="{{ tr['document_name'] }}">
-                <label>{{ tr["document_category"] }}</label>
-                <select name="category">{% for key, label in categories %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select>
-                <label>{{ tr["document_note"] }}</label><textarea name="note" style="width:100%;min-height:72px;"></textarea>
-                <button>{{ tr["upload_document"] }}</button>
-            </form>
-            <form method="post" action="/documents/upload" enctype="multipart/form-data" style="margin-top:18px;padding-top:16px;border-top:1px solid {{ '#334155' if dark else '#dbe3ee' }};">
-                <h3>{{ tr["folder_documents"] }}</h3>
-                <label>{{ tr["multiple_documents"] }}</label><input type="file" name="files" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.csv,.txt">
-                <label>{{ tr["folder_documents"] }}</label><input type="file" name="folder_files" webkitdirectory directory multiple>
-                <label>{{ tr["document_category"] }}</label>
-                <select name="category">{% for key, label in categories %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select>
-                <label>{{ tr["document_note"] }}</label><textarea name="note" style="width:100%;min-height:72px;"></textarea>
-                <button>{{ tr["upload_documents"] }}</button>
-            </form>
+    <h1>{{ tr["documents"] }}</h1><a class="back-button" href="/">{{ tr["back"] }}</a>
+    <div class="file-manager" style="margin-top:16px;">
+        <aside class="file-nav">
+            <a class="{% if view == 'all' and not category %}active{% endif %}" href="/documents">&#128193; {{ tr["all_files"] }}</a>
+            <a class="{% if view == 'folders' %}active{% endif %}" href="/documents?view=folders">&#128193; {{ tr["folders"] }}</a>
+            <a class="{% if view == 'pdf' %}active{% endif %}" href="/documents?view=pdf">&#128196; {{ tr["pdf_documents"] }}</a>
+            <a class="{% if view == 'images' %}active{% endif %}" href="/documents?view=images">&#128444; {{ tr["images"] }}</a>
+            {% for key, label in categories %}<a class="{% if category == key %}active{% endif %}" href="/documents?category={{ key }}">&#9679; {{ label }}</a>{% endfor %}
+            <div class="storage-meter">
+                <small>{{ size_label(total_size) }} / 10 GB</small>
+                <div class="storage-track"><div class="storage-fill"></div></div>
+            </div>
+        </aside>
+        <section class="file-main">
+            <div class="file-head">
+                <div><h2 style="margin:0;">{{ current_folder[1] if current_folder else tr["all_files"] }}</h2></div>
+                <form class="file-search" method="get">
+                    {% if folder_id %}<input type="hidden" name="folder" value="{{ folder_id }}">{% endif %}
+                    {% if view != 'all' %}<input type="hidden" name="view" value="{{ view }}">{% endif %}
+                    {% if category %}<input type="hidden" name="category" value="{{ category }}">{% endif %}
+                    <input name="q" value="{{ query }}" placeholder="{{ tr['document_search'] }}">
+                    <button aria-label="{{ tr['document_search'] }}">&#128269;</button>
+                </form>
+            </div>
+            <div class="file-toolbar">
+                <button class="toolbar-button" type="button" onclick="document.getElementById('uploadDrawer').classList.toggle('open');">&#8679; {{ tr["upload_documents"] }}</button>
+                <button class="toolbar-button" type="button" onclick="document.getElementById('newFolderForm').style.display='flex';">+ {{ tr["new_folder"] }}</button>
+                <a class="toolbar-link" href="/documents">&#8635;</a>
+                <form id="newFolderForm" method="post" action="/documents/folder" style="display:none;gap:6px;align-items:center;">
+                    {% if folder_id %}<input type="hidden" name="parent_id" value="{{ folder_id }}">{% endif %}
+                    <input name="name" placeholder="{{ tr['folder_name'] }}" required>
+                    <button style="width:auto;">{{ tr["save"] }}</button>
+                </form>
+            </div>
+            <div class="breadcrumb">
+                <a href="/documents">{{ tr["root_folder"] }}</a>{% for crumb in breadcrumbs %}<span>/</span><a href="/documents?folder={{ crumb.id }}">{{ crumb.name }}</a>{% endfor %}
+            </div>
+            <div id="uploadDrawer" class="upload-drawer">
+                <form class="upload-panel" method="post" action="/documents/upload" enctype="multipart/form-data">
+                    {% if folder_id %}<input type="hidden" name="folder_id" value="{{ folder_id }}">{% endif %}
+                    <h3>{{ tr["single_document"] }}</h3>
+                    <input type="file" name="file" required accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.csv,.txt">
+                    <input name="display_name" placeholder="{{ tr['document_name'] }}">
+                    <select name="category">{% for key, label in categories %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select>
+                    <textarea name="note" placeholder="{{ tr['document_note'] }}" style="width:100%;min-height:60px;"></textarea>
+                    <button>{{ tr["upload_document"] }}</button>
+                </form>
+                <form class="upload-panel" method="post" action="/documents/upload" enctype="multipart/form-data">
+                    {% if folder_id %}<input type="hidden" name="folder_id" value="{{ folder_id }}">{% endif %}
+                    <h3>{{ tr["folder_documents"] }}</h3>
+                    <label>{{ tr["multiple_documents"] }}</label><input type="file" name="files" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.csv,.txt">
+                    <label>{{ tr["folder_documents"] }}</label><input type="file" name="folder_files" webkitdirectory directory multiple>
+                    <select name="category">{% for key, label in categories %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select>
+                    <textarea name="note" placeholder="{{ tr['document_note'] }}" style="width:100%;min-height:60px;"></textarea>
+                    <button>{{ tr["upload_documents"] }}</button>
+                </form>
+            </div>
             <p class="muted">PDF, JPG, PNG, WEBP, Word, Excel, CSV, TXT. Max {{ max_upload_mb }} MB.</p>
-        </div>
-        <div class="card">
-            <form method="get" style="display:grid;grid-template-columns:minmax(180px,1fr) 210px auto;gap:8px;align-items:end;">
-                <div><label>{{ tr["document_search"] }}</label><input name="q" value="{{ query }}"></div>
-                <div><label>{{ tr["document_category"] }}</label><select name="category"><option value="">{{ tr["all_categories"] }}</option>{% for key, label in categories %}<option value="{{ key }}" {% if category == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
-                <button>{{ tr["filter_btn"] }}</button>
-            </form>
             <table class="document-table">
-                <tr><th>{{ tr["document_name"] }}</th><th>{{ tr["document_category"] }}</th><th>{{ tr["file_size"] }}</th><th>{{ tr["uploaded_at"] }}</th><th></th></tr>
+                <tr><th>{{ tr["document_name"] }}</th><th>{{ tr["addition_time"] }}</th><th>{{ tr["file_size"] }}</th><th></th></tr>
+                {% for folder in folders %}
+                <tr class="file-row">
+                    <td><a class="file-name" href="/documents?folder={{ folder[0] }}"><span class="file-icon">&#128193;</span><b>{{ folder[1] }}</b></a></td>
+                    <td>{{ folder[3][:10] }}</td><td>-</td><td><a href="/documents?folder={{ folder[0] }}">{{ tr["open_folder"] }}</a></td>
+                </tr>
+                {% endfor %}
                 {% for doc in docs %}
-                <tr>
-                    <td><b>{{ doc.original_name }}</b>{% if doc.note %}<br><small class="muted">{{ doc.note }}</small>{% endif %}</td>
-                    <td>{{ category_labels.get(doc.category, doc.category) }}</td>
+                <tr class="file-row">
+                    <td><a class="file-name" href="/documents/view/{{ doc.id }}"><span class="file-icon">{{ '&#128444;' if doc.mime_type.startswith('image/') else '&#128196;' }}</span><span><b>{{ doc.original_name }}</b>{% if doc.note %}<br><small class="muted">{{ doc.note }}</small>{% endif %}</span></a></td>
+                    <td>{{ doc.uploaded_at[:10] }}</td>
                     <td>{{ size_label(doc.file_size) }}</td>
-                    <td>{{ doc.uploaded_at[:10] }}<br><small class="muted">{{ doc.uploaded_by }}</small></td>
                     <td>
                         <div class="document-actions">
                             <a href="/documents/view/{{ doc.id }}">{{ tr["preview"] }}</a>
@@ -2870,10 +3016,13 @@ def documents():
                 </tr>
                 {% endfor %}
             </table>
-            {% if docs|length == 0 %}<p class="muted">{{ tr["document_missing"] }}</p>{% endif %}
-        </div>
+            {% if docs|length == 0 and folders|length == 0 %}<p class="muted">{{ tr["document_missing"] }}</p>{% endif %}
+        </section>
     </div>
-    """, tr=tr, dark=dark, docs=docs, query=query, category=category, categories=document_categories(tr),
+    """, tr=tr, dark=dark, docs=docs, folders=folder_rows, query=query, category=category, view=view,
+       folder_id=folder_id, current_folder=current_folder, breadcrumbs=breadcrumbs, total_size=total_size,
+       storage_percent=min(100, round((total_size / (10 * 1024 * 1024 * 1024)) * 100, 2)),
+       categories=document_categories(tr),
        category_labels=dict(document_categories(tr)), shares_by_document=shares_by_document,
        size_label=document_size_label, max_upload_mb=app.config["MAX_CONTENT_LENGTH"] // (1024 * 1024))
 
@@ -2899,10 +3048,13 @@ def documents_upload():
         category = "other"
     note = request.form.get("note", "").strip()
     conn = get_conn()
+    folder_id = document_parent_id(request.form.get("folder_id"))
+    if folder_id and not conn.cursor().execute("SELECT id FROM document_folders WHERE id = ?", (folder_id,)).fetchone():
+        folder_id = None
     saved_count = 0
     skipped_count = 0
     for upload, original_name in uploads:
-        if save_uploaded_document(conn, upload, original_name, category, note):
+        if save_uploaded_document(conn, upload, original_name, category, note, folder_id):
             saved_count += 1
         else:
             skipped_count += 1
@@ -2914,7 +3066,40 @@ def documents_upload():
     notice = f"{tr['documents_uploaded']}: {saved_count}"
     if skipped_count:
         notice += f". {tr['documents_skipped']}: {skipped_count}"
-    return redirect("/documents?notice=" + urllib.parse.quote(notice))
+    redirect_url = f"/documents?folder={folder_id}" if folder_id else "/documents"
+    return redirect(redirect_url + ("&" if "?" in redirect_url else "?") + "notice=" + urllib.parse.quote(notice))
+
+
+@app.route("/documents/folder", methods=["POST"])
+def documents_folder_create():
+    if session.get("role") != "admin":
+        return redirect("/")
+    tr = t()
+    name = request.form.get("name", "").strip()
+    parent_id = document_parent_id(request.form.get("parent_id"))
+    conn = get_conn()
+    c = conn.cursor()
+    if parent_id and not c.execute("SELECT id FROM document_folders WHERE id = ?", (parent_id,)).fetchone():
+        parent_id = None
+    redirect_url = f"/documents?folder={parent_id}" if parent_id else "/documents"
+    if not name:
+        conn.close()
+        return redirect(redirect_url)
+    clean_name = re.sub(r"\s+", " ", name).strip()[:140]
+    existing = c.execute(
+        "SELECT id FROM document_folders WHERE name = ? AND " + ("parent_id = ?" if parent_id else "parent_id IS NULL"),
+        (clean_name, parent_id) if parent_id else (clean_name,),
+    ).fetchone()
+    if existing:
+        conn.close()
+        return redirect(redirect_url + ("&" if "?" in redirect_url else "?") + "notice=" + urllib.parse.quote(tr["folder_exists"]))
+    c.execute("""
+        INSERT INTO document_folders (name, parent_id, created_at, created_by)
+        VALUES (?, ?, ?, ?)
+    """, (clean_name, parent_id, lux_now().strftime("%Y-%m-%d %H:%M:%S"), session.get("user", "")))
+    conn.commit()
+    conn.close()
+    return redirect(redirect_url + ("&" if "?" in redirect_url else "?") + "notice=" + urllib.parse.quote(tr["folder_created"]))
 
 
 @app.route("/documents/view/<int:document_id>")
