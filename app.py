@@ -758,6 +758,15 @@ def safe_pdf_name(*parts):
     return cleaned or "document"
 
 
+def pdf_doc(buffer, title, **kwargs):
+    return SimpleDocTemplate(
+        buffer,
+        title=title,
+        author="Luxmann Services",
+        **kwargs,
+    )
+
+
 def month_name(month, lang=None):
     names = MONTH_NAMES.get(lang or get_lang(), MONTH_NAMES["bos"])
     if 1 <= int(month) <= 12:
@@ -1230,7 +1239,7 @@ def invoice_number_from_index(settings, index):
 
 def build_invoice_pdf(row, settings, invoice_date, date_from, date_to, document_title="FACTURE"):
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
+    doc = pdf_doc(buffer, f"{document_title} {row['invoice_number']} - {row['client']}", pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
     styles = getSampleStyleSheet()
     template_colors = {
         "orange": "#ff7a2f",
@@ -1290,7 +1299,7 @@ def build_invoice_pdf(row, settings, invoice_date, date_from, date_to, document_
 
 def build_quote_pdf(data, settings):
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
+    doc = pdf_doc(buffer, f"{data.get('document_title') or 'DEVIS'} {data['quote_number']} - {data['client_name']}", pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
     styles = getSampleStyleSheet()
     accent = {"orange": "#ff7a2f", "blue": "#1f4f82", "green": "#2f7d32"}.get(settings.get("invoice_template", "orange"), "#ff7a2f")
     normal = styles["Normal"]
@@ -1334,7 +1343,7 @@ def build_quote_pdf(data, settings):
 
 def build_invoice_certificate_pdf(rows, invoice_date, date_from, date_to):
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
+    doc = pdf_doc(buffer, f"Certificat factures {date_from} - {date_to}", pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
     styles = getSampleStyleSheet()
     elements = [Paragraph("Certificat annuel des factures", styles["Title"]), Spacer(1, 10), Paragraph(f"Periode: {format_date(date_from)} - {format_date(date_to)}", styles["Normal"]), Paragraph(f"Date: {format_date(invoice_date)}", styles["Normal"]), Spacer(1, 12)]
     data = [["Client", "Heures", "HTVA", "TVA", "Total"]]
@@ -1351,7 +1360,7 @@ def build_invoice_certificate_pdf(rows, invoice_date, date_from, date_to):
 
 def build_client_statement_pdf(client_name, records, date_from, date_to):
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
+    doc = pdf_doc(buffer, f"Releve {client_name} {date_from} - {date_to}", pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
     styles = getSampleStyleSheet()
     total_paid = sum(r["total"] for r in records if r["paid"])
     total_unpaid = sum(r["total"] for r in records if not r["paid"])
@@ -1387,7 +1396,7 @@ def build_client_statement_pdf(client_name, records, date_from, date_to):
 
 def build_invoice_list_pdf(records, date_from, date_to):
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=1.2*cm, leftMargin=1.2*cm, topMargin=1.2*cm, bottomMargin=1.2*cm)
+    doc = pdf_doc(buffer, f"Liste factures {date_from} - {date_to}", pagesize=landscape(A4), rightMargin=1.2*cm, leftMargin=1.2*cm, topMargin=1.2*cm, bottomMargin=1.2*cm)
     styles = getSampleStyleSheet()
     total_ht = sum(r["amount"] for r in records)
     total_tva = sum(r["vat_amount"] for r in records)
@@ -2248,7 +2257,12 @@ def week_view():
     day_names = [tr["monday"], tr["tuesday"], tr["wednesday"], tr["thursday"], tr["friday"], tr["saturday"], tr["sunday"]]
 
     return render_template_string(BASE_STYLE + header_html() + """
-    <h1>{{ tr["week_calendar"] }}</h1><a class="back-button" href="/">{{ tr["back"] }}</a>
+    <h1>{{ tr["week_calendar"] }}</h1>
+    <div>
+        <a class="back-button" href="/">{{ tr["back"] }}</a>
+        <a href="/month?year={{ start_year }}&month={{ start_month }}">{{ tr["month_calendar"] }}</a>
+        <a class="pdf-link" href="/week_pdf?start={{ week_days[0] }}" target="_blank">PDF {{ tr["week_calendar"] }}</a>
+    </div>
     <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin:16px 0; flex-wrap:wrap;">
         <a href="/week?start={{ prev_week }}">{{ tr["prev_week"] }}</a><strong>{{ format_date(week_days[0]) }} - {{ format_date(week_days[-1]) }}</strong><a href="/week?start={{ next_week }}">{{ tr["next_week"] }}</a><a href="/week?start={{ current_week }}">{{ tr["current_week"] }}</a>
     </div>
@@ -2269,7 +2283,7 @@ def week_view():
     function dragShift(ev, shiftId){ev.dataTransfer.setData('shift_id', shiftId);} function allowDrop(ev){ev.preventDefault();ev.currentTarget.classList.add('drop-target');} function clearDrop(ev){ev.currentTarget.classList.remove('drop-target');}
     function dropShift(ev, dateStr){ev.preventDefault();ev.currentTarget.classList.remove('drop-target');var shiftId=ev.dataTransfer.getData('shift_id');if(!shiftId)return;fetch('/move_shift',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'shift_id='+encodeURIComponent(shiftId)+'&date='+encodeURIComponent(dateStr)}).then(function(resp){if(resp.status===409){return resp.text().then(function(msg){showPlannerAlert(msg);});}window.location.reload();});}
     </script>
-    """, tr=tr, dark=dark, week_days=week_days, shifts=shifts, worker_colors=worker_colors, format_date=format_date, holidays_map=holidays_map, day_names=day_names, status_colors=STATUS_COLORS, get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers, is_weekend=is_weekend, is_admin=is_admin, prev_week=prev_week, next_week=next_week, current_week=current_week)
+    """, tr=tr, dark=dark, week_days=week_days, shifts=shifts, worker_colors=worker_colors, format_date=format_date, holidays_map=holidays_map, day_names=day_names, status_colors=STATUS_COLORS, get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers, is_weekend=is_weekend, is_admin=is_admin, prev_week=prev_week, next_week=next_week, current_week=current_week, start_year=start_week.year, start_month=start_week.month)
 
 
 @app.route("/month")
@@ -3192,16 +3206,63 @@ def export_pdf():
     conn = get_conn(); c = conn.cursor(); date_filter = request.args.get("date", "").strip()
     shifts = c.execute("SELECT * FROM shifts WHERE date = ? ORDER BY date, time, id", (date_filter,)).fetchall() if date_filter else c.execute("SELECT * FROM shifts ORDER BY date, time, id").fetchall()
     if not is_admin: shifts = [s for s in shifts if worker_in_shift(current_user, s[1])]
-    conn.close(); buffer = io.BytesIO(); doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
+    title = tr["pdf_title"] + (f" - {format_date(date_filter)}" if date_filter else "")
+    conn.close(); buffer = io.BytesIO(); doc = pdf_doc(buffer, title, pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
     styles = getSampleStyleSheet(); elements = []
     if os.path.exists("static/logo.png"): elements += [Image("static/logo.png", width=4*cm, height=2*cm), Spacer(1, 8)]
-    title = tr["pdf_title"] + (f" - {format_date(date_filter)}" if date_filter else "")
     elements += [Paragraph(title, styles["Title"]), Spacer(1, 12), Paragraph(f"{tr['pdf_user']}: {session['user']} ({session['role']})", styles["Normal"]), Spacer(1, 12)]
     table_data = [[tr["pdf_date"], tr["pdf_time"], tr["pdf_worker"], tr["pdf_client"], tr["status"]]]
     for s in shifts: table_data.append([format_date(s[3]), s[4], s[1], s[2], get_status_label(get_auto_status(s[3], s[4]), tr)])
     if not shifts: table_data.append(["-", "-", "-", "-", tr["pdf_no_shifts"]])
     table = Table(table_data, colWidths=[2.8*cm, 2.8*cm, 4.0*cm, 4.8*cm, 3.0*cm]); table.setStyle(TableStyle([("BACKGROUND", (0,0), (-1,0), colors.HexColor("#1f4f82")), ("TEXTCOLOR", (0,0), (-1,0), colors.white), ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"), ("GRID", (0,0), (-1,-1), 0.5, colors.grey), ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.whitesmoke, colors.HexColor("#eaf2fb")]), ("FONTSIZE", (0,0), (-1,-1), 10)])); elements.append(table); doc.build(elements); buffer.seek(0)
-    return send_file(buffer, as_attachment=True, download_name="schedule.pdf", mimetype="application/pdf")
+    filename = safe_pdf_name("plan", date_filter or "all")
+    return send_file(buffer, as_attachment=True, download_name=f"{filename}.pdf", mimetype="application/pdf")
+
+
+@app.route("/week_pdf")
+def week_pdf():
+    if "user" not in session:
+        return redirect("/login")
+    tr = t()
+    is_admin = session.get("role") == "admin"
+    current_user = session.get("user")
+    start_week = get_week_start_from_request()
+    end_week = start_week + timedelta(days=6)
+    start_date = start_week.strftime("%Y-%m-%d")
+    end_date = end_week.strftime("%Y-%m-%d")
+    conn = get_conn()
+    c = conn.cursor()
+    shifts = c.execute("SELECT * FROM shifts WHERE date >= ? AND date <= ? ORDER BY date, time, id", (start_date, end_date)).fetchall()
+    conn.close()
+    if not is_admin:
+        shifts = [s for s in shifts if worker_in_shift(current_user, s[1])]
+    title = f"{tr['week_calendar']} {format_date(start_date)} - {format_date(end_date)}"
+    buffer = io.BytesIO()
+    doc = pdf_doc(buffer, title, pagesize=landscape(A4), rightMargin=1*cm, leftMargin=1*cm, topMargin=1*cm, bottomMargin=1*cm)
+    styles = getSampleStyleSheet()
+    elements = []
+    if os.path.exists("static/logo.png"):
+        elements += [Image("static/logo.png", width=4*cm, height=2*cm), Spacer(1, 8)]
+    elements += [Paragraph(title, styles["Title"]), Spacer(1, 12)]
+    table_data = [[tr["pdf_date"], tr["pdf_time"], tr["pdf_worker"], tr["pdf_client"], tr["status"]]]
+    for shift in shifts:
+        table_data.append([format_date(shift[3]), shift[4], shift[1], shift[2], get_status_label(get_auto_status(shift[3], shift[4]), tr)])
+    if not shifts:
+        table_data.append(["-", "-", "-", "-", tr["pdf_no_shifts"]])
+    table = Table(table_data, colWidths=[3*cm, 3*cm, 6*cm, 7*cm, 4*cm])
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#1f4f82")),
+        ("TEXTCOLOR", (0,0), (-1,0), colors.white),
+        ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+        ("GRID", (0,0), (-1,-1), 0.5, colors.grey),
+        ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.whitesmoke, colors.HexColor("#eaf2fb")]),
+        ("FONTSIZE", (0,0), (-1,-1), 9),
+    ]))
+    elements.append(table)
+    doc.build(elements)
+    buffer.seek(0)
+    filename = safe_pdf_name("week_calendar", start_date, end_date)
+    return send_file(buffer, as_attachment=True, download_name=f"{filename}.pdf", mimetype="application/pdf")
 
 
 @app.route("/month_pdf")
@@ -3212,7 +3273,8 @@ def month_pdf():
     start_date = f"{year:04d}-{month:02d}-01"; end_date = f"{year:04d}-{month:02d}-{calendar.monthrange(year, month)[1]:02d}"
     conn = get_conn(); c = conn.cursor(); shifts = c.execute("SELECT * FROM shifts WHERE date >= ? AND date <= ? ORDER BY date, time, id", (start_date, end_date)).fetchall(); absences = c.execute("SELECT id, worker, type, date_from, date_to, note FROM absences ORDER BY worker, date_from").fetchall(); conn.close()
     if not is_admin: shifts = [s for s in shifts if worker_in_shift(current_user, s[1])]; absences = [a for a in absences if a[1] == current_user]
-    buffer = io.BytesIO(); doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=1*cm, leftMargin=1*cm, topMargin=1*cm, bottomMargin=1*cm); styles = getSampleStyleSheet(); elements = [Paragraph(f"{tr['month_calendar']} {format_month_year(year, month)}", styles["Title"]), Spacer(1, 10)]
+    title = f"{tr['month_calendar']} {format_month_year(year, month)}"
+    buffer = io.BytesIO(); doc = pdf_doc(buffer, title, pagesize=landscape(A4), rightMargin=1*cm, leftMargin=1*cm, topMargin=1*cm, bottomMargin=1*cm); styles = getSampleStyleSheet(); elements = [Paragraph(title, styles["Title"]), Spacer(1, 10)]
     month_hours = calculate_hours_for_user(shifts, current_user if not is_admin else None)
     absence_totals = absence_totals_by_worker(absences, year, month)
     summary_workers = sorted(set(month_hours.keys()) | set(absence_totals.keys()))
