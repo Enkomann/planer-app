@@ -1595,6 +1595,18 @@ BASE_STYLE = """
     .mini-shift { margin-top:6px; padding:6px; border-radius:8px; font-size:12px; background: {{ '#1f2937' if dark else '#f8fafc' }}; }
     .calendar-board { border-radius:16px; padding:10px; background:{{ '#0b1220' if dark else '#eef3fb' }}; border:1px solid {{ '#243244' if dark else '#dce5f2' }}; }
     .calendar-day-card { background:{{ '#121c2d' if dark else '#fbfcff' }} !important; border:1px solid {{ '#26364d' if dark else '#dfe7f2' }}; border-radius:9px; box-shadow:0 1px 5px rgba(15,23,42,0.07) !important; }
+    .week-day-heading {
+        display:block;
+        margin:-7px -7px 10px;
+        padding:11px 10px;
+        border-radius:8px;
+        background:{{ '#20344e' if dark else '#d9e6f8' }};
+        border:1px solid {{ '#365372' if dark else '#b7cee9' }};
+        color:{{ '#dbeafe' if dark else '#173b63' }} !important;
+        box-shadow:0 3px 8px rgba(15,23,42,0.1);
+        line-height:1.35;
+    }
+    .weekend-soft .week-day-heading { background:{{ '#42252e' if dark else '#f8dfe5' }}; border-color:{{ '#70404d' if dark else '#edbdc9' }}; color:{{ '#fecdd3' if dark else '#8a2744' }} !important; }
     .calendar-board .mini-shift {
         --shift-accent:#7aa7df;
         padding:8px;
@@ -2232,7 +2244,7 @@ def week_view():
         {% for day in week_days %}
             {% set holiday_name = holidays_map.get(day) %}
             <div class="card calendar-day-card {% if holiday_name %}holiday-soft{% endif %} {% if is_weekend(day) %}weekend-soft{% endif %}" style="width:180px; min-height:130px;" ondragover="allowDrop(event)" ondragleave="clearDrop(event)" ondrop="dropShift(event, '{{ day }}')">
-                <a href="{% if is_admin %}javascript:void(0){% else %}/?selected_date={{ day }}{% endif %}" {% if is_admin %}onclick="openHolidayModal('{{ day }}')"{% endif %} style="{% if is_weekend(day) %}color:#ef4444;{% endif %}">{{ day_names[loop.index0] }}<br>{{ format_date(day) }}</a>
+                <a class="week-day-heading" href="{% if is_admin %}javascript:void(0){% else %}/?selected_date={{ day }}{% endif %}" {% if is_admin %}onclick="openHolidayModal('{{ day }}')"{% endif %}>{{ day_names[loop.index0] }}<br>{{ format_date(day) }}</a>
                 {% if holiday_name %}<small class="holiday-note">{{ holiday_name }}</small>{% endif %}
                 {% for s in shifts %}{% if s[3] == day %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="--shift-accent:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#7aa7df') }};"><b>{{ s[1] }}</b><br>{{ s[2] }}<br>{{ s[4] }}{% if is_admin %}<br><a class="mini-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a><a class="mini-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a><a class="mini-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>{% endif %}</div>{% endif %}{% endfor %}
             </div>
@@ -2274,7 +2286,9 @@ def month_view():
             min-height:auto;
             text-align:center;
             font-weight:bold;
-            border:1px solid {{ '#374151' if dark else '#dbe4ee' }};
+            background:{{ '#20344e' if dark else '#d9e6f8' }} !important;
+            border:1px solid {{ '#365372' if dark else '#b7cee9' }};
+            color:{{ '#dbeafe' if dark else '#173b63' }};
             box-shadow:0 8px 18px rgba(0,0,0,0.14);
         }
     </style>
