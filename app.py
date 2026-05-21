@@ -1593,6 +1593,18 @@ BASE_STYLE = """
     button { background:#1f4f82; color:white; border:none; cursor:pointer; }
     .shift { background: {{ 'linear-gradient(135deg, #111827, #1f2937)' if dark else 'linear-gradient(135deg, #ffffff, #f1f5f9)' }}; padding:14px; margin:12px 0; border-radius:12px; box-shadow:0 4px 14px rgba(0,0,0,0.06); }
     .mini-shift { margin-top:6px; padding:6px; border-radius:8px; font-size:12px; background: {{ '#1f2937' if dark else '#f8fafc' }}; }
+    .calendar-board { border-radius:16px; padding:10px; background:{{ '#0b1220' if dark else '#eef3fb' }}; border:1px solid {{ '#243244' if dark else '#dce5f2' }}; }
+    .calendar-day-card { background:{{ '#121c2d' if dark else '#fbfcff' }} !important; border:1px solid {{ '#26364d' if dark else '#dfe7f2' }}; border-radius:9px; box-shadow:0 1px 5px rgba(15,23,42,0.07) !important; }
+    .calendar-board .mini-shift {
+        --shift-accent:#7aa7df;
+        padding:8px;
+        color:{{ '#e5e7eb' if dark else '#1f2937' }};
+        background:{{ '#172334' if dark else '#eaf2fd' }};
+        background:color-mix(in srgb, var(--shift-accent) {{ '28%' if dark else '23%' }}, {{ '#111827' if dark else 'white' }});
+        border:1px solid color-mix(in srgb, var(--shift-accent) {{ '48%' if dark else '34%' }}, {{ '#243244' if dark else '#d8e2f0' }});
+        border-left:5px solid var(--shift-accent) !important;
+        box-shadow:none;
+    }
     .user-row, .hours-row { padding:8px 0; border-bottom:1px solid {{ '#374151' if dark else '#e5e7eb' }}; }
     .muted { color: {{ '#9ca3af' if dark else '#64748b' }}; font-size:14px; }
     .status-badge { color:white; padding:4px 8px; border-radius:6px; font-size:12px; font-weight:bold; margin-left:8px; }
@@ -1602,8 +1614,8 @@ BASE_STYLE = """
     .copy-link { color:#16a34a; }
     .check-row { display:flex; align-items:center; gap:8px; margin:5px 0; }
     .check-row input { width:auto; }
-    .weekend-soft { border:2px solid #ef4444 !important; background:{{ '#3f1f1f' if dark else '#fff1f1' }} !important; }
-    .holiday-soft { background:{{ '#3f2f12' if dark else '#fff7df' }} !important; border:2px solid #f59e0b !important; }
+    .weekend-soft { border:2px solid {{ '#7f4141' if dark else '#f3caca' }} !important; background:{{ '#26191d' if dark else '#fff7f8' }} !important; }
+    .holiday-soft { background:{{ '#302816' if dark else '#fffaf0' }} !important; border:2px solid {{ '#8a6a22' if dark else '#f4dda6' }} !important; }
     .holiday-note { display:block; color:#dc2626; font-size:11px; margin-top:4px; font-weight:bold; }
     .drop-target { outline:2px dashed #22c55e; }
     .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:50; }
@@ -2216,13 +2228,13 @@ def week_view():
     <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin:16px 0; flex-wrap:wrap;">
         <a href="/week?start={{ prev_week }}">{{ tr["prev_week"] }}</a><strong>{{ format_date(week_days[0]) }} - {{ format_date(week_days[-1]) }}</strong><a href="/week?start={{ next_week }}">{{ tr["next_week"] }}</a><a href="/week?start={{ current_week }}">{{ tr["current_week"] }}</a>
     </div>
-    <div style="display:flex; gap:12px; flex-wrap:wrap;">
+    <div class="calendar-board week-calendar-grid" style="display:flex; gap:12px; flex-wrap:wrap;">
         {% for day in week_days %}
             {% set holiday_name = holidays_map.get(day) %}
-            <div class="card {% if holiday_name %}holiday-soft{% endif %} {% if is_weekend(day) %}weekend-soft{% endif %}" style="width:180px; min-height:130px;" ondragover="allowDrop(event)" ondragleave="clearDrop(event)" ondrop="dropShift(event, '{{ day }}')">
+            <div class="card calendar-day-card {% if holiday_name %}holiday-soft{% endif %} {% if is_weekend(day) %}weekend-soft{% endif %}" style="width:180px; min-height:130px;" ondragover="allowDrop(event)" ondragleave="clearDrop(event)" ondrop="dropShift(event, '{{ day }}')">
                 <a href="{% if is_admin %}javascript:void(0){% else %}/?selected_date={{ day }}{% endif %}" {% if is_admin %}onclick="openHolidayModal('{{ day }}')"{% endif %} style="{% if is_weekend(day) %}color:#ef4444;{% endif %}">{{ day_names[loop.index0] }}<br>{{ format_date(day) }}</a>
                 {% if holiday_name %}<small class="holiday-note">{{ holiday_name }}</small>{% endif %}
-                {% for s in shifts %}{% if s[3] == day %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="border-left:5px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }};"><b>{{ s[1] }}</b><br>{{ s[2] }}<br>{{ s[4] }}{% if is_admin %}<br><a class="mini-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a><a class="mini-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a><a class="mini-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>{% endif %}</div>{% endif %}{% endfor %}
+                {% for s in shifts %}{% if s[3] == day %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="--shift-accent:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#7aa7df') }};"><b>{{ s[1] }}</b><br>{{ s[2] }}<br>{{ s[4] }}{% if is_admin %}<br><a class="mini-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a><a class="mini-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a><a class="mini-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>{% endif %}</div>{% endif %}{% endfor %}
             </div>
         {% endfor %}
     </div>
@@ -2269,13 +2281,13 @@ def month_view():
     <div><a class="back-button" href="/">{{ tr["back"] }}</a><a href="/week">{{ tr["week_calendar"] }}</a><a href="/month_pdf?year={{ year }}&month={{ month }}" target="_blank">{{ tr["month_pdf"] }}</a></div>
     {% if is_admin and copied_shift_id %}<div style="background:#16a34a;color:white;padding:8px 12px;border-radius:8px;display:inline-block;margin:10px 0;font-weight:bold;">{{ tr["copy_active"] }} <a style="color:white;" href="/clear_copy">{{ tr["clear"] }}</a></div>{% endif %}
     <div style="display:flex; justify-content:space-between; align-items:center; margin:16px 0; gap:12px;"><a href="/month?year={{ prev_year }}&month={{ prev_month }}">{{ tr["prev_month"] }}</a><h2>{{ tr["month_calendar"] }} - {{ format_month_year(year, month) }}</h2><a href="/month?year={{ next_year }}&month={{ next_month }}">{{ tr["next_month"] }}</a></div>
-    <div class="month-grid">
+    <div class="calendar-board month-grid">
         {% for dn in day_names %}<div class="card month-weekday">{{ dn }}</div>{% endfor %}
         {% for week in month_days %}{% for day in week %}{% set daystr = day.strftime('%Y-%m-%d') %}{% set holiday_name = holidays_map.get(daystr) %}
-            <div class="card {% if holiday_name %}holiday-soft{% endif %} {% if day.weekday() >= 5 %}weekend-soft{% endif %}" style="min-height:120px;" ondragover="allowDrop(event)" ondragleave="clearDrop(event)" ondrop="dropShift(event, '{{ daystr }}')">
+            <div class="card calendar-day-card {% if holiday_name %}holiday-soft{% endif %} {% if day.weekday() >= 5 %}weekend-soft{% endif %}" style="min-height:120px;" ondragover="allowDrop(event)" ondragleave="clearDrop(event)" ondrop="dropShift(event, '{{ daystr }}')">
                 <div style="font-weight:bold; margin-bottom:8px;"><a href="{% if is_admin %}javascript:void(0){% else %}/?selected_date={{ daystr }}{% endif %}" {% if is_admin %}onclick="openHolidayModal('{{ daystr }}')"{% endif %} style="{% if day.weekday() >= 5 %}color:#ef4444;{% endif %}">{{ day.strftime('%d/%m/%Y') }}</a>{% if is_admin and copied_shift_id %}<br><a style="display:inline-block;margin-top:6px;padding:4px 7px;border-radius:6px;background:#16a34a;color:white!important;font-size:11px;" href="/paste_shift/{{ daystr }}">{{ tr["paste"] }}</a>{% endif %}</div>
                 {% if holiday_name %}<small class="holiday-note">{{ holiday_name }}</small>{% endif %}
-                {% for s in shifts_by_date.get(daystr, []) %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="border-left:5px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }};"><b>{{ s[1] }}</b><br>{{ s[2] }}<br>{{ s[4] }}{% if is_admin %}<br><a class="mini-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a><a class="mini-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a><a class="mini-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>{% endif %}</div>{% endfor %}
+                {% for s in shifts_by_date.get(daystr, []) %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="--shift-accent:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#7aa7df') }};"><b>{{ s[1] }}</b><br>{{ s[2] }}<br>{{ s[4] }}{% if is_admin %}<br><a class="mini-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a><a class="mini-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a><a class="mini-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>{% endif %}</div>{% endfor %}
             </div>
         {% endfor %}{% endfor %}
     </div>
