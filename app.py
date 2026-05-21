@@ -1642,7 +1642,19 @@ BASE_STYLE = """
     .hero { padding:22px; border-radius:16px; background:{{ 'linear-gradient(135deg,#111827,#1f2937)' if dark else 'linear-gradient(135deg,#ffffff,#eaf2fb)' }}; margin-bottom:18px; }
     .hero h1 { margin:0 0 6px 0; }
     .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; margin:14px 0 18px 0; }
-    .stat-card { padding:16px; border-radius:14px; background:{{ '#111827' if dark else 'white' }}; box-shadow:0 4px 14px rgba(0,0,0,0.06); border-left:5px solid #1f4f82; }
+    .stat-card { padding:16px; border-radius:14px; background:{{ '#111827' if dark else 'white' }}; box-shadow:0 4px 14px rgba(0,0,0,0.06); border-left:5px solid #1f4f82; border:1px solid transparent; }
+    .stat-today { background:{{ '#142638' if dark else '#eaf3ff' }}; border-color:{{ '#274e73' if dark else '#c8def7' }}; border-left-color:#4b8fd8; }
+    .stat-workers { background:{{ '#142b29' if dark else '#e8f7f1' }}; border-color:{{ '#24554c' if dark else '#c4eadb' }}; border-left-color:#37a47d; }
+    .stat-clients { background:{{ '#292238' if dark else '#f1edff' }}; border-color:{{ '#51426d' if dark else '#d9cdf9' }}; border-left-color:#8d75cf; }
+    .stat-hours { background:{{ '#30251d' if dark else '#fff3df' }}; border-color:{{ '#66503a' if dark else '#f2d5a5' }}; border-left-color:#d89a41; }
+    .dashboard-panel { border:1px solid transparent; }
+    .panel-worker { background:{{ '#132536' if dark else '#edf5ff' }} !important; border-color:{{ '#294b69' if dark else '#d1e3f8' }}; }
+    .panel-client { background:{{ '#132927' if dark else '#edf9f4' }} !important; border-color:{{ '#2a534c' if dark else '#cfece1' }}; }
+    .panel-shift { background:{{ '#252136' if dark else '#f3f0ff' }} !important; border-color:{{ '#494266' if dark else '#ddd5f7' }}; }
+    .panel-absence { background:{{ '#321f29' if dark else '#fff1f6' }} !important; border-color:{{ '#684253' if dark else '#f4d2df' }}; }
+    .panel-week-hours { background:{{ '#172939' if dark else '#edf6fd' }} !important; border-color:{{ '#33516b' if dark else '#d1e4f2' }}; }
+    .panel-month-hours { background:{{ '#1a2c26' if dark else '#eff8ee' }} !important; border-color:{{ '#355a4a' if dark else '#d4ead0' }}; }
+    .panel-absence-summary { background:{{ '#2d271d' if dark else '#fff7e9' }} !important; border-color:{{ '#635238' if dark else '#f0dfbe' }}; }
     .stat-number { font-size:26px; font-weight:800; margin-top:6px; }
     .section-title { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:22px 0 12px; }
     .big-map-button { display:inline-block; padding:16px 26px; border-radius:14px; background:#16a34a; color:white !important; font-size:18px; font-weight:800; text-decoration:none; box-shadow:0 6px 18px rgba(0,0,0,0.18); }
@@ -1946,10 +1958,10 @@ def index():
                 <div class="muted">Luxmann Planner · {{ tr["overview"] }}</div>
             </div>
             <div class="stats-grid">
-                <div class="stat-card"><div class="muted">{{ tr["today_shifts"] }}</div><div class="stat-number">{{ today_shift_count }}</div></div>
-                <div class="stat-card"><div class="muted">{{ tr["active_workers"] }}</div><div class="stat-number">{{ worker_count }}</div></div>
-                <div class="stat-card"><div class="muted">{{ tr["registered_clients"] }}</div><div class="stat-number">{{ client_count }}</div></div>
-                <div class="stat-card"><div class="muted">{{ tr["this_month_hours"] }}</div><div class="stat-number">{{ "%.1f"|format(month_total_hours) }}</div></div>
+                <div class="stat-card stat-today"><div class="muted">{{ tr["today_shifts"] }}</div><div class="stat-number">{{ today_shift_count }}</div></div>
+                <div class="stat-card stat-workers"><div class="muted">{{ tr["active_workers"] }}</div><div class="stat-number">{{ worker_count }}</div></div>
+                <div class="stat-card stat-clients"><div class="muted">{{ tr["registered_clients"] }}</div><div class="stat-number">{{ client_count }}</div></div>
+                <div class="stat-card stat-hours"><div class="muted">{{ tr["this_month_hours"] }}</div><div class="stat-number">{{ "%.1f"|format(month_total_hours) }}</div></div>
             </div>
             {% if is_admin and contract_reminders %}
             <div class="card" style="border-left:6px solid #f59e0b; margin-bottom:16px;">
@@ -1985,10 +1997,10 @@ def index():
             </div>
         </div>
 
-        <div class="card"><h3>{{ tr["add_worker"] }}</h3><form method="post" action="/add_worker" autocomplete="off"><input name="worker_name" placeholder="{{ tr['worker_name'] }}" required autocomplete="off"><input name="address" placeholder="{{ tr['address'] }}" autocomplete="off"><input name="contract_type" placeholder="{{ tr['contract_type'] }}" autocomplete="off"><label>{{ tr["contract_end_date"] }}</label><input name="contract_end_date" type="date"><button>{{ tr["add_worker"] }}</button></form></div>
-        <div class="card"><h3>{{ tr["add_client"] }}</h3><form method="post" action="/add_client" autocomplete="off"><input name="client_name" placeholder="{{ tr['client_name'] }}" required autocomplete="off"><input name="address" placeholder="{{ tr['address'] }}" required autocomplete="off"><button>{{ tr["add_client"] }}</button></form></div>
+        <div class="card dashboard-panel panel-worker"><h3>{{ tr["add_worker"] }}</h3><form method="post" action="/add_worker" autocomplete="off"><input name="worker_name" placeholder="{{ tr['worker_name'] }}" required autocomplete="off"><input name="address" placeholder="{{ tr['address'] }}" autocomplete="off"><input name="contract_type" placeholder="{{ tr['contract_type'] }}" autocomplete="off"><label>{{ tr["contract_end_date"] }}</label><input name="contract_end_date" type="date"><button>{{ tr["add_worker"] }}</button></form></div>
+        <div class="card dashboard-panel panel-client"><h3>{{ tr["add_client"] }}</h3><form method="post" action="/add_client" autocomplete="off"><input name="client_name" placeholder="{{ tr['client_name'] }}" required autocomplete="off"><input name="address" placeholder="{{ tr['address'] }}" required autocomplete="off"><button>{{ tr["add_client"] }}</button></form></div>
 
-        <div class="card">
+        <div class="card dashboard-panel panel-shift">
             <h3>{{ tr["add_shift"] }}</h3>
             <form method="post" action="/add_shift">
                 <label>{{ tr["choose_worker"] }}</label>
@@ -2010,7 +2022,7 @@ def index():
             <form method="get"><input type="date" name="date" value="{{ request.args.get('date', '') }}"><select name="worker"><option value="">{{ tr["all_workers"] }}</option>{% for w in workers %}<option value="{{ w[0] }}" {% if worker_filter == w[0] %}selected{% endif %}>{{ w[0] }}</option>{% endfor %}</select><select name="client"><option value="">{{ tr["all_clients"] }}</option>{% for c in clients %}<option value="{{ c[0] }}" {% if client_filter == c[0] %}selected{% endif %}>{{ c[0] }}</option>{% endfor %}</select><input name="q" value="{{ request.args.get('q', '') }}" placeholder="{{ tr['search_placeholder'] }}"><button>{{ tr["filter_btn"] }}</button></form><a class="reset-link" href="/">{{ tr["reset"] }}</a>
         </div>
 
-        <div class="card">
+        <div class="card dashboard-panel panel-absence">
             <h3>{{ tr["sick_vacation"] }}</h3>
             <form method="post" action="/add_absence">
                 <select name="worker" required><option value="">{{ tr["choose_worker"] }}</option>{% for w in workers %}{% if w[0] != 'admin' %}<option value="{{ w[0] }}">{{ w[0] }}</option>{% endif %}{% endfor %}</select>
@@ -2024,9 +2036,9 @@ def index():
         </div>
         {% endif %}
 
-        <div class="card"><h3>{{ tr["weekly_hours"] }}</h3><div class="muted">{{ tr["week_period"] }}: {{ week_period }}</div>{% for worker, hours in weekly_hours.items() %}<div class="hours-row"><span>{{ worker }}</span><span>{{ "%.2f"|format(hours) }} {{ tr["hours"] }}</span></div>{% endfor %}{% if weekly_hours|length == 0 %}<div class="muted">0 {{ tr["hours"] }}</div>{% endif %}</div>
-        <div class="card"><h3>{{ tr["monthly_hours"] }}</h3><div class="muted">{{ month_period }}</div>{% for worker, hours in monthly_hours.items() %}<div class="hours-row"><span>{{ worker }}</span><span>{{ "%.2f"|format(hours) }} {{ tr["hours"] }}</span></div>{% endfor %}{% if monthly_hours|length == 0 %}<div class="muted">0 {{ tr["hours"] }}</div>{% endif %}<br><a class="pdf-link" href="/month_pdf" target="_blank">{{ tr["month_pdf"] }}</a></div>
-        <div class="card"><h3>{{ tr["monthly_absence_days"] }}</h3><div class="muted">{{ month_period }}</div>{% for a, days in absence_summary %}<div class="hours-row"><b>{{ a[1] }}</b> - {{ tr.get(a[2], a[2]) }}: {{ days }} {{ tr["days"] }}<br><small>{{ format_date(a[3]) }} - {{ format_date(a[4]) }}</small></div>{% endfor %}{% if absence_summary|length == 0 %}<div class="muted">0 {{ tr["days"] }}</div>{% endif %}</div>
+        <div class="card dashboard-panel panel-week-hours"><h3>{{ tr["weekly_hours"] }}</h3><div class="muted">{{ tr["week_period"] }}: {{ week_period }}</div>{% for worker, hours in weekly_hours.items() %}<div class="hours-row"><span>{{ worker }}</span><span>{{ "%.2f"|format(hours) }} {{ tr["hours"] }}</span></div>{% endfor %}{% if weekly_hours|length == 0 %}<div class="muted">0 {{ tr["hours"] }}</div>{% endif %}</div>
+        <div class="card dashboard-panel panel-month-hours"><h3>{{ tr["monthly_hours"] }}</h3><div class="muted">{{ month_period }}</div>{% for worker, hours in monthly_hours.items() %}<div class="hours-row"><span>{{ worker }}</span><span>{{ "%.2f"|format(hours) }} {{ tr["hours"] }}</span></div>{% endfor %}{% if monthly_hours|length == 0 %}<div class="muted">0 {{ tr["hours"] }}</div>{% endif %}<br><a class="pdf-link" href="/month_pdf" target="_blank">{{ tr["month_pdf"] }}</a></div>
+        <div class="card dashboard-panel panel-absence-summary"><h3>{{ tr["monthly_absence_days"] }}</h3><div class="muted">{{ month_period }}</div>{% for a, days in absence_summary %}<div class="hours-row"><b>{{ a[1] }}</b> - {{ tr.get(a[2], a[2]) }}: {{ days }} {{ tr["days"] }}<br><small>{{ format_date(a[3]) }} - {{ format_date(a[4]) }}</small></div>{% endfor %}{% if absence_summary|length == 0 %}<div class="muted">0 {{ tr["days"] }}</div>{% endif %}</div>
     </div>
 
     <div class="card" style="margin-top:20px;">
