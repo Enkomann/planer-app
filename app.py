@@ -45,7 +45,7 @@ app.config.update(
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=bool(os.environ.get("RENDER") or os.environ.get("SESSION_COOKIE_SECURE") == "1"),
 )
-app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_UPLOAD_MB", "25")) * 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_UPLOAD_MB", "200")) * 1024 * 1024
 
 DOCUMENT_ROOT = os.path.abspath(os.environ.get("DOCUMENT_STORAGE_DIR", os.path.join("storage", "documents")))
 DOCUMENT_EXTENSIONS = {"pdf", "png", "jpg", "jpeg", "webp", "doc", "docx", "xls", "xlsx", "csv", "txt"}
@@ -428,7 +428,10 @@ DOCUMENT_TRANSLATIONS = {
         "document_missing": "Dokument nije dostupan.", "share_expired": "Ovaj link je istekao ili je ukinut.",
         "accountant_access": "Pristup preko ovog linka vazi samo za ovaj dokument.",
         "file_type_error": "Dozvoljeni su PDF, slike, Word, Excel, CSV i TXT dokumenti.",
-        "document_upload_error": "Izaberi datoteku za upload.", "open_document": "Otvori dokument",
+        "document_upload_error": "Izaberi datoteku ili fasciklu za upload.", "open_document": "Otvori dokument",
+        "single_document": "Pojedinacni dokument", "upload_documents": "Dodaj dokumente",
+        "multiple_documents": "Vise dokumenata", "folder_documents": "Cijela fascikla",
+        "documents_uploaded": "Dokumenata dodato", "documents_skipped": "Preskoceno",
     },
     "en": {
         "documents": "Documents", "upload_document": "Upload document", "document_name": "Document name",
@@ -442,7 +445,10 @@ DOCUMENT_TRANSLATIONS = {
         "document_missing": "Document is not available.", "share_expired": "This link expired or was revoked.",
         "accountant_access": "This link grants access only to this document.",
         "file_type_error": "PDF, image, Word, Excel, CSV and TXT documents are allowed.",
-        "document_upload_error": "Choose a file to upload.", "open_document": "Open document",
+        "document_upload_error": "Choose a file or folder to upload.", "open_document": "Open document",
+        "single_document": "Single document", "upload_documents": "Upload documents",
+        "multiple_documents": "Multiple documents", "folder_documents": "Whole folder",
+        "documents_uploaded": "Documents uploaded", "documents_skipped": "Skipped",
     },
     "fr": {
         "documents": "Documents", "upload_document": "Ajouter document", "document_name": "Nom du document",
@@ -456,7 +462,10 @@ DOCUMENT_TRANSLATIONS = {
         "document_missing": "Document indisponible.", "share_expired": "Ce lien a expire ou a ete revoque.",
         "accountant_access": "Ce lien donne acces uniquement a ce document.",
         "file_type_error": "PDF, images, Word, Excel, CSV et TXT sont autorises.",
-        "document_upload_error": "Choisissez un fichier.", "open_document": "Ouvrir document",
+        "document_upload_error": "Choisissez un fichier ou dossier.", "open_document": "Ouvrir document",
+        "single_document": "Document individuel", "upload_documents": "Ajouter documents",
+        "multiple_documents": "Plusieurs documents", "folder_documents": "Dossier complet",
+        "documents_uploaded": "Documents ajoutes", "documents_skipped": "Ignores",
     },
     "de": {
         "documents": "Dokumente", "upload_document": "Dokument hochladen", "document_name": "Dokumentname",
@@ -470,7 +479,10 @@ DOCUMENT_TRANSLATIONS = {
         "document_missing": "Dokument nicht verfuegbar.", "share_expired": "Dieser Link ist abgelaufen oder widerrufen.",
         "accountant_access": "Dieser Link gibt nur Zugriff auf dieses Dokument.",
         "file_type_error": "PDF, Bilder, Word, Excel, CSV und TXT sind erlaubt.",
-        "document_upload_error": "Waehlen Sie eine Datei.", "open_document": "Dokument oeffnen",
+        "document_upload_error": "Waehlen Sie Datei oder Ordner.", "open_document": "Dokument oeffnen",
+        "single_document": "Ein Dokument", "upload_documents": "Dokumente hochladen",
+        "multiple_documents": "Mehrere Dokumente", "folder_documents": "Ganzer Ordner",
+        "documents_uploaded": "Dokumente hochgeladen", "documents_skipped": "Uebersprungen",
     },
     "pt": {
         "documents": "Documentos", "upload_document": "Carregar documento", "document_name": "Nome do documento",
@@ -484,7 +496,10 @@ DOCUMENT_TRANSLATIONS = {
         "document_missing": "Documento indisponivel.", "share_expired": "Este link expirou ou foi revogado.",
         "accountant_access": "Este link da acesso apenas a este documento.",
         "file_type_error": "PDF, imagens, Word, Excel, CSV e TXT sao permitidos.",
-        "document_upload_error": "Escolha um ficheiro.", "open_document": "Abrir documento",
+        "document_upload_error": "Escolha ficheiro ou pasta.", "open_document": "Abrir documento",
+        "single_document": "Documento individual", "upload_documents": "Carregar documentos",
+        "multiple_documents": "Varios documentos", "folder_documents": "Pasta completa",
+        "documents_uploaded": "Documentos carregados", "documents_skipped": "Ignorados",
     },
 }
 for _lang, _values in DOCUMENT_TRANSLATIONS.items():
@@ -864,6 +879,11 @@ def allowed_document_name(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in DOCUMENT_EXTENSIONS
 
 
+def safe_document_name(filename):
+    normalized = str(filename or "").replace("\\", "/").rsplit("/", 1)[-1]
+    return secure_filename(normalized)
+
+
 def document_path(stored_name):
     safe_name = os.path.basename(stored_name or "")
     return os.path.join(DOCUMENT_ROOT, safe_name)
@@ -912,6 +932,27 @@ def share_is_active(expires_at, revoked):
         return datetime.strptime(expires_at, "%Y-%m-%d %H:%M:%S") > lux_now().replace(tzinfo=None)
     except Exception:
         return False
+
+
+def save_uploaded_document(conn, upload, original_name, category, note):
+    clean_upload_name = safe_document_name(upload.filename)
+    if not clean_upload_name or not allowed_document_name(clean_upload_name):
+        return False
+    clean_original_name = safe_document_name(original_name) or clean_upload_name
+    if not allowed_document_name(clean_original_name):
+        clean_original_name = clean_upload_name
+    extension = clean_upload_name.rsplit(".", 1)[1].lower()
+    stored_name = f"{secrets.token_hex(18)}.{extension}"
+    saved_path = document_path(stored_name)
+    upload.save(saved_path)
+    conn.cursor().execute("""
+        INSERT INTO documents (original_name, stored_name, mime_type, file_size, category, note, uploaded_at, uploaded_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        clean_original_name, stored_name, upload.mimetype or "", os.path.getsize(saved_path), category,
+        note, lux_now().strftime("%Y-%m-%d %H:%M:%S"), session.get("user", ""),
+    ))
+    return True
 
 
 def pdf_doc(buffer, title, **kwargs):
@@ -2136,7 +2177,7 @@ def index():
         <aside class="card sidebar">
             <div class="sidebar-title">{{ tr["professional_menu"] }}</div>
             <a class="nav-link" href="/">🏠 {{ tr["dashboard"] }}</a>
-            {% if is_admin %}<a class="nav-link" href="/documents">Files {{ tr["documents"] }}</a>{% endif %}
+            {% if is_admin %}<a class="nav-link" href="/documents">&#128193; {{ tr["documents"] }}</a>{% endif %}
             <a class="nav-link" href="/week">📅 {{ tr["week_calendar"] }}</a>
             <a class="nav-link" href="/month">🗓️ {{ tr["month_calendar"] }}</a>
             {% if is_admin %}<a class="nav-link" href="/route_optimizer">🧭 {{ tr["route_optimizer"] }}</a>{% endif %}
@@ -2756,12 +2797,22 @@ def documents():
         <div class="card">
             <h2>{{ tr["upload_document"] }}</h2>
             <form method="post" action="/documents/upload" enctype="multipart/form-data">
+                <h3>{{ tr["single_document"] }}</h3>
                 <label>{{ tr["document_file"] }}</label><input type="file" name="file" required accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.csv,.txt">
                 <label>{{ tr["document_name"] }}</label><input name="display_name" placeholder="{{ tr['document_name'] }}">
                 <label>{{ tr["document_category"] }}</label>
                 <select name="category">{% for key, label in categories %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select>
                 <label>{{ tr["document_note"] }}</label><textarea name="note" style="width:100%;min-height:72px;"></textarea>
                 <button>{{ tr["upload_document"] }}</button>
+            </form>
+            <form method="post" action="/documents/upload" enctype="multipart/form-data" style="margin-top:18px;padding-top:16px;border-top:1px solid {{ '#334155' if dark else '#dbe3ee' }};">
+                <h3>{{ tr["folder_documents"] }}</h3>
+                <label>{{ tr["multiple_documents"] }}</label><input type="file" name="files" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.csv,.txt">
+                <label>{{ tr["folder_documents"] }}</label><input type="file" name="folder_files" webkitdirectory directory multiple>
+                <label>{{ tr["document_category"] }}</label>
+                <select name="category">{% for key, label in categories %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select>
+                <label>{{ tr["document_note"] }}</label><textarea name="note" style="width:100%;min-height:72px;"></textarea>
+                <button>{{ tr["upload_documents"] }}</button>
             </form>
             <p class="muted">PDF, JPG, PNG, WEBP, Word, Excel, CSV, TXT. Max {{ max_upload_mb }} MB.</p>
         </div>
@@ -2818,35 +2869,38 @@ def documents_upload():
     if session.get("role") != "admin":
         return redirect("/")
     tr = t()
-    upload = request.files.get("file")
-    if not upload or not upload.filename:
+    uploads = []
+    single_upload = request.files.get("file")
+    if single_upload and single_upload.filename:
+        uploads.append((single_upload, request.form.get("display_name", "").strip() or single_upload.filename))
+    for field_name in ("files", "folder_files"):
+        for upload in request.files.getlist(field_name):
+            if upload and upload.filename:
+                uploads.append((upload, upload.filename))
+    if not uploads:
         return redirect("/documents?notice=" + urllib.parse.quote(tr["document_upload_error"]))
-    clean_upload_name = secure_filename(upload.filename)
-    if not clean_upload_name or not allowed_document_name(clean_upload_name):
-        return redirect("/documents?notice=" + urllib.parse.quote(tr["file_type_error"]))
-    display_name = secure_filename(request.form.get("display_name", "").strip()) or clean_upload_name
-    if not allowed_document_name(display_name):
-        display_name = clean_upload_name
-    extension = clean_upload_name.rsplit(".", 1)[1].lower()
-    stored_name = f"{secrets.token_hex(18)}.{extension}"
-    saved_path = document_path(stored_name)
-    upload.save(saved_path)
-    file_size = os.path.getsize(saved_path)
     category_keys = {key for key, _ in document_categories(tr)}
     category = request.form.get("category", "other").strip()
     if category not in category_keys:
         category = "other"
+    note = request.form.get("note", "").strip()
     conn = get_conn()
-    conn.cursor().execute("""
-        INSERT INTO documents (original_name, stored_name, mime_type, file_size, category, note, uploaded_at, uploaded_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        display_name, stored_name, upload.mimetype or "", file_size, category,
-        request.form.get("note", "").strip(), lux_now().strftime("%Y-%m-%d %H:%M:%S"), session.get("user", ""),
-    ))
-    conn.commit()
+    saved_count = 0
+    skipped_count = 0
+    for upload, original_name in uploads:
+        if save_uploaded_document(conn, upload, original_name, category, note):
+            saved_count += 1
+        else:
+            skipped_count += 1
+    if saved_count:
+        conn.commit()
     conn.close()
-    return redirect("/documents")
+    if not saved_count:
+        return redirect("/documents?notice=" + urllib.parse.quote(tr["file_type_error"]))
+    notice = f"{tr['documents_uploaded']}: {saved_count}"
+    if skipped_count:
+        notice += f". {tr['documents_skipped']}: {skipped_count}"
+    return redirect("/documents?notice=" + urllib.parse.quote(notice))
 
 
 @app.route("/documents/view/<int:document_id>")

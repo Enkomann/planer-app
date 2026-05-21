@@ -35,6 +35,8 @@ The `render.yaml` blueprint attaches a 10 GB persistent disk at:
 
 Only upload business documents after the disk is attached on Render. Otherwise files written to the normal web-service filesystem are not persistent across deploys and restarts.
 
+The Documents screen supports a single document, multiple selected documents, or a whole folder upload. Folder upload adds each allowed document from that folder as its own document record.
+
 Render start command:
 
 ```bash
