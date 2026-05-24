@@ -2145,9 +2145,11 @@ BASE_STYLE = """
             white-space:nowrap !important;
             text-overflow:ellipsis !important;
             max-width:100% !important;
+            width:100% !important;
+            box-sizing:border-box !important;
         }
-        .month-grid .mini-shift .ms-w { font-weight:bold; }
-        .month-grid .mini-shift .ms-t { opacity:0.75; }
+        .month-grid .mini-shift .ms-w { font-weight:bold !important; }
+        .month-grid .mini-shift .ms-t { opacity:0.75; font-size:7px !important; }
         .month-grid .mini-link { display:none !important; }
         .month-grid .day-menu-wrapper { top:2px !important; right:2px !important; }
         .month-grid .day-menu-wrapper button { font-size:14px !important; padding:1px 3px !important; min-width:22px; min-height:22px; }
@@ -3064,10 +3066,10 @@ def month_view():
         document.querySelectorAll('a.month-day-date').forEach(function(a){var s=a.getAttribute('data-short');if(s)a.textContent=s;});
         /* Compact mini-shift: radnik / 1. riječ klijenta / vrijeme */
         document.querySelectorAll('.month-grid .mini-shift').forEach(function(el){
-          var w=el.getAttribute('data-w')||'';
+          var w=(el.getAttribute('data-w')||'').split(',')[0].trim();
           var c=el.getAttribute('data-c')||'';
           var t=el.getAttribute('data-t')||'';
-          el.innerHTML=(w?'<span class="ms-w">'+w+'</span>':'')+(c?'<span class="ms-c">'+c+'</span>':'')+(t?'<span class="ms-t">'+t+'</span>':'');
+          el.innerHTML=(w?'<div class="ms-w">'+w+'</div>':'')+(c?'<div class="ms-c">'+c+'</div>':'')+(t?'<div class="ms-t">'+t+'</div>':'');
         });
       }
     });
