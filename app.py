@@ -2127,23 +2127,27 @@ BASE_STYLE = """
         .month-weekday { font-size:9px !important; padding:4px 2px !important; }
         .month-grid .calendar-day-card { min-height:52px !important; padding:3px !important; font-size:9px; overflow:hidden; box-sizing:border-box; }
         .month-grid .calendar-day-card > div { font-size:10px; margin-bottom:2px; }
-        /* Smjene = obojene trake bez teksta; tapni na dan za detalje */
+        /* Smjene: ime radnika / klijent / vrijeme – bez prelijevanja */
         .month-grid .mini-shift {
-            display:block !important;
-            height:5px !important;
-            min-height:unset !important;
-            padding:0 !important;
-            margin-top:3px !important;
-            font-size:0 !important;
-            line-height:0 !important;
-            border-radius:3px !important;
-            border:none !important;
-            border-left:none !important;
-            background:var(--shift-accent) !important;
             overflow:hidden !important;
-            opacity:0.85;
+            max-width:100% !important;
+            box-sizing:border-box !important;
+            font-size:8px !important;
+            padding:2px 3px !important;
+            margin-top:3px !important;
+            line-height:1.35 !important;
         }
-        .month-grid .mini-shift * { display:none !important; }
+        .month-grid .mini-shift .ms-w,
+        .month-grid .mini-shift .ms-c,
+        .month-grid .mini-shift .ms-t {
+            display:block !important;
+            overflow:hidden !important;
+            white-space:nowrap !important;
+            text-overflow:ellipsis !important;
+            max-width:100% !important;
+        }
+        .month-grid .mini-shift .ms-w { font-weight:bold; }
+        .month-grid .mini-shift .ms-t { opacity:0.75; }
         .month-grid .mini-link { display:none !important; }
         .month-grid .day-menu-wrapper { top:2px !important; right:2px !important; }
         .month-grid .day-menu-wrapper button { font-size:14px !important; padding:1px 3px !important; min-width:22px; min-height:22px; }
@@ -3017,7 +3021,7 @@ def month_view():
                 {% if is_admin %}<div class="day-menu-wrapper" style="position:absolute;top:6px;right:8px;"><button onclick="toggleDayMenu(this)" title="{{ tr['add_shift'] }}" style="background:none;border:none;font-size:20px;font-weight:bold;cursor:pointer;padding:0;line-height:1;color:#1f4f82;opacity:0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">+</button><div class="day-mini-menu" style="display:none;position:absolute;right:0;top:28px;z-index:300;min-width:155px;border-radius:8px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,0.18);background:{% if dark %}#1e293b{% else %}white{% endif %};border:1px solid {% if dark %}#2d4060{% else %}#dbeafe{% endif %};"><a href="javascript:void(0)" onclick="openAddShiftModal('{{ daystr }}')" style="display:block;padding:10px 15px;text-decoration:none;color:{% if dark %}#93c5fd{% else %}#1f4f82{% endif %};font-size:13px;font-weight:600;white-space:nowrap;" onmouseover="this.style.background='{% if dark %}#2d3f56{% else %}#eef4ff{% endif %}'" onmouseout="this.style.background='transparent'">+ {{ tr['add_shift'] }}</a></div></div>{% endif %}
                 <div style="font-weight:bold; margin-bottom:8px;"><a class="month-day-date" data-short="{{ day.strftime('%d') }}" href="{% if is_admin %}javascript:void(0){% else %}/?selected_date={{ daystr }}{% endif %}" {% if is_admin %}onclick="openHolidayModal('{{ daystr }}')"{% endif %} style="{% if day.weekday() >= 5 %}color:#ef4444;{% endif %}">{{ day.strftime('%d/%m/%Y') }}</a>{% if is_admin and copied_shift_id %}<br><a style="display:inline-block;margin-top:6px;padding:4px 7px;border-radius:6px;background:#16a34a;color:white!important;font-size:11px;" href="/paste_shift/{{ daystr }}">{{ tr["paste"] }}</a>{% endif %}</div>
                 {% if holiday_name %}<small class="holiday-note">{{ holiday_name }}</small>{% endif %}
-                {% for s in shifts_by_date.get(daystr, []) %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="--shift-accent:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#7aa7df') }};"><b>{{ s[1] }}</b><br>{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}<br>{{ s[4] }}{% if is_admin %}<br><a class="mini-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a><a class="mini-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a><a class="mini-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>{% endif %}</div>{% endfor %}
+                {% for s in shifts_by_date.get(daystr, []) %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="--shift-accent:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#7aa7df') }};" data-w="{{ s[1] }}" data-c="{{ (s[2] or '').split(' ')[0] }}" data-t="{{ s[4] }}"><b>{{ s[1] }}</b><br>{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}<br>{{ s[4] }}{% if is_admin %}<br><a class="mini-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a><a class="mini-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a><a class="mini-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>{% endif %}</div>{% endfor %}
             </div>
         {% endfor %}{% endfor %}
     </div>
@@ -3056,7 +3060,16 @@ def month_view():
       var CD=[{% for cl in clients %}{"name":{{cl[0]|tojson}},"addr":{{(cl[1] or '')|tojson}}}{% if not loop.last %},{% endif %}{% endfor %}];
       initClientSearch('csInputMonth','csHiddenMonth','csListMonth',CD);
       /* Shorten date display to just day number on small screens */
-      if(window.innerWidth<=600){document.querySelectorAll('a.month-day-date').forEach(function(a){var s=a.getAttribute('data-short');if(s)a.textContent=s;});}
+      if(window.innerWidth<=600){
+        document.querySelectorAll('a.month-day-date').forEach(function(a){var s=a.getAttribute('data-short');if(s)a.textContent=s;});
+        /* Compact mini-shift: radnik / 1. riječ klijenta / vrijeme */
+        document.querySelectorAll('.month-grid .mini-shift').forEach(function(el){
+          var w=el.getAttribute('data-w')||'';
+          var c=el.getAttribute('data-c')||'';
+          var t=el.getAttribute('data-t')||'';
+          el.innerHTML=(w?'<span class="ms-w">'+w+'</span>':'')+(c?'<span class="ms-c">'+c+'</span>':'')+(t?'<span class="ms-t">'+t+'</span>':'');
+        });
+      }
     });
     </script>
     """, tr=tr, dark=dark, year=year, month=month, prev_year=prev_year, prev_month=prev_month, next_year=next_year, next_month=next_month, month_days=month_days, day_names=day_names, shifts_by_date=shifts_by_date, worker_colors=worker_colors, client_cities=client_cities, holidays_map=holidays_map, is_admin=is_admin, copied_shift_id=copied_shift_id, get_auto_status=get_auto_status, split_workers=split_workers, format_month_year=format_month_year, workers=workers, clients=clients, time_hours=time_hours())
