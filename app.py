@@ -1997,6 +1997,11 @@ BASE_STYLE = """
     .drop-target { outline:2px dashed #22c55e; }
     .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:50; }
     .modal-card { max-width:420px; margin:12vh auto; background:{{ '#111827' if dark else 'white' }}; color:{{ '#e5e7eb' if dark else '#111827' }}; border-radius:12px; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,0.25); }
+    .client-search-wrapper { position:relative; }
+    .client-search-dropdown { display:none; position:absolute; top:100%; left:0; right:0; z-index:500; background:{{ '#1e293b' if dark else 'white' }}; border:1px solid {{ '#2d4060' if dark else '#dbeafe' }}; border-radius:0 0 8px 8px; max-height:220px; overflow-y:auto; box-shadow:0 6px 20px rgba(0,0,0,0.15); }
+    .client-search-item { padding:9px 13px; cursor:pointer; font-size:13px; border-bottom:1px solid {{ '#2d3f56' if dark else '#f0f4fa' }}; line-height:1.4; }
+    .client-search-item:hover, .client-search-item.active { background:{{ '#2d3f56' if dark else '#eef4ff' }}; }
+    .client-search-item:last-child { border-bottom:none; }
 
     .app-shell { display:grid; grid-template-columns:240px 1fr; gap:18px; align-items:start; }
     .sidebar { position:sticky; top:18px; padding:16px; }
@@ -2111,6 +2116,44 @@ BASE_STYLE = """
         }
     });
 })();
+window.initClientSearch = function(inputId, hiddenId, listId, data) {
+    var input = document.getElementById(inputId);
+    var hidden = document.getElementById(hiddenId);
+    var list = document.getElementById(listId);
+    if(!input || !hidden || !list) return;
+    var activeIdx = -1;
+    function items() { return list.querySelectorAll('.client-search-item'); }
+    function setActive(idx) {
+        items().forEach(function(el,i){ el.classList.toggle('active', i===idx); });
+        activeIdx = idx;
+    }
+    function show(q) {
+        q = (q||'').toLowerCase().trim();
+        var matches = data.filter(function(c){
+            return !q || c.name.toLowerCase().indexOf(q)!==-1 || (c.addr && c.addr.toLowerCase().indexOf(q)!==-1);
+        });
+        list.innerHTML=''; activeIdx=-1;
+        if(!matches.length){list.style.display='none';return;}
+        matches.slice(0,60).forEach(function(c){
+            var d=document.createElement('div');
+            d.className='client-search-item';
+            d.innerHTML='<strong>'+c.name.replace(/</g,'&lt;')+'</strong>'+(c.addr?'<br><small style="opacity:0.6;">'+c.addr.replace(/</g,'&lt;')+'</small>':'');
+            d.addEventListener('mousedown',function(e){e.preventDefault();input.value=c.name;hidden.value=c.name;list.style.display='none';});
+            list.appendChild(d);
+        });
+        list.style.display='block';
+    }
+    input.addEventListener('input',function(){hidden.value='';show(input.value);});
+    input.addEventListener('focus',function(){show(input.value);});
+    input.addEventListener('blur',function(){setTimeout(function(){list.style.display='none';},200);});
+    input.addEventListener('keydown',function(e){
+        var its=items(); var n=its.length;
+        if(e.key==='ArrowDown'){e.preventDefault();setActive(Math.min(activeIdx+1,n-1));if(its[activeIdx])its[activeIdx].scrollIntoView({block:'nearest'});}
+        else if(e.key==='ArrowUp'){e.preventDefault();setActive(Math.max(activeIdx-1,0));if(its[activeIdx])its[activeIdx].scrollIntoView({block:'nearest'});}
+        else if(e.key==='Enter'&&list.style.display!=='none'){e.preventDefault();var sel=activeIdx>=0?its[activeIdx]:its[0];if(sel)sel.dispatchEvent(new MouseEvent('mousedown'));}
+        else if(e.key==='Escape'){list.style.display='none';}
+    });
+};
 </script>
 """
 
@@ -2380,8 +2423,7 @@ def index():
             <form method="post" action="/add_shift">
                 <label>{{ tr["choose_worker"] }}</label>
                 {% for w in workers %}{% if w[0] != 'admin' %}<label class="check-row"><input type="checkbox" name="workers" value="{{ w[0] }}">{{ w[0] }}</label>{% endif %}{% endfor %}
-                <input id="clientSearchAddShift" placeholder="{{ tr['search_placeholder'] }}" autocomplete="off" oninput="filterClientOptions('clientSearchAddShift', 'clientSelectAddShift')">
-                <select id="clientSelectAddShift" name="client" required><option value="">{{ tr["choose_client"] }}</option>{% for c in clients %}<option value="{{ c[0] }}">{{ c[0] }}</option>{% endfor %}</select>
+                <div class="client-search-wrapper"><input type="text" id="csInputDash" class="client-search-input" placeholder="{{ tr['search_placeholder'] }}" autocomplete="off"><input type="hidden" name="client" id="csHiddenDash" required><div class="client-search-dropdown" id="csListDash"></div></div>
                 <input name="date" type="date" value="{{ selected_date }}" required>
                 <label>{{ tr["start_time"] }}</label>
                 <div style="display:flex; gap:6px;"><select name="start_hour">{% for h in time_hours %}<option value="{{ h }}">{{ h }}</option>{% endfor %}</select><select name="start_minute"><option value="00" selected>00</option><option value="15">15</option><option value="30">30</option><option value="45">45</option></select></div>
@@ -2394,7 +2436,7 @@ def index():
 
         <div class="card">
             <h3>{{ tr["search_shifts"] }}</h3>
-            <form method="get"><input type="date" name="date" value="{{ request.args.get('date', '') }}"><select name="worker"><option value="">{{ tr["all_workers"] }}</option>{% for w in workers %}<option value="{{ w[0] }}" {% if worker_filter == w[0] %}selected{% endif %}>{{ w[0] }}</option>{% endfor %}</select><select name="client"><option value="">{{ tr["all_clients"] }}</option>{% for c in clients %}<option value="{{ c[0] }}" {% if client_filter == c[0] %}selected{% endif %}>{{ c[0] }}</option>{% endfor %}</select><input name="q" value="{{ request.args.get('q', '') }}" placeholder="{{ tr['search_placeholder'] }}"><button>{{ tr["filter_btn"] }}</button></form><a class="reset-link" href="/">{{ tr["reset"] }}</a>
+            <form method="get"><input type="date" name="date" value="{{ request.args.get('date', '') }}"><select name="worker"><option value="">{{ tr["all_workers"] }}</option>{% for w in workers %}<option value="{{ w[0] }}" {% if worker_filter == w[0] %}selected{% endif %}>{{ w[0] }}</option>{% endfor %}</select><div class="client-search-wrapper" style="display:inline-block;vertical-align:middle;"><input type="text" id="csInputFilt" class="client-search-input" value="{{ client_filter }}" placeholder="{{ tr['all_clients'] }}" autocomplete="off" style="width:160px;"><input type="hidden" name="client" id="csHiddenFilt" value="{{ client_filter }}"><div class="client-search-dropdown" id="csListFilt"></div></div><input name="q" value="{{ request.args.get('q', '') }}" placeholder="{{ tr['search_placeholder'] }}"><button>{{ tr["filter_btn"] }}</button></form><a class="reset-link" href="/">{{ tr["reset"] }}</a>
         </div>
 
         <div class="card dashboard-panel panel-absence">
@@ -2474,12 +2516,13 @@ document.addEventListener('DOMContentLoaded', function(){
     document.querySelectorAll('a.delete-link').forEach(function(link){
         link.addEventListener('click', function(e){
             var ok = confirm('Da li ste sigurni da želite obrisati?');
-            if(!ok){
-                e.preventDefault();
-                return false;
-            }
+            if(!ok){ e.preventDefault(); return false; }
         });
     });
+    var CD=[{% for c in clients %}{"name":{{c[0]|tojson}},"addr":{{(c[1] or '')|tojson}}}{% if not loop.last %},{% endif %}{% endfor %}];
+    initClientSearch('csInputDash','csHiddenDash','csListDash',CD);
+    var CDf=[{"name":"","addr":"{{ tr['all_clients'] }}"}].concat(CD);
+    initClientSearch('csInputFilt','csHiddenFilt','csListFilt',CDf);
 });
 </script>
     """, tr=tr, dark=dark, datetime=datetime, timedelta=timedelta, format_date=format_date,
@@ -2655,7 +2698,7 @@ def week_view():
         <form method="post" action="/add_shift">
           <label>{{ tr['choose_worker'] }}</label>
           {% for w in workers %}{% if w[0] != 'admin' %}<label class="check-row"><input type="checkbox" name="workers" value="{{ w[0] }}">{{ w[0] }}</label>{% endif %}{% endfor %}
-          <select name="client" required><option value="">{{ tr['choose_client'] }}</option>{% for cl in clients %}<option value="{{ cl[0] }}">{{ cl[0] }}</option>{% endfor %}</select>
+          <div class="client-search-wrapper"><input type="text" id="csInputWeek" class="client-search-input" placeholder="{{ tr['search_placeholder'] }}" autocomplete="off"><input type="hidden" name="client" id="csHiddenWeek" required><div class="client-search-dropdown" id="csListWeek"></div></div>
           <input id="addShiftDate" name="date" type="date" required>
           <label>{{ tr['start_time'] }}</label>
           <div style="display:flex;gap:6px;"><select name="start_hour">{% for h in time_hours %}<option value="{{ h }}" {% if h=='07' %}selected{% endif %}>{{ h }}</option>{% endfor %}</select><select name="start_minute"><option value="00" selected>00</option><option value="15">15</option><option value="30">30</option><option value="45">45</option></select></div>
@@ -2671,13 +2714,14 @@ def week_view():
     <script>
     function openHolidayModal(dateStr){var m=document.getElementById('holidayModal');var d=document.getElementById('holidayDate');if(m&&d){d.value=dateStr;m.style.display='block';}}
     function closeHolidayModal(){var m=document.getElementById('holidayModal');if(m){m.style.display='none';}}
-    function openAddShiftModal(dateStr){document.getElementById('addShiftDate').value=dateStr;document.getElementById('addShiftModalDate').textContent=dateStr;document.getElementById('addShiftModal').style.display='block';document.querySelectorAll('.day-mini-menu').forEach(function(m){m.style.display='none';});}
+    function openAddShiftModal(dateStr){document.getElementById('addShiftDate').value=dateStr;document.getElementById('addShiftModalDate').textContent=dateStr;document.getElementById('addShiftModal').style.display='block';var ci=document.getElementById('csInputWeek');var ch=document.getElementById('csHiddenWeek');if(ci)ci.value='';if(ch)ch.value='';document.querySelectorAll('.day-mini-menu').forEach(function(m){m.style.display='none';});}
     function closeAddShiftModal(){document.getElementById('addShiftModal').style.display='none';}
     document.getElementById('addShiftModal') && document.getElementById('addShiftModal').addEventListener('click',function(e){if(e.target===this)closeAddShiftModal();});
     function dragShift(ev, shiftId){ev.dataTransfer.setData('shift_id', shiftId);} function allowDrop(ev){ev.preventDefault();ev.currentTarget.classList.add('drop-target');} function clearDrop(ev){ev.currentTarget.classList.remove('drop-target');}
     function dropShift(ev, dateStr){ev.preventDefault();ev.currentTarget.classList.remove('drop-target');var shiftId=ev.dataTransfer.getData('shift_id');if(!shiftId)return;fetch('/move_shift',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'shift_id='+encodeURIComponent(shiftId)+'&date='+encodeURIComponent(dateStr)}).then(function(resp){if(resp.status===409){return resp.text().then(function(msg){showPlannerAlert(msg);});}window.location.reload();});}
     function toggleDayMenu(btn){var menu=btn.nextElementSibling;document.querySelectorAll('.day-mini-menu').forEach(function(m){if(m!==menu)m.style.display='none';});menu.style.display=menu.style.display==='none'?'block':'none';}
     document.addEventListener('click',function(e){if(!e.target.closest('.day-menu-wrapper')&&!e.target.closest('#addShiftModal .modal-card')){document.querySelectorAll('.day-mini-menu').forEach(function(m){m.style.display='none';});}});
+    document.addEventListener('DOMContentLoaded',function(){var CD=[{% for cl in clients %}{"name":{{cl[0]|tojson}},"addr":{{(cl[1] or '')|tojson}}}{% if not loop.last %},{% endif %}{% endfor %}];initClientSearch('csInputWeek','csHiddenWeek','csListWeek',CD);});
     </script>
     """, tr=tr, dark=dark, week_days=week_days, shifts=shifts, worker_colors=worker_colors, client_cities=client_cities, format_date=format_date, holidays_map=holidays_map, day_names=day_names, status_colors=STATUS_COLORS, get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers, is_weekend=is_weekend, is_admin=is_admin, prev_week=prev_week, next_week=next_week, current_week=current_week, start_year=start_week.year, start_month=start_week.month, workers=workers, clients=clients, time_hours=time_hours())
 
@@ -2736,7 +2780,7 @@ def month_view():
         <form method="post" action="/add_shift">
           <label>{{ tr['choose_worker'] }}</label>
           {% for w in workers %}{% if w[0] != 'admin' %}<label class="check-row"><input type="checkbox" name="workers" value="{{ w[0] }}">{{ w[0] }}</label>{% endif %}{% endfor %}
-          <select name="client" required><option value="">{{ tr['choose_client'] }}</option>{% for cl in clients %}<option value="{{ cl[0] }}">{{ cl[0] }}</option>{% endfor %}</select>
+          <div class="client-search-wrapper"><input type="text" id="csInputMonth" class="client-search-input" placeholder="{{ tr['search_placeholder'] }}" autocomplete="off"><input type="hidden" name="client" id="csHiddenMonth" required><div class="client-search-dropdown" id="csListMonth"></div></div>
           <input id="addShiftDate" name="date" type="date" required>
           <label>{{ tr['start_time'] }}</label>
           <div style="display:flex;gap:6px;"><select name="start_hour">{% for h in time_hours %}<option value="{{ h }}" {% if h=='07' %}selected{% endif %}>{{ h }}</option>{% endfor %}</select><select name="start_minute"><option value="00" selected>00</option><option value="15">15</option><option value="30">30</option><option value="45">45</option></select></div>
@@ -2751,21 +2795,18 @@ def month_view():
     {% endif %}
     <script>
     function openHolidayModal(dateStr){var m=document.getElementById('holidayModal');var d=document.getElementById('holidayDate');if(m&&d){d.value=dateStr;m.style.display='block';}} function closeHolidayModal(){var m=document.getElementById('holidayModal');if(m){m.style.display='none';}}
-    function openAddShiftModal(dateStr){document.getElementById('addShiftDate').value=dateStr;document.getElementById('addShiftModalDate').textContent=dateStr;document.getElementById('addShiftModal').style.display='block';document.querySelectorAll('.day-mini-menu').forEach(function(m){m.style.display='none';});}
+    function openAddShiftModal(dateStr){document.getElementById('addShiftDate').value=dateStr;document.getElementById('addShiftModalDate').textContent=dateStr;document.getElementById('addShiftModal').style.display='block';var ci=document.getElementById('csInputMonth');var ch=document.getElementById('csHiddenMonth');if(ci)ci.value='';if(ch)ch.value='';document.querySelectorAll('.day-mini-menu').forEach(function(m){m.style.display='none';});}
     function closeAddShiftModal(){document.getElementById('addShiftModal').style.display='none';}
     document.getElementById('addShiftModal') && document.getElementById('addShiftModal').addEventListener('click',function(e){if(e.target===this)closeAddShiftModal();});
     function dragShift(ev, shiftId){ev.dataTransfer.setData('shift_id', shiftId);} function allowDrop(ev){ev.preventDefault();ev.currentTarget.classList.add('drop-target');} function clearDrop(ev){ev.currentTarget.classList.remove('drop-target');}
     function dropShift(ev, dateStr){ev.preventDefault();ev.currentTarget.classList.remove('drop-target');var shiftId=ev.dataTransfer.getData('shift_id');if(!shiftId)return;fetch('/move_shift',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'shift_id='+encodeURIComponent(shiftId)+'&date='+encodeURIComponent(dateStr)}).then(function(resp){if(resp.status===409){return resp.text().then(function(msg){showPlannerAlert(msg);});}window.location.reload();});}
     function toggleDayMenu(btn){var menu=btn.nextElementSibling;document.querySelectorAll('.day-mini-menu').forEach(function(m){if(m!==menu)m.style.display='none';});menu.style.display=menu.style.display==='none'?'block':'none';}
     document.addEventListener('click',function(e){if(!e.target.closest('.day-menu-wrapper')&&!e.target.closest('#addShiftModal .modal-card')){document.querySelectorAll('.day-mini-menu').forEach(function(m){m.style.display='none';});}});
-    document.addEventListener('DOMContentLoaded', function(){
-    document.querySelectorAll('a.delete-link').forEach(function(link){
-        link.addEventListener('click', function(e){
-            var ok = confirm('Da li ste sigurni da želite obrisati?');
-            if(!ok){ e.preventDefault(); return false; }
-        });
+    document.addEventListener('DOMContentLoaded',function(){
+      document.querySelectorAll('a.delete-link').forEach(function(link){link.addEventListener('click',function(e){if(!confirm('Da li ste sigurni da želite obrisati?')){e.preventDefault();return false;}});});
+      var CD=[{% for cl in clients %}{"name":{{cl[0]|tojson}},"addr":{{(cl[1] or '')|tojson}}}{% if not loop.last %},{% endif %}{% endfor %}];
+      initClientSearch('csInputMonth','csHiddenMonth','csListMonth',CD);
     });
-});
     </script>
     """, tr=tr, dark=dark, year=year, month=month, prev_year=prev_year, prev_month=prev_month, next_year=next_year, next_month=next_month, month_days=month_days, day_names=day_names, shifts_by_date=shifts_by_date, worker_colors=worker_colors, client_cities=client_cities, holidays_map=holidays_map, is_admin=is_admin, copied_shift_id=copied_shift_id, get_auto_status=get_auto_status, split_workers=split_workers, format_month_year=format_month_year, workers=workers, clients=clients, time_hours=time_hours())
 
@@ -4319,7 +4360,7 @@ def edit_shift(id):
     shift = c.execute("SELECT * FROM shifts WHERE id = ?", (id,)).fetchone(); workers = c.execute("SELECT name, address FROM workers ORDER BY name").fetchall(); clients = c.execute("SELECT name, address FROM clients ORDER BY name").fetchall(); conn.close()
     if not shift: return redirect("/")
     start_time, end_time = split_time_range(shift[4]); sh, sm = split_hour_min(start_time); eh, em = split_hour_min(end_time); selected_workers = split_workers(shift[1])
-    return render_template_string(BASE_STYLE + """<div class="card" style="max-width:520px;margin:auto;"><h2>{{ tr["edit_shift"] }}</h2><form method="post"><label>{{ tr["choose_worker"] }}</label>{% for w in workers %}{% if w[0] != 'admin' %}<label class="check-row"><input type="checkbox" name="workers" value="{{ w[0] }}" {% if w[0] in selected_workers %}checked{% endif %}>{{ w[0] }}</label>{% endif %}{% endfor %}<select name="client" required>{% for c in clients %}<option value="{{ c[0] }}" {% if c[0] == shift[2] %}selected{% endif %}>{{ c[0] }}</option>{% endfor %}</select><input type="date" name="date" value="{{ shift[3] }}" required><label>{{ tr["start_time"] }}</label><div style="display:flex;gap:6px;"><select name="start_hour">{% for h in time_hours %}<option value="{{ h }}" {% if h == sh %}selected{% endif %}>{{ h }}</option>{% endfor %}</select><select name="start_minute">{% for m in time_minutes %}<option value="{{ m }}" {% if m == sm %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></div><label>{{ tr["end_time"] }}</label><div style="display:flex;gap:6px;"><select name="end_hour">{% for h in time_hours %}<option value="{{ h }}" {% if h == eh %}selected{% endif %}>{{ h }}</option>{% endfor %}</select><select name="end_minute">{% for m in time_minutes %}<option value="{{ m }}" {% if m == em %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></div><select name="status"><option value="planned" {% if shift[5] == 'planned' %}selected{% endif %}>{{ tr["status_planned"] }}</option><option value="in_progress" {% if shift[5] == 'in_progress' %}selected{% endif %}>{{ tr["status_in_progress"] }}</option><option value="done" {% if shift[5] == 'done' %}selected{% endif %}>{{ tr["status_done"] }}</option></select><button>{{ tr["save"] }}</button></form><br><a class="back-button" href="/">{{ tr["back"] }}</a></div>""", tr=tr, dark=dark, shift=shift, workers=workers, clients=clients, selected_workers=selected_workers, sh=sh, sm=sm, eh=eh, em=em, time_hours=time_hours(), time_minutes=time_minutes())
+    return render_template_string(BASE_STYLE + """<div class="card" style="max-width:520px;margin:auto;"><h2>{{ tr["edit_shift"] }}</h2><form method="post"><label>{{ tr["choose_worker"] }}</label>{% for w in workers %}{% if w[0] != 'admin' %}<label class="check-row"><input type="checkbox" name="workers" value="{{ w[0] }}" {% if w[0] in selected_workers %}checked{% endif %}>{{ w[0] }}</label>{% endif %}{% endfor %}<div class="client-search-wrapper"><input type="text" id="csInputEdit" class="client-search-input" value="{{ shift[2] }}" placeholder="{{ tr['search_placeholder'] }}" autocomplete="off"><input type="hidden" name="client" id="csHiddenEdit" value="{{ shift[2] }}" required><div class="client-search-dropdown" id="csListEdit"></div></div><input type="date" name="date" value="{{ shift[3] }}" required><label>{{ tr["start_time"] }}</label><div style="display:flex;gap:6px;"><select name="start_hour">{% for h in time_hours %}<option value="{{ h }}" {% if h == sh %}selected{% endif %}>{{ h }}</option>{% endfor %}</select><select name="start_minute">{% for m in time_minutes %}<option value="{{ m }}" {% if m == sm %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></div><label>{{ tr["end_time"] }}</label><div style="display:flex;gap:6px;"><select name="end_hour">{% for h in time_hours %}<option value="{{ h }}" {% if h == eh %}selected{% endif %}>{{ h }}</option>{% endfor %}</select><select name="end_minute">{% for m in time_minutes %}<option value="{{ m }}" {% if m == em %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></div><select name="status"><option value="planned" {% if shift[5] == 'planned' %}selected{% endif %}>{{ tr["status_planned"] }}</option><option value="in_progress" {% if shift[5] == 'in_progress' %}selected{% endif %}>{{ tr["status_in_progress"] }}</option><option value="done" {% if shift[5] == 'done' %}selected{% endif %}>{{ tr["status_done"] }}</option></select><button>{{ tr["save"] }}</button></form><br><a class="back-button" href="/">{{ tr["back"] }}</a></div><script>document.addEventListener('DOMContentLoaded',function(){var CD=[{% for c in clients %}{"name":{{c[0]|tojson}},"addr":{{(c[1] or '')|tojson}}}{% if not loop.last %},{% endif %}{% endfor %}];initClientSearch('csInputEdit','csHiddenEdit','csListEdit',CD);});</script>""", tr=tr, dark=dark, shift=shift, workers=workers, clients=clients, selected_workers=selected_workers, sh=sh, sm=sm, eh=eh, em=em, time_hours=time_hours(), time_minutes=time_minutes())
 
 @app.route("/add_worker", methods=["POST"])
 def add_worker():
