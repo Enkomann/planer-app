@@ -3066,7 +3066,7 @@ def month_view():
         document.querySelectorAll('a.month-day-date').forEach(function(a){var s=a.getAttribute('data-short');if(s)a.textContent=s;});
         /* Compact mini-shift: radnik / 1. riječ klijenta / vrijeme */
         document.querySelectorAll('.month-grid .mini-shift').forEach(function(el){
-          var w=(el.getAttribute('data-w')||'').split(',')[0].trim();
+          var w=(el.getAttribute('data-w')||'').trim();
           var c=el.getAttribute('data-c')||'';
           var t=el.getAttribute('data-t')||'';
           el.innerHTML=(w?'<div class="ms-w">'+w+'</div>':'')+(c?'<div class="ms-c">'+c+'</div>':'')+(t?'<div class="ms-t">'+t+'</div>':'');
