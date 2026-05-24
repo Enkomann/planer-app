@@ -2619,7 +2619,10 @@ def week_view():
     if not is_admin:
         shifts = [s for s in shifts if worker_in_shift(current_user, s[1])]
     holidays_map = get_all_holidays(conn, {start_week.year, week_end.year})
-    client_cities = client_city_map(c.execute("SELECT name, address FROM clients ORDER BY name").fetchall())
+    clients_raw = c.execute("SELECT name, address FROM clients ORDER BY name").fetchall()
+    client_cities = client_city_map(clients_raw)
+    clients = [(r[0],) for r in clients_raw]
+    workers = c.execute("SELECT name FROM workers ORDER BY name").fetchall()
     conn.close()
     day_names = [tr["monday"], tr["tuesday"], tr["wednesday"], tr["thursday"], tr["friday"], tr["saturday"], tr["sunday"]]
 
@@ -2638,22 +2641,45 @@ def week_view():
             {% set holiday_name = holidays_map.get(day) %}
             <div class="card calendar-day-card {% if holiday_name %}holiday-soft{% endif %} {% if is_weekend(day) %}weekend-soft{% endif %}" style="width:180px; min-height:130px; position:relative;" ondragover="allowDrop(event)" ondragleave="clearDrop(event)" ondrop="dropShift(event, '{{ day }}')">
                 <a class="week-day-heading" href="{% if is_admin %}javascript:void(0){% else %}/?selected_date={{ day }}{% endif %}" {% if is_admin %}onclick="openHolidayModal('{{ day }}')"{% endif %}>{{ day_names[loop.index0] }}<br>{{ format_date(day) }}</a>
-                {% if is_admin %}<div class="day-menu-wrapper" style="position:absolute;top:6px;right:8px;"><button onclick="toggleDayMenu(this)" title="{{ tr['add_shift'] }}" style="background:none;border:none;font-size:20px;font-weight:bold;cursor:pointer;padding:0;line-height:1;color:#1f4f82;opacity:0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">+</button><div class="day-mini-menu" style="display:none;position:absolute;right:0;top:28px;z-index:300;min-width:155px;border-radius:8px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,0.18);background:{% if dark %}#1e293b{% else %}white{% endif %};border:1px solid {% if dark %}#2d4060{% else %}#dbeafe{% endif %};"><a href="/?selected_date={{ day }}" style="display:block;padding:10px 15px;text-decoration:none;color:{% if dark %}#93c5fd{% else %}#1f4f82{% endif %};font-size:13px;font-weight:600;white-space:nowrap;" onmouseover="this.style.background='{% if dark %}#2d3f56{% else %}#eef4ff{% endif %}'" onmouseout="this.style.background='transparent'">+ {{ tr['add_shift'] }}</a></div></div>{% endif %}
+                {% if is_admin %}<div class="day-menu-wrapper" style="position:absolute;top:6px;right:8px;"><button onclick="toggleDayMenu(this)" title="{{ tr['add_shift'] }}" style="background:none;border:none;font-size:20px;font-weight:bold;cursor:pointer;padding:0;line-height:1;color:#1f4f82;opacity:0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">+</button><div class="day-mini-menu" style="display:none;position:absolute;right:0;top:28px;z-index:300;min-width:155px;border-radius:8px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,0.18);background:{% if dark %}#1e293b{% else %}white{% endif %};border:1px solid {% if dark %}#2d4060{% else %}#dbeafe{% endif %};"><a href="javascript:void(0)" onclick="openAddShiftModal('{{ day }}')" style="display:block;padding:10px 15px;text-decoration:none;color:{% if dark %}#93c5fd{% else %}#1f4f82{% endif %};font-size:13px;font-weight:600;white-space:nowrap;" onmouseover="this.style.background='{% if dark %}#2d3f56{% else %}#eef4ff{% endif %}'" onmouseout="this.style.background='transparent'">+ {{ tr['add_shift'] }}</a></div></div>{% endif %}
                 {% if holiday_name %}<small class="holiday-note">{{ holiday_name }}</small>{% endif %}
                 {% for s in shifts %}{% if s[3] == day %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="--shift-accent:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#7aa7df') }};"><b>{{ s[1] }}</b><br>{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}<br>{{ s[4] }}{% if is_admin %}<br><a class="mini-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a><a class="mini-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a><a class="mini-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>{% endif %}</div>{% endif %}{% endfor %}
             </div>
         {% endfor %}
     </div>
     {% if is_admin %}<div id="holidayModal" class="modal-backdrop"><div class="modal-card"><h3>{{ tr["add_holiday"] }}</h3><form method="post" action="/add_holiday"><input type="date" name="date" id="holidayDate" required><input type="text" name="name" placeholder="{{ tr['holiday_name'] }}" required><button>{{ tr["save"] }}</button></form><button type="button" onclick="closeHolidayModal()">{{ tr["cancel"] }}</button></div></div>{% endif %}
+    {% if is_admin %}
+    <div id="addShiftModal" class="modal-backdrop" style="display:none;">
+      <div class="modal-card" style="max-width:400px;width:95%;max-height:90vh;overflow-y:auto;">
+        <h3>+ {{ tr['add_shift'] }} — <span id="addShiftModalDate"></span></h3>
+        <form method="post" action="/add_shift">
+          <label>{{ tr['choose_worker'] }}</label>
+          {% for w in workers %}{% if w[0] != 'admin' %}<label class="check-row"><input type="checkbox" name="workers" value="{{ w[0] }}">{{ w[0] }}</label>{% endif %}{% endfor %}
+          <select name="client" required><option value="">{{ tr['choose_client'] }}</option>{% for cl in clients %}<option value="{{ cl[0] }}">{{ cl[0] }}</option>{% endfor %}</select>
+          <input id="addShiftDate" name="date" type="date" required>
+          <label>{{ tr['start_time'] }}</label>
+          <div style="display:flex;gap:6px;"><select name="start_hour">{% for h in time_hours %}<option value="{{ h }}" {% if h=='07' %}selected{% endif %}>{{ h }}</option>{% endfor %}</select><select name="start_minute"><option value="00" selected>00</option><option value="15">15</option><option value="30">30</option><option value="45">45</option></select></div>
+          <label>{{ tr['end_time'] }}</label>
+          <div style="display:flex;gap:6px;"><select name="end_hour">{% for h in time_hours %}<option value="{{ h }}" {% if h=='15' %}selected{% endif %}>{{ h }}</option>{% endfor %}</select><select name="end_minute"><option value="00" selected>00</option><option value="15">15</option><option value="30">30</option><option value="45">45</option></select></div>
+          <select name="status"><option value="planned">{{ tr['status_planned'] }}</option><option value="in_progress">{{ tr['status_in_progress'] }}</option><option value="done">{{ tr['status_done'] }}</option></select>
+          <button type="submit">{{ tr['add_shift'] }}</button>
+        </form>
+        <button type="button" onclick="closeAddShiftModal()" style="margin-top:8px;width:100%;">{{ tr['cancel'] }}</button>
+      </div>
+    </div>
+    {% endif %}
     <script>
     function openHolidayModal(dateStr){var m=document.getElementById('holidayModal');var d=document.getElementById('holidayDate');if(m&&d){d.value=dateStr;m.style.display='block';}}
     function closeHolidayModal(){var m=document.getElementById('holidayModal');if(m){m.style.display='none';}}
+    function openAddShiftModal(dateStr){document.getElementById('addShiftDate').value=dateStr;document.getElementById('addShiftModalDate').textContent=dateStr;document.getElementById('addShiftModal').style.display='block';document.querySelectorAll('.day-mini-menu').forEach(function(m){m.style.display='none';});}
+    function closeAddShiftModal(){document.getElementById('addShiftModal').style.display='none';}
+    document.getElementById('addShiftModal') && document.getElementById('addShiftModal').addEventListener('click',function(e){if(e.target===this)closeAddShiftModal();});
     function dragShift(ev, shiftId){ev.dataTransfer.setData('shift_id', shiftId);} function allowDrop(ev){ev.preventDefault();ev.currentTarget.classList.add('drop-target');} function clearDrop(ev){ev.currentTarget.classList.remove('drop-target');}
     function dropShift(ev, dateStr){ev.preventDefault();ev.currentTarget.classList.remove('drop-target');var shiftId=ev.dataTransfer.getData('shift_id');if(!shiftId)return;fetch('/move_shift',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'shift_id='+encodeURIComponent(shiftId)+'&date='+encodeURIComponent(dateStr)}).then(function(resp){if(resp.status===409){return resp.text().then(function(msg){showPlannerAlert(msg);});}window.location.reload();});}
     function toggleDayMenu(btn){var menu=btn.nextElementSibling;document.querySelectorAll('.day-mini-menu').forEach(function(m){if(m!==menu)m.style.display='none';});menu.style.display=menu.style.display==='none'?'block':'none';}
-    document.addEventListener('click',function(e){if(!e.target.closest('.day-menu-wrapper')){document.querySelectorAll('.day-mini-menu').forEach(function(m){m.style.display='none';});}});
+    document.addEventListener('click',function(e){if(!e.target.closest('.day-menu-wrapper')&&!e.target.closest('#addShiftModal .modal-card')){document.querySelectorAll('.day-mini-menu').forEach(function(m){m.style.display='none';});}});
     </script>
-    """, tr=tr, dark=dark, week_days=week_days, shifts=shifts, worker_colors=worker_colors, client_cities=client_cities, format_date=format_date, holidays_map=holidays_map, day_names=day_names, status_colors=STATUS_COLORS, get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers, is_weekend=is_weekend, is_admin=is_admin, prev_week=prev_week, next_week=next_week, current_week=current_week, start_year=start_week.year, start_month=start_week.month)
+    """, tr=tr, dark=dark, week_days=week_days, shifts=shifts, worker_colors=worker_colors, client_cities=client_cities, format_date=format_date, holidays_map=holidays_map, day_names=day_names, status_colors=STATUS_COLORS, get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers, is_weekend=is_weekend, is_admin=is_admin, prev_week=prev_week, next_week=next_week, current_week=current_week, start_year=start_week.year, start_month=start_week.month, workers=workers, clients=clients, time_hours=time_hours())
 
 
 @app.route("/month")
@@ -2669,7 +2695,7 @@ def month_view():
     shifts = c.execute("SELECT * FROM shifts WHERE date >= ? AND date <= ? ORDER BY date, time, id", (start_date, end_date)).fetchall()
     if not is_admin: shifts = [s for s in shifts if worker_in_shift(current_user, s[1])]
     cal = calendar.Calendar(firstweekday=0); month_days = cal.monthdatescalendar(year, month)
-    holiday_years = {d.year for wk in month_days for d in wk}; holidays_map = get_all_holidays(conn, holiday_years); client_cities = client_city_map(c.execute("SELECT name, address FROM clients ORDER BY name").fetchall()); conn.close()
+    holiday_years = {d.year for wk in month_days for d in wk}; holidays_map = get_all_holidays(conn, holiday_years); clients_raw = c.execute("SELECT name, address FROM clients ORDER BY name").fetchall(); client_cities = client_city_map(clients_raw); clients = [(r[0],) for r in clients_raw]; workers = c.execute("SELECT name FROM workers ORDER BY name").fetchall(); conn.close()
     shifts_by_date = {}; [shifts_by_date.setdefault(s[3], []).append(s) for s in shifts]
     day_names = [tr["monday"], tr["tuesday"], tr["wednesday"], tr["thursday"], tr["friday"], tr["saturday"], tr["sunday"]]
     return render_template_string(BASE_STYLE + header_html() + """
@@ -2695,7 +2721,7 @@ def month_view():
         {% for dn in day_names %}<div class="card month-weekday">{{ dn }}</div>{% endfor %}
         {% for week in month_days %}{% for day in week %}{% set daystr = day.strftime('%Y-%m-%d') %}{% set holiday_name = holidays_map.get(daystr) %}
             <div class="card calendar-day-card {% if holiday_name %}holiday-soft{% endif %} {% if day.weekday() >= 5 %}weekend-soft{% endif %}" style="min-height:120px; position:relative;" ondragover="allowDrop(event)" ondragleave="clearDrop(event)" ondrop="dropShift(event, '{{ daystr }}')">
-                {% if is_admin %}<div class="day-menu-wrapper" style="position:absolute;top:6px;right:8px;"><button onclick="toggleDayMenu(this)" title="{{ tr['add_shift'] }}" style="background:none;border:none;font-size:20px;font-weight:bold;cursor:pointer;padding:0;line-height:1;color:#1f4f82;opacity:0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">+</button><div class="day-mini-menu" style="display:none;position:absolute;right:0;top:28px;z-index:300;min-width:155px;border-radius:8px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,0.18);background:{% if dark %}#1e293b{% else %}white{% endif %};border:1px solid {% if dark %}#2d4060{% else %}#dbeafe{% endif %};"><a href="/?selected_date={{ daystr }}" style="display:block;padding:10px 15px;text-decoration:none;color:{% if dark %}#93c5fd{% else %}#1f4f82{% endif %};font-size:13px;font-weight:600;white-space:nowrap;" onmouseover="this.style.background='{% if dark %}#2d3f56{% else %}#eef4ff{% endif %}'" onmouseout="this.style.background='transparent'">+ {{ tr['add_shift'] }}</a></div></div>{% endif %}
+                {% if is_admin %}<div class="day-menu-wrapper" style="position:absolute;top:6px;right:8px;"><button onclick="toggleDayMenu(this)" title="{{ tr['add_shift'] }}" style="background:none;border:none;font-size:20px;font-weight:bold;cursor:pointer;padding:0;line-height:1;color:#1f4f82;opacity:0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">+</button><div class="day-mini-menu" style="display:none;position:absolute;right:0;top:28px;z-index:300;min-width:155px;border-radius:8px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,0.18);background:{% if dark %}#1e293b{% else %}white{% endif %};border:1px solid {% if dark %}#2d4060{% else %}#dbeafe{% endif %};"><a href="javascript:void(0)" onclick="openAddShiftModal('{{ daystr }}')" style="display:block;padding:10px 15px;text-decoration:none;color:{% if dark %}#93c5fd{% else %}#1f4f82{% endif %};font-size:13px;font-weight:600;white-space:nowrap;" onmouseover="this.style.background='{% if dark %}#2d3f56{% else %}#eef4ff{% endif %}'" onmouseout="this.style.background='transparent'">+ {{ tr['add_shift'] }}</a></div></div>{% endif %}
                 <div style="font-weight:bold; margin-bottom:8px;"><a href="{% if is_admin %}javascript:void(0){% else %}/?selected_date={{ daystr }}{% endif %}" {% if is_admin %}onclick="openHolidayModal('{{ daystr }}')"{% endif %} style="{% if day.weekday() >= 5 %}color:#ef4444;{% endif %}">{{ day.strftime('%d/%m/%Y') }}</a>{% if is_admin and copied_shift_id %}<br><a style="display:inline-block;margin-top:6px;padding:4px 7px;border-radius:6px;background:#16a34a;color:white!important;font-size:11px;" href="/paste_shift/{{ daystr }}">{{ tr["paste"] }}</a>{% endif %}</div>
                 {% if holiday_name %}<small class="holiday-note">{{ holiday_name }}</small>{% endif %}
                 {% for s in shifts_by_date.get(daystr, []) %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="--shift-accent:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#7aa7df') }};"><b>{{ s[1] }}</b><br>{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}<br>{{ s[4] }}{% if is_admin %}<br><a class="mini-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a><a class="mini-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a><a class="mini-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>{% endif %}</div>{% endfor %}
@@ -2703,25 +2729,45 @@ def month_view():
         {% endfor %}{% endfor %}
     </div>
     {% if is_admin %}<div id="holidayModal" class="modal-backdrop"><div class="modal-card"><h3>{{ tr["add_holiday"] }}</h3><form method="post" action="/add_holiday"><input type="date" name="date" id="holidayDate" required><input type="text" name="name" placeholder="{{ tr['holiday_name'] }}" required><button>{{ tr["save"] }}</button></form><button type="button" onclick="closeHolidayModal()">{{ tr["cancel"] }}</button></div></div>{% endif %}
+    {% if is_admin %}
+    <div id="addShiftModal" class="modal-backdrop" style="display:none;">
+      <div class="modal-card" style="max-width:400px;width:95%;max-height:90vh;overflow-y:auto;">
+        <h3>+ {{ tr['add_shift'] }} — <span id="addShiftModalDate"></span></h3>
+        <form method="post" action="/add_shift">
+          <label>{{ tr['choose_worker'] }}</label>
+          {% for w in workers %}{% if w[0] != 'admin' %}<label class="check-row"><input type="checkbox" name="workers" value="{{ w[0] }}">{{ w[0] }}</label>{% endif %}{% endfor %}
+          <select name="client" required><option value="">{{ tr['choose_client'] }}</option>{% for cl in clients %}<option value="{{ cl[0] }}">{{ cl[0] }}</option>{% endfor %}</select>
+          <input id="addShiftDate" name="date" type="date" required>
+          <label>{{ tr['start_time'] }}</label>
+          <div style="display:flex;gap:6px;"><select name="start_hour">{% for h in time_hours %}<option value="{{ h }}" {% if h=='07' %}selected{% endif %}>{{ h }}</option>{% endfor %}</select><select name="start_minute"><option value="00" selected>00</option><option value="15">15</option><option value="30">30</option><option value="45">45</option></select></div>
+          <label>{{ tr['end_time'] }}</label>
+          <div style="display:flex;gap:6px;"><select name="end_hour">{% for h in time_hours %}<option value="{{ h }}" {% if h=='15' %}selected{% endif %}>{{ h }}</option>{% endfor %}</select><select name="end_minute"><option value="00" selected>00</option><option value="15">15</option><option value="30">30</option><option value="45">45</option></select></div>
+          <select name="status"><option value="planned">{{ tr['status_planned'] }}</option><option value="in_progress">{{ tr['status_in_progress'] }}</option><option value="done">{{ tr['status_done'] }}</option></select>
+          <button type="submit">{{ tr['add_shift'] }}</button>
+        </form>
+        <button type="button" onclick="closeAddShiftModal()" style="margin-top:8px;width:100%;">{{ tr['cancel'] }}</button>
+      </div>
+    </div>
+    {% endif %}
     <script>
     function openHolidayModal(dateStr){var m=document.getElementById('holidayModal');var d=document.getElementById('holidayDate');if(m&&d){d.value=dateStr;m.style.display='block';}} function closeHolidayModal(){var m=document.getElementById('holidayModal');if(m){m.style.display='none';}}
+    function openAddShiftModal(dateStr){document.getElementById('addShiftDate').value=dateStr;document.getElementById('addShiftModalDate').textContent=dateStr;document.getElementById('addShiftModal').style.display='block';document.querySelectorAll('.day-mini-menu').forEach(function(m){m.style.display='none';});}
+    function closeAddShiftModal(){document.getElementById('addShiftModal').style.display='none';}
+    document.getElementById('addShiftModal') && document.getElementById('addShiftModal').addEventListener('click',function(e){if(e.target===this)closeAddShiftModal();});
     function dragShift(ev, shiftId){ev.dataTransfer.setData('shift_id', shiftId);} function allowDrop(ev){ev.preventDefault();ev.currentTarget.classList.add('drop-target');} function clearDrop(ev){ev.currentTarget.classList.remove('drop-target');}
     function dropShift(ev, dateStr){ev.preventDefault();ev.currentTarget.classList.remove('drop-target');var shiftId=ev.dataTransfer.getData('shift_id');if(!shiftId)return;fetch('/move_shift',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'shift_id='+encodeURIComponent(shiftId)+'&date='+encodeURIComponent(dateStr)}).then(function(resp){if(resp.status===409){return resp.text().then(function(msg){showPlannerAlert(msg);});}window.location.reload();});}
     function toggleDayMenu(btn){var menu=btn.nextElementSibling;document.querySelectorAll('.day-mini-menu').forEach(function(m){if(m!==menu)m.style.display='none';});menu.style.display=menu.style.display==='none'?'block':'none';}
-    document.addEventListener('click',function(e){if(!e.target.closest('.day-menu-wrapper')){document.querySelectorAll('.day-mini-menu').forEach(function(m){m.style.display='none';});}});
+    document.addEventListener('click',function(e){if(!e.target.closest('.day-menu-wrapper')&&!e.target.closest('#addShiftModal .modal-card')){document.querySelectorAll('.day-mini-menu').forEach(function(m){m.style.display='none';});}});
     document.addEventListener('DOMContentLoaded', function(){
     document.querySelectorAll('a.delete-link').forEach(function(link){
         link.addEventListener('click', function(e){
             var ok = confirm('Da li ste sigurni da želite obrisati?');
-            if(!ok){
-                e.preventDefault();
-                return false;
-            }
+            if(!ok){ e.preventDefault(); return false; }
         });
     });
 });
     </script>
-    """, tr=tr, dark=dark, year=year, month=month, prev_year=prev_year, prev_month=prev_month, next_year=next_year, next_month=next_month, month_days=month_days, day_names=day_names, shifts_by_date=shifts_by_date, worker_colors=worker_colors, client_cities=client_cities, holidays_map=holidays_map, is_admin=is_admin, copied_shift_id=copied_shift_id, get_auto_status=get_auto_status, split_workers=split_workers, format_month_year=format_month_year)
+    """, tr=tr, dark=dark, year=year, month=month, prev_year=prev_year, prev_month=prev_month, next_year=next_year, next_month=next_month, month_days=month_days, day_names=day_names, shifts_by_date=shifts_by_date, worker_colors=worker_colors, client_cities=client_cities, holidays_map=holidays_map, is_admin=is_admin, copied_shift_id=copied_shift_id, get_auto_status=get_auto_status, split_workers=split_workers, format_month_year=format_month_year, workers=workers, clients=clients, time_hours=time_hours())
 
 
 
