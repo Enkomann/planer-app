@@ -1962,6 +1962,9 @@ init_db()
 
 
 BASE_STYLE = """
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <style>
     body { font-family: Arial, sans-serif; margin:24px; background: {{ '#0f172a' if dark else '#f4f6f8' }}; color: {{ '#e5e7eb' if dark else '#1f2937' }}; }
     h1 { color: {{ '#93c5fd' if dark else '#1f4f82' }}; }
@@ -2006,10 +2009,10 @@ BASE_STYLE = """
     .user-row, .hours-row { padding:8px 0; border-bottom:1px solid {{ '#374151' if dark else '#e5e7eb' }}; }
     .muted { color: {{ '#9ca3af' if dark else '#64748b' }}; font-size:14px; }
     .status-badge { color:white; padding:4px 8px; border-radius:6px; font-size:12px; font-weight:bold; margin-left:8px; }
-    .action-link, .mini-link { text-decoration:none; margin-left:10px; font-weight:bold; font-size:12px; }
-    .edit-link { color: {{ '#93c5fd' if dark else '#1f4f82' }}; }
-    .delete-link { color:#ef4444; }
-    .copy-link { color:#16a34a; }
+    .action-link, .mini-link { display:inline-flex; align-items:center; justify-content:center; text-decoration:none; margin:2px 2px 0; font-weight:bold; font-size:12px; padding:5px 8px; border-radius:6px; min-height:28px; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+    .edit-link { color: {{ '#93c5fd' if dark else '#1f4f82' }}; background:{{ 'rgba(147,197,253,0.12)' if dark else 'rgba(31,79,130,0.08)' }}; }
+    .delete-link { color:#ef4444; background:rgba(239,68,68,0.08); }
+    .copy-link { color:#16a34a; background:rgba(22,163,74,0.08); }
     .check-row { display:flex; align-items:center; gap:8px; margin:5px 0; }
     .check-row input { width:auto; }
     .weekend-soft { border:2px solid {{ '#7f4141' if dark else '#f3caca' }} !important; background:{{ '#26191d' if dark else '#fff7f8' }} !important; }
@@ -2056,7 +2059,95 @@ BASE_STYLE = """
     .alert-dialog h3 { margin:0 0 10px 0; }
     .alert-dialog p { margin:0 0 18px 0; line-height:1.45; }
     .alert-dialog button { width:auto; min-width:110px; float:right; }
-    @media (max-width: 900px) { .app-shell { grid-template-columns:1fr; } .sidebar { position:static; } body { margin:12px; } }
+    /* Touch-friendly globals */
+    a, button, .nav-link, .mini-link, .action-link, .back-button { touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+    button { touch-action:manipulation; }
+
+    /* Bottom navigation (mobile only) */
+    .bottom-nav { display:none; position:fixed; bottom:0; left:0; right:0; background:{{ '#111827' if dark else 'white' }}; border-top:1px solid {{ '#374151' if dark else '#e5e7eb' }}; z-index:200; padding:0 0 env(safe-area-inset-bottom,0); box-shadow:0 -3px 16px rgba(0,0,0,0.12); }
+    .bottom-nav-item { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:7px 4px 6px; color:{{ '#6b7280' if dark else '#94a3b8' }}; text-decoration:none; font-size:10px; min-height:54px; font-weight:500; border:none; background:none; }
+    .bottom-nav-item span { font-size:22px; line-height:1.1; }
+    .bottom-nav-item small { margin-top:2px; font-size:10px; white-space:nowrap; }
+    .bottom-nav-item.active { color:{{ '#93c5fd' if dark else '#1f4f82' }}; }
+
+    /* Tablet 601–1024px */
+    @media (min-width:601px) and (max-width:1024px) {
+        .nav-link { padding:13px 12px; min-height:44px; display:flex; align-items:center; }
+        .mini-link { padding:6px 10px; min-height:32px; font-size:12px; }
+        .day-menu-wrapper button { min-width:34px; min-height:34px; padding:2px 6px !important; }
+    }
+
+    /* Phone ≤600px */
+    @media (max-width:600px) {
+        body { margin:0; padding-bottom:calc(64px + env(safe-area-inset-bottom,0)); }
+
+        /* Sticky brandbar */
+        .brandbar { position:sticky; top:0; z-index:100; border-radius:0 !important; margin:0; padding:8px 12px; }
+        .brandleft img { height:34px; }
+        .brandtitle { font-size:16px; }
+        .langbar { display:none !important; }
+        .theme-links { font-size:12px; margin-top:4px !important; }
+        .theme-links a { margin-right:6px; font-size:12px; }
+
+        /* Sidebar hidden — bottom nav replaces it */
+        .sidebar { display:none !important; }
+        .app-shell { display:block !important; }
+        .main-content { padding:8px; }
+
+        /* Bottom nav visible */
+        .bottom-nav { display:flex !important; }
+
+        /* Grid single column */
+        .grid { grid-template-columns:1fr !important; }
+        .stats-grid { grid-template-columns:repeat(2,1fr) !important; gap:8px !important; }
+
+        /* Inputs — 16px stops iOS auto-zoom */
+        input, select, textarea { font-size:16px !important; padding:12px !important; }
+        button { padding:13px !important; font-size:15px !important; }
+
+        /* Cards */
+        .card { padding:12px; border-radius:10px; }
+        .hero { padding:14px; }
+        .stat-number { font-size:22px; }
+
+        /* Mini links bigger touch zones */
+        .mini-link { padding:8px 11px !important; font-size:13px !important; min-height:36px !important; margin:3px 2px !important; }
+        .mini-shift { padding:10px 8px; }
+
+        /* + day menu button */
+        .day-menu-wrapper button { font-size:22px !important; padding:4px 8px !important; min-width:36px; min-height:36px; }
+        .day-mini-menu a { padding:13px 16px !important; font-size:14px !important; }
+
+        /* Week calendar — horizontal scroll with snap */
+        .week-calendar-grid { flex-wrap:nowrap !important; overflow-x:auto; -webkit-overflow-scrolling:touch; scroll-snap-type:x mandatory; padding-bottom:10px; gap:8px !important; }
+        .week-calendar-grid .calendar-day-card { scroll-snap-align:start; flex-shrink:0; min-width:min(280px, 78vw) !important; width:min(280px, 78vw) !important; }
+
+        /* Month calendar — compact 7-col */
+        .month-grid { gap:2px !important; }
+        .month-weekday { font-size:9px !important; padding:4px 2px !important; }
+        .month-grid .calendar-day-card { min-height:44px !important; padding:3px !important; font-size:9px; overflow:hidden; }
+        .month-grid .calendar-day-card > div { font-size:10px; margin-bottom:2px; }
+        .month-grid .mini-shift { font-size:8px; padding:2px 3px; margin-top:2px; line-height:1.2; }
+        .month-grid .mini-shift b + br, .month-grid .mini-shift br { display:none; }
+        .month-grid .mini-link { display:none !important; }
+        .month-grid .day-menu-wrapper { top:2px !important; right:2px !important; }
+        .month-grid .day-menu-wrapper button { font-size:14px !important; padding:1px 3px !important; min-width:22px; min-height:22px; }
+
+        /* Modals — sheet from bottom */
+        .modal-backdrop { align-items:flex-end !important; }
+        .modal-card { margin:0 !important; border-radius:20px 20px 0 0 !important; max-width:100% !important; width:100% !important; max-height:85vh !important; overflow-y:auto; }
+
+        /* Back button */
+        .back-button { padding:9px 12px; font-size:13px; }
+
+        /* Section title */
+        .section-title { margin:14px 0 8px; }
+
+        /* Nav links in sidebar (hidden anyway but safe) */
+        .nav-link { min-height:48px; font-size:15px; }
+    }
+
+    @media (max-width:900px) { .app-shell { grid-template-columns:1fr; } .sidebar { position:static; } body { margin:12px; } }
 </style>
 <script>
 (function(){
@@ -2206,6 +2297,25 @@ def header_html():
             <div style="clear:both;"></div>
         </div>
     </div>
+    <nav class="bottom-nav" aria-label="Navigacija">
+        <a href="/" class="bottom-nav-item {% if request.path == '/' %}active{% endif %}">
+            <span>🏠</span><small>Plan</small>
+        </a>
+        <a href="/week" class="bottom-nav-item {% if request.path == '/week' %}active{% endif %}">
+            <span>📅</span><small>Sedmica</small>
+        </a>
+        <a href="/month" class="bottom-nav-item {% if request.path == '/month' %}active{% endif %}">
+            <span>🗓️</span><small>Mjesec</small>
+        </a>
+        {% if session.get('role') == 'admin' %}
+        <a href="/workers" class="bottom-nav-item {% if request.path == '/workers' %}active{% endif %}">
+            <span>👥</span><small>Radnici</small>
+        </a>
+        <a href="/documents" class="bottom-nav-item {% if request.path == '/documents' %}active{% endif %}">
+            <span>📁</span><small>Dok.</small>
+        </a>
+        {% endif %}
+    </nav>
     """
 
 
@@ -2786,7 +2896,7 @@ def week_view():
     holidays_map = get_all_holidays(conn, {start_week.year, week_end.year})
     clients_raw = c.execute("SELECT name, address FROM clients ORDER BY name").fetchall()
     client_cities = client_city_map(clients_raw)
-    clients = [(r[0],) for r in clients_raw]
+    clients = clients_raw
     workers = c.execute("SELECT name FROM workers ORDER BY name").fetchall()
     conn.close()
     day_names = [tr["monday"], tr["tuesday"], tr["wednesday"], tr["thursday"], tr["friday"], tr["saturday"], tr["sunday"]]
@@ -2861,7 +2971,7 @@ def month_view():
     shifts = c.execute("SELECT * FROM shifts WHERE date >= ? AND date <= ? ORDER BY date, time, id", (start_date, end_date)).fetchall()
     if not is_admin: shifts = [s for s in shifts if worker_in_shift(current_user, s[1])]
     cal = calendar.Calendar(firstweekday=0); month_days = cal.monthdatescalendar(year, month)
-    holiday_years = {d.year for wk in month_days for d in wk}; holidays_map = get_all_holidays(conn, holiday_years); clients_raw = c.execute("SELECT name, address FROM clients ORDER BY name").fetchall(); client_cities = client_city_map(clients_raw); clients = [(r[0],) for r in clients_raw]; workers = c.execute("SELECT name FROM workers ORDER BY name").fetchall(); conn.close()
+    holiday_years = {d.year for wk in month_days for d in wk}; holidays_map = get_all_holidays(conn, holiday_years); clients_raw = c.execute("SELECT name, address FROM clients ORDER BY name").fetchall(); client_cities = client_city_map(clients_raw); clients = clients_raw; workers = c.execute("SELECT name FROM workers ORDER BY name").fetchall(); conn.close()
     shifts_by_date = {}; [shifts_by_date.setdefault(s[3], []).append(s) for s in shifts]
     day_names = [tr["monday"], tr["tuesday"], tr["wednesday"], tr["thursday"], tr["friday"], tr["saturday"], tr["sunday"]]
     return render_template_string(BASE_STYLE + header_html() + """
@@ -2888,7 +2998,7 @@ def month_view():
         {% for week in month_days %}{% for day in week %}{% set daystr = day.strftime('%Y-%m-%d') %}{% set holiday_name = holidays_map.get(daystr) %}
             <div class="card calendar-day-card {% if holiday_name %}holiday-soft{% endif %} {% if day.weekday() >= 5 %}weekend-soft{% endif %}" style="min-height:120px; position:relative;" ondragover="allowDrop(event)" ondragleave="clearDrop(event)" ondrop="dropShift(event, '{{ daystr }}')">
                 {% if is_admin %}<div class="day-menu-wrapper" style="position:absolute;top:6px;right:8px;"><button onclick="toggleDayMenu(this)" title="{{ tr['add_shift'] }}" style="background:none;border:none;font-size:20px;font-weight:bold;cursor:pointer;padding:0;line-height:1;color:#1f4f82;opacity:0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">+</button><div class="day-mini-menu" style="display:none;position:absolute;right:0;top:28px;z-index:300;min-width:155px;border-radius:8px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,0.18);background:{% if dark %}#1e293b{% else %}white{% endif %};border:1px solid {% if dark %}#2d4060{% else %}#dbeafe{% endif %};"><a href="javascript:void(0)" onclick="openAddShiftModal('{{ daystr }}')" style="display:block;padding:10px 15px;text-decoration:none;color:{% if dark %}#93c5fd{% else %}#1f4f82{% endif %};font-size:13px;font-weight:600;white-space:nowrap;" onmouseover="this.style.background='{% if dark %}#2d3f56{% else %}#eef4ff{% endif %}'" onmouseout="this.style.background='transparent'">+ {{ tr['add_shift'] }}</a></div></div>{% endif %}
-                <div style="font-weight:bold; margin-bottom:8px;"><a href="{% if is_admin %}javascript:void(0){% else %}/?selected_date={{ daystr }}{% endif %}" {% if is_admin %}onclick="openHolidayModal('{{ daystr }}')"{% endif %} style="{% if day.weekday() >= 5 %}color:#ef4444;{% endif %}">{{ day.strftime('%d/%m/%Y') }}</a>{% if is_admin and copied_shift_id %}<br><a style="display:inline-block;margin-top:6px;padding:4px 7px;border-radius:6px;background:#16a34a;color:white!important;font-size:11px;" href="/paste_shift/{{ daystr }}">{{ tr["paste"] }}</a>{% endif %}</div>
+                <div style="font-weight:bold; margin-bottom:8px;"><a class="month-day-date" data-short="{{ day.strftime('%d') }}" href="{% if is_admin %}javascript:void(0){% else %}/?selected_date={{ daystr }}{% endif %}" {% if is_admin %}onclick="openHolidayModal('{{ daystr }}')"{% endif %} style="{% if day.weekday() >= 5 %}color:#ef4444;{% endif %}">{{ day.strftime('%d/%m/%Y') }}</a>{% if is_admin and copied_shift_id %}<br><a style="display:inline-block;margin-top:6px;padding:4px 7px;border-radius:6px;background:#16a34a;color:white!important;font-size:11px;" href="/paste_shift/{{ daystr }}">{{ tr["paste"] }}</a>{% endif %}</div>
                 {% if holiday_name %}<small class="holiday-note">{{ holiday_name }}</small>{% endif %}
                 {% for s in shifts_by_date.get(daystr, []) %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="--shift-accent:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#7aa7df') }};"><b>{{ s[1] }}</b><br>{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}<br>{{ s[4] }}{% if is_admin %}<br><a class="mini-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a><a class="mini-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a><a class="mini-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>{% endif %}</div>{% endfor %}
             </div>
@@ -2928,6 +3038,8 @@ def month_view():
       document.querySelectorAll('a.delete-link').forEach(function(link){link.addEventListener('click',function(e){if(!confirm('Da li ste sigurni da želite obrisati?')){e.preventDefault();return false;}});});
       var CD=[{% for cl in clients %}{"name":{{cl[0]|tojson}},"addr":{{(cl[1] or '')|tojson}}}{% if not loop.last %},{% endif %}{% endfor %}];
       initClientSearch('csInputMonth','csHiddenMonth','csListMonth',CD);
+      /* Shorten date display to just day number on small screens */
+      if(window.innerWidth<=600){document.querySelectorAll('a.month-day-date').forEach(function(a){var s=a.getAttribute('data-short');if(s)a.textContent=s;});}
     });
     </script>
     """, tr=tr, dark=dark, year=year, month=month, prev_year=prev_year, prev_month=prev_month, next_year=next_year, next_month=next_month, month_days=month_days, day_names=day_names, shifts_by_date=shifts_by_date, worker_colors=worker_colors, client_cities=client_cities, holidays_map=holidays_map, is_admin=is_admin, copied_shift_id=copied_shift_id, get_auto_status=get_auto_status, split_workers=split_workers, format_month_year=format_month_year, workers=workers, clients=clients, time_hours=time_hours())
