@@ -392,8 +392,16 @@ TRANSLATIONS["pt"].update({"navigate_to_address": "Abrir Google Maps ate ao ende
 
 TRANSLATIONS["bos"].update({
     "contract_type": "Vrsta ugovora", "contract_end_date": "Istek ugovora",
-    "contract_reminders": "Podsjetnik za ugovore", "contract_expired": "Ugovor je istekao",
+    "contract_reminders": "Podsjetnik", "contract_expired": "Ugovor je istekao",
     "contract_expires_soon": "Ugovor uskoro istice", "worked_hours": "Odradjeni sati",
+    "leave_request": "Zahtjev za odmor", "leave_type_vacation": "Placeni odmor",
+    "leave_type_sick": "Bolovanje", "leave_type_other": "Slobodan dan",
+    "leave_date_from": "Od datuma", "leave_date_to": "Do datuma",
+    "leave_note": "Napomena", "leave_send": "Posalji zahtjev",
+    "leave_my_requests": "Moji zahtjevi", "leave_pending": "Na cekanju",
+    "leave_approved": "Odobren", "leave_rejected": "Odbijen",
+    "leave_requests_pending": "Zahtjevi za odmor", "leave_approve": "Odobri",
+    "leave_reject": "Odbij", "leave_no_requests": "Nema zahtjeva",
 })
 TRANSLATIONS["en"].update({
     "contract_type": "Contract type", "contract_end_date": "Contract end date",
@@ -1815,6 +1823,19 @@ def init_db():
         )
     """)
     c.execute("""
+        CREATE TABLE IF NOT EXISTS leave_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            worker TEXT NOT NULL,
+            type TEXT NOT NULL DEFAULT 'vacation',
+            date_from TEXT NOT NULL,
+            date_to TEXT NOT NULL,
+            note TEXT DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at TEXT NOT NULL,
+            admin_note TEXT DEFAULT ''
+        )
+    """)
+    c.execute("""
         CREATE TABLE IF NOT EXISTS document_folders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT,
@@ -2331,6 +2352,12 @@ def load_index_data():
         if days > 0:
             absence_summary.append((a, days))
 
+    if is_admin:
+        pending_leave = c.execute("SELECT id, worker, type, date_from, date_to, note, status, created_at FROM leave_requests WHERE status = 'pending' ORDER BY created_at DESC").fetchall()
+    else:
+        pending_leave = []
+    my_leave_requests = [] if is_admin else c.execute("SELECT id, worker, type, date_from, date_to, note, status, created_at FROM leave_requests WHERE worker = ? ORDER BY created_at DESC LIMIT 10", (current_user,)).fetchall()
+
     client_cities = client_city_map(clients)
     conn.close()
     return {
@@ -2347,6 +2374,8 @@ def load_index_data():
         "client_count": len(clients),
         "month_total_hours": sum(calculate_hours_for_user(month_shifts, None if is_admin else current_user).values()),
         "contract_reminders": contract_reminders(workers) if is_admin else [],
+        "pending_leave": pending_leave,
+        "my_leave_requests": my_leave_requests,
     }
 
 
@@ -2381,9 +2410,28 @@ def index():
                 <div class="stat-card stat-clients"><div class="muted">{{ tr["registered_clients"] }}</div><div class="stat-number">{{ client_count }}</div></div>
                 <div class="stat-card stat-hours"><div class="muted">{{ tr["this_month_hours"] }}</div><div class="stat-number">{{ "%.1f"|format(month_total_hours) }}</div></div>
             </div>
-            {% if is_admin and contract_reminders %}
+            {% if is_admin and (contract_reminders or pending_leave) %}
             <div class="card" style="border-left:6px solid #f59e0b; margin-bottom:16px;">
                 <h3>{{ tr["contract_reminders"] }}</h3>
+                {% if pending_leave %}
+                    <div style="margin-bottom:10px;"><b style="color:#8b5cf6;">{{ tr["leave_requests_pending"] }} ({{ pending_leave|length }})</b></div>
+                    {% for r in pending_leave %}
+                    <div class="user-row" style="border-left:4px solid #8b5cf6; padding-left:10px; margin-bottom:10px;">
+                        <b>{{ r[1] }}</b> — <span style="color:#8b5cf6;">{{ tr.get('leave_type_' + r[2], r[2]) }}</span><br>
+                        <small>{{ format_date(r[3]) }} → {{ format_date(r[4]) }}</small>
+                        {% if r[5] %}<br><small style="opacity:0.7;">{{ r[5] }}</small>{% endif %}
+                        <div style="display:flex;gap:8px;margin-top:6px;">
+                            <form method="post" action="/leave_request/approve/{{ r[0] }}" style="display:inline;">
+                                <button style="background:#16a34a;color:white;border:none;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:12px;">✓ {{ tr["leave_approve"] }}</button>
+                            </form>
+                            <form method="post" action="/leave_request/reject/{{ r[0] }}" style="display:inline;">
+                                <button style="background:#ef4444;color:white;border:none;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:12px;">✗ {{ tr["leave_reject"] }}</button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% if contract_reminders %}<hr style="margin:12px 0;">{% endif %}
+                {% endif %}
                 {% for r in contract_reminders %}
                     <div class="user-row">
                         <b>{{ r.worker }}</b> - {{ r.contract_type or tr["contract_type"] }}<br>
@@ -2450,6 +2498,38 @@ def index():
             </form>
             <h4>{{ tr["active_absences"] }}</h4>
             {% for a in absences[:8] %}<div class="user-row"><b>{{ a[1] }}</b> - {{ tr.get(a[2], a[2]) }}<br><small>{{ format_date(a[3]) }} - {{ format_date(a[4]) }} {{ a[5] }}</small><a class="delete-link" href="/delete_absence/{{ a[0] }}">{{ tr["delete"] }}</a></div>{% endfor %}
+        </div>
+        {% endif %}
+
+        {% if not is_admin %}
+        <div class="card dashboard-panel" style="border-left:4px solid #8b5cf6;">
+            <h3>🏖️ {{ tr["leave_request"] }}</h3>
+            <form method="post" action="/leave_request">
+                <select name="type">
+                    <option value="vacation">{{ tr["leave_type_vacation"] }}</option>
+                    <option value="sick">{{ tr["leave_type_sick"] }}</option>
+                    <option value="other">{{ tr["leave_type_other"] }}</option>
+                </select>
+                <label>{{ tr["leave_date_from"] }}</label>
+                <input type="date" name="date_from" required>
+                <label>{{ tr["leave_date_to"] }}</label>
+                <input type="date" name="date_to" required>
+                <input type="text" name="note" placeholder="{{ tr['leave_note'] }}">
+                <button>{{ tr["leave_send"] }}</button>
+            </form>
+            {% if my_leave_requests %}
+            <h4 style="margin-top:14px;">{{ tr["leave_my_requests"] }}</h4>
+            {% for r in my_leave_requests %}
+            <div class="user-row" style="border-left:3px solid {% if r[6]=='approved' %}#16a34a{% elif r[6]=='rejected' %}#ef4444{% else %}#f59e0b{% endif %};padding-left:8px;">
+                <b>{{ tr.get('leave_type_' + r[2], r[2]) }}</b>
+                <span style="float:right;font-size:11px;font-weight:bold;color:{% if r[6]=='approved' %}#16a34a{% elif r[6]=='rejected' %}#ef4444{% else %}#f59e0b{% endif %};">
+                    {% if r[6]=='approved' %}✓ {{ tr["leave_approved"] }}{% elif r[6]=='rejected' %}✗ {{ tr["leave_rejected"] }}{% else %}⏳ {{ tr["leave_pending"] }}{% endif %}
+                </span><br>
+                <small>{{ format_date(r[3]) }} → {{ format_date(r[4]) }}</small>
+                {% if r[5] %}<br><small style="opacity:0.65;">{{ r[5] }}</small>{% endif %}
+            </div>
+            {% endfor %}
+            {% endif %}
         </div>
         {% endif %}
 
@@ -2637,6 +2717,48 @@ def delete_absence(id):
     c.execute("DELETE FROM absences WHERE id = ?", (id,))
     conn.commit()
     conn.close()
+    return redirect("/")
+
+
+@app.route("/leave_request", methods=["POST"])
+def submit_leave_request():
+    if "user" not in session or session.get("role") == "admin":
+        return redirect("/")
+    worker = session.get("user")
+    leave_type = request.form.get("type", "vacation").strip()
+    date_from = request.form.get("date_from", "").strip()
+    date_to = request.form.get("date_to", "").strip()
+    note = request.form.get("note", "").strip()
+    if worker and date_from and date_to:
+        conn = get_conn(); c = conn.cursor()
+        c.execute("INSERT INTO leave_requests (worker, type, date_from, date_to, note, status, created_at) VALUES (?, ?, ?, ?, ?, 'pending', ?)",
+                  (worker, leave_type, date_from, date_to, note, lux_now().strftime("%Y-%m-%d %H:%M")))
+        conn.commit(); conn.close()
+    return redirect("/")
+
+
+@app.route("/leave_request/approve/<int:req_id>", methods=["POST"])
+def approve_leave_request(req_id):
+    if session.get("role") != "admin":
+        return redirect("/")
+    conn = get_conn(); c = conn.cursor()
+    row = c.execute("SELECT worker, type, date_from, date_to, note FROM leave_requests WHERE id = ?", (req_id,)).fetchone()
+    if row:
+        c.execute("UPDATE leave_requests SET status = 'approved' WHERE id = ?", (req_id,))
+        c.execute("INSERT INTO absences (worker, type, date_from, date_to, note) VALUES (?, ?, ?, ?, ?)",
+                  (row[0], row[1], row[2], row[3], row[4] or ""))
+        conn.commit()
+    conn.close()
+    return redirect("/")
+
+
+@app.route("/leave_request/reject/<int:req_id>", methods=["POST"])
+def reject_leave_request(req_id):
+    if session.get("role") != "admin":
+        return redirect("/")
+    conn = get_conn(); c = conn.cursor()
+    c.execute("UPDATE leave_requests SET status = 'rejected' WHERE id = ?", (req_id,))
+    conn.commit(); conn.close()
     return redirect("/")
 
 
