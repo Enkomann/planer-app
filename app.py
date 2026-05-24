@@ -2514,12 +2514,14 @@ def index():
                 <h1>{{ tr["dashboard"] }}</h1>
                 <div class="muted">Luxmann Planner · {{ tr["overview"] }}</div>
             </div>
+            {% if is_admin %}
             <div class="stats-grid">
                 <div class="stat-card stat-today"><div class="muted">{{ tr["today_shifts"] }}</div><div class="stat-number">{{ today_shift_count }}</div></div>
                 <div class="stat-card stat-workers"><div class="muted">{{ tr["active_workers"] }}</div><div class="stat-number">{{ worker_count }}</div></div>
                 <div class="stat-card stat-clients"><div class="muted">{{ tr["registered_clients"] }}</div><div class="stat-number">{{ client_count }}</div></div>
                 <div class="stat-card stat-hours"><div class="muted">{{ tr["this_month_hours"] }}</div><div class="stat-number">{{ "%.1f"|format(month_total_hours) }}</div></div>
             </div>
+            {% endif %}
             {% if is_admin and (contract_reminders or pending_leave) %}
             <div class="card" style="border-left:6px solid #f59e0b; margin-bottom:16px;">
                 <h3>{{ tr["contract_reminders"] }}</h3>
