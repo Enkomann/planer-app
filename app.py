@@ -2125,10 +2125,25 @@ BASE_STYLE = """
         /* Month calendar — compact 7-col */
         .month-grid { gap:2px !important; }
         .month-weekday { font-size:9px !important; padding:4px 2px !important; }
-        .month-grid .calendar-day-card { min-height:44px !important; padding:3px !important; font-size:9px; overflow:hidden; }
+        .month-grid .calendar-day-card { min-height:52px !important; padding:3px !important; font-size:9px; overflow:hidden; box-sizing:border-box; }
         .month-grid .calendar-day-card > div { font-size:10px; margin-bottom:2px; }
-        .month-grid .mini-shift { font-size:8px; padding:2px 3px; margin-top:2px; line-height:1.2; }
-        .month-grid .mini-shift b + br, .month-grid .mini-shift br { display:none; }
+        /* Smjene = obojene trake bez teksta; tapni na dan za detalje */
+        .month-grid .mini-shift {
+            display:block !important;
+            height:5px !important;
+            min-height:unset !important;
+            padding:0 !important;
+            margin-top:3px !important;
+            font-size:0 !important;
+            line-height:0 !important;
+            border-radius:3px !important;
+            border:none !important;
+            border-left:none !important;
+            background:var(--shift-accent) !important;
+            overflow:hidden !important;
+            opacity:0.85;
+        }
+        .month-grid .mini-shift * { display:none !important; }
         .month-grid .mini-link { display:none !important; }
         .month-grid .day-menu-wrapper { top:2px !important; right:2px !important; }
         .month-grid .day-menu-wrapper button { font-size:14px !important; padding:1px 3px !important; min-width:22px; min-height:22px; }
