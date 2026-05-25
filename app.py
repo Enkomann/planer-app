@@ -2144,8 +2144,8 @@ BASE_STYLE = """
     @media (max-width:600px) {
         body { margin:0; padding-bottom:calc(64px + env(safe-area-inset-bottom,0)); }
 
-        /* Sticky brandbar */
-        .brandbar { position:sticky; top:0; z-index:100; border-radius:0 !important; margin:0; padding:8px 12px; }
+        /* Brandbar scrolls away on mobile — day-name bar sticks instead */
+        .brandbar { position:relative; border-radius:0 !important; margin:0; padding:8px 12px; }
         .brandleft img { height:34px; }
         .brandtitle { font-size:16px; }
         .langbar { display:none !important; }
@@ -2240,7 +2240,7 @@ BASE_STYLE = """
     /* Telefon vodoravno (landscape) — sedmični kalendar puni širinu */
     @media (orientation:landscape) and (max-height:520px) {
         body { padding-bottom:0 !important; margin:4px !important; }
-        .brandbar { padding:4px 10px !important; border-radius:0 !important; position:sticky; top:0; z-index:100; }
+        .brandbar { padding:4px 10px !important; border-radius:0 !important; position:relative !important; }
         .brandleft img { height:26px !important; }
         .brandtitle { font-size:13px !important; }
         .muted { font-size:11px !important; }
