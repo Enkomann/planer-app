@@ -1349,6 +1349,16 @@ def absence_days_in_month(absence, year, month):
         real_end = min(end, month_end)
         if real_end < real_start:
             return 0
+        # Odmor (vacation): broji samo radne dane pon–pet
+        if absence[2] == "vacation":
+            count = 0
+            cur = real_start
+            while cur <= real_end:
+                if cur.weekday() < 5:   # 0=pon … 4=pet
+                    count += 1
+                cur += timedelta(days=1)
+            return count
+        # Bolovanje i ostalo: svi kalendarski dani
         return (real_end - real_start).days + 1
     except Exception:
         return 0
