@@ -1972,7 +1972,7 @@ BASE_STYLE = """
     .brandbar, .card { background: {{ '#111827' if dark else 'white' }}; border-radius:12px; box-shadow:0 4px 14px rgba(0,0,0,0.06); }
     .brandbar { display:flex; justify-content:space-between; align-items:center; padding:14px 18px; margin-bottom:18px; }
     .brandleft { display:flex; align-items:center; gap:14px; }
-    .brandleft img { height:56px; }
+    .brandleft img { height:56px; {% if dark %}filter:invert(1) hue-rotate(180deg);{% else %}mix-blend-mode:multiply;{% endif %} }
     .brandtitle { font-size:24px; font-weight:700; color: {{ '#93c5fd' if dark else '#1f4f82' }}; }
     .langbar a, .topbar a, .theme-links a, .week-link, .pdf-link, .reset-link, a { color: {{ '#93c5fd' if dark else '#1f4f82' }}; text-decoration:none; font-weight:bold; margin-right:10px; }
     .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px; }
@@ -2564,10 +2564,10 @@ def index():
             <a class="nav-link" href="/month_pdf" target="_blank">📄 {{ tr["month_pdf"] }}</a>
         </aside>
         <main class="main-content">
-            <div class="hero">
+            {% if is_admin %}<div class="hero">
                 <h1>{{ tr["dashboard"] }}</h1>
                 <div class="muted">Luxmann Planner · {{ tr["overview"] }}</div>
-            </div>
+            </div>{% endif %}
             {% if is_admin %}
             <div class="stats-grid">
                 <div class="stat-card stat-today"><div class="muted">{{ tr["today_shifts"] }}</div><div class="stat-number">{{ today_shift_count }}</div></div>
