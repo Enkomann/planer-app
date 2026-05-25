@@ -2499,14 +2499,19 @@ def header_html():
        style="position:fixed;bottom:calc(74px + env(safe-area-inset-bottom,0));right:16px;z-index:450;
               background:#22c55e;color:white;border-radius:28px;padding:11px 20px;font-weight:800;
               font-size:13px;text-decoration:none;display:flex;align-items:center;gap:7px;
-              box-shadow:0 4px 20px rgba(34,197,94,0.55);letter-spacing:0.02em;
-              animation:copyPulse 2s infinite;">
+              letter-spacing:0.02em;border:2px solid #ff2244;
+              animation:copyRgb 1.4s linear infinite;">
         ✕ Copy Off
     </a>
     <style>
-    @keyframes copyPulse {
-        0%,100% { box-shadow:0 4px 20px rgba(34,197,94,0.55); }
-        50%      { box-shadow:0 4px 28px rgba(34,197,94,0.9); }
+    @keyframes copyRgb {
+        0%   { border-color:#ff2244; box-shadow:0 0 10px 2px #ff2244, 0 4px 18px rgba(34,197,94,0.45); }
+        16%  { border-color:#ff8800; box-shadow:0 0 10px 2px #ff8800, 0 4px 18px rgba(34,197,94,0.45); }
+        33%  { border-color:#ffe600; box-shadow:0 0 10px 2px #ffe600, 0 4px 18px rgba(34,197,94,0.45); }
+        50%  { border-color:#00dd55; box-shadow:0 0 10px 2px #00dd55, 0 4px 18px rgba(34,197,94,0.45); }
+        66%  { border-color:#00ccff; box-shadow:0 0 10px 2px #00ccff, 0 4px 18px rgba(34,197,94,0.45); }
+        83%  { border-color:#cc00ff; box-shadow:0 0 10px 2px #cc00ff, 0 4px 18px rgba(34,197,94,0.45); }
+        100% { border-color:#ff2244; box-shadow:0 0 10px 2px #ff2244, 0 4px 18px rgba(34,197,94,0.45); }
     }
     </style>
     {% endif %}
@@ -3251,7 +3256,6 @@ def month_view():
         .month-weekday:nth-child(7) { animation-delay: -1.2s; }
     </style>
     <div><a class="back-button" href="/">{{ tr["back"] }}</a><a href="/week">{{ tr["week_calendar"] }}</a><a href="/month_pdf?year={{ year }}&month={{ month }}" target="_blank">{{ tr["month_pdf"] }}</a></div>
-    {% if is_admin and copied_shift_id %}<div style="background:#16a34a;color:white;padding:8px 12px;border-radius:8px;display:inline-block;margin:10px 0;font-weight:bold;">{{ tr["copy_active"] }} <a style="color:white;" href="/clear_copy">{{ tr["clear"] }}</a></div>{% endif %}
     <div style="display:flex; justify-content:space-between; align-items:center; margin:16px 0; gap:12px;"><a href="/month?year={{ prev_year }}&month={{ prev_month }}">{{ tr["prev_month"] }}</a><h2>{{ tr["month_calendar"] }} - {{ format_month_year(year, month) }}</h2><a href="/month?year={{ next_year }}&month={{ next_month }}">{{ tr["next_month"] }}</a></div>
     <div class="calendar-board month-grid">
         {% for dn in day_names %}<div class="card month-weekday">{{ dn }}</div>{% endfor %}
