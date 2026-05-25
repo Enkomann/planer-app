@@ -3214,6 +3214,16 @@ def month_view():
     return render_template_string(BASE_STYLE + header_html() + """
     <style>
         .month-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:10px; align-items:start; }
+        @keyframes rgbLed {
+            0%   { border-color:#ff2244; box-shadow:0 0 7px 1px #ff2244, 0 8px 18px rgba(0,0,0,0.14); }
+            14%  { border-color:#ff8800; box-shadow:0 0 7px 1px #ff8800, 0 8px 18px rgba(0,0,0,0.14); }
+            28%  { border-color:#ffe600; box-shadow:0 0 7px 1px #ffe600, 0 8px 18px rgba(0,0,0,0.14); }
+            42%  { border-color:#00dd55; box-shadow:0 0 7px 1px #00dd55, 0 8px 18px rgba(0,0,0,0.14); }
+            57%  { border-color:#00ccff; box-shadow:0 0 7px 1px #00ccff, 0 8px 18px rgba(0,0,0,0.14); }
+            71%  { border-color:#4477ff; box-shadow:0 0 7px 1px #4477ff, 0 8px 18px rgba(0,0,0,0.14); }
+            85%  { border-color:#cc00ff; box-shadow:0 0 7px 1px #cc00ff, 0 8px 18px rgba(0,0,0,0.14); }
+            100% { border-color:#ff2244; box-shadow:0 0 7px 1px #ff2244, 0 8px 18px rgba(0,0,0,0.14); }
+        }
         .month-weekday {
             position:sticky;
             top:8px;
@@ -3222,10 +3232,17 @@ def month_view():
             text-align:center;
             font-weight:bold;
             background:{{ '#20344e' if dark else '#d9e6f8' }} !important;
-            border:1px solid {{ '#365372' if dark else '#b7cee9' }};
+            border:2px solid #ff2244;
             color:{{ '#dbeafe' if dark else '#173b63' }};
-            box-shadow:0 8px 18px rgba(0,0,0,0.14);
+            animation: rgbLed 1.4s linear infinite;
         }
+        .month-weekday:nth-child(1) { animation-delay:  0.0s; }
+        .month-weekday:nth-child(2) { animation-delay: -0.2s; }
+        .month-weekday:nth-child(3) { animation-delay: -0.4s; }
+        .month-weekday:nth-child(4) { animation-delay: -0.6s; }
+        .month-weekday:nth-child(5) { animation-delay: -0.8s; }
+        .month-weekday:nth-child(6) { animation-delay: -1.0s; }
+        .month-weekday:nth-child(7) { animation-delay: -1.2s; }
     </style>
     <div><a class="back-button" href="/">{{ tr["back"] }}</a><a href="/week">{{ tr["week_calendar"] }}</a><a href="/month_pdf?year={{ year }}&month={{ month }}" target="_blank">{{ tr["month_pdf"] }}</a></div>
     {% if is_admin and copied_shift_id %}<div style="background:#16a34a;color:white;padding:8px 12px;border-radius:8px;display:inline-block;margin:10px 0;font-weight:bold;">{{ tr["copy_active"] }} <a style="color:white;" href="/clear_copy">{{ tr["clear"] }}</a></div>{% endif %}
