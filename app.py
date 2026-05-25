@@ -2065,10 +2065,26 @@ BASE_STYLE = """
 
     /* Bottom navigation (mobile only) */
     .bottom-nav { display:none; position:fixed; bottom:0; left:0; right:0; background:{{ '#111827' if dark else 'white' }}; border-top:1px solid {{ '#374151' if dark else '#e5e7eb' }}; z-index:200; padding:0 0 env(safe-area-inset-bottom,0); box-shadow:0 -3px 16px rgba(0,0,0,0.12); }
-    .bottom-nav-item { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:7px 4px 6px; color:{{ '#6b7280' if dark else '#94a3b8' }}; text-decoration:none; font-size:10px; min-height:54px; font-weight:500; border:none; background:none; }
+    .bottom-nav-item { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:7px 4px 6px; color:{{ '#6b7280' if dark else '#94a3b8' }}; text-decoration:none; font-size:10px; min-height:54px; font-weight:500; border:none; background:none; cursor:pointer; }
     .bottom-nav-item span { font-size:22px; line-height:1.1; }
     .bottom-nav-item small { margin-top:2px; font-size:10px; white-space:nowrap; }
     .bottom-nav-item.active { color:{{ '#93c5fd' if dark else '#1f4f82' }}; }
+
+    /* Settings bottom sheet */
+    .settings-sheet { display:none; position:fixed; inset:0; z-index:500; background:rgba(0,0,0,0.55); align-items:flex-end; }
+    .settings-sheet.open { display:flex; }
+    .settings-inner { background:{{ '#1e293b' if dark else 'white' }}; border-radius:20px 20px 0 0; width:100%; max-height:82vh; overflow-y:auto; padding-bottom:calc(20px + env(safe-area-inset-bottom,0)); }
+    .settings-handle { width:40px; height:4px; border-radius:2px; background:{{ '#4b5563' if dark else '#d1d5db' }}; margin:14px auto 18px; }
+    .settings-section { padding:0 20px 14px; margin-bottom:4px; }
+    .settings-section + .settings-section { border-top:1px solid {{ '#374151' if dark else '#f1f5f9' }}; padding-top:14px; }
+    .settings-section h4 { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:{{ '#6b7280' if dark else '#94a3b8' }}; margin:0 0 12px; }
+    .settings-pills { display:flex; gap:8px; flex-wrap:wrap; }
+    .settings-pill { display:inline-flex; align-items:center; gap:5px; padding:7px 14px; border-radius:20px; font-size:13px; font-weight:600; text-decoration:none; border:2px solid {{ '#374151' if dark else '#e5e7eb' }}; color:{{ '#d1d5db' if dark else '#374151' }}; background:{{ '#111827' if dark else '#f8fafc' }}; }
+    .settings-pill.current { border-color:{{ '#3b82f6' if dark else '#1f4f82' }}; color:{{ '#93c5fd' if dark else '#1f4f82' }}; background:{{ 'rgba(59,130,246,0.15)' if dark else 'rgba(31,79,130,0.08)' }}; }
+    .settings-navlink { display:flex; align-items:center; gap:14px; padding:13px 0; font-size:15px; font-weight:500; color:{{ '#d1d5db' if dark else '#1f2937' }}; text-decoration:none; border-bottom:1px solid {{ '#1f2937' if dark else '#f3f4f6' }}; }
+    .settings-navlink:last-child { border-bottom:none; }
+    .settings-navlink-icon { font-size:22px; width:34px; text-align:center; flex-shrink:0; }
+    .settings-navlink.danger { color:#ef4444; }
 
     /* Tablet 601–1024px */
     @media (min-width:601px) and (max-width:1024px) {
@@ -2369,7 +2385,76 @@ def header_html():
             <span>📁</span><small>Dok.</small>
         </a>
         {% endif %}
+        <button class="bottom-nav-item" onclick="openSettingsSheet()" aria-label="Postavke">
+            <span>⚙️</span><small>Postavke</small>
+        </button>
     </nav>
+
+    <!-- Settings bottom sheet -->
+    <div id="settingsSheet" class="settings-sheet" onclick="if(event.target===this)closeSettingsSheet();" role="dialog" aria-modal="true" aria-label="Postavke">
+      <div class="settings-inner">
+        <div class="settings-handle"></div>
+
+        <!-- Tema -->
+        <div class="settings-section">
+          <h4>🎨 Tema</h4>
+          <div class="settings-pills">
+            <a href="/set_theme/light" class="settings-pill {% if not dark %}current{% endif %}">☀️ Svijetla</a>
+            <a href="/set_theme/dark"  class="settings-pill {% if dark %}current{% endif %}">🌙 Tamna</a>
+          </div>
+        </div>
+
+        <!-- Jezik -->
+        <div class="settings-section">
+          <h4>🌐 Jezik</h4>
+          <div class="settings-pills">
+            <a href="/set_lang/bos" class="settings-pill {% if session.get('lang','bos')=='bos' %}current{% endif %}">🇧🇦 BOS</a>
+            <a href="/set_lang/fr"  class="settings-pill {% if session.get('lang')=='fr' %}current{% endif %}">🇫🇷 FR</a>
+            <a href="/set_lang/en"  class="settings-pill {% if session.get('lang')=='en' %}current{% endif %}">🇬🇧 EN</a>
+            <a href="/set_lang/de"  class="settings-pill {% if session.get('lang')=='de' %}current{% endif %}">🇩🇪 DE</a>
+            <a href="/set_lang/pt"  class="settings-pill {% if session.get('lang')=='pt' %}current{% endif %}">🇵🇹 PT</a>
+          </div>
+        </div>
+
+        <!-- Alati -->
+        <div class="settings-section">
+          <h4>🛠️ Alati</h4>
+          <a href="/route_optimizer" class="settings-navlink">
+            <span class="settings-navlink-icon">🗺️</span>
+            <div><div style="font-weight:600;">Optimizacija rute</div><div style="font-size:12px;opacity:0.6;">Redoslijed posjeta po datumu</div></div>
+          </a>
+          {% if session.get('role') == 'admin' %}
+          <a href="/invoices" class="settings-navlink">
+            <span class="settings-navlink-icon">🧾</span>
+            <div><div style="font-weight:600;">Fakture</div><div style="font-size:12px;opacity:0.6;">Pregled i kreiranje faktura</div></div>
+          </a>
+          <a href="/workers" class="settings-navlink">
+            <span class="settings-navlink-icon">👥</span>
+            <div><div style="font-weight:600;">Radnici</div><div style="font-size:12px;opacity:0.6;">Upravljanje radnicima</div></div>
+          </a>
+          {% endif %}
+        </div>
+
+        <!-- Račun & odjava -->
+        <div class="settings-section">
+          <h4>👤 Račun</h4>
+          {% if session.get('user') %}
+          <div class="settings-navlink" style="cursor:default;">
+            <span class="settings-navlink-icon">🙍</span>
+            <div><div style="font-weight:600;">{{ session['user'] }}</div><div style="font-size:12px;opacity:0.6;">{{ session.get('role','') }}</div></div>
+          </div>
+          {% endif %}
+          <a href="/logout" class="settings-navlink danger">
+            <span class="settings-navlink-icon">🚪</span>
+            <div style="font-weight:600;">Odjava</div>
+          </a>
+        </div>
+      </div>
+    </div>
+    <script>
+    function openSettingsSheet(){document.getElementById('settingsSheet').classList.add('open');}
+    function closeSettingsSheet(){document.getElementById('settingsSheet').classList.remove('open');}
+    </script>
     """
 
 
