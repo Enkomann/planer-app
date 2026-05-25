@@ -3296,6 +3296,8 @@ def route_optimizer():
                         error = tr["geocode_failed"] + ": " + ", ".join(bad_addresses)
                     else:
                         ordered, total_km = optimize_nearest_neighbor(start_coords, stops)
+                        # Sort by shift start time (chronological order)
+                        ordered = sorted(ordered, key=lambda s: (s.get("time") or "").split("-")[0])
                         result = {
                             "ordered": ordered,
                             "total_km": total_km,
@@ -3336,12 +3338,18 @@ def route_optimizer():
     <div class="card" style="margin-top:16px; max-width:900px;">
         <h2>{{ tr["optimized_order"] }}</h2>
         <p><b>{{ tr["route_distance_return"] }}:</b> {{ "%.1f"|format(result.total_km) }} km</p>
-        <ol>
+        <ol style="padding-left:22px; margin:0;">
             {% for stop in result.ordered %}
-                <li style="margin-bottom:10px;">
-                    <b>{{ stop.client }}</b> — {{ stop.time }}<br>
-                    <span class="muted">{{ tr["client_address"] }}: {{ stop.address }}</span><br>
-                    <a class="big-map-button" style="display:inline-block;margin-top:8px;padding:8px 12px;font-size:13px;" href="{{ stop.maps_url }}" target="_blank">{{ tr["navigate_to_address"] }}</a>
+                <li style="margin-bottom:14px; padding:10px 12px; border-radius:10px; background:{{ '#1e293b' if dark else '#f8fafc' }}; border:1px solid {{ '#334155' if dark else '#e2e8f0' }}; list-style-position:outside;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                        <div style="min-width:0;">
+                            <div style="font-weight:700; font-size:15px;">{{ stop.client }}</div>
+                            <div style="font-size:13px; color:{{ '#93c5fd' if dark else '#1f4f82' }}; font-weight:600; margin:2px 0;">🕐 {{ stop.time }}</div>
+                            <div class="muted" style="font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">📍 {{ stop.address }}</div>
+                        </div>
+                        <a href="{{ stop.maps_url }}" target="_blank" title="{{ tr['navigate_to_address'] }}"
+                           style="flex-shrink:0; display:flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:12px; background:#1f4f82; color:white; font-size:24px; text-decoration:none; box-shadow:0 2px 8px rgba(31,79,130,0.35);">🧭</a>
+                    </div>
                 </li>
             {% endfor %}
         </ol>
@@ -3351,10 +3359,7 @@ def route_optimizer():
                 {% for bad in result.bad_addresses %}• {{ bad }}<br>{% endfor %}
             </div>
         {% endif %}
-        <p class="muted">{{ tr["route_warning"] }}</p>
-        <div style="margin-top:20px; text-align:center;">
-            <a class="big-map-button" href="{{ result.maps_url }}" target="_blank">🗺️ {{ tr["open_in_maps"] }}</a>
-        </div>
+        <p class="muted" style="margin-top:12px;">{{ tr["route_warning"] }}</p>
     </div>
     {% endif %}
     """, tr=tr, dark=dark, workers=workers, selected_date=selected_date,
