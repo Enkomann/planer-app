@@ -405,23 +405,55 @@ TRANSLATIONS["bos"].update({
 })
 TRANSLATIONS["en"].update({
     "contract_type": "Contract type", "contract_end_date": "Contract end date",
-    "contract_reminders": "Contract reminders", "contract_expired": "Contract expired",
+    "contract_reminders": "Reminders", "contract_expired": "Contract expired",
     "contract_expires_soon": "Contract expires soon", "worked_hours": "Worked hours",
+    "leave_request": "Leave request", "leave_type_vacation": "Paid leave",
+    "leave_type_sick": "Sick leave", "leave_type_other": "Day off",
+    "leave_date_from": "From", "leave_date_to": "To",
+    "leave_note": "Note", "leave_send": "Send request",
+    "leave_my_requests": "My requests", "leave_pending": "Pending",
+    "leave_approved": "Approved", "leave_rejected": "Rejected",
+    "leave_requests_pending": "Leave requests", "leave_approve": "Approve",
+    "leave_reject": "Reject", "leave_no_requests": "No requests",
 })
 TRANSLATIONS["fr"].update({
     "contract_type": "Type de contrat", "contract_end_date": "Fin du contrat",
-    "contract_reminders": "Rappels contrats", "contract_expired": "Contrat expire",
+    "contract_reminders": "Rappels", "contract_expired": "Contrat expire",
     "contract_expires_soon": "Contrat bientot expire", "worked_hours": "Heures travaillees",
+    "leave_request": "Demande de conge", "leave_type_vacation": "Conge paye",
+    "leave_type_sick": "Arret maladie", "leave_type_other": "Jour de repos",
+    "leave_date_from": "Du", "leave_date_to": "Au",
+    "leave_note": "Remarque", "leave_send": "Envoyer la demande",
+    "leave_my_requests": "Mes demandes", "leave_pending": "En attente",
+    "leave_approved": "Approuvee", "leave_rejected": "Refusee",
+    "leave_requests_pending": "Demandes de conge", "leave_approve": "Approuver",
+    "leave_reject": "Refuser", "leave_no_requests": "Aucune demande",
 })
 TRANSLATIONS["de"].update({
     "contract_type": "Vertragsart", "contract_end_date": "Vertragsende",
-    "contract_reminders": "Vertragserinnerungen", "contract_expired": "Vertrag abgelaufen",
+    "contract_reminders": "Erinnerungen", "contract_expired": "Vertrag abgelaufen",
     "contract_expires_soon": "Vertrag laeuft bald ab", "worked_hours": "Geleistete Stunden",
+    "leave_request": "Urlaubsantrag", "leave_type_vacation": "Bezahlter Urlaub",
+    "leave_type_sick": "Krankmeldung", "leave_type_other": "Freier Tag",
+    "leave_date_from": "Von", "leave_date_to": "Bis",
+    "leave_note": "Notiz", "leave_send": "Antrag senden",
+    "leave_my_requests": "Meine Antraege", "leave_pending": "Ausstehend",
+    "leave_approved": "Genehmigt", "leave_rejected": "Abgelehnt",
+    "leave_requests_pending": "Urlaubsantraege", "leave_approve": "Genehmigen",
+    "leave_reject": "Ablehnen", "leave_no_requests": "Keine Antraege",
 })
 TRANSLATIONS["pt"].update({
     "contract_type": "Tipo de contrato", "contract_end_date": "Fim do contrato",
-    "contract_reminders": "Lembretes de contrato", "contract_expired": "Contrato expirado",
+    "contract_reminders": "Lembretes", "contract_expired": "Contrato expirado",
     "contract_expires_soon": "Contrato termina em breve", "worked_hours": "Horas trabalhadas",
+    "leave_request": "Pedido de ferias", "leave_type_vacation": "Ferias pagas",
+    "leave_type_sick": "Baixa medica", "leave_type_other": "Dia de folga",
+    "leave_date_from": "De", "leave_date_to": "Ate",
+    "leave_note": "Nota", "leave_send": "Enviar pedido",
+    "leave_my_requests": "Os meus pedidos", "leave_pending": "Pendente",
+    "leave_approved": "Aprovado", "leave_rejected": "Recusado",
+    "leave_requests_pending": "Pedidos de ferias", "leave_approve": "Aprovar",
+    "leave_reject": "Recusar", "leave_no_requests": "Sem pedidos",
 })
 
 DOCUMENT_TRANSLATIONS = {
