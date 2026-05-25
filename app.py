@@ -2484,6 +2484,22 @@ def header_html():
         </div>
       </div>
     </div>
+    {% if session.get('copied_shift_id') %}
+    <a href="/clear_copy" id="copyOffBtn"
+       style="position:fixed;bottom:calc(74px + env(safe-area-inset-bottom,0));right:16px;z-index:450;
+              background:#22c55e;color:white;border-radius:28px;padding:11px 20px;font-weight:800;
+              font-size:13px;text-decoration:none;display:flex;align-items:center;gap:7px;
+              box-shadow:0 4px 20px rgba(34,197,94,0.55);letter-spacing:0.02em;
+              animation:copyPulse 2s infinite;">
+        ✕ Copy Off
+    </a>
+    <style>
+    @keyframes copyPulse {
+        0%,100% { box-shadow:0 4px 20px rgba(34,197,94,0.55); }
+        50%      { box-shadow:0 4px 28px rgba(34,197,94,0.9); }
+    }
+    </style>
+    {% endif %}
     <script>
     function openSettingsSheet(){document.getElementById('settingsSheet').classList.add('open');}
     function closeSettingsSheet(){document.getElementById('settingsSheet').classList.remove('open');}
@@ -4778,11 +4794,14 @@ def edit_shift(id):
             ref = request.referrer or f"/edit_shift/{id}"
             return redirect(ref + ("&" if "?" in ref else "?") + f"notice={notice}")
         if worker: c.execute("UPDATE shifts SET worker = ?, client = ?, date = ?, time = ?, status = ? WHERE id = ?", (worker, client, date, time_range, status, id)); conn.commit()
-        conn.close(); return redirect("/")
+        conn.close()
+        return_to = request.form.get("return_to", "").strip() or f"/month?year={date[:4]}&month={int(date[5:7])}"
+        return redirect(return_to)
     shift = c.execute("SELECT * FROM shifts WHERE id = ?", (id,)).fetchone(); workers = c.execute("SELECT name, address FROM workers ORDER BY name").fetchall(); clients = c.execute("SELECT name, address FROM clients ORDER BY name").fetchall(); conn.close()
     if not shift: return redirect("/")
     start_time, end_time = split_time_range(shift[4]); sh, sm = split_hour_min(start_time); eh, em = split_hour_min(end_time); selected_workers = split_workers(shift[1])
-    return render_template_string(BASE_STYLE + """<div class="card" style="max-width:520px;margin:auto;"><h2>{{ tr["edit_shift"] }}</h2><form method="post"><label>{{ tr["choose_worker"] }}</label>{% for w in workers %}{% if w[0] != 'admin' %}<label class="check-row"><input type="checkbox" name="workers" value="{{ w[0] }}" {% if w[0] in selected_workers %}checked{% endif %}>{{ w[0] }}</label>{% endif %}{% endfor %}<div class="client-search-wrapper"><input type="text" id="csInputEdit" class="client-search-input" value="{{ shift[2] }}" placeholder="{{ tr['search_placeholder'] }}" autocomplete="off"><input type="hidden" name="client" id="csHiddenEdit" value="{{ shift[2] }}" required><div class="client-search-dropdown" id="csListEdit"></div></div><input type="date" name="date" value="{{ shift[3] }}" required><label>{{ tr["start_time"] }}</label><div style="display:flex;gap:6px;"><select name="start_hour">{% for h in time_hours %}<option value="{{ h }}" {% if h == sh %}selected{% endif %}>{{ h }}</option>{% endfor %}</select><select name="start_minute">{% for m in time_minutes %}<option value="{{ m }}" {% if m == sm %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></div><label>{{ tr["end_time"] }}</label><div style="display:flex;gap:6px;"><select name="end_hour">{% for h in time_hours %}<option value="{{ h }}" {% if h == eh %}selected{% endif %}>{{ h }}</option>{% endfor %}</select><select name="end_minute">{% for m in time_minutes %}<option value="{{ m }}" {% if m == em %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></div><select name="status"><option value="planned" {% if shift[5] == 'planned' %}selected{% endif %}>{{ tr["status_planned"] }}</option><option value="in_progress" {% if shift[5] == 'in_progress' %}selected{% endif %}>{{ tr["status_in_progress"] }}</option><option value="done" {% if shift[5] == 'done' %}selected{% endif %}>{{ tr["status_done"] }}</option></select><button>{{ tr["save"] }}</button></form><br><a class="back-button" href="/">{{ tr["back"] }}</a></div><script>document.addEventListener('DOMContentLoaded',function(){var CD=[{% for c in clients %}{"name":{{c[0]|tojson}},"addr":{{(c[1] or '')|tojson}}}{% if not loop.last %},{% endif %}{% endfor %}];initClientSearch('csInputEdit','csHiddenEdit','csListEdit',CD);});</script>""", tr=tr, dark=dark, shift=shift, workers=workers, clients=clients, selected_workers=selected_workers, sh=sh, sm=sm, eh=eh, em=em, time_hours=time_hours(), time_minutes=time_minutes())
+    return_to = request.referrer or f"/month?year={shift[3][:4]}&month={int(shift[3][5:7])}"
+    return render_template_string(BASE_STYLE + """<div class="card" style="max-width:520px;margin:auto;"><h2>{{ tr["edit_shift"] }}</h2><form method="post"><input type="hidden" name="return_to" value="{{ return_to }}"><label>{{ tr["choose_worker"] }}</label>{% for w in workers %}{% if w[0] != 'admin' %}<label class="check-row"><input type="checkbox" name="workers" value="{{ w[0] }}" {% if w[0] in selected_workers %}checked{% endif %}>{{ w[0] }}</label>{% endif %}{% endfor %}<div class="client-search-wrapper"><input type="text" id="csInputEdit" class="client-search-input" value="{{ shift[2] }}" placeholder="{{ tr['search_placeholder'] }}" autocomplete="off"><input type="hidden" name="client" id="csHiddenEdit" value="{{ shift[2] }}" required><div class="client-search-dropdown" id="csListEdit"></div></div><input type="date" name="date" value="{{ shift[3] }}" required><label>{{ tr["start_time"] }}</label><div style="display:flex;gap:6px;"><select name="start_hour">{% for h in time_hours %}<option value="{{ h }}" {% if h == sh %}selected{% endif %}>{{ h }}</option>{% endfor %}</select><select name="start_minute">{% for m in time_minutes %}<option value="{{ m }}" {% if m == sm %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></div><label>{{ tr["end_time"] }}</label><div style="display:flex;gap:6px;"><select name="end_hour">{% for h in time_hours %}<option value="{{ h }}" {% if h == eh %}selected{% endif %}>{{ h }}</option>{% endfor %}</select><select name="end_minute">{% for m in time_minutes %}<option value="{{ m }}" {% if m == em %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></div><select name="status"><option value="planned" {% if shift[5] == 'planned' %}selected{% endif %}>{{ tr["status_planned"] }}</option><option value="in_progress" {% if shift[5] == 'in_progress' %}selected{% endif %}>{{ tr["status_in_progress"] }}</option><option value="done" {% if shift[5] == 'done' %}selected{% endif %}>{{ tr["status_done"] }}</option></select><button>{{ tr["save"] }}</button></form><br><a class="back-button" href="/">{{ tr["back"] }}</a></div><script>document.addEventListener('DOMContentLoaded',function(){var CD=[{% for c in clients %}{"name":{{c[0]|tojson}},"addr":{{(c[1] or '')|tojson}}}{% if not loop.last %},{% endif %}{% endfor %}];initClientSearch('csInputEdit','csHiddenEdit','csListEdit',CD);});</script>""", tr=tr, dark=dark, shift=shift, workers=workers, clients=clients, selected_workers=selected_workers, sh=sh, sm=sm, eh=eh, em=em, time_hours=time_hours(), time_minutes=time_minutes(), return_to=return_to)
 
 @app.route("/add_worker", methods=["POST"])
 def add_worker():
