@@ -2182,9 +2182,10 @@ BASE_STYLE = """
         .day-menu-wrapper button { font-size:22px !important; padding:4px 8px !important; min-width:36px; min-height:36px; }
         .day-mini-menu a { padding:13px 16px !important; font-size:14px !important; }
 
-        /* Week calendar — horizontal scroll with snap */
-        .week-calendar-grid { flex-wrap:nowrap !important; overflow-x:auto; -webkit-overflow-scrolling:touch; scroll-snap-type:x mandatory; padding-bottom:10px; gap:8px !important; }
-        .week-calendar-grid .calendar-day-card { scroll-snap-align:start; flex-shrink:0; min-width:min(280px, 78vw) !important; width:min(280px, 78vw) !important; }
+        /* Week calendar — full-width single-day snap scroll */
+        .week-calendar-grid { flex-wrap:nowrap !important; overflow-x:scroll !important; -webkit-overflow-scrolling:touch; scroll-snap-type:x mandatory; scrollbar-width:none; gap:0 !important; padding:4px !important; }
+        .week-calendar-grid::-webkit-scrollbar { display:none; }
+        .week-calendar-grid .calendar-day-card { scroll-snap-align:start; flex:0 0 100% !important; min-width:100% !important; width:100% !important; box-sizing:border-box; }
 
         /* Month calendar — compact 7-col */
         .month-grid { gap:2px !important; }
@@ -3207,7 +3208,20 @@ def week_view():
     function dropShift(ev, dateStr){ev.preventDefault();ev.currentTarget.classList.remove('drop-target');var shiftId=ev.dataTransfer.getData('shift_id');if(!shiftId)return;fetch('/move_shift',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'shift_id='+encodeURIComponent(shiftId)+'&date='+encodeURIComponent(dateStr)}).then(function(resp){if(resp.status===409){return resp.text().then(function(msg){showPlannerAlert(msg);});}window.location.reload();});}
     function toggleDayMenu(btn){var menu=btn.nextElementSibling;document.querySelectorAll('.day-mini-menu').forEach(function(m){if(m!==menu)m.style.display='none';});menu.style.display=menu.style.display==='none'?'block':'none';}
     document.addEventListener('click',function(e){if(!e.target.closest('.day-menu-wrapper')&&!e.target.closest('#addShiftModal .modal-card')){document.querySelectorAll('.day-mini-menu').forEach(function(m){m.style.display='none';});}});
-    document.addEventListener('DOMContentLoaded',function(){var CD=[{% for cl in clients %}{"name":{{cl[0]|tojson}},"addr":{{(cl[1] or '')|tojson}}}{% if not loop.last %},{% endif %}{% endfor %}];initClientSearch('csInputWeek','csHiddenWeek','csListWeek',CD);});
+    document.addEventListener('DOMContentLoaded',function(){
+      var CD=[{% for cl in clients %}{"name":{{cl[0]|tojson}},"addr":{{(cl[1] or '')|tojson}}}{% if not loop.last %},{% endif %}{% endfor %}];
+      initClientSearch('csInputWeek','csHiddenWeek','csListWeek',CD);
+      /* On mobile: snap-scroll to today's day card */
+      if(window.innerWidth<=700){
+        var wkg=document.querySelector('.week-calendar-grid');
+        if(wkg){
+          var today=new Date().toISOString().slice(0,10);
+          var cards=Array.from(wkg.querySelectorAll('.calendar-day-card'));
+          var todayIdx=cards.findIndex(function(card){return card.innerHTML.indexOf(today)!==-1;});
+          if(todayIdx>0){wkg.scrollLeft=todayIdx*wkg.offsetWidth;}
+        }
+      }
+    });
     </script>
     """, tr=tr, dark=dark, week_days=week_days, shifts=shifts, worker_colors=worker_colors, client_cities=client_cities, format_date=format_date, holidays_map=holidays_map, day_names=day_names, status_colors=STATUS_COLORS, get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers, is_weekend=is_weekend, is_admin=is_admin, prev_week=prev_week, next_week=next_week, current_week=current_week, start_year=start_week.year, start_month=start_week.month, workers=workers, clients=clients, time_hours=time_hours())
 
@@ -3230,6 +3244,20 @@ def month_view():
     day_names = [tr["monday"], tr["tuesday"], tr["wednesday"], tr["thursday"], tr["friday"], tr["saturday"], tr["sunday"]]
     return render_template_string(BASE_STYLE + header_html() + """
     <style>
+        /* Weekday bar sits OUTSIDE the grid → sticky works properly */
+        #monthWdBar {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 10px;
+            padding: 0 11px;
+            box-sizing: border-box;
+            background: {{ '#0b1220' if dark else '#eef3fb' }};
+            margin-bottom: 4px;
+        }
+        @media (max-width:700px) { #monthWdBar { gap:2px; padding:0 11px; } }
         .month-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:10px; align-items:start; }
         @keyframes rgbLed {
             0%   { border-color:#ff2244; box-shadow:0 0 7px 1px #ff2244, 0 8px 18px rgba(0,0,0,0.14); }
@@ -3242,9 +3270,6 @@ def month_view():
             100% { border-color:#ff2244; box-shadow:0 0 7px 1px #ff2244, 0 8px 18px rgba(0,0,0,0.14); }
         }
         .month-weekday {
-            position:sticky;
-            top:8px;
-            z-index:20;
             min-height:auto;
             text-align:center;
             font-weight:bold;
@@ -3253,22 +3278,20 @@ def month_view():
             color:{{ '#dbeafe' if dark else '#173b63' }};
             animation: rgbLed 1.4s linear infinite;
         }
-        .month-weekday:nth-child(1) { animation-delay:  0.0s; }
-        .month-weekday:nth-child(2) { animation-delay: -0.2s; }
-        .month-weekday:nth-child(3) { animation-delay: -0.4s; }
-        .month-weekday:nth-child(4) { animation-delay: -0.6s; }
-        .month-weekday:nth-child(5) { animation-delay: -0.8s; }
-        .month-weekday:nth-child(6) { animation-delay: -1.0s; }
-        .month-weekday:nth-child(7) { animation-delay: -1.2s; }
-        /* Mobile: keep sticky but snap to very top of viewport */
-        @media (max-width:700px) {
-            .month-weekday { top:0 !important; z-index:30 !important; }
-        }
+        #monthWdBar .month-weekday:nth-child(1) { animation-delay:  0.0s; }
+        #monthWdBar .month-weekday:nth-child(2) { animation-delay: -0.2s; }
+        #monthWdBar .month-weekday:nth-child(3) { animation-delay: -0.4s; }
+        #monthWdBar .month-weekday:nth-child(4) { animation-delay: -0.6s; }
+        #monthWdBar .month-weekday:nth-child(5) { animation-delay: -0.8s; }
+        #monthWdBar .month-weekday:nth-child(6) { animation-delay: -1.0s; }
+        #monthWdBar .month-weekday:nth-child(7) { animation-delay: -1.2s; }
     </style>
     <div><a class="back-button" href="/">{{ tr["back"] }}</a><a href="/week">{{ tr["week_calendar"] }}</a><a href="/month_pdf?year={{ year }}&month={{ month }}" target="_blank">{{ tr["month_pdf"] }}</a></div>
     <div style="display:flex; justify-content:space-between; align-items:center; margin:16px 0; gap:12px;"><a href="/month?year={{ prev_year }}&month={{ prev_month }}">{{ tr["prev_month"] }}</a><h2>{{ tr["month_calendar"] }} - {{ format_month_year(year, month) }}</h2><a href="/month?year={{ next_year }}&month={{ next_month }}">{{ tr["next_month"] }}</a></div>
-    <div class="calendar-board month-grid">
+    <div id="monthWdBar">
         {% for dn in day_names %}<div class="card month-weekday">{{ dn }}</div>{% endfor %}
+    </div>
+    <div class="calendar-board month-grid">
         {% for week in month_days %}{% for day in week %}{% set daystr = day.strftime('%Y-%m-%d') %}{% set holiday_name = holidays_map.get(daystr) %}
             <div class="card calendar-day-card {% if holiday_name %}holiday-soft{% endif %} {% if day.weekday() >= 5 %}weekend-soft{% endif %}" style="min-height:120px; position:relative;" ondragover="allowDrop(event)" ondragleave="clearDrop(event)" ondrop="dropShift(event, '{{ daystr }}')">
                 {% if is_admin %}<div class="day-menu-wrapper" style="position:absolute;top:6px;right:8px;"><button onclick="toggleDayMenu(this)" title="{{ tr['add_shift'] }}" style="background:none;border:none;font-size:20px;font-weight:bold;cursor:pointer;padding:0;line-height:1;color:#1f4f82;opacity:0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">+</button><div class="day-mini-menu" style="display:none;position:absolute;right:0;top:28px;z-index:300;min-width:155px;border-radius:8px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,0.18);background:{% if dark %}#1e293b{% else %}white{% endif %};border:1px solid {% if dark %}#2d4060{% else %}#dbeafe{% endif %};"><a href="javascript:void(0)" onclick="openAddShiftModal('{{ daystr }}')" style="display:block;padding:10px 15px;text-decoration:none;color:{% if dark %}#93c5fd{% else %}#1f4f82{% endif %};font-size:13px;font-weight:600;white-space:nowrap;" onmouseover="this.style.background='{% if dark %}#2d3f56{% else %}#eef4ff{% endif %}'" onmouseout="this.style.background='transparent'">+ {{ tr['add_shift'] }}</a></div></div>{% endif %}
