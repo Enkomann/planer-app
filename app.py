@@ -2006,7 +2006,12 @@ init_db()
 BASE_STYLE = """
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Luxmann">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1e3a5f">
+<link rel="manifest" href="/manifest.json">
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(function(){});}</script>
 <style>
     body { font-family: Arial, sans-serif; margin:24px; background: {{ '#0f172a' if dark else '#f4f6f8' }}; color: {{ '#e5e7eb' if dark else '#1f2937' }}; }
     h1 { color: {{ '#93c5fd' if dark else '#1f4f82' }}; }
@@ -2209,6 +2214,7 @@ BASE_STYLE = """
         }
         .month-grid .mini-shift .ms-w { font-weight:bold !important; font-size:8px !important; }
         .month-grid .mini-shift .ms-c { font-size:6px !important; }
+        .month-grid .mini-shift .ms-city { font-size:5px !important; opacity:0.7; }
         .month-grid .mini-shift .ms-t { opacity:0.75; font-size:6px !important; }
         .month-grid .mini-link { display:none !important; }
         .month-grid .day-menu-wrapper { top:2px !important; right:2px !important; }
@@ -3254,6 +3260,13 @@ def month_view():
         .month-weekday:nth-child(5) { animation-delay: -0.8s; }
         .month-weekday:nth-child(6) { animation-delay: -1.0s; }
         .month-weekday:nth-child(7) { animation-delay: -1.2s; }
+        /* On mobile: don't stick — scroll with content */
+        @media (max-width:700px) {
+            .month-weekday { position:static !important; top:auto !important; z-index:1 !important; }
+        }
+        @media (orientation:landscape) and (max-height:520px) {
+            .month-weekday { position:static !important; top:auto !important; z-index:1 !important; }
+        }
     </style>
     <div><a class="back-button" href="/">{{ tr["back"] }}</a><a href="/week">{{ tr["week_calendar"] }}</a><a href="/month_pdf?year={{ year }}&month={{ month }}" target="_blank">{{ tr["month_pdf"] }}</a></div>
     <div style="display:flex; justify-content:space-between; align-items:center; margin:16px 0; gap:12px;"><a href="/month?year={{ prev_year }}&month={{ prev_month }}">{{ tr["prev_month"] }}</a><h2>{{ tr["month_calendar"] }} - {{ format_month_year(year, month) }}</h2><a href="/month?year={{ next_year }}&month={{ next_month }}">{{ tr["next_month"] }}</a></div>
@@ -3264,7 +3277,7 @@ def month_view():
                 {% if is_admin %}<div class="day-menu-wrapper" style="position:absolute;top:6px;right:8px;"><button onclick="toggleDayMenu(this)" title="{{ tr['add_shift'] }}" style="background:none;border:none;font-size:20px;font-weight:bold;cursor:pointer;padding:0;line-height:1;color:#1f4f82;opacity:0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">+</button><div class="day-mini-menu" style="display:none;position:absolute;right:0;top:28px;z-index:300;min-width:155px;border-radius:8px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,0.18);background:{% if dark %}#1e293b{% else %}white{% endif %};border:1px solid {% if dark %}#2d4060{% else %}#dbeafe{% endif %};"><a href="javascript:void(0)" onclick="openAddShiftModal('{{ daystr }}')" style="display:block;padding:10px 15px;text-decoration:none;color:{% if dark %}#93c5fd{% else %}#1f4f82{% endif %};font-size:13px;font-weight:600;white-space:nowrap;" onmouseover="this.style.background='{% if dark %}#2d3f56{% else %}#eef4ff{% endif %}'" onmouseout="this.style.background='transparent'">+ {{ tr['add_shift'] }}</a></div></div>{% endif %}
                 <div style="font-weight:bold; margin-bottom:8px;"><a class="month-day-date" data-short="{{ day.strftime('%d') }}" href="{% if is_admin %}javascript:void(0){% else %}/?selected_date={{ daystr }}{% endif %}" {% if is_admin %}onclick="openHolidayModal('{{ daystr }}')"{% endif %} style="{% if day.weekday() >= 5 %}color:#ef4444;{% endif %}">{{ day.strftime('%d/%m/%Y') }}</a>{% if is_admin and copied_shift_id %}<br><a style="display:inline-block;margin-top:6px;padding:4px 7px;border-radius:6px;background:#16a34a;color:white!important;font-size:11px;" href="/paste_shift/{{ daystr }}">{{ tr["paste"] }}</a>{% endif %}</div>
                 {% if holiday_name %}<small class="holiday-note">{{ holiday_name }}</small>{% endif %}
-                {% for s in shifts_by_date.get(daystr, []) %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="--shift-accent:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#7aa7df') }};" data-w="{{ s[1] }}" data-c="{{ (s[2] or '').split(' ')[0] }}" data-t="{{ s[4] }}"><b>{{ s[1] }}</b><br>{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}<br>{{ s[4] }}{% if is_admin %}<br><a class="mini-link edit-link" href="javascript:void(0)" data-eid="{{ s[0] }}" data-ew="{{ s[1]|e }}" data-ecl="{{ s[2]|e }}" data-edt="{{ s[3]|e }}" data-etm="{{ s[4]|e }}" data-est="{{ s[5]|e }}" onclick="openEditModalM(this)">{{ tr["edit"] }}</a><a class="mini-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a><a class="mini-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>{% endif %}</div>{% endfor %}
+                {% for s in shifts_by_date.get(daystr, []) %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="--shift-accent:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#7aa7df') }};" data-w="{{ s[1]|e }}" data-c="{{ s[2]|e }}" data-city="{{ client_cities.get(s[2], '')|e }}" data-t="{{ s[4]|e }}"><b>{{ s[1] }}</b><br>{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}<br>{{ s[4] }}{% if is_admin %}<br><a class="mini-link edit-link" href="javascript:void(0)" data-eid="{{ s[0] }}" data-ew="{{ s[1]|e }}" data-ecl="{{ s[2]|e }}" data-edt="{{ s[3]|e }}" data-etm="{{ s[4]|e }}" data-est="{{ s[5]|e }}" onclick="openEditModalM(this)">{{ tr["edit"] }}</a><a class="mini-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a><a class="mini-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>{% endif %}</div>{% endfor %}
             </div>
         {% endfor %}{% endfor %}
     </div>
@@ -3352,8 +3365,13 @@ def month_view():
         document.querySelectorAll('.month-grid .mini-shift').forEach(function(el){
           var w=(el.getAttribute('data-w')||'').trim();
           var c=el.getAttribute('data-c')||'';
+          var city=el.getAttribute('data-city')||'';
           var t=el.getAttribute('data-t')||'';
-          el.innerHTML=(w?'<div class="ms-w">'+w+'</div>':'')+(c?'<div class="ms-c">'+c+'</div>':'')+(t?'<div class="ms-t">'+t+'</div>':'');
+          var cHtml=c?(c+(city?' <span class="ms-city">'+city+'</span>':'')):'';
+          el.innerHTML=
+            (w?'<div class="ms-w">'+w+'</div>':'')+
+            (cHtml?'<div class="ms-c">'+cHtml+'</div>':'')+
+            (t?'<div class="ms-t">'+t+'</div>':'');
         });
       }
     });
@@ -4950,6 +4968,54 @@ def add_shift():
             return redirect(ref + ("&" if "?" in ref else "?") + f"notice={notice}")
         c.execute("INSERT INTO shifts (worker, client, date, time, status) VALUES (?, ?, ?, ?, ?)", (worker, client, date, time_range, status)); conn.commit(); conn.close()
     return redirect(request.referrer or "/")
+
+
+@app.route("/manifest.json")
+def pwa_manifest():
+    data = {
+        "name": "Luxmann Planner",
+        "short_name": "Luxmann",
+        "start_url": "/",
+        "scope": "/",
+        "display": "standalone",
+        "orientation": "any",
+        "background_color": "#0f172a",
+        "theme_color": "#1e3a5f",
+        "icons": [
+            {"src": "/static/logo.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+            {"src": "/static/logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+        ]
+    }
+    resp = app.response_class(json.dumps(data), mimetype="application/json")
+    resp.headers["Cache-Control"] = "public, max-age=86400"
+    return resp
+
+
+@app.route("/sw.js")
+def service_worker():
+    sw = """
+const CACHE = 'luxmann-v1';
+self.addEventListener('install', e => {
+    e.waitUntil(caches.open(CACHE).then(c => c.addAll(['/'])));
+    self.skipWaiting();
+});
+self.addEventListener('activate', e => {
+    e.waitUntil(caches.keys().then(keys =>
+        Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+    ));
+    self.clients.claim();
+});
+self.addEventListener('fetch', e => {
+    if (e.request.method !== 'GET') return;
+    e.respondWith(
+        fetch(e.request).catch(() => caches.match(e.request))
+    );
+});
+"""
+    resp = app.response_class(sw, mimetype="application/javascript")
+    resp.headers["Service-Worker-Allowed"] = "/"
+    resp.headers["Cache-Control"] = "no-cache"
+    return resp
 
 
 if __name__ == "__main__":
