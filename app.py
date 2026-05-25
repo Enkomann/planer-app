@@ -3260,12 +3260,9 @@ def month_view():
         .month-weekday:nth-child(5) { animation-delay: -0.8s; }
         .month-weekday:nth-child(6) { animation-delay: -1.0s; }
         .month-weekday:nth-child(7) { animation-delay: -1.2s; }
-        /* On mobile: don't stick — scroll with content */
+        /* Mobile: keep sticky but snap to very top of viewport */
         @media (max-width:700px) {
-            .month-weekday { position:static !important; top:auto !important; z-index:1 !important; }
-        }
-        @media (orientation:landscape) and (max-height:520px) {
-            .month-weekday { position:static !important; top:auto !important; z-index:1 !important; }
+            .month-weekday { top:0 !important; z-index:30 !important; }
         }
     </style>
     <div><a class="back-button" href="/">{{ tr["back"] }}</a><a href="/week">{{ tr["week_calendar"] }}</a><a href="/month_pdf?year={{ year }}&month={{ month }}" target="_blank">{{ tr["month_pdf"] }}</a></div>
