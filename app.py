@@ -2132,7 +2132,7 @@ BASE_STYLE = """
             overflow:hidden !important;
             max-width:100% !important;
             box-sizing:border-box !important;
-            font-size:8px !important;
+            font-size:7px !important;
             padding:2px 3px !important;
             margin-top:3px !important;
             line-height:1.35 !important;
@@ -2148,8 +2148,9 @@ BASE_STYLE = """
             width:100% !important;
             box-sizing:border-box !important;
         }
-        .month-grid .mini-shift .ms-w { font-weight:bold !important; }
-        .month-grid .mini-shift .ms-t { opacity:0.75; font-size:7px !important; }
+        .month-grid .mini-shift .ms-w { font-weight:bold !important; font-size:8px !important; }
+        .month-grid .mini-shift .ms-c { font-size:6px !important; }
+        .month-grid .mini-shift .ms-t { opacity:0.75; font-size:6px !important; }
         .month-grid .mini-link { display:none !important; }
         .month-grid .day-menu-wrapper { top:2px !important; right:2px !important; }
         .month-grid .day-menu-wrapper button { font-size:14px !important; padding:1px 3px !important; min-width:22px; min-height:22px; }
@@ -2169,6 +2170,38 @@ BASE_STYLE = """
     }
 
     @media (max-width:900px) { .app-shell { grid-template-columns:1fr; } .sidebar { position:static; } body { margin:12px; } }
+
+    /* Telefon vodoravno (landscape) — sedmični kalendar puni širinu */
+    @media (orientation:landscape) and (max-height:520px) {
+        body { padding-bottom:0 !important; margin:4px !important; }
+        .brandbar { padding:4px 10px !important; border-radius:0 !important; position:sticky; top:0; z-index:100; }
+        .brandleft img { height:26px !important; }
+        .brandtitle { font-size:13px !important; }
+        .muted { font-size:11px !important; }
+        .sidebar { display:none !important; }
+        .app-shell { display:block !important; }
+        .bottom-nav { display:none !important; }
+        /* Svih 7 dana u jednom redu, pune širine */
+        .week-calendar-grid {
+            flex-wrap:nowrap !important;
+            overflow-x:visible !important;
+            scroll-snap-type:none !important;
+            gap:3px !important;
+        }
+        .week-calendar-grid .calendar-day-card {
+            flex:1 1 0 !important;
+            min-width:0 !important;
+            width:auto !important;
+            min-height:70px !important;
+            padding:4px !important;
+        }
+        .week-day-heading { font-size:9px !important; }
+        .mini-shift { font-size:9px !important; padding:3px 4px !important; margin-top:3px !important; }
+        .mini-link { font-size:10px !important; padding:3px 5px !important; min-height:24px !important; }
+        .day-menu-wrapper button { font-size:16px !important; min-width:26px !important; min-height:26px !important; }
+        .month-grid { gap:1px !important; }
+        .month-grid .calendar-day-card { min-height:36px !important; padding:2px !important; }
+    }
 </style>
 <script>
 (function(){
