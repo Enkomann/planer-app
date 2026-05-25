@@ -2102,6 +2102,7 @@ BASE_STYLE = """
         .brandleft img { height:34px; }
         .brandtitle { font-size:16px; }
         .langbar { display:none !important; }
+        .theme-links { display:none !important; }
         .theme-links { font-size:12px; margin-top:4px !important; }
         .theme-links a { margin-right:6px; font-size:12px; }
 
