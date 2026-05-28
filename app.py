@@ -6366,7 +6366,7 @@ def backup_page():
         <div class="backup-item-actions">
           <a href="/backup/download/{{ b.name }}">⬇️ Preuzmi</a>
           <form method="post" action="/backup/restore/{{ b.name }}"
-                onsubmit="return confirm('Restore backup {{ b.name }}? Baza podataka i dokumenti će biti zamijenjeni trenutnim podacima.');"
+                onsubmit="return confirm('Restore backup {{ b.name }}? Baza podataka i dokumenti će biti zamijenjeni podacima iz backup-a.');"
                 style="display:inline;">
             <button style="background:#f59e0b;border-color:#f59e0b;">🔄 Restore backup</button>
           </form>
