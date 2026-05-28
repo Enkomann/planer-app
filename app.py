@@ -2303,7 +2303,7 @@ BASE_STYLE = """
         .sidebar { display:flex !important; }
         .brandbar { display:none !important; }
     }
-    @media (max-width:900px) { body { margin:12px; } }
+    @media (min-width:601px) and (max-width:900px) { body { margin:12px 12px 12px 78px; } }
 
     /* Telefon vodoravno (landscape) — sedmični kalendar puni širinu */
     @media (orientation:landscape) and (max-height:520px) {
