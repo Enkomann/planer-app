@@ -7078,16 +7078,23 @@ def api_search():
     _like = f"%{q}%"
     if is_admin:
         shifts_rows = c.execute(
-            "SELECT worker, client, date, time FROM shifts WHERE LOWER(worker) LIKE ? OR LOWER(client) LIKE ? ORDER BY date DESC LIMIT 8",
+            "SELECT worker, client, date, time FROM shifts"
+            " WHERE LOWER(worker) LIKE ? OR LOWER(client) LIKE ?"
+            " ORDER BY date DESC LIMIT 8",
             (_like, _like),
         ).fetchall()
     else:
-        # Fetch extra rows so the Python-side worker filter doesn't truncate valid results
-        raw = c.execute(
-            "SELECT worker, client, date, time FROM shifts WHERE LOWER(worker) LIKE ? OR LOWER(client) LIKE ? ORDER BY date DESC LIMIT 50",
-            (_like, _like),
+        # Push worker restriction into SQL so LIMIT applies after filtering.
+        # LIKE '%name%' pre-filters; worker_in_shift() ensures exact membership.
+        _user_like = f"%{current_user.lower()}%"
+        shifts_rows = c.execute(
+            "SELECT worker, client, date, time FROM shifts"
+            " WHERE LOWER(worker) LIKE ?"
+            " AND (LOWER(worker) LIKE ? OR LOWER(client) LIKE ?)"
+            " ORDER BY date DESC LIMIT 8",
+            (_user_like, _like, _like),
         ).fetchall()
-        shifts_rows = [r for r in raw if worker_in_shift(current_user, r[0])][:8]
+        shifts_rows = [r for r in shifts_rows if worker_in_shift(current_user, r[0])]
     shifts = [{"name": r[1], "sub": f"{r[0]} · {r[2]}", "url": f"/week?start={r[2]}"}
               for r in shifts_rows]
     workers = [{"name": r[0], "sub": r[1] or "", "url": "/workers"}
