@@ -6386,9 +6386,11 @@ def backup_page():
     <div style="margin-top:24px;padding:12px 16px;background:{{ '#172334' if dark else '#fffbeb' }};
                 border:1px solid {{ '#334155' if dark else '#fde68a' }};border-radius:8px;
                 font-size:12px;max-width:600px;">
-      ℹ️ <b>Napomena:</b> "Restore" vraća i bazu podataka (smjene, radnici, klijenti itd.)
-      <b>i</b> uploadovane dokumente iz backup ZIP-a. Fajlovi u storage-u se prepisuju.
-      Restore je atomičan — ako bilo koji korak ne uspije, baza se rollback-uje.
+      ℹ️ <b>Napomena:</b> Restore vraća bazu podataka <b>i</b> uploadovane dokumente.
+      Redoslijed: (1) dokumenti se ekstraktuju u privremeni folder, (2) baza se importuje —
+      ako bilo koji od ova dva koraka ne uspije, baza se rollback-uje i staging se briše.
+      (3) Tek nakon uspješnog importa, fajlovi se premještaju na finalne lokacije.
+      Greške pri premještanju fajlova (korak 3) se prijavljuju odvojeno i ne rollback-uju bazu.
     </div>
     """, tr=tr, dark=dark, notice=notice, backups=backups)
 
@@ -6536,20 +6538,46 @@ def backup_download(filename):
 
 @app.route("/backup/restore/<path:filename>", methods=["POST"])
 def backup_restore(filename):
+    """Restore order (maximally atomic):
+    1. Extract all document files into a temp staging dir.
+    2. Import DB (rolls back on any error).
+    3. Only if both 1+2 succeed, move staged files to final locations.
+    If anything in steps 1-2 fails the DB is rolled back and staging is
+    cleaned up — storage is never touched. Step 3 file-move failures are
+    reported accurately; the DB was already committed at that point."""
+    import shutil as _shutil
     if session.get("role") != "admin": return redirect("/")
     safe_name = os.path.basename(filename)
     fpath = os.path.join(BACKUP_ROOT, safe_name)
     if not os.path.exists(fpath):
         return redirect("/backup?notice=" + urllib.parse.quote("Backup nije pronađen."))
+    staging_dir = None
+    conn = None
     try:
         with zipfile.ZipFile(fpath, "r") as zf:
             names = zf.namelist()
-            # Support both new JSON format and legacy SQLite format
+
+            # ── Step 1: stage document files to temp dir ──────────────────
+            doc_files = [n for n in names if n.startswith("documents/") and not n.endswith("/")]
+            staging_dir = tempfile.mkdtemp(dir=STORAGE_ROOT, prefix="restore_staging_")
+            staged = []  # (staged_path, final_dest)
+            for arc in doc_files:
+                rel = arc[len("documents/"):]
+                if not rel:
+                    continue
+                staged_path = os.path.join(staging_dir, rel.replace("/", os.sep))
+                os.makedirs(os.path.dirname(staged_path), exist_ok=True)
+                with zf.open(arc) as src, open(staged_path, "wb") as dst:
+                    _shutil.copyfileobj(src, dst)
+                final_dest = os.path.join(DOCUMENT_ROOT, rel.replace("/", os.sep))
+                staged.append((staged_path, final_dest))
+
+            # ── Step 2: import DB (atomic, rolls back on error) ───────────
             if "db_export.json" in names:
                 db_export = json.loads(zf.read("db_export.json").decode("utf-8"))
                 conn = get_conn()
-                _backup_import_db(conn, db_export)
-                conn.close()
+                _backup_import_db(conn, db_export)   # raises + rollback on error
+                conn.close(); conn = None
                 db_msg = "JSON export"
             elif "db.sqlite" in names and not USE_POSTGRES:
                 db_data = zf.read("db.sqlite")
@@ -6560,22 +6588,39 @@ def backup_restore(filename):
                 os.replace(tmp_path, SQLITE_PATH)
                 db_msg = "SQLite"
             else:
-                return redirect("/backup?notice=" + urllib.parse.quote(
-                    "Backup ne sadrži bazu podataka (db_export.json)."))
-            # Restore document files
-            doc_files = [n for n in names if n.startswith("documents/")]
-            for arc in doc_files:
-                rel = arc[len("documents/"):]
-                if not rel:
-                    continue
-                dest = os.path.join(DOCUMENT_ROOT, rel.replace("/", os.sep))
-                os.makedirs(os.path.dirname(dest), exist_ok=True)
-                with zf.open(arc) as src, open(dest, "wb") as dst:
-                    import shutil as _shutil
-                    _shutil.copyfileobj(src, dst)
-        msg = f"Baza ({db_msg}) i dokumenti uspješno obnovljeni iz: {safe_name}"
+                raise ValueError("Backup ne sadrži bazu podataka (db_export.json).")
+
+        # ── Step 3: move staged files to final locations ───────────────────
+        # DB is committed at this point. File-move errors are reported but
+        # do NOT roll back the DB (two separate systems).
+        move_errors = []
+        for staged_path, final_dest in staged:
+            try:
+                os.makedirs(os.path.dirname(final_dest), exist_ok=True)
+                _shutil.move(staged_path, final_dest)
+            except Exception as ex:
+                move_errors.append(f"{final_dest}: {ex}")
+
+        _shutil.rmtree(staging_dir, ignore_errors=True)
+        staging_dir = None
+
+        if move_errors:
+            msg = (f"Baza ({db_msg}) obnovljena, ali {len(move_errors)} fajl(ova) "
+                   f"nije premješten: " + "; ".join(move_errors[:3]))
+        else:
+            msg = (f"Baza ({db_msg}) i {len(staged)} dokument(a) uspješno "
+                   f"obnovljeni iz: {safe_name}")
+
     except Exception as e:
-        msg = f"Greška pri restauraciji: {e}"
+        if conn:
+            try: conn.rollback()
+            except Exception: pass
+            try: conn.close()
+            except Exception: pass
+        if staging_dir:
+            _shutil.rmtree(staging_dir, ignore_errors=True)
+        msg = f"Greška pri restauraciji (rollback): {e}"
+
     return redirect("/backup?notice=" + urllib.parse.quote(msg))
 
 
