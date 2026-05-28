@@ -6368,7 +6368,7 @@ def backup_page():
           <form method="post" action="/backup/restore/{{ b.name }}"
                 onsubmit="return confirm('Restaurisati bazu iz {{ b.name }}? Trenutni podaci će biti zamijenjeni.');"
                 style="display:inline;">
-            <button style="background:#f59e0b;border-color:#f59e0b;">🔄 Restore DB</button>
+            <button style="background:#f59e0b;border-color:#f59e0b;">🔄 Restore backup</button>
           </form>
           <form method="post" action="/backup/delete/{{ b.name }}"
                 onsubmit="return confirm('Obrisati backup {{ b.name }}?');"
@@ -6429,7 +6429,9 @@ def _backup_export_db(conn):
 def _backup_import_db(conn, export):
     """Re-import table data exported by _backup_export_db.
     Atomic: rolls back if any DELETE/INSERT fails, commits only on clean import.
-    Sequence reset (PostgreSQL) is best-effort after commit."""
+    Sequence reset (PostgreSQL) is best-effort after commit.
+    Returns a list of sequence-reset warnings (may be empty) so callers
+    can surface them without treating them as a fatal error."""
     c = conn.cursor()
     errors = []
 
@@ -6453,7 +6455,6 @@ def _backup_import_db(conn, export):
                 errors.append(f"INSERT {tbl}[{i}]: {ex}")
 
     if errors:
-        # Rollback to avoid partial restore
         try:
             conn.rollback()
         except Exception:
@@ -6462,9 +6463,9 @@ def _backup_import_db(conn, export):
 
     conn.commit()  # Commit only if no errors
 
-    # Phase 2: reset PostgreSQL sequences (best-effort, data already committed)
+    # Phase 2: reset PostgreSQL sequences — best-effort, RETURN warnings, never raise
+    seq_warnings = []
     if USE_POSTGRES:
-        seq_errors = []
         try:
             c.execute("""
                 SELECT 'SELECT SETVAL(' || quote_literal(seq.relname) ||
@@ -6481,16 +6482,11 @@ def _backup_import_db(conn, export):
                 try:
                     c.execute(stmt)
                 except Exception as ex:
-                    seq_errors.append(f"SETVAL: {ex}")
+                    seq_warnings.append(f"SETVAL: {ex}")
             conn.commit()
         except Exception as ex:
-            seq_errors.append(f"Sequence reset: {ex}")
-        if seq_errors:
-            # Data is safe (committed), but warn about sequence state
-            raise RuntimeError(
-                "Data restored but sequence reset had issues "
-                "(future inserts may collide):\n" + "\n".join(seq_errors)
-            )
+            seq_warnings.append(f"Sequence reset: {ex}")
+    return seq_warnings  # caller decides how to surface these
 
 
 @app.route("/backup/create", methods=["POST"])
@@ -6560,23 +6556,31 @@ def backup_restore(filename):
             # ── Step 1: stage document files to temp dir ──────────────────
             doc_files = [n for n in names if n.startswith("documents/") and not n.endswith("/")]
             staging_dir = tempfile.mkdtemp(dir=STORAGE_ROOT, prefix="restore_staging_")
+            staging_real = os.path.realpath(staging_dir)
+            doc_real     = os.path.realpath(DOCUMENT_ROOT)
             staged = []  # (staged_path, final_dest)
             for arc in doc_files:
                 rel = arc[len("documents/"):]
                 if not rel:
                     continue
-                staged_path = os.path.join(staging_dir, rel.replace("/", os.sep))
+                # Containment check: normalise and assert path stays inside staging_dir
+                staged_path = os.path.realpath(os.path.join(staging_dir, rel.replace("/", os.sep)))
+                if not staged_path.startswith(staging_real + os.sep):
+                    raise ValueError(f"Unsafe path in backup archive: {arc!r}")
+                # Also validate final destination stays inside DOCUMENT_ROOT
+                final_dest = os.path.realpath(os.path.join(DOCUMENT_ROOT, rel.replace("/", os.sep)))
+                if not final_dest.startswith(doc_real + os.sep):
+                    raise ValueError(f"Unsafe destination path for: {arc!r}")
                 os.makedirs(os.path.dirname(staged_path), exist_ok=True)
                 with zf.open(arc) as src, open(staged_path, "wb") as dst:
                     _shutil.copyfileobj(src, dst)
-                final_dest = os.path.join(DOCUMENT_ROOT, rel.replace("/", os.sep))
                 staged.append((staged_path, final_dest))
 
             # ── Step 2: import DB (atomic, rolls back on error) ───────────
             if "db_export.json" in names:
                 db_export = json.loads(zf.read("db_export.json").decode("utf-8"))
                 conn = get_conn()
-                _backup_import_db(conn, db_export)   # raises + rollback on error
+                seq_warnings = _backup_import_db(conn, db_export)  # raises + rollback on error
                 conn.close(); conn = None
                 db_msg = "JSON export"
             elif "db.sqlite" in names and not USE_POSTGRES:
@@ -6587,6 +6591,7 @@ def backup_restore(filename):
                     f.write(db_data)
                 os.replace(tmp_path, SQLITE_PATH)
                 db_msg = "SQLite"
+                seq_warnings = []
             else:
                 raise ValueError("Backup ne sadrži bazu podataka (db_export.json).")
 
@@ -6604,12 +6609,14 @@ def backup_restore(filename):
         _shutil.rmtree(staging_dir, ignore_errors=True)
         staging_dir = None
 
+        parts = [f"Baza ({db_msg}) i {len(staged)} dokument(a) obnovljeni iz: {safe_name}"]
+        if seq_warnings:
+            parts.append(f"⚠️ Sequence reset upozorenja ({len(seq_warnings)}): "
+                         + "; ".join(seq_warnings[:2]))
         if move_errors:
-            msg = (f"Baza ({db_msg}) obnovljena, ali {len(move_errors)} fajl(ova) "
-                   f"nije premješten: " + "; ".join(move_errors[:3]))
-        else:
-            msg = (f"Baza ({db_msg}) i {len(staged)} dokument(a) uspješno "
-                   f"obnovljeni iz: {safe_name}")
+            parts.append(f"⚠️ {len(move_errors)} fajl(ova) nije premješten: "
+                         + "; ".join(move_errors[:2]))
+        msg = " | ".join(parts)
 
     except Exception as e:
         if conn:
