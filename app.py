@@ -7084,15 +7084,18 @@ def api_search():
             (_like, _like),
         ).fetchall()
     else:
-        # Push worker restriction into SQL so LIMIT applies after filtering.
-        # LIKE '%name%' pre-filters; worker_in_shift() ensures exact membership.
-        _user_like = f"%{current_user.lower()}%"
+        # Delimiter-aware exact match in SQL so LIMIT 8 applies after the user
+        # restriction. Wrapping the field with commas and stripping spaces after
+        # commas lets us search for ',name,' which never matches substrings
+        # (e.g. 'Ana' won't match 'Anastasia'). worker_in_shift() is kept as
+        # the authoritative membership check after fetch.
+        _user_pattern = f"%,{current_user.lower()},%"
         shifts_rows = c.execute(
             "SELECT worker, client, date, time FROM shifts"
-            " WHERE LOWER(worker) LIKE ?"
+            " WHERE ',' || REPLACE(LOWER(worker), ', ', ',') || ',' LIKE ?"
             " AND (LOWER(worker) LIKE ? OR LOWER(client) LIKE ?)"
             " ORDER BY date DESC LIMIT 8",
-            (_user_like, _like, _like),
+            (_user_pattern, _like, _like),
         ).fetchall()
         shifts_rows = [r for r in shifts_rows if worker_in_shift(current_user, r[0])]
     shifts = [{"name": r[1], "sub": f"{r[0]} · {r[2]}", "url": f"/week?start={r[2]}"}
