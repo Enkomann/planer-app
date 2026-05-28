@@ -518,6 +518,7 @@ DOCUMENT_TRANSLATIONS = {
         "folder_not_found_pub": "Folder nije pronadjen.",
         "folder_empty": "Folder ne sadrzi dokumente.",
         "zip_error": "Greska pri kreiranju ZIP-a",
+        "no_results": "Nema rezultata.",
     },
     "en": {
         "documents": "Documents", "upload_document": "Upload document", "document_name": "Document name",
@@ -550,6 +551,7 @@ DOCUMENT_TRANSLATIONS = {
         "folder_not_found_pub": "Folder not found.",
         "folder_empty": "Folder contains no documents.",
         "zip_error": "Error creating ZIP",
+        "no_results": "No results found.",
     },
     "fr": {
         "documents": "Documents", "upload_document": "Ajouter document", "document_name": "Nom du document",
@@ -582,6 +584,7 @@ DOCUMENT_TRANSLATIONS = {
         "folder_not_found_pub": "Dossier introuvable.",
         "folder_empty": "Le dossier ne contient aucun document.",
         "zip_error": "Erreur lors de la creation du ZIP",
+        "no_results": "Aucun resultat.",
     },
     "de": {
         "documents": "Dokumente", "upload_document": "Dokument hochladen", "document_name": "Dokumentname",
@@ -614,6 +617,7 @@ DOCUMENT_TRANSLATIONS = {
         "folder_not_found_pub": "Ordner nicht gefunden.",
         "folder_empty": "Ordner enthaelt keine Dokumente.",
         "zip_error": "Fehler beim Erstellen des ZIP",
+        "no_results": "Keine Ergebnisse gefunden.",
     },
     "pt": {
         "documents": "Documentos", "upload_document": "Carregar documento", "document_name": "Nome do documento",
@@ -646,6 +650,7 @@ DOCUMENT_TRANSLATIONS = {
         "folder_not_found_pub": "Pasta nao encontrada.",
         "folder_empty": "A pasta nao contem documentos.",
         "zip_error": "Erro ao criar o ZIP",
+        "no_results": "Sem resultados.",
     },
 }
 for _lang, _values in DOCUMENT_TRANSLATIONS.items():
@@ -3006,7 +3011,7 @@ def header_html():
     function renderSearchResults(data) {
       var html = '';
       var icons   = { shifts:'📅', workers:'👷', clients:'🏢', invoices:'🧾' };
-      var labels  = { shifts:'{{ tr.get("search_shifts","Smjene") }}', workers:'{{ tr.get("workers","Radnici") }}', clients:'{{ tr.get("clients","Klijenti") }}', invoices:'{{ tr.get("invoices","Fakture") }}' };
+      var labels  = { shifts:{{ tr.get("search_shifts","Smjene")|tojson }}, workers:{{ tr.get("workers","Radnici")|tojson }}, clients:{{ tr.get("clients","Klijenti")|tojson }}, invoices:{{ tr.get("invoices","Fakture")|tojson }} };
       ['shifts','workers','clients','invoices'].forEach(function(cat){
         var items = data[cat] || [];
         if (!items.length) return;
@@ -3019,7 +3024,7 @@ def header_html():
                 + '</div></a>';
         });
       });
-      if (!html) html = '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px;">{{ tr.get("no_results","Nema rezultata.") }}</div>';
+      if (!html) html = '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px;">' + {{ tr.get("no_results","Nema rezultata.")|tojson }} + '</div>';
       document.getElementById('searchResults').innerHTML = html;
     }
     function escHtml(s){ var d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
@@ -7071,12 +7076,18 @@ def api_search():
     is_admin = session.get("role") == "admin"
     current_user = session.get("user")
     _like = f"%{q}%"
-    shifts_rows = c.execute(
-        "SELECT worker, client, date, time FROM shifts WHERE LOWER(worker) LIKE ? OR LOWER(client) LIKE ? ORDER BY date DESC LIMIT 8",
-        (_like, _like),
-    ).fetchall()
-    if not is_admin:
-        shifts_rows = [r for r in shifts_rows if worker_in_shift(current_user, r[0])]
+    if is_admin:
+        shifts_rows = c.execute(
+            "SELECT worker, client, date, time FROM shifts WHERE LOWER(worker) LIKE ? OR LOWER(client) LIKE ? ORDER BY date DESC LIMIT 8",
+            (_like, _like),
+        ).fetchall()
+    else:
+        # Fetch extra rows so the Python-side worker filter doesn't truncate valid results
+        raw = c.execute(
+            "SELECT worker, client, date, time FROM shifts WHERE LOWER(worker) LIKE ? OR LOWER(client) LIKE ? ORDER BY date DESC LIMIT 50",
+            (_like, _like),
+        ).fetchall()
+        shifts_rows = [r for r in raw if worker_in_shift(current_user, r[0])][:8]
     shifts = [{"name": r[1], "sub": f"{r[0]} · {r[2]}", "url": f"/week?start={r[2]}"}
               for r in shifts_rows]
     workers = [{"name": r[0], "sub": r[1] or "", "url": "/workers"}
