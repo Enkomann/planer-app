@@ -2088,9 +2088,48 @@ BASE_STYLE = """
     .client-search-item:hover, .client-search-item.active { background:{{ '#2d3f56' if dark else '#eef4ff' }}; }
     .client-search-item:last-child { border-bottom:none; }
 
-    .app-shell { display:grid; grid-template-columns:240px 1fr; gap:18px; align-items:start; }
-    .sidebar { position:sticky; top:18px; padding:16px; }
-    .sidebar-title { font-weight:800; font-size:18px; margin-bottom:14px; color:{{ '#93c5fd' if dark else '#1f4f82' }}; }
+    /* ── Fixed left sidebar (tablet + desktop) ── */
+    .sidebar {
+        display:none; position:fixed; left:0; top:0; bottom:0; width:220px;
+        background:{{ '#111827' if dark else 'white' }};
+        border-right:1px solid {{ '#1e293b' if dark else '#e5e7eb' }};
+        z-index:300; flex-direction:column; overflow-y:auto;
+    }
+    .sidebar-logo {
+        padding:16px 14px 14px; display:flex; align-items:center;
+        gap:10px; border-bottom:1px solid {{ '#1e293b' if dark else '#f1f5f9' }};
+        text-decoration:none; flex-shrink:0;
+    }
+    .sidebar-logo img {
+        height:32px; flex-shrink:0;
+        {% if dark %}filter:invert(1) hue-rotate(180deg);{% else %}mix-blend-mode:multiply;{% endif %}
+    }
+    .sidebar-logo-title { font-size:15px; font-weight:800; color:{{ '#93c5fd' if dark else '#1f4f82' }}; }
+    .sidebar-nav { flex:1; padding:6px; overflow-y:auto; }
+    .sidebar-section-label {
+        font-size:10px; font-weight:700; text-transform:uppercase;
+        letter-spacing:0.07em; color:{{ '#4b5563' if dark else '#9ca3af' }};
+        padding:10px 12px 4px;
+    }
+    .sidebar-link {
+        display:flex; align-items:center; gap:9px; padding:9px 12px;
+        border-radius:8px; margin:1px 0;
+        color:{{ '#cbd5e1' if dark else '#374151' }};
+        text-decoration:none; font-size:13.5px; font-weight:500;
+        width:100%; box-sizing:border-box; border:none; background:none; cursor:pointer;
+    }
+    .sidebar-link:hover { background:{{ '#1e293b' if dark else '#f3f4f6' }}; color:{{ '#e5e7eb' if dark else '#111827' }}; }
+    .sidebar-link.active {
+        background:{{ 'rgba(59,130,246,0.18)' if dark else 'rgba(31,79,130,0.10)' }};
+        color:{{ '#93c5fd' if dark else '#1f4f82' }}; font-weight:600;
+    }
+    .sl-icon { font-size:17px; width:22px; text-align:center; flex-shrink:0; line-height:1; }
+    .sidebar-divider { height:1px; background:{{ '#1e293b' if dark else '#f1f5f9' }}; margin:6px 8px; }
+    .sidebar-bottom { border-top:1px solid {{ '#1e293b' if dark else '#f1f5f9' }}; padding:8px 6px 12px; flex-shrink:0; }
+    .sidebar-user { padding:6px 12px 8px; font-size:12px; color:{{ '#6b7280' if dark else '#94a3b8' }}; }
+    .sidebar-user strong { display:block; font-size:13px; color:{{ '#d1d5db' if dark else '#374151' }}; margin-bottom:1px; }
+    .sidebar-link.danger { color:#ef4444; }
+    .sidebar-link.danger:hover { background:rgba(239,68,68,0.08); color:#ef4444; }
     .nav-link { display:block; padding:11px 12px; border-radius:10px; margin:6px 0; background:{{ '#1f2937' if dark else '#f8fafc' }}; color:{{ '#e5e7eb' if dark else '#1f4f82' }} !important; }
     .nav-link:hover { transform:translateX(2px); box-shadow:0 3px 10px rgba(0,0,0,0.08); }
     .main-content { min-width:0; }
@@ -2167,9 +2206,8 @@ BASE_STYLE = """
         .theme-links { font-size:12px; margin-top:4px !important; }
         .theme-links a { margin-right:6px; font-size:12px; }
 
-        /* Sidebar hidden — bottom nav replaces it */
+        /* Sidebar hidden on mobile — bottom nav replaces it */
         .sidebar { display:none !important; }
-        .app-shell { display:block !important; }
         .main-content { padding:8px; }
 
         /* Bottom nav visible */
@@ -2249,7 +2287,12 @@ BASE_STYLE = """
         .nav-link { min-height:48px; font-size:15px; }
     }
 
-    @media (max-width:900px) { .app-shell { grid-template-columns:1fr; } .sidebar { position:static; } body { margin:12px; } }
+    @media (min-width:601px) {
+        body { margin-left:220px; }
+        .sidebar { display:flex !important; }
+        .brandbar { display:none !important; }
+    }
+    @media (max-width:900px) { body { margin:12px; } }
 
     /* Telefon vodoravno (landscape) — sedmični kalendar puni širinu */
     @media (orientation:landscape) and (max-height:520px) {
@@ -2259,7 +2302,6 @@ BASE_STYLE = """
         .brandtitle { font-size:13px !important; }
         .muted { font-size:11px !important; }
         .sidebar { display:none !important; }
-        .app-shell { display:block !important; }
         .bottom-nav { display:none !important; }
         /* Svih 7 dana u jednom redu, pune širine */
         .week-calendar-grid {
@@ -2406,34 +2448,85 @@ window.initClientSearch = function(inputId, hiddenId, listId, data) {
 
 def header_html():
     return """
+    <!-- ═══ Fixed left sidebar (tablet + desktop) ═══ -->
+    {% if session.get('user') %}
+    <aside class="sidebar">
+      <a class="sidebar-logo" href="/">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Luxmann">
+        <span class="sidebar-logo-title">Luxmann</span>
+      </a>
+      <nav class="sidebar-nav">
+        <div class="sidebar-section-label">Planiranje</div>
+        <a href="/" class="sidebar-link {% if request.path == '/' %}active{% endif %}">
+          <span class="sl-icon">🏠</span> Plan
+        </a>
+        <a href="/week" class="sidebar-link {% if request.path == '/week' %}active{% endif %}">
+          <span class="sl-icon">📅</span> Sedmica
+        </a>
+        <a href="/month" class="sidebar-link {% if request.path == '/month' %}active{% endif %}">
+          <span class="sl-icon">🗓️</span> Mjesec
+        </a>
+        <a href="/documents" class="sidebar-link {% if request.path.startswith('/documents') %}active{% endif %}">
+          <span class="sl-icon">📁</span> Dokumenti
+        </a>
+        {% if session.get('role') == 'admin' %}
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-section-label">Upravljanje</div>
+        <a href="/workers" class="sidebar-link {% if request.path == '/workers' %}active{% endif %}">
+          <span class="sl-icon">👷</span> Radnici
+        </a>
+        <a href="/clients" class="sidebar-link {% if request.path == '/clients' %}active{% endif %}">
+          <span class="sl-icon">🏢</span> Klijenti
+        </a>
+        <a href="/invoices" class="sidebar-link {% if request.path.startswith('/invoices') %}active{% endif %}">
+          <span class="sl-icon">🧾</span> Fakture
+        </a>
+        <a href="/route_optimizer" class="sidebar-link {% if request.path == '/route_optimizer' %}active{% endif %}">
+          <span class="sl-icon">🗺️</span> Ruta
+        </a>
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-section-label">Admin</div>
+        <a href="/admin" class="sidebar-link {% if request.path == '/admin' %}active{% endif %}">
+          <span class="sl-icon">🔧</span> Korisnici
+        </a>
+        <a href="/backup" class="sidebar-link {% if request.path == '/backup' %}active{% endif %}">
+          <span class="sl-icon">💾</span> Backup
+        </a>
+        {% endif %}
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="sidebar-user">
+          <strong>{{ session['user'] }}</strong>{{ session.get('role','') }}
+        </div>
+        <button onclick="openSettingsSheet()" class="sidebar-link" type="button" title="Postavke">
+          <svg class="sl-icon" xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/>
+          </svg>
+          Postavke / Tema / Jezik
+        </button>
+        <a href="/logout" class="sidebar-link danger">
+          <span class="sl-icon">🚪</span> Odjava
+        </a>
+      </div>
+    </aside>
+    {% endif %}
+
+    <!-- Mobile top bar (hidden on tablet+desktop via CSS) -->
     <div class="brandbar">
         <div class="brandleft">
             <img src="{{ url_for('static', filename='logo.png') }}" alt="Luxmann Logo">
             <div>
                 <div class="brandtitle">Luxmann Planner</div>
-                {% if session.get('user') %}<div class="muted">{{ tr["logged_as"] }}: <b>{{ session['user'] }}</b> ({{ session['role'] }})</div>{% endif %}
+                {% if session.get('user') %}<div class="muted">{{ tr["logged_as"] }}: <b>{{ session['user'] }}</b></div>{% endif %}
             </div>
         </div>
-        <div style="display:flex;align-items:center;gap:12px;">
-            <div>
-                <div class="langbar">
-                    <a href="/set_lang/fr">FR</a><a href="/set_lang/en">EN</a><a href="/set_lang/bos">BOS</a><a href="/set_lang/de">DE</a><a href="/set_lang/pt">PT</a>
-                </div>
-                <div class="theme-links" style="text-align:right; margin-top:8px;">
-                    {{ tr["theme"] }}: <a href="/set_theme/light">{{ tr["light_theme"] }}</a><a href="/set_theme/dark">{{ tr["dark_theme"] }}</a>{% if session.get('user') %}<a href="/logout">{{ tr["logout"] }}</a>{% endif %}
-                </div>
+        <div>
+            <div class="langbar">
+                <a href="/set_lang/fr">FR</a><a href="/set_lang/en">EN</a><a href="/set_lang/bos">BOS</a><a href="/set_lang/de">DE</a><a href="/set_lang/pt">PT</a>
             </div>
-            {% if session.get('user') %}
-            <button onclick="openSettingsSheet()" type="button"
-                    style="background:none;border:none;padding:4px 6px;cursor:pointer;
-                           line-height:1;flex-shrink:0;color:{{ '#93c5fd' if dark else '#1f4f82' }};
-                           display:flex;align-items:center;"
-                    title="Postavke / Administracija">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/>
-                </svg>
-            </button>
-            {% endif %}
+            <div class="theme-links" style="text-align:right; margin-top:8px;">
+                {{ tr["theme"] }}: <a href="/set_theme/light">{{ tr["light_theme"] }}</a><a href="/set_theme/dark">{{ tr["dark_theme"] }}</a>{% if session.get('user') %}<a href="/logout">{{ tr["logout"] }}</a>{% endif %}
+            </div>
         </div>
     </div>
     <div id="plannerAlertBackdrop" class="alert-backdrop" onclick="if(event.target===this)closePlannerAlert();">
