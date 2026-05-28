@@ -1,4 +1,4 @@
-from flask import Flask, request, redirect, render_template_string, session, send_file, url_for, flash
+from flask import Flask, request, redirect, render_template_string, session, send_file, url_for, flash, after_this_request
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -12,6 +12,7 @@ import calendar
 import json
 import math
 import zipfile
+import tempfile
 import urllib.parse
 import urllib.request
 import unicodedata
@@ -48,10 +49,14 @@ app.config.update(
 )
 app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_UPLOAD_MB", "600")) * 1024 * 1024
 
-DOCUMENT_ROOT = os.path.abspath(os.environ.get("DOCUMENT_STORAGE_DIR", os.path.join("storage", "documents")))
+STORAGE_ROOT  = os.path.abspath(os.environ.get("STORAGE_ROOT", "storage"))
+DOCUMENT_ROOT = os.path.join(STORAGE_ROOT, "documents")
+SQLITE_PATH   = os.path.join(STORAGE_ROOT, "db.sqlite")
+BACKUP_ROOT   = os.path.join(STORAGE_ROOT, "backups")
+os.makedirs(DOCUMENT_ROOT, exist_ok=True)
+os.makedirs(BACKUP_ROOT, exist_ok=True)
 DOCUMENT_EXTENSIONS = {"pdf", "png", "jpg", "jpeg", "webp", "doc", "docx", "xls", "xlsx", "csv", "txt"}
 DOCUMENT_INLINE_MIME_PREFIXES = ("application/pdf", "image/")
-os.makedirs(DOCUMENT_ROOT, exist_ok=True)
 
 DEFAULT_WORKER_COLORS = {"admin": "#1f4f82", "worker1": "#16a34a"}
 STATUS_COLORS = {
@@ -915,7 +920,7 @@ def get_conn():
         # Render PostgreSQL provides DATABASE_URL. Internal URL is recommended when the DB
         # and web service are in the same Render account/region.
         return _PgConn(psycopg2.connect(DATABASE_URL))
-    return sqlite3.connect("db.sqlite")
+    return sqlite3.connect(SQLITE_PATH)
 
 
 def format_date(date_str):
@@ -1912,6 +1917,15 @@ def init_db():
         )
     """)
     c.execute("""
+        CREATE TABLE IF NOT EXISTS folder_shares (
+            token TEXT PRIMARY KEY,
+            folder_id INTEGER,
+            created_at TEXT DEFAULT '',
+            expires_at TEXT DEFAULT '',
+            revoked INTEGER DEFAULT 0
+        )
+    """)
+    c.execute("""
         CREATE TABLE IF NOT EXISTS invoice_settings (
             id INTEGER PRIMARY KEY,
             invoice_text TEXT DEFAULT '',
@@ -2478,12 +2492,31 @@ def header_html():
             <span class="settings-navlink-icon">🧾</span>
             <div><div style="font-weight:600;">Fakture</div><div style="font-size:12px;opacity:0.6;">Pregled i kreiranje faktura</div></div>
           </a>
-          <a href="/workers" class="settings-navlink">
-            <span class="settings-navlink-icon">👥</span>
-            <div><div style="font-weight:600;">Radnici</div><div style="font-size:12px;opacity:0.6;">Upravljanje radnicima</div></div>
-          </a>
           {% endif %}
         </div>
+
+        {% if session.get('role') == 'admin' %}
+        <!-- Administracija -->
+        <div class="settings-section">
+          <h4>🔧 Administracija</h4>
+          <a href="/admin" class="settings-navlink">
+            <span class="settings-navlink-icon">👤</span>
+            <div><div style="font-weight:600;">Korisnici i lozinka</div><div style="font-size:12px;opacity:0.6;">Upravljanje korisnicima i sigurnošću</div></div>
+          </a>
+          <a href="/workers" class="settings-navlink">
+            <span class="settings-navlink-icon">👷</span>
+            <div><div style="font-weight:600;">Radnici</div><div style="font-size:12px;opacity:0.6;">Upravljanje radnicima i bojama</div></div>
+          </a>
+          <a href="/clients" class="settings-navlink">
+            <span class="settings-navlink-icon">🏢</span>
+            <div><div style="font-weight:600;">Klijenti</div><div style="font-size:12px;opacity:0.6;">Pregled i upravljanje klijentima</div></div>
+          </a>
+          <a href="/backup" class="settings-navlink">
+            <span class="settings-navlink-icon">💾</span>
+            <div><div style="font-weight:600;">Backup &amp; Restore</div><div style="font-size:12px;opacity:0.6;">Sigurnosna kopija svih podataka</div></div>
+          </a>
+        </div>
+        {% endif %}
 
         <!-- Račun & odjava -->
         <div class="settings-section">
@@ -2607,7 +2640,7 @@ def change_password():
         c.execute("UPDATE users SET password = ? WHERE username = ?", (hash_password(new_password), session["user"]))
         conn.commit()
         conn.close()
-    return redirect("/")
+    return redirect("/admin")
 
 
 def load_index_data():
@@ -2767,24 +2800,6 @@ def index():
 
     <div class="grid">
         {% if is_admin %}
-        <div class="card" style="grid-column:1/-1;">
-            <button onclick="toggleMenu()" type="button">☰ {{ tr["menu"] }}</button>
-            <div id="menuBox" style="display:none; margin-top:15px;">
-                <div class="grid">
-                    <div class="card"><h3>{{ tr["change_password"] }}</h3><form method="post" action="/change_password"><input name="new_password" type="password" placeholder="{{ tr['new_password'] }}" required><button>{{ tr["save"] }}</button></form></div>
-                    <div class="card"><h3>{{ tr["user_mgmt"] }}</h3><form method="post" action="/add_user"><input name="username" placeholder="{{ tr['username'] }}" required><input name="password" placeholder="{{ tr['password'] }}" required><select name="role"><option value="admin">{{ tr['role_admin'] }}</option><option value="worker">{{ tr['role_worker'] }}</option></select><button>{{ tr["add_user"] }}</button></form></div>
-                    <div class="card"><h3>{{ tr["existing_users"] }}</h3>{% for u in db_users %}<div class="user-row"><b>{{ u[1] }}</b> ({{ u[2] }}){% if u[1] != 'admin' %}<a class="delete-link" href="/delete_user/{{ u[0] }}">{{ tr["delete"] }}</a>{% endif %}</div>{% endfor %}</div>
-                    <div class="card"><h3>{{ tr["worker_colors"] }}</h3>{% for w in workers %}<form method="post" action="/update_worker_color"><input type="hidden" name="worker_name" value="{{ w[0] }}"><div style="display:flex; gap:10px; align-items:center;"><div style="min-width:110px;">{{ w[0] }}</div><input type="color" name="color" value="{{ worker_colors.get(w[0], '#1f4f82') }}"><button>{{ tr["update_color"] }}</button></div></form>{% endfor %}</div>
-                    <div class="card"><h3>{{ tr["workers"] }}</h3>{% for w in workers %}<div class="user-row"><b>{{ w[0] }}</b><br><small>{{ w[1] }}</small>{% if w[2] or w[3] %}<br><small>{{ tr["contract_type"] }}: {{ w[2] or "-" }}{% if w[3] %} | {{ tr["contract_end_date"] }}: {{ format_date(w[3]) }}{% endif %}</small>{% endif %}<br><a class="edit-link" href="/edit_worker/{{ w[0] }}">{{ tr["edit"] }}</a>{% if w[0] != 'admin' %}<a class="delete-link"
-   href="/delete_worker/{{ w[0] }}"
-   onclick="return confirm('Da li ste sigurni?');">
-   {{ tr["delete"] }}
-</a>{% endif %}</div>{% endfor %}</div>
-                    <div class="card"><h3>{{ tr["clients"] }}</h3>{% for c in clients %}<div class="user-row"><b>{{ c[0] }}</b><br><small>{{ c[1] }}</small><br><a class="edit-link" href="/edit_client/{{ c[0] }}">{{ tr["edit"] }}</a><a class="delete-link" href="/delete_client/{{ c[0] }}">{{ tr["delete"] }}</a></div>{% endfor %}</div>
-                </div>
-            </div>
-        </div>
-
         <div class="card dashboard-panel panel-worker"><h3>{{ tr["add_worker"] }}</h3><form method="post" action="/add_worker" autocomplete="off"><input name="worker_name" placeholder="{{ tr['worker_name'] }}" required autocomplete="off"><input name="address" placeholder="{{ tr['address'] }}" autocomplete="off"><input name="contract_type" placeholder="{{ tr['contract_type'] }}" autocomplete="off"><label>{{ tr["contract_end_date"] }}</label><input name="contract_end_date" type="date"><button>{{ tr["add_worker"] }}</button></form></div>
         <div class="card dashboard-panel panel-client"><h3>{{ tr["add_client"] }}</h3><form method="post" action="/add_client" autocomplete="off"><input name="client_name" placeholder="{{ tr['client_name'] }}" required autocomplete="off"><input name="address" placeholder="{{ tr['address'] }}" required autocomplete="off"><button>{{ tr["add_client"] }}</button></form></div>
 
@@ -2794,6 +2809,7 @@ def index():
                 <label>{{ tr["choose_worker"] }}</label>
                 {% for w in workers %}{% if w[0] != 'admin' %}<label class="check-row"><input type="checkbox" name="workers" value="{{ w[0] }}">{{ w[0] }}</label>{% endif %}{% endfor %}
                 <div class="client-search-wrapper"><input type="text" id="csInputDash" class="client-search-input" placeholder="{{ tr['search_placeholder'] }}" autocomplete="off"><input type="hidden" name="client" id="csHiddenDash" required><div class="client-search-dropdown" id="csListDash"></div></div>
+                <div style="text-align:right;margin-top:2px;"><a href="/clients" style="font-size:11px;color:#3b82f6;text-decoration:none;opacity:0.8;">🏢 {{ tr["clients"] }} →</a></div>
                 <input name="date" type="date" value="{{ selected_date }}" required>
                 <label>{{ tr["start_time"] }}</label>
                 <div style="display:flex; gap:6px;"><select name="start_hour">{% for h in time_hours %}<option value="{{ h }}">{{ h }}</option>{% endfor %}</select><select name="start_minute"><option value="00" selected>00</option><option value="15">15</option><option value="30">30</option><option value="45">45</option></select></div>
@@ -2880,11 +2896,6 @@ def index():
     </div>
 
   <script>
-function toggleMenu(){
-    var m=document.getElementById('menuBox');
-    if(m){m.style.display=(m.style.display==='none')?'block':'none';}
-}
-
 function dragShift(ev, shiftId){
     ev.dataTransfer.setData('shift_id', shiftId);
 }
@@ -3632,6 +3643,10 @@ def documents():
         SELECT token, document_id, created_at, expires_at, allow_download, revoked
         FROM document_shares ORDER BY created_at DESC
     """).fetchall()
+    folder_share_rows = conn.cursor().execute("""
+        SELECT token, folder_id, created_at, expires_at, revoked
+        FROM folder_shares ORDER BY created_at DESC
+    """).fetchall()
     conn.close()
     shares_by_document = {}
     for token, document_id, created_at, expires_at, allow_download, revoked in share_rows:
@@ -3643,6 +3658,16 @@ def documents():
             "expires_at": expires_at or "",
             "allow_download": bool(allow_download),
             "url": url_for("shared_document", token=token, _external=True),
+        })
+    shares_by_folder = {}
+    for token, fid, created_at, expires_at, revoked in folder_share_rows:
+        if not share_is_active(expires_at or "", revoked):
+            continue
+        shares_by_folder.setdefault(fid, []).append({
+            "token": token,
+            "created_at": created_at or "",
+            "expires_at": expires_at or "",
+            "url": url_for("shared_folder", token=token, _external=True),
         })
     return render_template_string(BASE_STYLE + header_html() + """
     <style>
@@ -3666,14 +3691,16 @@ def documents():
         .storage-track { height:7px; border-radius:999px; background:{{ '#334155' if dark else '#e5e7eb' }}; overflow:hidden; margin:8px 0; }
         .storage-fill { height:100%; min-width:4px; background:#3b82f6; width:{{ storage_percent }}%; }
         .document-table { width:100%; border-collapse:collapse; }
-        .document-table th, .document-table td { padding:14px 8px; border-bottom:1px solid {{ '#334155' if dark else '#e2e8f0' }}; text-align:left; vertical-align:middle; }
+        .document-table th, .document-table td { padding:6px 8px; border-bottom:1px solid {{ '#334155' if dark else '#e2e8f0' }}; text-align:left; vertical-align:middle; }
         .document-table th { font-size:12px; text-transform:uppercase; color:{{ '#cbd5e1' if dark else '#475569' }}; }
         .file-name { display:flex; gap:12px; align-items:center; min-width:250px; }
         .file-icon { display:inline-grid; place-items:center; width:32px; height:32px; border-radius:8px; font-size:20px; background:{{ '#1e293b' if dark else '#eff6ff' }}; }
         .file-row:hover { background:{{ '#172334' if dark else '#f8fbff' }}; }
         .document-actions { display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
-        .document-actions a, .document-actions button { width:auto; margin:0; padding:7px 9px; font-size:12px; }
-        .folder-actions { display:flex; align-items:center; justify-content:flex-end; gap:8px; }
+        .document-actions a, .document-actions button { width:auto; margin:0; padding:4px 8px; font-size:11px; }
+        .folder-actions { display:flex; align-items:center; justify-content:flex-end; gap:6px; }
+        .share-toggle { background:{{ '#1e3a5f' if dark else '#e8f1ff' }} !important; color:{{ '#93c5fd' if dark else '#2563eb' }} !important; border:1px solid {{ '#334155' if dark else '#bfdbfe' }} !important; font-size:13px !important; padding:3px 7px !important; line-height:1; }
+        .share-inline-form { display:none; gap:6px; align-items:center; margin-top:4px; flex-wrap:wrap; }
         .folder-delete-button { color:#dc2626!important; border:1px solid {{ '#7f1d1d' if dark else '#fecaca' }}!important; background:{{ '#2f1519' if dark else '#fff1f2' }}!important; min-width:36px; min-height:36px; padding:6px!important; font-size:18px!important; line-height:1; }
         .share-row { padding:8px; margin-top:7px; border-radius:8px; background:{{ '#172334' if dark else '#eef5ff' }}; }
         .share-row input { margin:0 0 5px; font-size:12px; }
@@ -3708,6 +3735,7 @@ def documents():
                 <button class="toolbar-button" type="button" onclick="document.getElementById('uploadDrawer').classList.toggle('open');">&#8679; {{ tr["upload_documents"] }}</button>
                 <button class="toolbar-button" type="button" onclick="document.getElementById('newFolderForm').style.display='flex';">+ {{ tr["new_folder"] }}</button>
                 <a class="toolbar-link" href="/documents">&#8635;</a>
+                <form class="inline-form" method="post" action="/documents/cleanup" onsubmit="return confirm('Obrisati sve zapise čiji fajl ne postoji na serveru?');"><button class="toolbar-button" type="submit" style="background:#7f1d1d;color:#fca5a5;border:none;">&#128465; Očisti izgubljene</button></form>
                 <form id="newFolderForm" method="post" action="/documents/folder" style="display:none;gap:6px;align-items:center;">
                     {% if folder_id %}<input type="hidden" name="parent_id" value="{{ folder_id }}">{% endif %}
                     <input name="name" placeholder="{{ tr['folder_name'] }}" required>
@@ -3744,40 +3772,59 @@ def documents():
                 {% for folder in folders %}
                 <tr class="file-row">
                     <td><a class="file-name" href="/documents?folder={{ folder[0] }}"><span class="file-icon">&#128193;</span><b>{{ folder[1] }}</b></a></td>
-                    <td>{{ folder[3][:10] }}</td><td>-</td>
+                    <td>{{ folder[3][8:10] }}.{{ folder[3][5:7] }}.{{ folder[3][0:4] }}</td><td>-</td>
                     <td>
                         <div class="folder-actions">
-                            <a href="/documents?folder={{ folder[0] }}">{{ tr["open_folder"] }}</a>
+                            <a href="/documents?folder={{ folder[0] }}" style="font-size:11px;padding:4px 8px;">{{ tr["open_folder"] }}</a>
+                            <button type="button" class="share-toggle" onclick="var f=document.getElementById('fsf{{ folder[0] }}');f.style.display=f.style.display==='flex'?'none':'flex';" title="{{ tr['create_share_link'] }}">&#128279;</button>
                             <form class="inline-form" method="post" action="/documents/folder/delete/{{ folder[0] }}" onsubmit='return confirm({{ tr["delete_folder_confirm"]|tojson }});'>
                                 <button class="folder-delete-button" type="submit" title="{{ tr["delete_folder"] }}" aria-label="{{ tr["delete_folder"] }}">&#128465;</button>
                             </form>
                         </div>
+                        <form id="fsf{{ folder[0] }}" class="share-inline-form" method="post" action="/documents/folder/share/{{ folder[0] }}">
+                            {% if folder_id %}<input type="hidden" name="parent_id" value="{{ folder_id }}">{% endif %}
+                            <select name="days" style="width:auto;font-size:11px;padding:3px 4px;">
+                                <option value="7">7 {{ tr["expires_days"] }}</option>
+                                <option value="30">30 {{ tr["expires_days"] }}</option>
+                                <option value="1">1 {{ tr["expires_days"] }}</option>
+                                <option value="0">{{ tr["expires_never"] }}</option>
+                            </select>
+                            <button style="width:auto;font-size:11px;padding:4px 8px;">{{ tr["create_share_link"] }}</button>
+                        </form>
+                        {% for share in shares_by_folder.get(folder[0], []) %}
+                        <div class="share-row">
+                            <small>{{ tr["share_link"] }}{% if share.expires_at %} | {{ tr["expires_in"] }} {{ share.expires_at[8:10] }}.{{ share.expires_at[5:7] }}.{{ share.expires_at[0:4] }}{% endif %}</small>
+                            <input value="{{ share.url }}" readonly onclick="this.select();">
+                            <form class="inline-form" method="post" action="/documents/folder/share/revoke/{{ share.token }}"><button>{{ tr["revoke_link"] }}</button></form>
+                        </div>
+                        {% endfor %}
                     </td>
                 </tr>
                 {% endfor %}
                 {% for doc in docs %}
                 <tr class="file-row">
                     <td><a class="file-name" href="/documents/view/{{ doc.id }}"><span class="file-icon">{% if doc.mime_type.startswith('image/') %}&#128444;{% else %}&#128196;{% endif %}</span><span><b>{{ doc.original_name }}</b>{% if doc.note %}<br><small class="muted">{{ doc.note }}</small>{% endif %}</span></a></td>
-                    <td>{{ doc.uploaded_at[:10] }}</td>
-                    <td>{{ size_label(doc.file_size) }}</td>
+                    <td style="white-space:nowrap;">{{ doc.uploaded_at[8:10] }}.{{ doc.uploaded_at[5:7] }}.{{ doc.uploaded_at[0:4] }}</td>
+                    <td style="white-space:nowrap;">{{ size_label(doc.file_size) }}</td>
                     <td>
                         <div class="document-actions">
                             <a href="/documents/view/{{ doc.id }}">{{ tr["preview"] }}</a>
                             <a href="/documents/file/{{ doc.id }}?download=1">{{ tr["download"] }}</a>
+                            <button type="button" class="share-toggle" onclick="var f=document.getElementById('sf{{ doc.id }}');f.style.display=f.style.display==='flex'?'none':'flex';" title="{{ tr['create_share_link'] }}">&#128279;</button>
                             <form class="inline-form" method="post" action="/documents/delete/{{ doc.id }}" onsubmit="return confirm('Obrisati dokument?');"><button>{{ tr["delete"] }}</button></form>
                         </div>
-                        <form method="post" action="/documents/share/{{ doc.id }}" style="display:flex;gap:6px;align-items:center;margin-top:7px;">
-                            <select name="days" style="width:auto;">
+                        <form id="sf{{ doc.id }}" class="share-inline-form" method="post" action="/documents/share/{{ doc.id }}">
+                            <select name="days" style="width:auto;font-size:11px;padding:3px 4px;">
                                 <option value="7">7 {{ tr["expires_days"] }}</option>
                                 <option value="30">30 {{ tr["expires_days"] }}</option>
                                 <option value="1">1 {{ tr["expires_days"] }}</option>
                                 <option value="0">{{ tr["expires_never"] }}</option>
                             </select>
-                            <button style="width:auto;">{{ tr["create_share_link"] }}</button>
+                            <button style="width:auto;font-size:11px;padding:4px 8px;">{{ tr["create_share_link"] }}</button>
                         </form>
                         {% for share in shares_by_document.get(doc.id, []) %}
                         <div class="share-row">
-                            <small>{{ tr["share_link"] }}{% if share.expires_at %} | {{ tr["expires_in"] }} {{ share.expires_at[:10] }}{% endif %}</small>
+                            <small>{{ tr["share_link"] }}{% if share.expires_at %} | {{ tr["expires_in"] }} {{ share.expires_at[8:10] }}.{{ share.expires_at[5:7] }}.{{ share.expires_at[0:4] }}{% endif %}</small>
                             <input value="{{ share.url }}" readonly onclick="this.select();">
                             <form class="inline-form" method="post" action="/documents/share/revoke/{{ share.token }}"><button>{{ tr["revoke_link"] }}</button></form>
                         </div>
@@ -3810,7 +3857,29 @@ def documents():
        storage_percent=min(100, round((total_size / (10 * 1024 * 1024 * 1024)) * 100, 2)),
        categories=document_categories(tr),
        category_labels=dict(document_categories(tr)), shares_by_document=shares_by_document,
+       shares_by_folder=shares_by_folder,
        size_label=document_size_label, max_upload_mb=app.config["MAX_CONTENT_LENGTH"] // (1024 * 1024))
+
+
+@app.route("/documents/cleanup", methods=["POST"])
+def documents_cleanup():
+    if session.get("role") != "admin":
+        return redirect("/")
+    conn = get_conn()
+    rows = conn.cursor().execute(
+        "SELECT id, stored_name FROM documents").fetchall()
+    deleted = 0
+    for doc_id, stored_name in rows:
+        path = document_path(stored_name)
+        if not os.path.exists(path):
+            conn.cursor().execute(
+                "DELETE FROM document_shares WHERE document_id = ?", (doc_id,))
+            conn.cursor().execute(
+                "DELETE FROM documents WHERE id = ?", (doc_id,))
+            deleted += 1
+    conn.commit()
+    conn.close()
+    return redirect(f"/documents?notice={urllib.parse.quote(f'Obrisano {deleted} izgubljenih zapisa.')}")
 
 
 @app.route("/documents/upload", methods=["POST"])
@@ -4007,6 +4076,402 @@ def documents_share_revoke(token):
     conn.commit()
     conn.close()
     return redirect("/documents")
+
+
+@app.route("/documents/folder/share/<int:folder_id>", methods=["POST"])
+def folder_share_create(folder_id):
+    if session.get("role") != "admin":
+        return redirect("/")
+    conn = get_conn()
+    folder = conn.cursor().execute("SELECT id FROM document_folders WHERE id = ?", (folder_id,)).fetchone()
+    if not folder:
+        conn.close()
+        return redirect("/documents")
+    token = secrets.token_urlsafe(32)
+    conn.cursor().execute("""
+        INSERT INTO folder_shares (token, folder_id, created_at, expires_at, revoked)
+        VALUES (?, ?, ?, ?, ?)
+    """, (token, folder_id, lux_now().strftime("%Y-%m-%d %H:%M:%S"),
+          share_expiry(request.form.get("days", "7")), 0))
+    conn.commit()
+    conn.close()
+    parent_id = request.form.get("parent_id", "").strip()
+    if parent_id:
+        return redirect(f"/documents?folder={parent_id}")
+    return redirect("/documents")
+
+
+@app.route("/documents/folder/share/revoke/<token>", methods=["POST"])
+def folder_share_revoke(token):
+    if session.get("role") != "admin":
+        return redirect("/")
+    conn = get_conn()
+    conn.cursor().execute("UPDATE folder_shares SET revoked = 1 WHERE token = ?", (token,))
+    conn.commit()
+    conn.close()
+    return redirect("/documents")
+
+
+def _shared_folder_validate(conn, token):
+    """Returns (root_folder_id, expires_at, folder_name) or None if invalid."""
+    row = conn.cursor().execute("""
+        SELECT fs.folder_id, fs.expires_at, fs.revoked, df.name
+        FROM folder_shares fs
+        JOIN document_folders df ON df.id = fs.folder_id
+        WHERE fs.token = ?
+    """, (token,)).fetchone()
+    if not row or not share_is_active(row[1] or "", row[2]):
+        return None
+    return row[0], row[1] or "", row[3]
+
+
+def _folder_tree_ids(conn, root_id):
+    """Returns set of all folder IDs in the subtree (including root)."""
+    ids = {root_id}
+    queue = [root_id]
+    while queue:
+        parent = queue.pop()
+        for (cid,) in conn.cursor().execute(
+                "SELECT id FROM document_folders WHERE parent_id = ?", (parent,)).fetchall():
+            if cid not in ids:
+                ids.add(cid)
+                queue.append(cid)
+    return ids
+
+
+def _folder_breadcrumb_shared(conn, root_id, current_id, token):
+    """Breadcrumb list from root to current folder for shared view."""
+    crumbs = []
+    fid = current_id
+    while fid and fid != root_id:
+        row = conn.cursor().execute(
+            "SELECT id, name, parent_id FROM document_folders WHERE id = ?", (fid,)).fetchone()
+        if not row:
+            break
+        crumbs.insert(0, {"id": row[0], "name": row[1]})
+        fid = row[2]
+    return crumbs
+
+
+SHARED_FOLDER_TMPL = """
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ current_name }} – Luxmann</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:system-ui,sans-serif;
+     background:{{ '#0f172a' if dark else '#f1f5f9' }};
+     color:{{ '#e2e8f0' if dark else '#1e293b' }};min-height:100vh;}
+a{color:inherit;text-decoration:none;}
+/* Top bar */
+.sf-topbar{display:flex;align-items:center;justify-content:space-between;
+           padding:10px 20px;
+           background:{{ '#0b1220' if dark else '#1e3a5f' }};
+           color:white;gap:12px;flex-wrap:wrap;}
+.sf-brand{font-size:18px;font-weight:800;color:#93c5fd;display:flex;align-items:center;gap:8px;}
+.sf-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.sf-lang{display:flex;gap:4px;}
+.sf-lang a{padding:4px 9px;border-radius:6px;font-size:12px;font-weight:700;
+           color:#cbd5e1;border:1px solid #334155;}
+.sf-lang a.sf-active{background:#2563eb;color:white;border-color:#2563eb;}
+.sf-lang a:hover{background:#1e3a5f;color:white;}
+.sf-theme-btn{padding:5px 10px;border-radius:6px;font-size:16px;
+              background:{{ '#1e293b' if dark else '#e2e8f0' }};
+              color:{{ '#fbbf24' if dark else '#1e3a5f' }};
+              border:1px solid {{ '#334155' if dark else '#cbd5e1' }};cursor:pointer;}
+/* Wrap */
+.sf-wrap{max-width:960px;margin:0 auto;padding:20px 16px;}
+.sf-head{margin:16px 0 4px;}
+.sf-head h2{font-size:20px;font-weight:700;}
+.sf-meta{color:{{ '#94a3b8' if dark else '#64748b' }};font-size:13px;
+         margin:6px 0 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+/* Breadcrumb */
+.sf-crumb{display:flex;gap:6px;align-items:center;flex-wrap:wrap;
+          margin-bottom:14px;font-size:13px;
+          color:{{ '#94a3b8' if dark else '#64748b' }};}
+.sf-crumb a{color:#3b82f6;}
+.sf-crumb a:hover{text-decoration:underline;}
+/* Table */
+.sf-table{width:100%;border-collapse:collapse;}
+.sf-table th{text-align:left;padding:8px 10px;
+             border-bottom:2px solid {{ '#334155' if dark else '#e2e8f0' }};
+             font-size:11px;text-transform:uppercase;
+             color:{{ '#94a3b8' if dark else '#64748b' }};}
+.sf-table td{padding:7px 10px;
+             border-bottom:1px solid {{ '#1e293b' if dark else '#e2e8f0' }};
+             vertical-align:middle;}
+.sf-table tr:hover td{background:{{ '#1e293b' if dark else '#f8fafc' }};}
+.sf-folder-link{display:flex;align-items:center;gap:8px;font-weight:600;}
+.sf-folder-link:hover{color:#3b82f6;}
+.sf-file-link{display:flex;align-items:center;gap:8px;}
+.sf-file-link:hover{color:#3b82f6;}
+/* Buttons */
+.sf-btn{display:inline-block;padding:5px 11px;border-radius:6px;font-size:12px;
+        background:{{ '#1e3a5f' if dark else '#e8f1ff' }};
+        color:{{ '#93c5fd' if dark else '#2563eb' }};
+        border:1px solid {{ '#334155' if dark else '#bfdbfe' }};margin-left:5px;}
+.sf-btn:hover{background:#2563eb;color:white;border-color:#2563eb;}
+.sf-btn-zip{background:{{ '#064e3b' if dark else '#ecfdf5' }};
+            color:{{ '#6ee7b7' if dark else '#065f46' }};
+            border-color:{{ '#065f46' if dark else '#a7f3d0' }};}
+.sf-btn-zip:hover{background:#065f46;color:white;border-color:#065f46;}
+.sf-empty{color:{{ '#475569' if dark else '#94a3b8' }};padding:24px 0;text-align:center;}
+.sf-size{color:{{ '#94a3b8' if dark else '#64748b' }};font-size:12px;}
+@media(max-width:600px){
+  .sf-table th:nth-child(2),.sf-table td:nth-child(2){display:none;}
+  .sf-btn{padding:5px 8px;font-size:11px;}
+}
+</style>
+</head>
+<body>
+<div class="sf-topbar">
+  <div class="sf-brand">&#128193; Luxmann Services</div>
+  <div class="sf-controls">
+    <div class="sf-lang">
+      <a href="/set_lang/bos" class="{% if lang=='bos' %}sf-active{% endif %}">BOS</a>
+      <a href="/set_lang/en"  class="{% if lang=='en'  %}sf-active{% endif %}">EN</a>
+      <a href="/set_lang/de"  class="{% if lang=='de'  %}sf-active{% endif %}">DE</a>
+      <a href="/set_lang/fr"  class="{% if lang=='fr'  %}sf-active{% endif %}">FR</a>
+      <a href="/set_lang/pt"  class="{% if lang=='pt'  %}sf-active{% endif %}">PT</a>
+    </div>
+    <a class="sf-theme-btn" href="/set_theme/{% if dark %}light{% else %}dark{% endif %}">
+      {% if dark %}☀️{% else %}🌙{% endif %}
+    </a>
+  </div>
+</div>
+<div class="sf-wrap">
+  <div class="sf-head"><h2>&#128193; {{ current_name }}</h2></div>
+  <div class="sf-meta">
+    {% if expires_at %}
+      {{ tr["expires_in"] }}: {{ expires_at[8:10] }}.{{ expires_at[5:7] }}.{{ expires_at[0:4] }}
+      &nbsp;|&nbsp;
+    {% endif %}
+    <a class="sf-btn sf-btn-zip" href="/share/folder/{{ token }}/zip{% if current_id != root_id %}/{{ current_id }}{% endif %}">
+      &#8681; {{ tr["download"] }} ZIP
+    </a>
+  </div>
+  <div class="sf-crumb">
+    <a href="/share/folder/{{ token }}">{{ root_name }}</a>
+    {% for crumb in breadcrumbs %}
+      <span>/</span><a href="/share/folder/{{ token }}/sub/{{ crumb.id }}">{{ crumb.name }}</a>
+    {% endfor %}
+    {% if current_id != root_id %}<span>/</span><span>{{ current_name }}</span>{% endif %}
+  </div>
+  <table class="sf-table">
+    <tr>
+      <th>{{ tr["document_name"] }}</th>
+      <th>{{ tr["file_size"] }}</th>
+      <th></th>
+    </tr>
+    {% for sub in subfolders %}
+    <tr>
+      <td><a class="sf-folder-link" href="/share/folder/{{ token }}/sub/{{ sub[0] }}">
+        &#128193; {{ sub[1] }}
+      </a></td>
+      <td class="sf-size">—</td>
+      <td style="text-align:right;">
+        <a class="sf-btn sf-btn-zip" href="/share/folder/{{ token }}/zip/{{ sub[0] }}">&#8681; ZIP</a>
+      </td>
+    </tr>
+    {% endfor %}
+    {% for doc in docs %}
+    <tr>
+      <td><a class="sf-file-link" href="/share/folder/{{ token }}/file/{{ doc.id }}">
+        {% if doc.mime_type.startswith('image/') %}&#128444;{% else %}&#128196;{% endif %}
+        {{ doc.original_name }}
+      </a></td>
+      <td class="sf-size">{{ size_label(doc.file_size) }}</td>
+      <td style="text-align:right;white-space:nowrap;">
+        <a class="sf-btn" href="/share/folder/{{ token }}/file/{{ doc.id }}?download=1">&#8681; {{ tr["download"] }}</a>
+        {% if doc.mime_type.startswith('application/pdf') or doc.mime_type.startswith('image/') %}
+        <a class="sf-btn" href="/share/folder/{{ token }}/file/{{ doc.id }}">&#128065; {{ tr["preview"] }}</a>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    {% if subfolders|length == 0 and docs|length == 0 %}
+    <tr><td colspan="3" class="sf-empty">{{ tr["document_missing"] }}</td></tr>
+    {% endif %}
+  </table>
+</div>
+</body>
+</html>
+"""
+
+
+def _shared_folder_render(token, root_id, expires_at, root_name,
+                          current_id, current_name, breadcrumbs,
+                          subfolders, docs):
+    tr = t()
+    dark = get_theme() == "dark"
+    lang = get_lang()
+    return render_template_string(SHARED_FOLDER_TMPL, token=token,
+        root_id=root_id, current_id=current_id,
+        root_name=root_name, current_name=current_name,
+        expires_at=expires_at, breadcrumbs=breadcrumbs,
+        subfolders=subfolders, docs=docs,
+        size_label=document_size_label, tr=tr, dark=dark, lang=lang)
+
+
+@app.route("/share/folder/<token>")
+def shared_folder(token):
+    conn = get_conn()
+    info = _shared_folder_validate(conn, token)
+    if not info:
+        conn.close()
+        tr = t()
+        dark = get_theme() == "dark"
+        return render_template_string(SHARED_FOLDER_TMPL.split("<table")[0] + """
+        <div style="text-align:center;padding:48px 16px;">
+          <p style="color:{{ '#94a3b8' if dark else '#64748b' }};">{{ tr["share_expired"] }}</p>
+        </div></body></html>""", tr=tr, dark=dark, lang=get_lang()), 404
+    root_id, expires_at, root_name = info
+    subfolders = conn.cursor().execute(
+        "SELECT id, name FROM document_folders WHERE parent_id = ? ORDER BY name", (root_id,)).fetchall()
+    doc_rows = conn.cursor().execute("""
+        SELECT id, original_name, stored_name, mime_type, file_size, category, folder_id, note, uploaded_at, uploaded_by
+        FROM documents WHERE folder_id = ? ORDER BY original_name
+    """, (root_id,)).fetchall()
+    conn.close()
+    docs = [document_row(r) for r in doc_rows]
+    return _shared_folder_render(token, root_id, expires_at, root_name,
+                                 root_id, root_name, [], subfolders, docs)
+
+
+@app.route("/share/folder/<token>/sub/<int:sub_id>")
+def shared_folder_sub(token, sub_id):
+    conn = get_conn()
+    info = _shared_folder_validate(conn, token)
+    if not info:
+        conn.close()
+        return "Link istekao ili nije validan.", 404
+    root_id, expires_at, root_name = info
+    tree_ids = _folder_tree_ids(conn, root_id)
+    if sub_id not in tree_ids:
+        conn.close()
+        return "Folder nije dostupan.", 403
+    sub_row = conn.cursor().execute(
+        "SELECT id, name FROM document_folders WHERE id = ?", (sub_id,)).fetchone()
+    if not sub_row:
+        conn.close()
+        return "Folder nije pronađen.", 404
+    subfolders = conn.cursor().execute(
+        "SELECT id, name FROM document_folders WHERE parent_id = ? ORDER BY name", (sub_id,)).fetchall()
+    doc_rows = conn.cursor().execute("""
+        SELECT id, original_name, stored_name, mime_type, file_size, category, folder_id, note, uploaded_at, uploaded_by
+        FROM documents WHERE folder_id = ? ORDER BY original_name
+    """, (sub_id,)).fetchall()
+    breadcrumbs = _folder_breadcrumb_shared(conn, root_id, sub_id, token)
+    conn.close()
+    docs = [document_row(r) for r in doc_rows]
+    return _shared_folder_render(token, root_id, expires_at, root_name,
+                                 sub_id, sub_row[1], breadcrumbs, subfolders, docs)
+
+
+@app.route("/share/folder/<token>/file/<int:doc_id>")
+def shared_folder_file(token, doc_id):
+    conn = get_conn()
+    info = _shared_folder_validate(conn, token)
+    if not info:
+        conn.close()
+        return "Link istekao ili nije validan.", 404
+    root_id = info[0]
+    tree_ids = _folder_tree_ids(conn, root_id)
+    doc_row = conn.cursor().execute("""
+        SELECT id, original_name, stored_name, mime_type, file_size, category, folder_id, note, uploaded_at, uploaded_by
+        FROM documents WHERE id = ?
+    """, (doc_id,)).fetchone()
+    conn.close()
+    if not doc_row or doc_row[6] not in tree_ids:
+        return "Dokument nije pronađen.", 404
+    document = document_row(doc_row)
+    path = document_path(document["stored_name"])
+    if not os.path.exists(path):
+        return "Fajl nije pronađen.", 404
+    as_download = request.args.get("download") == "1"
+    return send_file(path, mimetype=document["mime_type"] or "application/octet-stream",
+                     as_attachment=as_download,
+                     download_name=document["original_name"] if as_download else None)
+
+
+def _zip_add_folder(conn, zf, folder_id, rel_prefix, errors=None):
+    """Recursively add documents from folder_id and subfolders. Returns count added."""
+    if errors is None:
+        errors = []
+    added = 0
+    doc_rows = conn.cursor().execute("""
+        SELECT id, original_name, stored_name, mime_type, file_size, category, folder_id, note, uploaded_at, uploaded_by
+        FROM documents WHERE folder_id = ? ORDER BY original_name
+    """, (folder_id,)).fetchall()
+    for row in doc_rows:
+        doc = document_row(row)
+        src = document_path(doc["stored_name"])
+        arc = rel_prefix + doc["original_name"]
+        if not os.path.exists(src):
+            errors.append(f"NOT_ON_DISK:{doc['original_name']}:{src}")
+            continue
+        try:
+            zf.write(src, arc)
+            added += 1
+        except Exception as e:
+            errors.append(f"WRITE_ERR:{doc['original_name']}:{e}")
+    sub_rows = conn.cursor().execute(
+        "SELECT id, name FROM document_folders WHERE parent_id = ? ORDER BY name",
+        (folder_id,)).fetchall()
+    for sub_id, sub_name in sub_rows:
+        safe_sub = re.sub(r'[\\/:*?"<>|]', "_", sub_name)
+        added += _zip_add_folder(conn, zf, sub_id, rel_prefix + safe_sub + "/", errors)
+    return added
+
+
+@app.route("/share/folder/<token>/zip")
+@app.route("/share/folder/<token>/zip/<int:sub_id>")
+def shared_folder_zip(token, sub_id=None):
+    conn = get_conn()
+    info = _shared_folder_validate(conn, token)
+    if not info:
+        conn.close()
+        return "Link istekao ili nije validan.", 404
+    root_id, expires_at, root_name = info
+    tree_ids = _folder_tree_ids(conn, root_id)
+    zip_root = sub_id if sub_id else root_id
+    if zip_root not in tree_ids:
+        conn.close()
+        return "Folder nije dostupan.", 403
+    folder_name_row = conn.cursor().execute(
+        "SELECT name FROM document_folders WHERE id = ?", (zip_root,)).fetchone()
+    zip_folder_name = folder_name_row[0] if folder_name_row else "folder"
+    tmp_fd, tmp_path = tempfile.mkstemp(suffix=".zip")
+    os.close(tmp_fd)
+    try:
+        errors = []
+        with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            added = _zip_add_folder(conn, zf, zip_root, "", errors)
+        conn.close()
+        if added == 0:
+            os.unlink(tmp_path)
+            if errors:
+                # Diagnostic: tells us exactly why files weren't added
+                diag = "Greška pri kreiranju ZIP-a:\n" + "\n".join(errors[:10])
+                return diag, 500
+            return "Folder ne sadrži dokumente.", 404
+        with open(tmp_path, "rb") as f:
+            data = f.read()
+        os.unlink(tmp_path)
+        safe_name = re.sub(r'[\\/:*?"<>|]', "_", zip_folder_name) or "folder"
+        response = app.response_class(data, mimetype="application/zip")
+        response.headers["Content-Disposition"] = f'attachment; filename="{safe_name}.zip"'
+        response.headers["Content-Length"] = str(len(data))
+        return response
+    except Exception:
+        conn.close()
+        try:
+            os.unlink(tmp_path)
+        except Exception:
+            pass
+        raise
 
 
 @app.route("/share/document/<token>")
@@ -4885,24 +5350,17 @@ def add_user():
         conn = get_conn(); c = conn.cursor(); c.execute("INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)", (username, hash_password(password), role))
         if role == "worker": c.execute("INSERT OR IGNORE INTO workers (name, address) VALUES (?, ?)", (username, "")); c.execute("INSERT OR IGNORE INTO worker_colors (worker_name, color) VALUES (?, ?)", (username, "#f97316"))
         conn.commit(); conn.close()
-    return redirect("/")
-
-@app.route("/delete_user/<int:user_id>")
-def delete_user(user_id):
-    if session.get("role") != "admin": return redirect("/")
-    conn = get_conn(); c = conn.cursor(); user = c.execute("SELECT username FROM users WHERE id = ?", (user_id,)).fetchone()
-    if user and user[0] != "admin": c.execute("DELETE FROM users WHERE id = ?", (user_id,)); c.execute("DELETE FROM workers WHERE name = ?", (user[0],)); c.execute("DELETE FROM worker_colors WHERE worker_name = ?", (user[0],))
-    conn.commit(); conn.close(); return redirect("/")
+    return redirect("/admin")
 
 @app.route("/delete_worker/<path:name>")
 def delete_worker(name):
     if session.get("role") != "admin" or name == "admin": return redirect("/")
-    conn = get_conn(); c = conn.cursor(); c.execute("DELETE FROM workers WHERE name = ?", (name,)); c.execute("DELETE FROM worker_colors WHERE worker_name = ?", (name,)); conn.commit(); conn.close(); return redirect("/")
+    conn = get_conn(); c = conn.cursor(); c.execute("DELETE FROM workers WHERE name = ?", (name,)); c.execute("DELETE FROM worker_colors WHERE worker_name = ?", (name,)); conn.commit(); conn.close(); return redirect("/workers")
 
 @app.route("/delete_client/<path:name>")
 def delete_client(name):
     if session.get("role") != "admin": return redirect("/")
-    conn = get_conn(); c = conn.cursor(); c.execute("DELETE FROM clients WHERE name = ?", (name,)); conn.commit(); conn.close(); return redirect("/")
+    conn = get_conn(); c = conn.cursor(); c.execute("DELETE FROM clients WHERE name = ?", (name,)); conn.commit(); conn.close(); return redirect("/clients")
 
 @app.route("/delete_shift/<int:id>")
 def delete_shift(id):
@@ -4919,10 +5377,10 @@ def edit_worker(name):
             old_color = c.execute("SELECT color FROM worker_colors WHERE worker_name = ?", (name,)).fetchone(); color_value = old_color[0] if old_color else "#f97316"; c.execute("UPDATE workers SET name = ?, address = ?, contract_type = ?, contract_end_date = ? WHERE name = ?", (new_name, address, contract_type, contract_end_date, name))
             for shift_id, worker_text in c.execute("SELECT id, worker FROM shifts").fetchall(): c.execute("UPDATE shifts SET worker = ? WHERE id = ?", (replace_worker_in_shift(worker_text, name, new_name), shift_id))
             c.execute("DELETE FROM worker_colors WHERE worker_name = ?", (name,)); c.execute("INSERT OR REPLACE INTO worker_colors (worker_name, color) VALUES (?, ?)", (new_name, color_value))
-        conn.commit(); conn.close(); return redirect("/")
+        conn.commit(); conn.close(); return redirect("/workers")
     worker = c.execute("SELECT name, address, contract_type, contract_end_date FROM workers WHERE name = ?", (name,)).fetchone(); conn.close()
-    if not worker: return redirect("/")
-    return render_template_string(BASE_STYLE + """<div class="card" style="max-width:500px;margin:auto;"><h2>{{ tr["workers"] }} - {{ tr["edit"] }}</h2><form method="post"><input name="name" value="{{ worker[0] }}" required><input name="address" value="{{ worker[1] }}" placeholder="{{ tr['address'] }}"><input name="contract_type" value="{{ worker[2] }}" placeholder="{{ tr['contract_type'] }}"><label>{{ tr["contract_end_date"] }}</label><input type="date" name="contract_end_date" value="{{ worker[3] }}"><button>{{ tr["save"] }}</button></form><br><a class="back-button" href="/">{{ tr["back"] }}</a></div>""", tr=tr, worker=worker, dark=dark)
+    if not worker: return redirect("/workers")
+    return render_template_string(BASE_STYLE + """<div class="card" style="max-width:500px;margin:auto;"><h2>{{ tr["workers"] }} - {{ tr["edit"] }}</h2><form method="post"><input name="name" value="{{ worker[0] }}" required><input name="address" value="{{ worker[1] }}" placeholder="{{ tr['address'] }}"><input name="contract_type" value="{{ worker[2] }}" placeholder="{{ tr['contract_type'] }}"><label>{{ tr["contract_end_date"] }}</label><input type="date" name="contract_end_date" value="{{ worker[3] }}"><button>{{ tr["save"] }}</button></form><br><a class="back-button" href="/workers">{{ tr["back"] }}</a></div>""", tr=tr, worker=worker, dark=dark)
 
 @app.route("/edit_client/<path:name>", methods=["GET", "POST"])
 def edit_client(name):
@@ -4931,10 +5389,10 @@ def edit_client(name):
     if request.method == "POST":
         new_name = request.form["name"].strip(); address = request.form["address"].strip()
         if new_name: c.execute("UPDATE clients SET name = ?, address = ? WHERE name = ?", (new_name, address, name)); c.execute("UPDATE shifts SET client = ? WHERE client = ?", (new_name, name))
-        conn.commit(); conn.close(); return redirect("/")
+        conn.commit(); conn.close(); return redirect("/clients")
     client = c.execute("SELECT name, address FROM clients WHERE name = ?", (name,)).fetchone(); conn.close()
-    if not client: return redirect("/")
-    return render_template_string(BASE_STYLE + """<div class="card" style="max-width:500px;margin:auto;"><h2>{{ tr["clients"] }} - {{ tr["edit"] }}</h2><form method="post"><input name="name" value="{{ client[0] }}" required><input name="address" value="{{ client[1] }}" placeholder="{{ tr['address'] }}" required><button>{{ tr["save"] }}</button></form><br><a class="back-button" href="/">{{ tr["back"] }}</a></div>""", tr=tr, client=client, dark=dark)
+    if not client: return redirect("/clients")
+    return render_template_string(BASE_STYLE + """<div class="card" style="max-width:500px;margin:auto;"><h2>{{ tr["clients"] }} - {{ tr["edit"] }}</h2><form method="post"><input name="name" value="{{ client[0] }}" required><input name="address" value="{{ client[1] }}" placeholder="{{ tr['address'] }}" required><button>{{ tr["save"] }}</button></form><br><a class="back-button" href="/clients">{{ tr["back"] }}</a></div>""", tr=tr, client=client, dark=dark)
 
 @app.route("/edit_shift/<int:id>", methods=["GET", "POST"])
 def edit_shift(id):
@@ -4958,13 +5416,89 @@ def edit_shift(id):
     return_to = request.referrer or f"/month?year={shift[3][:4]}&month={int(shift[3][5:7])}"
     return render_template_string(BASE_STYLE + """<div class="card" style="max-width:520px;margin:auto;"><h2>{{ tr["edit_shift"] }}</h2><form method="post"><input type="hidden" name="return_to" value="{{ return_to }}"><label>{{ tr["choose_worker"] }}</label>{% for w in workers %}{% if w[0] != 'admin' %}<label class="check-row"><input type="checkbox" name="workers" value="{{ w[0] }}" {% if w[0] in selected_workers %}checked{% endif %}>{{ w[0] }}</label>{% endif %}{% endfor %}<div class="client-search-wrapper"><input type="text" id="csInputEdit" class="client-search-input" value="{{ shift[2] }}" placeholder="{{ tr['search_placeholder'] }}" autocomplete="off"><input type="hidden" name="client" id="csHiddenEdit" value="{{ shift[2] }}" required><div class="client-search-dropdown" id="csListEdit"></div></div><input type="date" name="date" value="{{ shift[3] }}" required><label>{{ tr["start_time"] }}</label><div style="display:flex;gap:6px;"><select name="start_hour">{% for h in time_hours %}<option value="{{ h }}" {% if h == sh %}selected{% endif %}>{{ h }}</option>{% endfor %}</select><select name="start_minute">{% for m in time_minutes %}<option value="{{ m }}" {% if m == sm %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></div><label>{{ tr["end_time"] }}</label><div style="display:flex;gap:6px;"><select name="end_hour">{% for h in time_hours %}<option value="{{ h }}" {% if h == eh %}selected{% endif %}>{{ h }}</option>{% endfor %}</select><select name="end_minute">{% for m in time_minutes %}<option value="{{ m }}" {% if m == em %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></div><select name="status"><option value="planned" {% if shift[5] == 'planned' %}selected{% endif %}>{{ tr["status_planned"] }}</option><option value="in_progress" {% if shift[5] == 'in_progress' %}selected{% endif %}>{{ tr["status_in_progress"] }}</option><option value="done" {% if shift[5] == 'done' %}selected{% endif %}>{{ tr["status_done"] }}</option></select><button>{{ tr["save"] }}</button></form><br><a class="back-button" href="/">{{ tr["back"] }}</a></div><script>document.addEventListener('DOMContentLoaded',function(){var CD=[{% for c in clients %}{"name":{{c[0]|tojson}},"addr":{{(c[1] or '')|tojson}}}{% if not loop.last %},{% endif %}{% endfor %}];initClientSearch('csInputEdit','csHiddenEdit','csListEdit',CD);});</script>""", tr=tr, dark=dark, shift=shift, workers=workers, clients=clients, selected_workers=selected_workers, sh=sh, sm=sm, eh=eh, em=em, time_hours=time_hours(), time_minutes=time_minutes(), return_to=return_to)
 
+@app.route("/workers")
+def workers_page():
+    if session.get("role") != "admin":
+        return redirect("/")
+    tr = t()
+    dark = get_theme() == "dark"
+    conn = get_conn()
+    c = conn.cursor()
+    workers = c.execute("SELECT name, address, contract_type, contract_end_date FROM workers ORDER BY name").fetchall()
+    worker_colors = get_worker_colors(conn)
+    conn.close()
+    return render_template_string(BASE_STYLE + header_html() + """
+    <style>
+    .workers-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-top:16px;}
+    .worker-card{background:{{ '#1e293b' if dark else 'white' }};border-radius:12px;padding:16px;
+                 border:1px solid {{ '#334155' if dark else '#e2e8f0' }};display:flex;flex-direction:column;gap:10px;}
+    .worker-card-top{display:flex;align-items:center;gap:12px;}
+    .worker-avatar{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+                   font-weight:800;font-size:18px;color:white;flex-shrink:0;}
+    .worker-name{font-weight:700;font-size:16px;}
+    .worker-meta{font-size:12px;color:{{ '#94a3b8' if dark else '#64748b' }};}
+    .worker-actions{display:flex;gap:8px;margin-top:4px;}
+    .worker-actions a,.worker-actions button{width:auto;padding:6px 12px;font-size:12px;margin:0;}
+    .worker-color-row{display:flex;align-items:center;gap:8px;}
+    .add-worker-card{background:{{ '#172334' if dark else '#f8fbff' }};border:2px dashed {{ '#334155' if dark else '#cbd5e1' }};
+                     border-radius:12px;padding:20px;}
+    </style>
+    <h1>{{ tr["workers"] }}</h1>
+    <a class="back-button" href="/">{{ tr["back"] }}</a>
+    <div class="add-worker-card" style="margin-top:16px;max-width:500px;">
+        <h3 style="margin:0 0 12px;">+ {{ tr["add_worker"] }}</h3>
+        <form method="post" action="/add_worker" style="display:flex;flex-direction:column;gap:8px;">
+            <input name="worker_name" placeholder="{{ tr['worker_name'] }}" required>
+            <input name="address" placeholder="{{ tr['address'] }}">
+            <input name="contract_type" placeholder="{{ tr['contract_type'] }}">
+            <label style="font-size:13px;">{{ tr["contract_end_date"] }}</label>
+            <input type="date" name="contract_end_date">
+            <button style="width:auto;align-self:flex-start;">{{ tr["add_worker"] }}</button>
+        </form>
+    </div>
+    <div class="workers-grid">
+        {% for w in workers %}
+        {% if w[0] != 'admin' %}
+        {% set wcolor = worker_colors.get(w[0], '#f97316') %}
+        <div class="worker-card">
+            <div class="worker-card-top">
+                <div class="worker-avatar" style="background:{{ wcolor }};">{{ w[0][0]|upper }}</div>
+                <div>
+                    <div class="worker-name">{{ w[0] }}</div>
+                    {% if w[1] %}<div class="worker-meta">{{ w[1] }}</div>{% endif %}
+                    {% if w[2] %}<div class="worker-meta">{{ w[2] }}{% if w[3] %} · {{ w[3][8:10] }}.{{ w[3][5:7] }}.{{ w[3][0:4] }}{% endif %}</div>{% endif %}
+                </div>
+            </div>
+            <div class="worker-color-row">
+                <span style="font-size:12px;color:{{ '#94a3b8' if dark else '#64748b' }};">Boja:</span>
+                <form method="post" action="/update_worker_color" style="display:flex;align-items:center;gap:6px;">
+                    <input type="hidden" name="worker_name" value="{{ w[0] }}">
+                    <input type="color" name="color" value="{{ wcolor }}"
+                           onchange="this.form.submit()"
+                           style="width:32px;height:32px;border:none;background:none;cursor:pointer;padding:0;">
+                </form>
+            </div>
+            <div class="worker-actions">
+                <a href="/edit_worker/{{ w[0]|urlencode }}">{{ tr["edit"] }}</a>
+                <a href="/delete_worker/{{ w[0]|urlencode }}"
+                   onclick="return confirm('Obrisati radnika {{ w[0] }}?')"
+                   style="color:#dc2626;border:1px solid #fecaca;background:#fff1f2;">{{ tr["delete"] }}</a>
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+    """, tr=tr, dark=dark, workers=workers, worker_colors=worker_colors)
+
+
 @app.route("/add_worker", methods=["POST"])
 def add_worker():
     if session.get("role") != "admin": return redirect("/")
     name = request.form["worker_name"].strip(); address = request.form.get("address", "").strip(); contract_type = request.form.get("contract_type", "").strip(); contract_end_date = request.form.get("contract_end_date", "").strip()
     if name:
         conn = get_conn(); c = conn.cursor(); c.execute("INSERT OR IGNORE INTO workers (name, address, contract_type, contract_end_date) VALUES (?, ?, ?, ?)", (name, address, contract_type, contract_end_date)); c.execute("INSERT OR IGNORE INTO worker_colors (worker_name, color) VALUES (?, ?)", (name, "#f97316")); conn.commit(); conn.close()
-    return redirect("/")
+    ref = request.referrer or "/workers"
+    return redirect("/workers" if "/workers" in ref else ref)
 
 @app.route("/add_client", methods=["POST"])
 def add_client():
@@ -4972,7 +5506,7 @@ def add_client():
     name = request.form["client_name"].strip(); address = request.form.get("address", "").strip()
     if name and address:
         conn = get_conn(); c = conn.cursor(); c.execute("INSERT OR IGNORE INTO clients (name, address) VALUES (?, ?)", (name, address)); conn.commit(); conn.close()
-    return redirect("/")
+    return redirect("/clients")
 
 @app.route("/add_shift", methods=["POST"])
 def add_shift():
@@ -5036,6 +5570,306 @@ self.addEventListener('fetch', e => {
     resp.headers["Service-Worker-Allowed"] = "/"
     resp.headers["Cache-Control"] = "no-cache"
     return resp
+
+
+@app.route("/admin")
+def admin_page():
+    if session.get("role") != "admin": return redirect("/")
+    tr = t(); dark = get_theme() == "dark"
+    conn = get_conn(); c = conn.cursor()
+    db_users = c.execute("SELECT id, username, role FROM users ORDER BY username").fetchall()
+    workers = c.execute("SELECT name FROM workers ORDER BY name").fetchall()
+    worker_colors = get_worker_colors(conn)
+    conn.close()
+    return render_template_string(BASE_STYLE + header_html() + """
+    <style>
+    .admin-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-top:20px;}
+    .admin-user-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;
+                    border-bottom:1px solid {{ '#334155' if dark else '#f1f5f9' }};}
+    .admin-user-row:last-child{border-bottom:none;}
+    </style>
+    <h1>🔧 Administracija</h1>
+    <a class="back-button" href="/">{{ tr["back"] }}</a>
+    <div class="admin-grid">
+
+      <div class="card">
+        <h3>🔑 {{ tr["change_password"] }}</h3>
+        <form method="post" action="/change_password">
+          <input name="new_password" type="password" placeholder="{{ tr['new_password'] }}" required>
+          <button>{{ tr["save"] }}</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h3>➕ {{ tr["add_user"] }}</h3>
+        <form method="post" action="/add_user">
+          <input name="username" placeholder="{{ tr['username'] }}" required>
+          <input name="password" type="password" placeholder="{{ tr['password'] }}" required>
+          <select name="role">
+            <option value="admin">{{ tr['role_admin'] }}</option>
+            <option value="worker">{{ tr['role_worker'] }}</option>
+          </select>
+          <button>{{ tr["add_user"] }}</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h3>👥 {{ tr["existing_users"] }}</h3>
+        {% for u in db_users %}
+        <div class="admin-user-row">
+          <div><b>{{ u[1] }}</b> <span style="font-size:12px;opacity:0.6;">({{ u[2] }})</span></div>
+          {% if u[1] != 'admin' %}
+          <a class="delete-link" href="/delete_user/{{ u[0] }}"
+             onclick="return confirm('Obrisati korisnika {{ u[1] }}?')"
+             style="width:auto;padding:4px 10px;font-size:12px;">{{ tr["delete"] }}</a>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="card">
+        <h3>🎨 {{ tr["worker_colors"] }}</h3>
+        {% for w in workers %}
+        {% if w[0] != 'admin' %}
+        <form method="post" action="/update_worker_color"
+              style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <input type="hidden" name="worker_name" value="{{ w[0] }}">
+          <div style="min-width:120px;font-size:14px;">{{ w[0] }}</div>
+          <input type="color" name="color" value="{{ worker_colors.get(w[0], '#1f4f82') }}"
+                 onchange="this.form.submit()"
+                 style="width:32px;height:32px;border:none;background:none;cursor:pointer;padding:0;">
+        </form>
+        {% endif %}
+        {% endfor %}
+      </div>
+
+    </div>
+    """, tr=tr, dark=dark, db_users=db_users, workers=workers, worker_colors=worker_colors)
+
+
+@app.route("/clients")
+def clients_page():
+    if session.get("role") != "admin": return redirect("/")
+    tr = t(); dark = get_theme() == "dark"
+    conn = get_conn(); c = conn.cursor()
+    clients = c.execute("SELECT name, address FROM clients ORDER BY name").fetchall()
+    conn.close()
+    return render_template_string(BASE_STYLE + header_html() + """
+    <style>
+    .clients-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:20px;}
+    .client-card{background:{{ '#1e293b' if dark else 'white' }};border-radius:12px;padding:14px;
+                 border:1px solid {{ '#334155' if dark else '#e2e8f0' }};display:flex;flex-direction:column;gap:8px;}
+    .client-card-name{font-weight:700;font-size:15px;}
+    .client-card-addr{font-size:12px;color:{{ '#94a3b8' if dark else '#64748b' }};}
+    .client-card-actions{display:flex;gap:8px;}
+    .client-card-actions a{width:auto;padding:5px 12px;font-size:12px;margin:0;}
+    .add-client-card{background:{{ '#172334' if dark else '#f8fbff' }};
+                     border:2px dashed {{ '#334155' if dark else '#cbd5e1' }};
+                     border-radius:12px;padding:20px;max-width:480px;}
+    </style>
+    <h1>🏢 {{ tr["clients"] }}</h1>
+    <a class="back-button" href="/">{{ tr["back"] }}</a>
+
+    <div class="add-client-card" style="margin-top:16px;">
+      <h3 style="margin:0 0 12px;">+ {{ tr["add_client"] }}</h3>
+      <form method="post" action="/add_client" style="display:flex;flex-direction:column;gap:8px;">
+        <input name="client_name" placeholder="{{ tr['client_name'] }}" required>
+        <input name="address" placeholder="{{ tr['address'] }}" required>
+        <button style="width:auto;align-self:flex-start;">{{ tr["add_client"] }}</button>
+      </form>
+    </div>
+
+    <div class="clients-grid">
+      {% for cl in clients %}
+      <div class="client-card">
+        <div class="client-card-name">🏢 {{ cl[0] }}</div>
+        {% if cl[1] %}<div class="client-card-addr">📍 {{ cl[1] }}</div>{% endif %}
+        <div class="client-card-actions">
+          <a href="/edit_client/{{ cl[0]|urlencode }}">{{ tr["edit"] }}</a>
+          <a href="/delete_client/{{ cl[0]|urlencode }}"
+             onclick="return confirm('Obrisati klijenta: {{ cl[0] }}?')"
+             style="color:#dc2626;border:1px solid #fecaca;background:#fff1f2;">{{ tr["delete"] }}</a>
+        </div>
+      </div>
+      {% endfor %}
+      {% if clients|length == 0 %}
+      <div class="muted" style="padding:20px;">Nema unesenih klijenata.</div>
+      {% endif %}
+    </div>
+    """, tr=tr, dark=dark, clients=clients)
+
+
+@app.route("/backup")
+def backup_page():
+    if session.get("role") != "admin": return redirect("/")
+    tr = t(); dark = get_theme() == "dark"
+    notice = request.args.get("notice", "")
+    backups = []
+    if os.path.isdir(BACKUP_ROOT):
+        for fname in sorted(os.listdir(BACKUP_ROOT), reverse=True):
+            if fname.endswith(".zip"):
+                fpath = os.path.join(BACKUP_ROOT, fname)
+                try:
+                    fsize = os.path.getsize(fpath)
+                    mtime = os.path.getmtime(fpath)
+                    date_str = datetime.fromtimestamp(mtime).strftime("%d.%m.%Y %H:%M")
+                except Exception:
+                    fsize = 0; date_str = ""
+                backups.append({"name": fname, "size": document_size_label(fsize), "date": date_str})
+    return render_template_string(BASE_STYLE + header_html() + """
+    <style>
+    .backup-list{margin-top:20px;display:flex;flex-direction:column;gap:10px;max-width:700px;}
+    .backup-item{background:{{ '#1e293b' if dark else 'white' }};border-radius:10px;padding:14px 16px;
+                 border:1px solid {{ '#334155' if dark else '#e2e8f0' }};
+                 display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+    .backup-item-info{flex:1;min-width:0;}
+    .backup-item-name{font-weight:600;font-size:14px;word-break:break-all;}
+    .backup-item-meta{font-size:12px;color:{{ '#94a3b8' if dark else '#64748b' }};margin-top:2px;}
+    .backup-item-actions{display:flex;gap:8px;flex-shrink:0;}
+    .backup-item-actions a,.backup-item-actions button{width:auto;padding:5px 12px;font-size:12px;margin:0;}
+    .backup-create-card{background:{{ '#172334' if dark else '#f0f9ff' }};
+                        border:2px dashed {{ '#334155' if dark else '#bae6fd' }};
+                        border-radius:12px;padding:20px;max-width:500px;margin-top:16px;}
+    </style>
+    <h1>💾 Backup &amp; Restore</h1>
+    <a class="back-button" href="/">{{ tr["back"] }}</a>
+
+    {% if notice %}
+    <div style="background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:8px;
+                padding:10px 14px;margin-top:14px;max-width:600px;">{{ notice }}</div>
+    {% endif %}
+
+    <!-- Create backup -->
+    <div class="backup-create-card">
+      <h3 style="margin:0 0 8px;">📦 Kreiraj novi backup</h3>
+      <p style="font-size:13px;opacity:0.7;margin:0 0 12px;">
+        Kreira ZIP arhivu koja sadrži bazu podataka i sve uploadovane dokumente.
+        Backup se čuva na persistentnom disku.
+      </p>
+      <form method="post" action="/backup/create">
+        <button style="width:auto;background:#0ea5e9;border-color:#0ea5e9;">💾 Kreiraj backup sada</button>
+      </form>
+    </div>
+
+    <!-- Backup list -->
+    <h3 style="margin-top:28px;margin-bottom:8px;">📋 Sačuvani backupi</h3>
+    {% if backups %}
+    <div class="backup-list">
+      {% for b in backups %}
+      <div class="backup-item">
+        <div style="font-size:24px;">🗜️</div>
+        <div class="backup-item-info">
+          <div class="backup-item-name">{{ b.name }}</div>
+          <div class="backup-item-meta">{{ b.date }} · {{ b.size }}</div>
+        </div>
+        <div class="backup-item-actions">
+          <a href="/backup/download/{{ b.name }}">⬇️ Preuzmi</a>
+          <form method="post" action="/backup/restore/{{ b.name }}"
+                onsubmit="return confirm('Restaurisati bazu iz {{ b.name }}? Trenutni podaci će biti zamijenjeni.');"
+                style="display:inline;">
+            <button style="background:#f59e0b;border-color:#f59e0b;">🔄 Restore DB</button>
+          </form>
+          <form method="post" action="/backup/delete/{{ b.name }}"
+                onsubmit="return confirm('Obrisati backup {{ b.name }}?');"
+                style="display:inline;">
+            <button style="background:#ef4444;border-color:#ef4444;">🗑</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="muted" style="padding:16px;">Nema sačuvanih backupa. Kreirajte prvi backup gore.</div>
+    {% endif %}
+
+    <div style="margin-top:24px;padding:12px 16px;background:{{ '#172334' if dark else '#fffbeb' }};
+                border:1px solid {{ '#334155' if dark else '#fde68a' }};border-radius:8px;
+                font-size:12px;max-width:600px;">
+      ℹ️ <b>Napomena:</b> "Restore DB" vraća samo bazu podataka (smjene, radnike, klijente itd.).
+      Uploadovani dokumenti se ne zamjenjuju automatski — za potpunu restauraciju preuzmite backup
+      i kontaktirajte administratora servera.
+    </div>
+    """, tr=tr, dark=dark, notice=notice, backups=backups)
+
+
+@app.route("/backup/create", methods=["POST"])
+def backup_create():
+    if session.get("role") != "admin": return redirect("/")
+    os.makedirs(BACKUP_ROOT, exist_ok=True)
+    ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    backup_name = f"Backup_{ts}.zip"
+    backup_path = os.path.join(BACKUP_ROOT, backup_name)
+    tmp_fd, tmp_path = tempfile.mkstemp(suffix=".zip")
+    os.close(tmp_fd)
+    try:
+        with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            if os.path.exists(SQLITE_PATH):
+                zf.write(SQLITE_PATH, "db.sqlite")
+            if os.path.isdir(DOCUMENT_ROOT):
+                for root_dir, dirs, files in os.walk(DOCUMENT_ROOT):
+                    for fname in files:
+                        fpath = os.path.join(root_dir, fname)
+                        arcname = "documents/" + os.path.relpath(fpath, DOCUMENT_ROOT).replace("\\", "/")
+                        zf.write(fpath, arcname)
+        os.replace(tmp_path, backup_path)
+        msg = f"Backup kreiran: {backup_name}"
+    except Exception as e:
+        try: os.unlink(tmp_path)
+        except: pass
+        msg = f"Greška pri kreiranju backupa: {e}"
+    return redirect("/backup?notice=" + urllib.parse.quote(msg))
+
+
+@app.route("/backup/download/<path:filename>")
+def backup_download(filename):
+    if session.get("role") != "admin": return redirect("/")
+    safe_name = os.path.basename(filename)
+    fpath = os.path.join(BACKUP_ROOT, safe_name)
+    if not os.path.exists(fpath):
+        return "Backup nije pronađen.", 404
+    return send_file(fpath, as_attachment=True, download_name=safe_name, mimetype="application/zip")
+
+
+@app.route("/backup/restore/<path:filename>", methods=["POST"])
+def backup_restore(filename):
+    if session.get("role") != "admin": return redirect("/")
+    safe_name = os.path.basename(filename)
+    fpath = os.path.join(BACKUP_ROOT, safe_name)
+    if not os.path.exists(fpath):
+        return redirect("/backup?notice=" + urllib.parse.quote("Backup nije pronađen."))
+    try:
+        with zipfile.ZipFile(fpath, "r") as zf:
+            names = zf.namelist()
+            if "db.sqlite" not in names:
+                return redirect("/backup?notice=" + urllib.parse.quote("Backup ne sadrži bazu podataka."))
+            db_data = zf.read("db.sqlite")
+        tmp_fd, tmp_path = tempfile.mkstemp(suffix=".sqlite", dir=STORAGE_ROOT)
+        os.close(tmp_fd)
+        with open(tmp_path, "wb") as f:
+            f.write(db_data)
+        os.replace(tmp_path, SQLITE_PATH)
+        msg = f"Baza podataka uspješno obnovljena iz: {safe_name}"
+    except Exception as e:
+        msg = f"Greška pri restauraciji: {e}"
+    return redirect("/backup?notice=" + urllib.parse.quote(msg))
+
+
+@app.route("/backup/delete/<path:filename>", methods=["POST"])
+def backup_delete_file(filename):
+    if session.get("role") != "admin": return redirect("/")
+    safe_name = os.path.basename(filename)
+    fpath = os.path.join(BACKUP_ROOT, safe_name)
+    if os.path.exists(fpath):
+        os.unlink(fpath)
+    return redirect("/backup")
+
+
+@app.route("/delete_user/<int:user_id>")
+def delete_user(user_id):
+    if session.get("role") != "admin": return redirect("/")
+    conn = get_conn(); c = conn.cursor(); user = c.execute("SELECT username FROM users WHERE id = ?", (user_id,)).fetchone()
+    if user and user[0] != "admin": c.execute("DELETE FROM users WHERE id = ?", (user_id,)); c.execute("DELETE FROM workers WHERE name = ?", (user[0],)); c.execute("DELETE FROM worker_colors WHERE worker_name = ?", (user[0],))
+    conn.commit(); conn.close(); return redirect("/admin")
 
 
 if __name__ == "__main__":
