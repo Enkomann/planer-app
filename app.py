@@ -945,7 +945,24 @@ class _PgCursor:
         elif re.search(r"INSERT\s+OR\s+IGNORE\s+INTO", query, re.IGNORECASE):
             q += " ON CONFLICT DO NOTHING"
 
+        # Translate SQLite strftime() → PostgreSQL TO_CHAR()
+        # e.g. strftime('%Y-%m', col) → TO_CHAR(col::date, 'YYYY-MM')
+        _STRFTIME_FMT = {'%Y': 'YYYY', '%m': 'MM', '%d': 'DD',
+                         '%H': 'HH24', '%M': 'MI',  '%S': 'SS'}
+        def _strftime_repl(m):
+            fmt = m.group(1)
+            col = m.group(2).strip()
+            pg_fmt = fmt
+            for k, v in _STRFTIME_FMT.items():
+                pg_fmt = pg_fmt.replace(k, v)
+            return f"TO_CHAR({col}::date, '{pg_fmt}')"
+        q = re.sub(r"strftime\('([^']+)',\s*([^)]+?)\)", _strftime_repl, q, flags=re.IGNORECASE)
+
         q = q.replace("?", "%s")
+
+        # Escape any bare % that psycopg2 would misread as a format specifier
+        # (only % NOT already followed by 's' from our ?→%s replacement)
+        q = re.sub(r'%(?!s)', '%%', q)
         return q
 
     def execute(self, query, params=()):
