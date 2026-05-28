@@ -1984,7 +1984,9 @@ def init_db():
     c.execute("""
         CREATE TABLE IF NOT EXISTS worker_payroll_settings (
             worker TEXT PRIMARY KEY,
+            salary_type TEXT DEFAULT 'hourly',
             hourly_rate REAL DEFAULT 15.59,
+            fixed_gross REAL DEFAULT 0,
             tax_class TEXT DEFAULT '1',
             num_children INTEGER DEFAULT 0,
             notes TEXT DEFAULT ''
@@ -2108,6 +2110,11 @@ def init_db():
     document_cols = [row[1] for row in c.execute("PRAGMA table_info(documents)").fetchall()]
     if "folder_id" not in document_cols:
         c.execute("ALTER TABLE documents ADD COLUMN folder_id INTEGER")
+    payroll_cols = [row[1] for row in c.execute("PRAGMA table_info(worker_payroll_settings)").fetchall()]
+    if "salary_type" not in payroll_cols:
+        c.execute("ALTER TABLE worker_payroll_settings ADD COLUMN salary_type TEXT DEFAULT 'hourly'")
+    if "fixed_gross" not in payroll_cols:
+        c.execute("ALTER TABLE worker_payroll_settings ADD COLUMN fixed_gross REAL DEFAULT 0")
 
     c.execute("INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)", ("admin", hash_password("admin123"), "admin"))
     c.execute("INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)", ("worker1", hash_password("1234"), "worker"))
@@ -6081,25 +6088,32 @@ def backup_delete_file(filename):
 def payroll_save_settings():
     if session.get("role") != "admin": return redirect("/")
     conn = get_conn(); c = conn.cursor()
-    names    = request.form.getlist("wname[]")
-    rates    = request.form.getlist("wrate[]")
-    classes  = request.form.getlist("wclass[]")
-    children = request.form.getlist("wchildren[]")
-    notes_l  = request.form.getlist("wnotes[]")
+    names       = request.form.getlist("wname[]")
+    sal_types   = request.form.getlist("wsaltype[]")
+    rates       = request.form.getlist("wrate[]")
+    fixeds      = request.form.getlist("wfixed[]")
+    classes     = request.form.getlist("wclass[]")
+    children    = request.form.getlist("wchildren[]")
+    notes_l     = request.form.getlist("wnotes[]")
     for i, name in enumerate(names):
+        sal_type = sal_types[i] if i < len(sal_types) else 'hourly'
         try:    rate = float(rates[i] if i < len(rates) else 0)
         except: rate = 0.0
+        try:    fixed_g = float(fixeds[i] if i < len(fixeds) else 0)
+        except: fixed_g = 0.0
         try:    kids = int(children[i] if i < len(children) else 0)
         except: kids = 0
         tc    = classes[i] if i < len(classes) else '1'
         notes = notes_l[i] if i < len(notes_l) else ''
         c.execute("""
-            INSERT INTO worker_payroll_settings (worker, hourly_rate, tax_class, num_children, notes)
-            VALUES (?,?,?,?,?)
+            INSERT INTO worker_payroll_settings
+                (worker, salary_type, hourly_rate, fixed_gross, tax_class, num_children, notes)
+            VALUES (?,?,?,?,?,?,?)
             ON CONFLICT(worker) DO UPDATE SET
-                hourly_rate=excluded.hourly_rate, tax_class=excluded.tax_class,
+                salary_type=excluded.salary_type, hourly_rate=excluded.hourly_rate,
+                fixed_gross=excluded.fixed_gross, tax_class=excluded.tax_class,
                 num_children=excluded.num_children, notes=excluded.notes
-        """, (name, rate, tc, kids, notes))
+        """, (name, sal_type, rate, fixed_g, tc, kids, notes))
     conn.commit(); conn.close()
     return redirect("/payroll")
 
@@ -6111,11 +6125,11 @@ def payroll_page():
     conn = get_conn(); c = conn.cursor()
 
     workers_list = [r[0] for r in c.execute("SELECT name FROM workers ORDER BY name").fetchall()]
-    raw_settings = {r[0]: {'hourly_rate': r[1], 'tax_class': r[2], 'num_children': r[3], 'notes': r[4] or ''}
-                    for r in c.execute("SELECT worker, hourly_rate, tax_class, num_children, notes FROM worker_payroll_settings").fetchall()}
+    raw_settings = {r[0]: {'salary_type': r[1], 'hourly_rate': r[2], 'fixed_gross': r[3], 'tax_class': r[4], 'num_children': r[5], 'notes': r[6] or ''}
+                    for r in c.execute("SELECT worker, salary_type, hourly_rate, fixed_gross, tax_class, num_children, notes FROM worker_payroll_settings").fetchall()}
     settings = {}
     for w in workers_list:
-        settings[w] = raw_settings.get(w, {'hourly_rate': LUX_SSM_HORAIRE, 'tax_class': '1', 'num_children': 0, 'notes': ''})
+        settings[w] = raw_settings.get(w, {'salary_type': 'hourly', 'hourly_rate': LUX_SSM_HORAIRE, 'fixed_gross': 0.0, 'tax_class': '1', 'num_children': 0, 'notes': ''})
 
     results  = []
     date_from = request.form.get("date_from", "")
@@ -6124,19 +6138,30 @@ def payroll_page():
     if request.method == "POST" and request.form.get("action") == "calculate" and date_from and date_to:
         all_shifts = c.execute("SELECT worker, time, date FROM shifts WHERE date >= ? AND date <= ?", (date_from, date_to)).fetchall()
         for w in workers_list:
-            ws   = settings.get(w, {})
-            rate = float(ws.get('hourly_rate') or 0)
-            if rate <= 0: continue
-            total_h = 0.0
+            ws       = settings.get(w, {})
+            sal_type = ws.get('salary_type', 'hourly')
+            tc       = ws.get('tax_class', '1')
+            total_h  = 0.0
             for sw, stime, _ in all_shifts:
                 if w in split_workers(sw):
                     total_h += parse_shift_hours(stime)
-            if total_h <= 0: continue
-            gross  = total_h * rate
-            result = calc_lux_payroll(gross, ws.get('tax_class', '1'), total_h)
-            result['worker']    = w
-            result['rate']      = rate
-            result['tax_class'] = ws.get('tax_class', '1')
+            if sal_type == 'fixed':
+                gross = float(ws.get('fixed_gross') or 0)
+                if gross <= 0: continue
+                result = calc_lux_payroll(gross, tc, total_h)
+                result['worker']    = w
+                result['sal_type']  = 'fixed'
+                result['rate']      = None
+                result['tax_class'] = tc
+            else:
+                rate = float(ws.get('hourly_rate') or 0)
+                if rate <= 0 or total_h <= 0: continue
+                gross  = total_h * rate
+                result = calc_lux_payroll(gross, tc, total_h)
+                result['worker']    = w
+                result['sal_type']  = 'hourly'
+                result['rate']      = rate
+                result['tax_class'] = tc
             results.append(result)
 
     conn.close()
@@ -6176,14 +6201,65 @@ def payroll_page():
       <div class="payroll-grid">
         {% for w in workers_list %}
         {% set ws = settings[w] %}
-        <div class="payroll-worker-card">
+        {% set wi = loop.index0 %}
+        <div class="payroll-worker-card" id="pwcard_{{ wi }}">
           <div class="pw-name">👤 {{ w }}</div>
           <input type="hidden" name="wname[]" value="{{ w }}">
-          <div class="pw-field">
+
+          <!-- Tip plate: satnica ili fiksna -->
+          <div style="margin-bottom:10px;">
+            <label style="font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; display:block; margin-bottom:6px;">Tip plate</label>
+            <div style="display:flex; gap:0; border-radius:8px; overflow:hidden; border:1px solid {{ '#334155' if dark else '#cbd5e1' }};">
+              <label style="flex:1; text-align:center; padding:7px 4px; cursor:pointer; font-size:12px; font-weight:600;
+                background:{% if ws.salary_type == 'hourly' %}{{ '#1f4f82' if dark else '#1f4f82' }}{% else %}{{ '#0f172a' if dark else '#f1f5f9' }}{% endif %};
+                color:{% if ws.salary_type == 'hourly' %}white{% else %}{{ '#94a3b8' if dark else '#64748b' }}{% endif %};"
+                id="lbl_hourly_{{ wi }}">
+                <input type="radio" name="wsaltype[]" value="hourly"
+                  {% if ws.salary_type != 'fixed' %}checked{% endif %}
+                  onchange="toggleSalType({{ wi }}, 'hourly')" style="display:none;">
+                🕐 Satnica
+              </label>
+              <label style="flex:1; text-align:center; padding:7px 4px; cursor:pointer; font-size:12px; font-weight:600;
+                background:{% if ws.salary_type == 'fixed' %}{{ '#1f4f82' if dark else '#1f4f82' }}{% else %}{{ '#0f172a' if dark else '#f1f5f9' }}{% endif %};
+                color:{% if ws.salary_type == 'fixed' %}white{% else %}{{ '#94a3b8' if dark else '#64748b' }}{% endif %};"
+                id="lbl_fixed_{{ wi }}">
+                <input type="radio" name="wsaltype[]" value="fixed"
+                  {% if ws.salary_type == 'fixed' %}checked{% endif %}
+                  onchange="toggleSalType({{ wi }}, 'fixed')" style="display:none;">
+                💼 Fiksna bruto
+              </label>
+            </div>
+          </div>
+
+          <!-- Satnica (vidljivo samo za hourly) -->
+          <div class="pw-field pw-hourly-row" id="row_hourly_{{ wi }}"
+               style="{{ 'display:none;' if ws.salary_type == 'fixed' else '' }}">
             <div>
               <label>Satnica (€/h)</label>
               <input type="number" name="wrate[]" value="{{ ws.hourly_rate }}" step="0.01" min="0" placeholder="{{ '%.2f'|format(lux_ssm_h) }}">
             </div>
+            <div style="display:flex; align-items:flex-end; padding-bottom:1px;">
+              <div style="font-size:11px; color:{{ '#64748b' if dark else '#94a3b8' }}; padding:8px 10px; border-radius:8px; background:{{ '#1e293b' if dark else '#f8fafc' }}; border:1px solid {{ '#334155' if dark else '#e2e8f0' }}; line-height:1.5;">
+                SSM 2025<br><b>{{ '%.2f'|format(lux_ssm_h) }} €/h</b>
+              </div>
+            </div>
+          </div>
+
+          <!-- Fiksna bruto plata (vidljivo samo za fixed) -->
+          <div class="pw-field pw-fixed-row" id="row_fixed_{{ wi }}"
+               style="{{ '' if ws.salary_type == 'fixed' else 'display:none;' }}">
+            <div>
+              <label>Fiksna bruto plata (€/mj)</label>
+              <input type="number" name="wfixed[]" value="{{ ws.fixed_gross }}" step="0.01" min="0" placeholder="npr. 2800.00">
+            </div>
+            <div style="display:flex; align-items:flex-end; padding-bottom:1px;">
+              <div style="font-size:11px; color:{{ '#64748b' if dark else '#94a3b8' }}; padding:8px 10px; border-radius:8px; background:{{ '#1e293b' if dark else '#f8fafc' }}; border:1px solid {{ '#334155' if dark else '#e2e8f0' }}; line-height:1.5;">
+                Neovisno<br><b>od sati</b>
+              </div>
+            </div>
+          </div>
+
+          <div class="pw-field">
             <div>
               <label>Klasa d'impôt</label>
               <select name="wclass[]">
@@ -6192,16 +6268,15 @@ def payroll_page():
                 <option value="2" {% if ws.tax_class == '2' %}selected{% endif %}>2 – Bračni par</option>
               </select>
             </div>
-          </div>
-          <div class="pw-field">
             <div>
               <label>Broj djece</label>
               <input type="number" name="wchildren[]" value="{{ ws.num_children }}" min="0" max="20">
             </div>
-            <div>
-              <label>Napomena</label>
-              <input type="text" name="wnotes[]" value="{{ ws.notes }}" placeholder="frontalier, CDD…">
-            </div>
+          </div>
+          <div>
+            <label style="font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; display:block; margin-bottom:4px;">Napomena</label>
+            <input type="text" name="wnotes[]" value="{{ ws.notes }}" placeholder="frontalier, CDD, étudiant…"
+              style="width:100%; padding:7px 10px; border-radius:8px; border:1px solid {{ '#334155' if dark else '#cbd5e1' }}; background:{{ '#0f172a' if dark else '#f8fafc' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }}; font-size:13px; box-sizing:border-box;">
           </div>
         </div>
         {% endfor %}
@@ -6260,10 +6335,20 @@ def payroll_page():
         <td>
           <div style="font-weight:700;">{{ r.worker }}</div>
           <div style="font-size:11px; color:{{ '#64748b' if dark else '#94a3b8' }};">
-            {{ r.rate }} €/h · klasa {{ r.tax_class }}
+            {% if r.sal_type == 'fixed' %}
+              <span style="background:{{ '#1e3a5f' if dark else '#dbeafe' }}; color:{{ '#93c5fd' if dark else '#1d4ed8' }}; padding:1px 6px; border-radius:4px; font-weight:600;">💼 Fix bruto</span>
+            {% else %}
+              {{ r.rate }} €/h
+            {% endif %}
+            · klasa {{ r.tax_class }}
           </div>
         </td>
-        <td style="font-weight:700;">{{ '%.2f'|format(r.hours) }} h</td>
+        <td style="font-weight:700;">
+          {{ '%.2f'|format(r.hours) }} h
+          {% if r.sal_type == 'fixed' and r.hours > 0 %}
+            <div style="font-size:10px; color:{{ '#94a3b8' if dark else '#64748b' }};">(evidentirano)</div>
+          {% endif %}
+        </td>
         <td style="color:{{ '#93c5fd' if dark else '#2563eb' }}; font-weight:700;">
           {{ '%.2f'|format(r.gross) }} €
         </td>
@@ -6327,6 +6412,31 @@ def payroll_page():
   {% endif %}
 
 </div>
+<script>
+function toggleSalType(idx, type) {
+  var hRow = document.getElementById('row_hourly_' + idx);
+  var fRow = document.getElementById('row_fixed_' + idx);
+  var lH   = document.getElementById('lbl_hourly_' + idx);
+  var lF   = document.getElementById('lbl_fixed_' + idx);
+  var activeStyle = 'background:#1f4f82; color:white;';
+  var inactiveStyleD = 'background:#0f172a; color:#94a3b8;';
+  var inactiveStyleL = 'background:#f1f5f9; color:#64748b;';
+  var isDark = document.body.style.getPropertyValue('color-scheme') === 'dark'
+    || document.documentElement.classList.contains('dark')
+    || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  if (type === 'hourly') {
+    if (hRow) hRow.style.display = '';
+    if (fRow) fRow.style.display = 'none';
+    if (lH) lH.style.cssText = activeStyle + 'flex:1;text-align:center;padding:7px 4px;cursor:pointer;font-size:12px;font-weight:600;';
+    if (lF) lF.style.cssText = (isDark ? inactiveStyleD : inactiveStyleL) + 'flex:1;text-align:center;padding:7px 4px;cursor:pointer;font-size:12px;font-weight:600;';
+  } else {
+    if (hRow) hRow.style.display = 'none';
+    if (fRow) fRow.style.display = '';
+    if (lF) lF.style.cssText = activeStyle + 'flex:1;text-align:center;padding:7px 4px;cursor:pointer;font-size:12px;font-weight:600;';
+    if (lH) lH.style.cssText = (isDark ? inactiveStyleD : inactiveStyleL) + 'flex:1;text-align:center;padding:7px 4px;cursor:pointer;font-size:12px;font-weight:600;';
+  }
+}
+</script>
 """, tr=tr, dark=dark, workers_list=workers_list, settings=settings, results=results,
      date_from=date_from, date_to=date_to, tot=tot,
      lux_ssm_h=LUX_SSM_HORAIRE, dep_franchise=LUX_CCSS_DEP_FRANCHISE,
