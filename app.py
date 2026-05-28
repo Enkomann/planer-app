@@ -1255,6 +1255,98 @@ def calculate_hours_for_user(shifts, username=None):
     return totals
 
 
+# ── Luxembourg Payroll Constants (2025) ──────────────────────────────────────
+LUX_SSM_MENSUEL        = 2702.49   # Salaire social minimum non-qualifié 2025 (€/mois)
+LUX_SSM_HORAIRE        = round(LUX_SSM_MENSUEL / 173.33, 4)  # ≈ 15.59 €/h
+LUX_CCSS_HEALTH_EMP    = 0.0305    # Assurance maladie (salarié)
+LUX_CCSS_PENSION_EMP   = 0.0800    # Assurance pension (salarié)
+LUX_CCSS_DEP_RATE      = 0.0140    # Assurance dépendance (salarié)
+LUX_CCSS_DEP_FRANCHISE = LUX_SSM_MENSUEL / 3  # ≈ 900.83 €/mois
+LUX_FORFAIT_FRAIS      = 45.0      # Forfait frais d'obtention mensuel (540 €/an ÷ 12)
+LUX_SOLIDARITY_1       = 0.07      # Impôt de solidarité classe 1 & 1a
+LUX_SOLIDARITY_2       = 0.09      # Impôt de solidarité classe 2
+LUX_EMPLOYER_HEALTH    = 0.0305    # Assurance maladie (patronal)
+LUX_EMPLOYER_PENSION   = 0.0800    # Assurance pension (patronal)
+LUX_EMPLOYER_ACCIDENT  = 0.0110    # Assurance accident (patronal, ~1.1 %)
+
+# Tranches d'imposition annuelles Luxembourg 2024/2025 (taux marginaux)
+_LUX_BRACKETS = [
+    (11265,0.00),(13173,0.08),(15081,0.09),(16989,0.10),(18897,0.11),
+    (20805,0.12),(22713,0.14),(24621,0.16),(26529,0.18),(28437,0.20),
+    (30345,0.22),(32253,0.24),(34161,0.26),(36069,0.28),(37977,0.30),
+    (39885,0.32),(41793,0.34),(43701,0.36),(45609,0.38),(100002,0.39),
+    (150000,0.40),(200004,0.41),(float('inf'),0.42),
+]
+
+def _lux_bracket_tax(annual_income):
+    """Calcul de l'impôt annuel par tranches progressives."""
+    if annual_income <= 0:
+        return 0.0
+    tax, prev = 0.0, 0
+    for ceiling, rate in _LUX_BRACKETS:
+        if annual_income <= prev:
+            break
+        tax += (min(annual_income, ceiling) - prev) * rate
+        prev = ceiling
+    return tax
+
+def calc_lux_payroll(gross_monthly, tax_class='1', hours=0.0):
+    """
+    Obračun plate za Luksemburg.
+    Vraća dict sa svim komponentama (brut → net → cijena za poslodavca).
+    """
+    # ── Odbitci CCSS (salarié) ──
+    health      = gross_monthly * LUX_CCSS_HEALTH_EMP
+    pension     = gross_monthly * LUX_CCSS_PENSION_EMP
+    dep_base    = max(0.0, gross_monthly - LUX_CCSS_DEP_FRANCHISE)
+    dependency  = dep_base * LUX_CCSS_DEP_RATE
+    total_ccss  = health + pension + dependency
+
+    # ── Baza za porez (brut − maladie − pension − forfait frais) ──
+    taxable_m   = max(0.0, gross_monthly - health - pension - LUX_FORFAIT_FRAIS)
+    taxable_y   = taxable_m * 12
+
+    # ── Porez na dohodak po klasi ──
+    if tax_class == '2':
+        base_tax_y  = _lux_bracket_tax(taxable_y / 2) * 2
+        solidarity  = LUX_SOLIDARITY_2
+    elif tax_class == '1a':
+        t1 = _lux_bracket_tax(taxable_y)
+        t2 = _lux_bracket_tax(taxable_y / 2) * 2
+        base_tax_y  = (t1 + t2) / 2    # interpolacija između klase 1 i 2
+        solidarity  = LUX_SOLIDARITY_1
+    else:   # klasa 1
+        base_tax_y  = _lux_bracket_tax(taxable_y)
+        solidarity  = LUX_SOLIDARITY_1
+    annual_tax  = base_tax_y * (1 + solidarity)
+    monthly_tax = annual_tax / 12
+
+    # ── Net plata ──
+    net = gross_monthly - total_ccss - monthly_tax
+
+    # ── Cijena za poslodavca (bruto-bruto) ──
+    emp_health   = gross_monthly * LUX_EMPLOYER_HEALTH
+    emp_pension  = gross_monthly * LUX_EMPLOYER_PENSION
+    emp_accident = gross_monthly * LUX_EMPLOYER_ACCIDENT
+    employer_total = gross_monthly + emp_health + emp_pension + emp_accident
+
+    return {
+        'hours':          round(hours, 2),
+        'gross':          round(gross_monthly, 2),
+        'health':         round(health, 2),
+        'pension':        round(pension, 2),
+        'dependency':     round(dependency, 2),
+        'total_ccss':     round(total_ccss, 2),
+        'taxable_m':      round(taxable_m, 2),
+        'income_tax':     round(monthly_tax, 2),
+        'net':            round(net, 2),
+        'emp_health':     round(emp_health, 2),
+        'emp_pension':    round(emp_pension, 2),
+        'emp_accident':   round(emp_accident, 2),
+        'employer_total': round(employer_total, 2),
+    }
+
+
 def get_worker_colors(conn):
     c = conn.cursor()
     rows = c.execute("SELECT worker_name, color FROM worker_colors").fetchall()
@@ -1883,6 +1975,15 @@ def init_db():
         )
     """)
     c.execute("""
+        CREATE TABLE IF NOT EXISTS worker_payroll_settings (
+            worker TEXT PRIMARY KEY,
+            hourly_rate REAL DEFAULT 15.59,
+            tax_class TEXT DEFAULT '1',
+            num_children INTEGER DEFAULT 0,
+            notes TEXT DEFAULT ''
+        )
+    """)
+    c.execute("""
         CREATE TABLE IF NOT EXISTS document_folders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT,
@@ -2488,6 +2589,9 @@ def header_html():
         </a>
         <a href="/invoices" class="sidebar-link {% if request.path.startswith('/invoices') %}active{% endif %}" title="Fakture">
           <span class="sl-icon">🧾</span><span>Fakture</span>
+        </a>
+        <a href="/payroll" class="sidebar-link {% if request.path.startswith('/payroll') %}active{% endif %}" title="Obračun plata">
+          <span class="sl-icon">💰</span><span>Plate</span>
         </a>
         <a href="/route_optimizer" class="sidebar-link {% if request.path == '/route_optimizer' %}active{% endif %}" title="Optimizacija rute">
           <span class="sl-icon">🗺️</span><span>Ruta</span>
@@ -5964,6 +6068,262 @@ def backup_delete_file(filename):
     if os.path.exists(fpath):
         os.unlink(fpath)
     return redirect("/backup")
+
+
+@app.route("/payroll/save_settings", methods=["POST"])
+def payroll_save_settings():
+    if session.get("role") != "admin": return redirect("/")
+    conn = get_conn(); c = conn.cursor()
+    names    = request.form.getlist("wname[]")
+    rates    = request.form.getlist("wrate[]")
+    classes  = request.form.getlist("wclass[]")
+    children = request.form.getlist("wchildren[]")
+    notes_l  = request.form.getlist("wnotes[]")
+    for i, name in enumerate(names):
+        try:    rate = float(rates[i] if i < len(rates) else 0)
+        except: rate = 0.0
+        try:    kids = int(children[i] if i < len(children) else 0)
+        except: kids = 0
+        tc    = classes[i] if i < len(classes) else '1'
+        notes = notes_l[i] if i < len(notes_l) else ''
+        c.execute("""
+            INSERT INTO worker_payroll_settings (worker, hourly_rate, tax_class, num_children, notes)
+            VALUES (?,?,?,?,?)
+            ON CONFLICT(worker) DO UPDATE SET
+                hourly_rate=excluded.hourly_rate, tax_class=excluded.tax_class,
+                num_children=excluded.num_children, notes=excluded.notes
+        """, (name, rate, tc, kids, notes))
+    conn.commit(); conn.close()
+    return redirect("/payroll")
+
+
+@app.route("/payroll", methods=["GET", "POST"])
+def payroll_page():
+    if session.get("role") != "admin": return redirect("/")
+    tr   = t(); dark = get_theme() == "dark"
+    conn = get_conn(); c = conn.cursor()
+
+    workers_list = [r[0] for r in c.execute("SELECT name FROM workers ORDER BY name").fetchall()]
+    raw_settings = {r[0]: {'hourly_rate': r[1], 'tax_class': r[2], 'num_children': r[3], 'notes': r[4] or ''}
+                    for r in c.execute("SELECT worker, hourly_rate, tax_class, num_children, notes FROM worker_payroll_settings").fetchall()}
+    settings = {}
+    for w in workers_list:
+        settings[w] = raw_settings.get(w, {'hourly_rate': LUX_SSM_HORAIRE, 'tax_class': '1', 'num_children': 0, 'notes': ''})
+
+    results  = []
+    date_from = request.form.get("date_from", "")
+    date_to   = request.form.get("date_to", "")
+
+    if request.method == "POST" and request.form.get("action") == "calculate" and date_from and date_to:
+        all_shifts = c.execute("SELECT worker, time, date FROM shifts WHERE date >= ? AND date <= ?", (date_from, date_to)).fetchall()
+        for w in workers_list:
+            ws   = settings.get(w, {})
+            rate = float(ws.get('hourly_rate') or 0)
+            if rate <= 0: continue
+            total_h = 0.0
+            for sw, stime, _ in all_shifts:
+                if w in split_workers(sw):
+                    total_h += parse_shift_hours(stime)
+            if total_h <= 0: continue
+            gross  = total_h * rate
+            result = calc_lux_payroll(gross, ws.get('tax_class', '1'), total_h)
+            result['worker']    = w
+            result['rate']      = rate
+            result['tax_class'] = ws.get('tax_class', '1')
+            results.append(result)
+
+    conn.close()
+    tot = lambda key: sum(r[key] for r in results)
+
+    return render_template_string(BASE_STYLE + header_html() + """
+<style>
+.payroll-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:14px; margin-bottom:20px; }
+.payroll-worker-card { background:{{ '#1e293b' if dark else 'white' }}; border:1px solid {{ '#334155' if dark else '#e2e8f0' }}; border-radius:12px; padding:16px; }
+.pw-name { font-weight:700; font-size:15px; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+.pw-field { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px; }
+.pw-field label { font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; margin-bottom:2px; display:block; }
+.pw-field input, .pw-field select { width:100%; padding:7px 10px; border-radius:8px; border:1px solid {{ '#334155' if dark else '#cbd5e1' }}; background:{{ '#0f172a' if dark else '#f8fafc' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }}; font-size:13px; box-sizing:border-box; }
+.result-table { width:100%; border-collapse:collapse; font-size:13px; }
+.result-table th { padding:10px 12px; text-align:left; background:{{ '#1e293b' if dark else '#f1f5f9' }}; color:{{ '#94a3b8' if dark else '#475569' }}; font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:0.04em; border-bottom:2px solid {{ '#334155' if dark else '#e2e8f0' }}; }
+.result-table td { padding:10px 12px; border-bottom:1px solid {{ '#1e293b' if dark else '#f1f5f9' }}; vertical-align:top; }
+.result-table tr:hover td { background:{{ '#1e293b' if dark else '#f8fafc' }}; }
+.result-table tfoot td { font-weight:700; background:{{ '#172039' if dark else '#eef2ff' }}; border-top:2px solid {{ '#3b82f6' if dark else '#6366f1' }}; }
+.deduction-row { display:flex; justify-content:space-between; font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; margin:1px 0; }
+.deduction-row.bold { font-weight:700; color:{{ '#ef4444' if dark else '#dc2626' }}; font-size:12px; }
+.net-amount { font-weight:800; font-size:15px; color:{{ '#4ade80' if dark else '#16a34a' }}; }
+.employer-amount { font-size:11px; color:{{ '#fbbf24' if dark else '#d97706' }}; }
+.legend-box { display:flex; flex-wrap:wrap; gap:10px; margin:14px 0; font-size:12px; }
+.legend-item { display:flex; align-items:center; gap:5px; }
+.legend-dot { width:10px; height:10px; border-radius:50%; }
+</style>
+<div class="page-content">
+  <div class="hero">
+    <h1>💰 Obračun plata — Luksemburg</h1>
+    <div class="muted">CCSS (maladie 3.05% · pension 8% · dépendance 1.4%) · Retenue d'impôt · 2025</div>
+  </div>
+
+  <!-- Settings card -->
+  <div class="card" style="margin-bottom:20px;">
+    <div class="section-title"><h3>⚙️ Podešavanja po radniku</h3></div>
+    <form method="post" action="/payroll/save_settings">
+      <div class="payroll-grid">
+        {% for w in workers_list %}
+        {% set ws = settings[w] %}
+        <div class="payroll-worker-card">
+          <div class="pw-name">👤 {{ w }}</div>
+          <input type="hidden" name="wname[]" value="{{ w }}">
+          <div class="pw-field">
+            <div>
+              <label>Satnica (€/h)</label>
+              <input type="number" name="wrate[]" value="{{ ws.hourly_rate }}" step="0.01" min="0" placeholder="{{ '%.2f'|format(lux_ssm_h) }}">
+            </div>
+            <div>
+              <label>Klasa d'impôt</label>
+              <select name="wclass[]">
+                <option value="1" {% if ws.tax_class == '1' %}selected{% endif %}>1 – Samac</option>
+                <option value="1a" {% if ws.tax_class == '1a' %}selected{% endif %}>1a – Monoparental</option>
+                <option value="2" {% if ws.tax_class == '2' %}selected{% endif %}>2 – Bračni par</option>
+              </select>
+            </div>
+          </div>
+          <div class="pw-field">
+            <div>
+              <label>Broj djece</label>
+              <input type="number" name="wchildren[]" value="{{ ws.num_children }}" min="0" max="20">
+            </div>
+            <div>
+              <label>Napomena</label>
+              <input type="text" name="wnotes[]" value="{{ ws.notes }}" placeholder="frontalier, CDD…">
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <button type="submit" class="btn" style="margin-top:4px;">💾 Sačuvaj podešavanja</button>
+    </form>
+  </div>
+
+  <!-- Calculate card -->
+  <div class="card" style="margin-bottom:20px;">
+    <div class="section-title"><h3>📅 Period obračuna</h3></div>
+    <form method="post" action="/payroll">
+      <input type="hidden" name="action" value="calculate">
+      <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end;">
+        <div>
+          <label style="font-size:12px; color:{{ '#94a3b8' if dark else '#64748b' }}; display:block; margin-bottom:4px;">Od datuma</label>
+          <input type="date" name="date_from" value="{{ date_from }}" required style="padding:9px 12px; border-radius:8px; border:1px solid {{ '#334155' if dark else '#cbd5e1' }}; background:{{ '#0f172a' if dark else '#f8fafc' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }};">
+        </div>
+        <div>
+          <label style="font-size:12px; color:{{ '#94a3b8' if dark else '#64748b' }}; display:block; margin-bottom:4px;">Do datuma</label>
+          <input type="date" name="date_to" value="{{ date_to }}" required style="padding:9px 12px; border-radius:8px; border:1px solid {{ '#334155' if dark else '#cbd5e1' }}; background:{{ '#0f172a' if dark else '#f8fafc' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }};">
+        </div>
+        <button type="submit" class="btn" style="background:#16a34a; color:white;">🧮 Izračunaj plate</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Results -->
+  {% if results %}
+  <div class="card">
+    <div class="section-title">
+      <h3>📊 Rezultati: {{ date_from }} → {{ date_to }}</h3>
+    </div>
+    <div class="legend-box">
+      <div class="legend-item"><div class="legend-dot" style="background:#3b82f6;"></div> Brut (€)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ef4444;"></div> Odbitci CCSS + impôt</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#16a34a;"></div> Net (€)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f59e0b;"></div> Cijena za poslodavca</div>
+    </div>
+    <div style="overflow-x:auto;">
+    <table class="result-table">
+      <thead>
+        <tr>
+          <th>Radnik</th>
+          <th>Sati</th>
+          <th>Brut (€)</th>
+          <th>CCSS odbitci</th>
+          <th>Porez</th>
+          <th>Net (€)</th>
+          <th>Cijena poslodc.</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for r in results %}
+      <tr>
+        <td>
+          <div style="font-weight:700;">{{ r.worker }}</div>
+          <div style="font-size:11px; color:{{ '#64748b' if dark else '#94a3b8' }};">
+            {{ r.rate }} €/h · klasa {{ r.tax_class }}
+          </div>
+        </td>
+        <td style="font-weight:700;">{{ '%.2f'|format(r.hours) }} h</td>
+        <td style="color:{{ '#93c5fd' if dark else '#2563eb' }}; font-weight:700;">
+          {{ '%.2f'|format(r.gross) }} €
+        </td>
+        <td>
+          <div class="deduction-row"><span>Maladie (3.05%)</span><span>−{{ '%.2f'|format(r.health) }} €</span></div>
+          <div class="deduction-row"><span>Pension (8%)</span><span>−{{ '%.2f'|format(r.pension) }} €</span></div>
+          <div class="deduction-row"><span>Dépendance (1.4%)</span><span>−{{ '%.2f'|format(r.dependency) }} €</span></div>
+          <div class="deduction-row bold"><span>Ukupno CCSS</span><span>−{{ '%.2f'|format(r.total_ccss) }} €</span></div>
+        </td>
+        <td>
+          <div style="font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }};">
+            Baza: {{ '%.2f'|format(r.taxable_m) }} €/mj<br>
+            <span style="font-weight:700; color:{{ '#fca5a5' if dark else '#dc2626' }};">
+              −{{ '%.2f'|format(r.income_tax) }} €
+            </span>
+          </div>
+        </td>
+        <td>
+          <div class="net-amount">{{ '%.2f'|format(r.net) }} €</div>
+        </td>
+        <td>
+          <div class="employer-amount">
+            {{ '%.2f'|format(r.employer_total) }} €<br>
+            <span style="font-size:10px; opacity:0.8;">
+              +maladie {{ '%.2f'|format(r.emp_health) }} €<br>
+              +pension {{ '%.2f'|format(r.emp_pension) }} €<br>
+              +accident {{ '%.2f'|format(r.emp_accident) }} €
+            </span>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td><b>UKUPNO ({{ results|length }} radnik{{ 'a' if results|length > 1 else '' }})</b></td>
+          <td><b>{{ '%.2f'|format(tot('hours')) }} h</b></td>
+          <td><b>{{ '%.2f'|format(tot('gross')) }} €</b></td>
+          <td><b>−{{ '%.2f'|format(tot('total_ccss')) }} €</b></td>
+          <td><b>−{{ '%.2f'|format(tot('income_tax')) }} €</b></td>
+          <td><b style="color:{{ '#4ade80' if dark else '#16a34a' }};">{{ '%.2f'|format(tot('net')) }} €</b></td>
+          <td><b style="color:{{ '#fbbf24' if dark else '#d97706' }};">{{ '%.2f'|format(tot('employer_total')) }} €</b></td>
+        </tr>
+      </tfoot>
+    </table>
+    </div>
+
+    <!-- Info box -->
+    <div style="margin-top:16px; padding:12px 16px; border-radius:10px; background:{{ '#172039' if dark else '#eff6ff' }}; border:1px solid {{ '#1e3a5f' if dark else '#bfdbfe' }}; font-size:12px; color:{{ '#93c5fd' if dark else '#1e40af' }}; line-height:1.7;">
+      <b>ℹ️ Napomena o obračunu:</b><br>
+      Stope CCSS 2025: maladie 3.05% · pension 8% · dépendance 1.4% (franšiza {{ '%.2f'|format(dep_franchise) }} €/mj).<br>
+      Porez: progresivni razredi ACD + impôt de solidarité (7% kl.1/1a · 9% kl.2).<br>
+      Odbitna stavka: maladie + pension + forfait frais d'obtention 45 €/mj.<br>
+      <b>Ovaj obračun je informativan — provjerite sa fiduciaire ili CCSS za tačne iznose.</b>
+    </div>
+  </div>
+  {% elif request.method == 'POST' and request.form.get('action') == 'calculate' %}
+  <div class="card" style="text-align:center; padding:32px; color:{{ '#94a3b8' if dark else '#64748b' }};">
+    ⚠️ Nema evidentiranih smjena za odabrani period ili nijedan radnik nema unesenu satnicu.
+  </div>
+  {% endif %}
+
+</div>
+""", tr=tr, dark=dark, workers_list=workers_list, settings=settings, results=results,
+     date_from=date_from, date_to=date_to, tot=tot,
+     lux_ssm_h=LUX_SSM_HORAIRE, dep_franchise=LUX_CCSS_DEP_FRANCHISE,
+     split_workers=split_workers, parse_shift_hours=parse_shift_hours)
 
 
 @app.route("/delete_user/<int:user_id>")
