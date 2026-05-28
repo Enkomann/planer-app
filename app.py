@@ -1282,7 +1282,8 @@ def calculate_hours_for_user(shifts, username=None):
 
 # ── Luxembourg Payroll Constants (2025) ──────────────────────────────────────
 LUX_SSM_MENSUEL           = 2702.49  # Salaire social minimum non-qualifié 2025 (€/mois)
-LUX_SSM_HORAIRE           = round(LUX_SSM_MENSUEL / 173.33, 4)  # ≈ 15.59 €/h
+LUX_STD_MONTHLY_HOURS     = 173.33   # Ore mensili standard (40h/sem × 52 / 12)
+LUX_SSM_HORAIRE           = round(LUX_SSM_MENSUEL / LUX_STD_MONTHLY_HOURS, 4)  # ≈ 15.59 €/h
 # Caisse Maladie (salarié) — deux composantes distinctes sur la fiche de salaire
 LUX_CCSS_MALADIE_SOINS    = 0.0280   # Caisse Maladie Soins (2.8000 %)
 LUX_CCSS_MALADIE_ESPECES  = 0.0025   # Caisse Maladie Espèces (0.2500 %)
@@ -6888,22 +6889,26 @@ def payroll_page():
                 if w in split_workers(sw):
                     total_h += parse_shift_hours(stime)
             if sal_type == 'fixed':
-                gross = float(ws.get('fixed_gross') or 0)
-                if gross <= 0: continue
+                fixed_base = float(ws.get('fixed_gross') or 0)
+                if fixed_base <= 0 or total_h <= 0: continue
+                # Prorata: fiksni_bruto × (odradjeni_sati / 173.33h)
+                gross = round(fixed_base * total_h / LUX_STD_MONTHLY_HOURS, 2)
                 result = calc_lux_payroll(gross, tc, total_h)
-                result['worker']    = w
-                result['sal_type']  = 'fixed'
-                result['rate']      = None
-                result['tax_class'] = tc
+                result['worker']     = w
+                result['sal_type']   = 'fixed'
+                result['rate']       = None
+                result['fixed_base'] = fixed_base  # originalni fiksni bruto/mj
+                result['tax_class']  = tc
             else:
                 rate = float(ws.get('hourly_rate') or 0)
                 if rate <= 0 or total_h <= 0: continue
                 gross  = total_h * rate
                 result = calc_lux_payroll(gross, tc, total_h)
-                result['worker']    = w
-                result['sal_type']  = 'hourly'
-                result['rate']      = rate
-                result['tax_class'] = tc
+                result['worker']     = w
+                result['sal_type']   = 'hourly'
+                result['rate']       = rate
+                result['fixed_base'] = None
+                result['tax_class']  = tc
             results.append(result)
 
     conn.close()
@@ -7087,12 +7092,19 @@ def payroll_page():
         </td>
         <td style="font-weight:700;">
           {{ '%.2f'|format(r.hours) }} h
-          {% if r.sal_type == 'fixed' and r.hours > 0 %}
-            <div style="font-size:10px; color:{{ '#94a3b8' if dark else '#64748b' }};">(evidentirano)</div>
+          {% if r.sal_type == 'fixed' %}
+            <div style="font-size:10px; color:{{ '#94a3b8' if dark else '#64748b' }};">
+              / {{ '%.2f'|format(lux_std_h) }} h std
+            </div>
           {% endif %}
         </td>
         <td style="color:{{ '#93c5fd' if dark else '#2563eb' }}; font-weight:700;">
           {{ '%.2f'|format(r.gross) }} €
+          {% if r.sal_type == 'fixed' and r.fixed_base %}
+            <div style="font-size:10px; color:{{ '#94a3b8' if dark else '#64748b' }}; font-weight:400;">
+              {{ '%.2f'|format(r.fixed_base) }}€ × {{ '%.2f'|format(r.hours) }}/{{ '%.2f'|format(lux_std_h) }}h
+            </div>
+          {% endif %}
         </td>
         <td>
           <div class="deduction-row"><span>C. Maladie Soins (2.80%)</span><span>−{{ '%.2f'|format(r.maladie_soins) }} €</span></div>
@@ -7181,7 +7193,8 @@ function toggleSalType(idx, type) {
 </script>
 """, tr=tr, dark=dark, workers_list=workers_list, settings=settings, results=results,
      date_from=date_from, date_to=date_to, tot=tot,
-     lux_ssm_h=LUX_SSM_HORAIRE, dep_franchise=LUX_CCSS_DEP_FRANCHISE,
+     lux_ssm_h=LUX_SSM_HORAIRE, lux_std_h=LUX_STD_MONTHLY_HOURS,
+     dep_franchise=LUX_CCSS_DEP_FRANCHISE,
      split_workers=split_workers, parse_shift_hours=parse_shift_hours)
 
 
