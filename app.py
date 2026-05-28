@@ -1256,18 +1256,21 @@ def calculate_hours_for_user(shifts, username=None):
 
 
 # ── Luxembourg Payroll Constants (2025) ──────────────────────────────────────
-LUX_SSM_MENSUEL        = 2702.49   # Salaire social minimum non-qualifié 2025 (€/mois)
-LUX_SSM_HORAIRE        = round(LUX_SSM_MENSUEL / 173.33, 4)  # ≈ 15.59 €/h
-LUX_CCSS_HEALTH_EMP    = 0.0305    # Assurance maladie (salarié)
-LUX_CCSS_PENSION_EMP   = 0.0800    # Assurance pension (salarié)
-LUX_CCSS_DEP_RATE      = 0.0140    # Assurance dépendance (salarié)
-LUX_CCSS_DEP_FRANCHISE = LUX_SSM_MENSUEL / 3  # ≈ 900.83 €/mois
-LUX_FORFAIT_FRAIS      = 45.0      # Forfait frais d'obtention mensuel (540 €/an ÷ 12)
-LUX_SOLIDARITY_1       = 0.07      # Impôt de solidarité classe 1 & 1a
-LUX_SOLIDARITY_2       = 0.09      # Impôt de solidarité classe 2
-LUX_EMPLOYER_HEALTH    = 0.0305    # Assurance maladie (patronal)
-LUX_EMPLOYER_PENSION   = 0.0800    # Assurance pension (patronal)
-LUX_EMPLOYER_ACCIDENT  = 0.0110    # Assurance accident (patronal, ~1.1 %)
+LUX_SSM_MENSUEL           = 2702.49  # Salaire social minimum non-qualifié 2025 (€/mois)
+LUX_SSM_HORAIRE           = round(LUX_SSM_MENSUEL / 173.33, 4)  # ≈ 15.59 €/h
+# Caisse Maladie (salarié) — deux composantes distinctes sur la fiche de salaire
+LUX_CCSS_MALADIE_SOINS    = 0.0280   # Caisse Maladie Soins (2.8000 %)
+LUX_CCSS_MALADIE_ESPECES  = 0.0025   # Caisse Maladie Espèces (0.2500 %)
+LUX_CCSS_HEALTH_EMP       = LUX_CCSS_MALADIE_SOINS + LUX_CCSS_MALADIE_ESPECES  # = 3.05 %
+LUX_CCSS_PENSION_EMP      = 0.0800   # Caisse de Pension (salarié, 8.00 %)
+LUX_CCSS_DEP_RATE         = 0.0140   # Caisse Dépendance (salarié, 1.4000 %)
+LUX_CCSS_DEP_FRANCHISE    = LUX_SSM_MENSUEL / 3  # ≈ 900.83 €/mois
+LUX_FORFAIT_FRAIS         = 45.0     # Forfait frais d'obtention mensuel (540 €/an ÷ 12)
+LUX_SOLIDARITY_1          = 0.07     # Impôt de solidarité classe 1 & 1a
+LUX_SOLIDARITY_2          = 0.09     # Impôt de solidarité classe 2
+LUX_EMPLOYER_HEALTH       = 0.0305   # Assurance maladie (patronal, 3.05 %)
+LUX_EMPLOYER_PENSION      = 0.0800   # Assurance pension (patronal, 8.00 %)
+LUX_EMPLOYER_ACCIDENT     = 0.0110   # Assurance accident (patronal, ~1.1 %)
 
 # Tranches d'imposition annuelles Luxembourg 2024/2025 (taux marginaux)
 _LUX_BRACKETS = [
@@ -1296,11 +1299,13 @@ def calc_lux_payroll(gross_monthly, tax_class='1', hours=0.0):
     Vraća dict sa svim komponentama (brut → net → cijena za poslodavca).
     """
     # ── Odbitci CCSS (salarié) ──
-    health      = gross_monthly * LUX_CCSS_HEALTH_EMP
-    pension     = gross_monthly * LUX_CCSS_PENSION_EMP
-    dep_base    = max(0.0, gross_monthly - LUX_CCSS_DEP_FRANCHISE)
-    dependency  = dep_base * LUX_CCSS_DEP_RATE
-    total_ccss  = health + pension + dependency
+    maladie_soins   = gross_monthly * LUX_CCSS_MALADIE_SOINS
+    maladie_especes = gross_monthly * LUX_CCSS_MALADIE_ESPECES
+    health          = maladie_soins + maladie_especes          # ukupno maladie
+    pension         = gross_monthly * LUX_CCSS_PENSION_EMP
+    dep_base        = max(0.0, gross_monthly - LUX_CCSS_DEP_FRANCHISE)
+    dependency      = dep_base * LUX_CCSS_DEP_RATE
+    total_ccss      = health + pension + dependency
 
     # ── Baza za porez (brut − maladie − pension − forfait frais) ──
     taxable_m   = max(0.0, gross_monthly - health - pension - LUX_FORFAIT_FRAIS)
@@ -1331,19 +1336,21 @@ def calc_lux_payroll(gross_monthly, tax_class='1', hours=0.0):
     employer_total = gross_monthly + emp_health + emp_pension + emp_accident
 
     return {
-        'hours':          round(hours, 2),
-        'gross':          round(gross_monthly, 2),
-        'health':         round(health, 2),
-        'pension':        round(pension, 2),
-        'dependency':     round(dependency, 2),
-        'total_ccss':     round(total_ccss, 2),
-        'taxable_m':      round(taxable_m, 2),
-        'income_tax':     round(monthly_tax, 2),
-        'net':            round(net, 2),
-        'emp_health':     round(emp_health, 2),
-        'emp_pension':    round(emp_pension, 2),
-        'emp_accident':   round(emp_accident, 2),
-        'employer_total': round(employer_total, 2),
+        'hours':            round(hours, 2),
+        'gross':            round(gross_monthly, 2),
+        'maladie_soins':    round(maladie_soins, 2),
+        'maladie_especes':  round(maladie_especes, 2),
+        'health':           round(health, 2),
+        'pension':          round(pension, 2),
+        'dependency':       round(dependency, 2),
+        'total_ccss':       round(total_ccss, 2),
+        'taxable_m':        round(taxable_m, 2),
+        'income_tax':       round(monthly_tax, 2),
+        'net':              round(net, 2),
+        'emp_health':       round(emp_health, 2),
+        'emp_pension':      round(emp_pension, 2),
+        'emp_accident':     round(emp_accident, 2),
+        'employer_total':   round(employer_total, 2),
     }
 
 
@@ -6261,9 +6268,10 @@ def payroll_page():
           {{ '%.2f'|format(r.gross) }} €
         </td>
         <td>
-          <div class="deduction-row"><span>Maladie (3.05%)</span><span>−{{ '%.2f'|format(r.health) }} €</span></div>
-          <div class="deduction-row"><span>Pension (8%)</span><span>−{{ '%.2f'|format(r.pension) }} €</span></div>
-          <div class="deduction-row"><span>Dépendance (1.4%)</span><span>−{{ '%.2f'|format(r.dependency) }} €</span></div>
+          <div class="deduction-row"><span>C. Maladie Soins (2.80%)</span><span>−{{ '%.2f'|format(r.maladie_soins) }} €</span></div>
+          <div class="deduction-row"><span>C. Maladie Espèces (0.25%)</span><span>−{{ '%.2f'|format(r.maladie_especes) }} €</span></div>
+          <div class="deduction-row"><span>C. Pension (8.00%)</span><span>−{{ '%.2f'|format(r.pension) }} €</span></div>
+          <div class="deduction-row"><span>C. Dépendance (1.40%)</span><span>−{{ '%.2f'|format(r.dependency) }} €</span></div>
           <div class="deduction-row bold"><span>Ukupno CCSS</span><span>−{{ '%.2f'|format(r.total_ccss) }} €</span></div>
         </td>
         <td>
@@ -6307,9 +6315,8 @@ def payroll_page():
     <!-- Info box -->
     <div style="margin-top:16px; padding:12px 16px; border-radius:10px; background:{{ '#172039' if dark else '#eff6ff' }}; border:1px solid {{ '#1e3a5f' if dark else '#bfdbfe' }}; font-size:12px; color:{{ '#93c5fd' if dark else '#1e40af' }}; line-height:1.7;">
       <b>ℹ️ Napomena o obračunu:</b><br>
-      Stope CCSS 2025: maladie 3.05% · pension 8% · dépendance 1.4% (franšiza {{ '%.2f'|format(dep_franchise) }} €/mj).<br>
-      Porez: progresivni razredi ACD + impôt de solidarité (7% kl.1/1a · 9% kl.2).<br>
-      Odbitna stavka: maladie + pension + forfait frais d'obtention 45 €/mj.<br>
+      CCSS 2025 (salarié): C. Maladie Soins 2.80% · C. Maladie Espèces 0.25% · C. Pension 8.00% · C. Dépendance 1.40% (franšiza {{ '%.2f'|format(dep_franchise) }} €/mj).<br>
+      Porez: progresivni razredi ACD + impôt de solidarité (7% kl.1/1a · 9% kl.2). Odbitna stavka: maladie + pension + forfait frais d'obtention 45 €/mj.<br>
       <b>Ovaj obračun je informativan — provjerite sa fiduciaire ili CCSS za tačne iznose.</b>
     </div>
   </div>
