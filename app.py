@@ -2414,13 +2414,22 @@ def header_html():
                 {% if session.get('user') %}<div class="muted">{{ tr["logged_as"] }}: <b>{{ session['user'] }}</b> ({{ session['role'] }})</div>{% endif %}
             </div>
         </div>
-        <div>
-            <div class="langbar">
-                <a href="/set_lang/fr">FR</a><a href="/set_lang/en">EN</a><a href="/set_lang/bos">BOS</a><a href="/set_lang/de">DE</a><a href="/set_lang/pt">PT</a>
+        <div style="display:flex;align-items:center;gap:12px;">
+            <div>
+                <div class="langbar">
+                    <a href="/set_lang/fr">FR</a><a href="/set_lang/en">EN</a><a href="/set_lang/bos">BOS</a><a href="/set_lang/de">DE</a><a href="/set_lang/pt">PT</a>
+                </div>
+                <div class="theme-links" style="text-align:right; margin-top:8px;">
+                    {{ tr["theme"] }}: <a href="/set_theme/light">{{ tr["light_theme"] }}</a><a href="/set_theme/dark">{{ tr["dark_theme"] }}</a>{% if session.get('user') %}<a href="/logout">{{ tr["logout"] }}</a>{% endif %}
+                </div>
             </div>
-            <div class="theme-links" style="text-align:right; margin-top:8px;">
-                {{ tr["theme"] }}: <a href="/set_theme/light">{{ tr["light_theme"] }}</a><a href="/set_theme/dark">{{ tr["dark_theme"] }}</a>{% if session.get('user') %}<a href="/logout">{{ tr["logout"] }}</a>{% endif %}
-            </div>
+            {% if session.get('user') %}
+            <button onclick="openSettingsSheet()" type="button"
+                    style="background:{{ '#1e3a5f' if not dark else '#334155' }};color:white;border:none;
+                           border-radius:10px;padding:10px 14px;font-size:20px;cursor:pointer;
+                           line-height:1;flex-shrink:0;"
+                    title="Postavke / Administracija">⚙️</button>
+            {% endif %}
         </div>
     </div>
     <div id="plannerAlertBackdrop" class="alert-backdrop" onclick="if(event.target===this)closePlannerAlert();">
