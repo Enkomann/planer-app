@@ -980,6 +980,9 @@ class _PgConn:
     def commit(self):
         return self.conn.commit()
 
+    def rollback(self):
+        return self.conn.rollback()
+
     def close(self):
         return self.conn.close()
 
@@ -6383,9 +6386,9 @@ def backup_page():
     <div style="margin-top:24px;padding:12px 16px;background:{{ '#172334' if dark else '#fffbeb' }};
                 border:1px solid {{ '#334155' if dark else '#fde68a' }};border-radius:8px;
                 font-size:12px;max-width:600px;">
-      ℹ️ <b>Napomena:</b> "Restore DB" vraća samo bazu podataka (smjene, radnike, klijente itd.).
-      Uploadovani dokumenti se ne zamjenjuju automatski — za potpunu restauraciju preuzmite backup
-      i kontaktirajte administratora servera.
+      ℹ️ <b>Napomena:</b> "Restore" vraća i bazu podataka (smjene, radnici, klijenti itd.)
+      <b>i</b> uploadovane dokumente iz backup ZIP-a. Fajlovi u storage-u se prepisuju.
+      Restore je atomičan — ako bilo koji korak ne uspije, baza se rollback-uje.
     </div>
     """, tr=tr, dark=dark, notice=notice, backups=backups)
 
@@ -6422,9 +6425,13 @@ def _backup_export_db(conn):
 
 
 def _backup_import_db(conn, export):
-    """Re-import table data exported by _backup_export_db. Clears existing rows first."""
+    """Re-import table data exported by _backup_export_db.
+    Atomic: rolls back if any DELETE/INSERT fails, commits only on clean import.
+    Sequence reset (PostgreSQL) is best-effort after commit."""
     c = conn.cursor()
     errors = []
+
+    # Phase 1: delete + insert — must succeed completely or rollback
     for tbl, data in export.items():
         cols = data.get("columns", [])
         rows = data.get("rows", [])
@@ -6442,9 +6449,20 @@ def _backup_import_db(conn, export):
                 c.execute(f"INSERT INTO {tbl} ({col_str}) VALUES ({placeholders})", row)
             except Exception as ex:
                 errors.append(f"INSERT {tbl}[{i}]: {ex}")
-    conn.commit()
-    # Reset PostgreSQL sequences so auto-increment columns don't collide
+
+    if errors:
+        # Rollback to avoid partial restore
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        raise RuntimeError("Restore aborted — rolled back:\n" + "\n".join(errors))
+
+    conn.commit()  # Commit only if no errors
+
+    # Phase 2: reset PostgreSQL sequences (best-effort, data already committed)
     if USE_POSTGRES:
+        seq_errors = []
         try:
             c.execute("""
                 SELECT 'SELECT SETVAL(' || quote_literal(seq.relname) ||
@@ -6461,12 +6479,16 @@ def _backup_import_db(conn, export):
                 try:
                     c.execute(stmt)
                 except Exception as ex:
-                    errors.append(f"SETVAL: {ex}")
+                    seq_errors.append(f"SETVAL: {ex}")
             conn.commit()
         except Exception as ex:
-            errors.append(f"Sequence reset: {ex}")
-    if errors:
-        raise RuntimeError("Restore completed with errors:\n" + "\n".join(errors))
+            seq_errors.append(f"Sequence reset: {ex}")
+        if seq_errors:
+            # Data is safe (committed), but warn about sequence state
+            raise RuntimeError(
+                "Data restored but sequence reset had issues "
+                "(future inserts may collide):\n" + "\n".join(seq_errors)
+            )
 
 
 @app.route("/backup/create", methods=["POST"])
