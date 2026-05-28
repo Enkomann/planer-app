@@ -516,6 +516,8 @@ DOCUMENT_TRANSLATIONS = {
         "share_link_invalid": "Link istekao ili nije validan.",
         "folder_unavailable": "Folder nije dostupan.",
         "folder_not_found_pub": "Folder nije pronadjen.",
+        "folder_empty": "Folder ne sadrzi dokumente.",
+        "zip_error": "Greska pri kreiranju ZIP-a",
     },
     "en": {
         "documents": "Documents", "upload_document": "Upload document", "document_name": "Document name",
@@ -546,6 +548,8 @@ DOCUMENT_TRANSLATIONS = {
         "share_link_invalid": "Link expired or is not valid.",
         "folder_unavailable": "Folder is not accessible.",
         "folder_not_found_pub": "Folder not found.",
+        "folder_empty": "Folder contains no documents.",
+        "zip_error": "Error creating ZIP",
     },
     "fr": {
         "documents": "Documents", "upload_document": "Ajouter document", "document_name": "Nom du document",
@@ -576,6 +580,8 @@ DOCUMENT_TRANSLATIONS = {
         "share_link_invalid": "Lien expire ou invalide.",
         "folder_unavailable": "Dossier inaccessible.",
         "folder_not_found_pub": "Dossier introuvable.",
+        "folder_empty": "Le dossier ne contient aucun document.",
+        "zip_error": "Erreur lors de la creation du ZIP",
     },
     "de": {
         "documents": "Dokumente", "upload_document": "Dokument hochladen", "document_name": "Dokumentname",
@@ -606,6 +612,8 @@ DOCUMENT_TRANSLATIONS = {
         "share_link_invalid": "Link abgelaufen oder ungueltig.",
         "folder_unavailable": "Ordner nicht zugaenglich.",
         "folder_not_found_pub": "Ordner nicht gefunden.",
+        "folder_empty": "Ordner enthaelt keine Dokumente.",
+        "zip_error": "Fehler beim Erstellen des ZIP",
     },
     "pt": {
         "documents": "Documentos", "upload_document": "Carregar documento", "document_name": "Nome do documento",
@@ -636,6 +644,8 @@ DOCUMENT_TRANSLATIONS = {
         "share_link_invalid": "Ligacao expirada ou invalida.",
         "folder_unavailable": "Pasta inacessivel.",
         "folder_not_found_pub": "Pasta nao encontrada.",
+        "folder_empty": "A pasta nao contem documentos.",
+        "zip_error": "Erro ao criar o ZIP",
     },
 }
 for _lang, _values in DOCUMENT_TRANSLATIONS.items():
@@ -954,6 +964,10 @@ class _PgCursor:
         if self._fake_rows is not None:
             return self._fake_rows[0] if self._fake_rows else None
         return self.cursor.fetchone()
+
+    @property
+    def description(self):
+        return self.cursor.description
 
 
 class _PgConn:
@@ -5006,17 +5020,18 @@ def _zip_add_folder(conn, zf, folder_id, rel_prefix, errors=None):
 @app.route("/share/folder/<token>/zip")
 @app.route("/share/folder/<token>/zip/<int:sub_id>")
 def shared_folder_zip(token, sub_id=None):
+    tr = t()
     conn = get_conn()
     info = _shared_folder_validate(conn, token)
     if not info:
         conn.close()
-        return "Link istekao ili nije validan.", 404
+        return tr["share_link_invalid"], 404
     root_id, expires_at, root_name = info
     tree_ids = _folder_tree_ids(conn, root_id)
     zip_root = sub_id if sub_id else root_id
     if zip_root not in tree_ids:
         conn.close()
-        return "Folder nije dostupan.", 403
+        return tr["folder_unavailable"], 403
     folder_name_row = conn.cursor().execute(
         "SELECT name FROM document_folders WHERE id = ?", (zip_root,)).fetchone()
     zip_folder_name = folder_name_row[0] if folder_name_row else "folder"
@@ -5030,14 +5045,13 @@ def shared_folder_zip(token, sub_id=None):
         if added == 0:
             os.unlink(tmp_path)
             if errors:
-                # Diagnostic: tells us exactly why files weren't added
-                diag = "Greška pri kreiranju ZIP-a:\n" + "\n".join(errors[:10])
+                diag = tr.get("zip_error", "ZIP error") + ":\n" + "\n".join(errors[:10])
                 return diag, 500
-            return "Folder ne sadrži dokumente.", 404
+            return tr.get("folder_empty", "Folder ne sadrži dokumente."), 404
         safe_name = re.sub(r'[\\/:*?"<>|]', "_", zip_folder_name) or "folder"
-        file_size = os.path.getsize(tmp_path)
 
-        @app.after_request
+        from flask import after_this_request as _atr
+        @_atr
         def _del_tmp(response, _p=tmp_path):
             try: os.unlink(_p)
             except: pass
@@ -6389,20 +6403,28 @@ def _backup_export_db(conn):
         c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
         tables = [r[0] for r in c.fetchall()]
     export = {}
+    errors = []
     for tbl in tables:
         try:
             c.execute(f"SELECT * FROM {tbl}")
             rows = c.fetchall()
-            cols = [d[0] for d in c.description] if c.description else []
+            # c.description is now exposed on _PgCursor via property
+            if not c.description:
+                errors.append(f"WARN: no description for table {tbl}")
+                continue
+            cols = [d[0] for d in c.description]
             export[tbl] = {"columns": cols, "rows": [list(r) for r in rows]}
-        except Exception:
-            pass
+        except Exception as ex:
+            errors.append(f"ERROR exporting {tbl}: {ex}")
+    if errors:
+        raise RuntimeError("Backup DB export failed:\n" + "\n".join(errors))
     return export
 
 
 def _backup_import_db(conn, export):
     """Re-import table data exported by _backup_export_db. Clears existing rows first."""
     c = conn.cursor()
+    errors = []
     for tbl, data in export.items():
         cols = data.get("columns", [])
         rows = data.get("rows", [])
@@ -6410,16 +6432,41 @@ def _backup_import_db(conn, export):
             continue
         try:
             c.execute(f"DELETE FROM {tbl}")
-        except Exception:
+        except Exception as ex:
+            errors.append(f"DELETE {tbl}: {ex}")
             continue
         col_str = ", ".join(cols)
         placeholders = ", ".join(["?"] * len(cols))
-        for row in rows:
+        for i, row in enumerate(rows):
             try:
                 c.execute(f"INSERT INTO {tbl} ({col_str}) VALUES ({placeholders})", row)
-            except Exception:
-                pass
+            except Exception as ex:
+                errors.append(f"INSERT {tbl}[{i}]: {ex}")
     conn.commit()
+    # Reset PostgreSQL sequences so auto-increment columns don't collide
+    if USE_POSTGRES:
+        try:
+            c.execute("""
+                SELECT 'SELECT SETVAL(' || quote_literal(seq.relname) ||
+                       ', COALESCE(MAX(' || quote_ident(col.attname) || '), 1)) FROM ' ||
+                       quote_ident(tbl.relname) || ';'
+                FROM pg_class seq
+                JOIN pg_depend dep ON dep.objid = seq.oid
+                JOIN pg_class tbl ON tbl.oid = dep.refobjid
+                JOIN pg_attribute col ON col.attrelid = tbl.oid AND col.attnum = dep.refobjsubid
+                WHERE seq.relkind = 'S'
+            """)
+            stmts = [r[0] for r in c.fetchall()]
+            for stmt in stmts:
+                try:
+                    c.execute(stmt)
+                except Exception as ex:
+                    errors.append(f"SETVAL: {ex}")
+            conn.commit()
+        except Exception as ex:
+            errors.append(f"Sequence reset: {ex}")
+    if errors:
+        raise RuntimeError("Restore completed with errors:\n" + "\n".join(errors))
 
 
 @app.route("/backup/create", methods=["POST"])
@@ -6502,7 +6549,8 @@ def backup_restore(filename):
                 dest = os.path.join(DOCUMENT_ROOT, rel.replace("/", os.sep))
                 os.makedirs(os.path.dirname(dest), exist_ok=True)
                 with zf.open(arc) as src, open(dest, "wb") as dst:
-                    dst.write(src.read())
+                    import shutil as _shutil
+                    _shutil.copyfileobj(src, dst)
         msg = f"Baza ({db_msg}) i dokumenti uspješno obnovljeni iz: {safe_name}"
     except Exception as e:
         msg = f"Greška pri restauraciji: {e}"
