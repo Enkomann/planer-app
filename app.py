@@ -3801,7 +3801,7 @@ def month_view():
         /* Weekday bar sits OUTSIDE the grid → sticky works properly */
         #monthWdBar {
             position: sticky;
-            top: 0;
+            top: 52px;   /* below fixed topbar on desktop */
             z-index: 50;
             display: grid;
             grid-template-columns: repeat(7, 1fr);
@@ -3811,6 +3811,7 @@ def month_view():
             background: {{ '#0b1220' if dark else '#eef3fb' }};
             margin-bottom: 4px;
         }
+        @media (max-width:600px) { #monthWdBar { top: 0; } }
         @media (max-width:700px) { #monthWdBar { gap:2px; padding:0 11px; } }
         .month-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:10px; align-items:start; }
         @keyframes rgbLed {
