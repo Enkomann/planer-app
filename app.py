@@ -6366,7 +6366,7 @@ def backup_page():
         <div class="backup-item-actions">
           <a href="/backup/download/{{ b.name }}">⬇️ Preuzmi</a>
           <form method="post" action="/backup/restore/{{ b.name }}"
-                onsubmit="return confirm('Restaurisati bazu iz {{ b.name }}? Trenutni podaci će biti zamijenjeni.');"
+                onsubmit="return confirm('Restore backup {{ b.name }}? Baza podataka i dokumenti će biti zamijenjeni trenutnim podacima.');"
                 style="display:inline;">
             <button style="background:#f59e0b;border-color:#f59e0b;">🔄 Restore backup</button>
           </form>
@@ -6609,7 +6609,12 @@ def backup_restore(filename):
         _shutil.rmtree(staging_dir, ignore_errors=True)
         staging_dir = None
 
-        parts = [f"Baza ({db_msg}) i {len(staged)} dokument(a) obnovljeni iz: {safe_name}"]
+        moved_ok = len(staged) - len(move_errors)
+        if move_errors:
+            doc_status = f"{moved_ok}/{len(staged)} dokument(a) premješteno"
+        else:
+            doc_status = f"{len(staged)} dokument(a) obnovljeno"
+        parts = [f"Baza ({db_msg}) i {doc_status} iz: {safe_name}"]
         if seq_warnings:
             parts.append(f"⚠️ Sequence reset upozorenja ({len(seq_warnings)}): "
                          + "; ".join(seq_warnings[:2]))
