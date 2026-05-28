@@ -2088,48 +2088,59 @@ BASE_STYLE = """
     .client-search-item:hover, .client-search-item.active { background:{{ '#2d3f56' if dark else '#eef4ff' }}; }
     .client-search-item:last-child { border-bottom:none; }
 
-    /* ── Fixed left sidebar (tablet + desktop) ── */
+    /* ── Narrow icon sidebar (Agendrix style) ── */
     .sidebar {
-        display:none; position:fixed; left:0; top:0; bottom:0; width:220px;
-        background:{{ '#111827' if dark else 'white' }};
-        border-right:1px solid {{ '#1e293b' if dark else '#e5e7eb' }};
-        z-index:300; flex-direction:column; overflow-y:auto;
+        display:none; position:fixed; left:0; top:0; bottom:0; width:66px;
+        background:{{ '#0f172a' if dark else '#f8fafc' }};
+        border-right:1px solid {{ '#1e293b' if dark else '#e2e8f0' }};
+        z-index:300; flex-direction:column; overflow-y:auto; overflow-x:hidden;
     }
     .sidebar-logo {
-        padding:16px 14px 14px; display:flex; align-items:center;
-        gap:10px; border-bottom:1px solid {{ '#1e293b' if dark else '#f1f5f9' }};
+        padding:14px 0 10px; display:flex; flex-direction:column; align-items:center;
+        border-bottom:1px solid {{ '#1e293b' if dark else '#e2e8f0' }};
         text-decoration:none; flex-shrink:0;
     }
     .sidebar-logo img {
-        height:32px; flex-shrink:0;
+        height:30px;
         {% if dark %}filter:invert(1) hue-rotate(180deg);{% else %}mix-blend-mode:multiply;{% endif %}
     }
-    .sidebar-logo-title { font-size:15px; font-weight:800; color:{{ '#93c5fd' if dark else '#1f4f82' }}; }
-    .sidebar-nav { flex:1; padding:6px; overflow-y:auto; }
-    .sidebar-section-label {
-        font-size:10px; font-weight:700; text-transform:uppercase;
-        letter-spacing:0.07em; color:{{ '#4b5563' if dark else '#9ca3af' }};
-        padding:10px 12px 4px;
-    }
+    .sidebar-logo-title { display:none; }
+    .sidebar-nav { flex:1; padding:6px 4px; overflow-y:auto; overflow-x:hidden; }
+    .sidebar-section-label { display:none; }
     .sidebar-link {
-        display:flex; align-items:center; gap:9px; padding:9px 12px;
-        border-radius:8px; margin:1px 0;
-        color:{{ '#cbd5e1' if dark else '#374151' }};
-        text-decoration:none; font-size:13.5px; font-weight:500;
+        display:flex; flex-direction:column; align-items:center; justify-content:center;
+        gap:3px; padding:10px 4px; border-radius:10px; margin:2px 0;
+        color:{{ '#94a3b8' if dark else '#64748b' }};
+        text-decoration:none; font-size:9.5px; font-weight:500; line-height:1.2;
         width:100%; box-sizing:border-box; border:none; background:none; cursor:pointer;
+        text-align:center;
     }
-    .sidebar-link:hover { background:{{ '#1e293b' if dark else '#f3f4f6' }}; color:{{ '#e5e7eb' if dark else '#111827' }}; }
+    .sidebar-link:hover {
+        background:{{ '#1e293b' if dark else '#e9f0f8' }};
+        color:{{ '#93c5fd' if dark else '#1f4f82' }};
+    }
     .sidebar-link.active {
-        background:{{ 'rgba(59,130,246,0.18)' if dark else 'rgba(31,79,130,0.10)' }};
-        color:{{ '#93c5fd' if dark else '#1f4f82' }}; font-weight:600;
+        background:{{ 'rgba(59,130,246,0.20)' if dark else 'rgba(31,79,130,0.12)' }};
+        color:{{ '#93c5fd' if dark else '#1f4f82' }}; font-weight:700;
     }
-    .sl-icon { font-size:17px; width:22px; text-align:center; flex-shrink:0; line-height:1; }
-    .sidebar-divider { height:1px; background:{{ '#1e293b' if dark else '#f1f5f9' }}; margin:6px 8px; }
-    .sidebar-bottom { border-top:1px solid {{ '#1e293b' if dark else '#f1f5f9' }}; padding:8px 6px 12px; flex-shrink:0; }
-    .sidebar-user { padding:6px 12px 8px; font-size:12px; color:{{ '#6b7280' if dark else '#94a3b8' }}; }
-    .sidebar-user strong { display:block; font-size:13px; color:{{ '#d1d5db' if dark else '#374151' }}; margin-bottom:1px; }
+    .sl-icon { font-size:22px; line-height:1; display:block; }
+    .sidebar-divider { height:1px; background:{{ '#1e293b' if dark else '#e2e8f0' }}; margin:4px 8px; }
+    .sidebar-bottom {
+        border-top:1px solid {{ '#1e293b' if dark else '#e2e8f0' }};
+        padding:6px 4px 10px; flex-shrink:0;
+    }
+    .sidebar-user {
+        display:flex; flex-direction:column; align-items:center; padding:6px 4px 2px;
+        font-size:8px; color:{{ '#475569' if dark else '#94a3b8' }}; text-align:center;
+    }
+    .sidebar-user strong {
+        display:flex; align-items:center; justify-content:center;
+        width:32px; height:32px; border-radius:50%;
+        background:{{ '#1e3a5f' if dark else '#1f4f82' }};
+        color:white; font-size:13px; font-weight:800; margin-bottom:3px;
+    }
     .sidebar-link.danger { color:#ef4444; }
-    .sidebar-link.danger:hover { background:rgba(239,68,68,0.08); color:#ef4444; }
+    .sidebar-link.danger:hover { background:rgba(239,68,68,0.10); color:#ef4444; }
     .nav-link { display:block; padding:11px 12px; border-radius:10px; margin:6px 0; background:{{ '#1f2937' if dark else '#f8fafc' }}; color:{{ '#e5e7eb' if dark else '#1f4f82' }} !important; }
     .nav-link:hover { transform:translateX(2px); box-shadow:0 3px 10px rgba(0,0,0,0.08); }
     .main-content { min-width:0; }
@@ -2288,7 +2299,7 @@ BASE_STYLE = """
     }
 
     @media (min-width:601px) {
-        body { margin-left:220px; }
+        body { margin-left:66px; }
         .sidebar { display:flex !important; }
         .brandbar { display:none !important; }
     }
@@ -2448,64 +2459,61 @@ window.initClientSearch = function(inputId, hiddenId, listId, data) {
 
 def header_html():
     return """
-    <!-- ═══ Fixed left sidebar (tablet + desktop) ═══ -->
+    <!-- ═══ Narrow icon sidebar (Agendrix style, tablet + desktop) ═══ -->
     {% if session.get('user') %}
     <aside class="sidebar">
-      <a class="sidebar-logo" href="/">
-        <img src="{{ url_for('static', filename='logo.png') }}" alt="Luxmann">
-        <span class="sidebar-logo-title">Luxmann</span>
+      <a class="sidebar-logo" href="/" title="Luxmann Planner">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="L">
       </a>
       <nav class="sidebar-nav">
-        <div class="sidebar-section-label">Planiranje</div>
-        <a href="/" class="sidebar-link {% if request.path == '/' %}active{% endif %}">
-          <span class="sl-icon">🏠</span> Plan
+        <a href="/" class="sidebar-link {% if request.path == '/' %}active{% endif %}" title="Plan">
+          <span class="sl-icon">🏠</span><span>Plan</span>
         </a>
-        <a href="/week" class="sidebar-link {% if request.path == '/week' %}active{% endif %}">
-          <span class="sl-icon">📅</span> Sedmica
+        <a href="/week" class="sidebar-link {% if request.path == '/week' %}active{% endif %}" title="Sedmica">
+          <span class="sl-icon">📅</span><span>Sedmica</span>
         </a>
-        <a href="/month" class="sidebar-link {% if request.path == '/month' %}active{% endif %}">
-          <span class="sl-icon">🗓️</span> Mjesec
+        <a href="/month" class="sidebar-link {% if request.path == '/month' %}active{% endif %}" title="Mjesec">
+          <span class="sl-icon">🗓️</span><span>Mjesec</span>
         </a>
-        <a href="/documents" class="sidebar-link {% if request.path.startswith('/documents') %}active{% endif %}">
-          <span class="sl-icon">📁</span> Dokumenti
+        <a href="/documents" class="sidebar-link {% if request.path.startswith('/documents') %}active{% endif %}" title="Dokumenti">
+          <span class="sl-icon">📁</span><span>Dokumenti</span>
         </a>
         {% if session.get('role') == 'admin' %}
         <div class="sidebar-divider"></div>
-        <div class="sidebar-section-label">Upravljanje</div>
-        <a href="/workers" class="sidebar-link {% if request.path == '/workers' %}active{% endif %}">
-          <span class="sl-icon">👷</span> Radnici
+        <a href="/workers" class="sidebar-link {% if request.path == '/workers' %}active{% endif %}" title="Radnici">
+          <span class="sl-icon">👷</span><span>Radnici</span>
         </a>
-        <a href="/clients" class="sidebar-link {% if request.path == '/clients' %}active{% endif %}">
-          <span class="sl-icon">🏢</span> Klijenti
+        <a href="/clients" class="sidebar-link {% if request.path == '/clients' %}active{% endif %}" title="Klijenti">
+          <span class="sl-icon">🏢</span><span>Klijenti</span>
         </a>
-        <a href="/invoices" class="sidebar-link {% if request.path.startswith('/invoices') %}active{% endif %}">
-          <span class="sl-icon">🧾</span> Fakture
+        <a href="/invoices" class="sidebar-link {% if request.path.startswith('/invoices') %}active{% endif %}" title="Fakture">
+          <span class="sl-icon">🧾</span><span>Fakture</span>
         </a>
-        <a href="/route_optimizer" class="sidebar-link {% if request.path == '/route_optimizer' %}active{% endif %}">
-          <span class="sl-icon">🗺️</span> Ruta
+        <a href="/route_optimizer" class="sidebar-link {% if request.path == '/route_optimizer' %}active{% endif %}" title="Optimizacija rute">
+          <span class="sl-icon">🗺️</span><span>Ruta</span>
         </a>
         <div class="sidebar-divider"></div>
-        <div class="sidebar-section-label">Admin</div>
-        <a href="/admin" class="sidebar-link {% if request.path == '/admin' %}active{% endif %}">
-          <span class="sl-icon">🔧</span> Korisnici
+        <a href="/admin" class="sidebar-link {% if request.path == '/admin' %}active{% endif %}" title="Administracija">
+          <span class="sl-icon">🔧</span><span>Admin</span>
         </a>
-        <a href="/backup" class="sidebar-link {% if request.path == '/backup' %}active{% endif %}">
-          <span class="sl-icon">💾</span> Backup
+        <a href="/backup" class="sidebar-link {% if request.path == '/backup' %}active{% endif %}" title="Backup & Restore">
+          <span class="sl-icon">💾</span><span>Backup</span>
         </a>
         {% endif %}
       </nav>
       <div class="sidebar-bottom">
-        <div class="sidebar-user">
-          <strong>{{ session['user'] }}</strong>{{ session.get('role','') }}
+        <div class="sidebar-user" title="{{ session['user'] }} ({{ session.get('role','') }})">
+          <strong>{{ session['user'][0]|upper }}</strong>
+          <span>{{ session['user'][:6] }}</span>
         </div>
-        <button onclick="openSettingsSheet()" class="sidebar-link" type="button" title="Postavke">
-          <svg class="sl-icon" xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
+        <button onclick="openSettingsSheet()" class="sidebar-link" type="button" title="Postavke / Tema / Jezik">
+          <svg class="sl-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
             <path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/>
           </svg>
-          Postavke / Tema / Jezik
+          <span>Postavke</span>
         </button>
-        <a href="/logout" class="sidebar-link danger">
-          <span class="sl-icon">🚪</span> Odjava
+        <a href="/logout" class="sidebar-link danger" title="Odjava">
+          <span class="sl-icon">🚪</span><span>Odjava</span>
         </a>
       </div>
     </aside>
