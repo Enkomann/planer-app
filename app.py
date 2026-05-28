@@ -49,6 +49,31 @@ app.config.update(
 )
 app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_UPLOAD_MB", "600")) * 1024 * 1024
 
+@app.context_processor
+def inject_header_globals():
+    """Umetni pending notifikacije u svaki template."""
+    pending_count = 0
+    pending_items = []
+    if session.get("user") and session.get("role") == "admin":
+        try:
+            conn = get_conn()
+            c    = conn.cursor()
+            rows = c.execute(
+                "SELECT id, worker, type, date_from, date_to, note "
+                "FROM leave_requests WHERE status='pending' ORDER BY created_at DESC"
+            ).fetchall()
+            conn.close()
+            pending_count = len(rows)
+            pending_items = [{"id": r[0], "worker": r[1], "type": r[2],
+                               "dfrom": r[3], "dto": r[4], "note": r[5] or ""}
+                             for r in rows]
+        except Exception:
+            pass
+    lang = session.get("lang", "fr").upper()
+    return {"hdr_pending_count": pending_count,
+            "hdr_pending_items": pending_items,
+            "hdr_lang": lang}
+
 STORAGE_ROOT  = os.path.abspath(os.environ.get("STORAGE_ROOT", "storage"))
 DOCUMENT_ROOT = os.path.join(STORAGE_ROOT, "documents")
 SQLITE_PATH   = os.path.join(STORAGE_ROOT, "db.sqlite")
@@ -2203,6 +2228,120 @@ BASE_STYLE = """
     .client-search-item:hover, .client-search-item.active { background:{{ '#2d3f56' if dark else '#eef4ff' }}; }
     .client-search-item:last-child { border-bottom:none; }
 
+    /* ── Topbar action icons (desktop/tablet only) ── */
+    .topbar {
+        display:none; position:fixed; top:0; left:66px; right:0; height:52px;
+        background:{{ '#0d1829' if dark else '#f8fafc' }};
+        border-bottom:1px solid {{ '#1e293b' if dark else '#e2e8f0' }};
+        z-index:250; align-items:center; justify-content:flex-end;
+        padding:0 16px; gap:8px;
+    }
+    .topicon-btn {
+        width:38px; height:38px; border-radius:50%;
+        border:1px solid {{ '#1e293b' if dark else '#e2e8f0' }};
+        background:{{ '#1e293b' if dark else '#ffffff' }};
+        display:flex; align-items:center; justify-content:center;
+        cursor:pointer; color:{{ '#94a3b8' if dark else '#475569' }};
+        position:relative; transition:all 0.15s; flex-shrink:0;
+        font-size:16px; text-decoration:none;
+        box-shadow: 0 1px 4px rgba(0,0,0,{{ '0.25' if dark else '0.07' }});
+    }
+    .topicon-btn:hover {
+        background:{{ '#2d4060' if dark else '#e9f0f8' }};
+        color:{{ '#e2e8f0' if dark else '#1f4f82' }};
+        border-color:{{ '#3b5578' if dark else '#c8def7' }};
+    }
+    .topicon-btn.active {
+        background:#1f4f82; color:white; border-color:#1f4f82;
+    }
+    .topicon-lang {
+        font-size:11px; font-weight:800; letter-spacing:0.03em;
+    }
+    .notif-badge {
+        position:absolute; top:-3px; right:-3px; min-width:16px; height:16px;
+        border-radius:8px; background:#ef4444; color:white;
+        font-size:9px; font-weight:800; display:flex; align-items:center;
+        justify-content:center; padding:0 3px; border:2px solid {{ '#0d1829' if dark else '#f8fafc' }};
+        animation: notif-pulse 2s infinite;
+    }
+    @keyframes notif-pulse {
+        0%,100% { box-shadow:0 0 0 0 rgba(239,68,68,0.5); }
+        50%      { box-shadow:0 0 0 5px rgba(239,68,68,0); }
+    }
+    /* Notification dropdown */
+    .notif-dropdown {
+        display:none; position:absolute; top:46px; right:0; width:320px;
+        background:{{ '#1e293b' if dark else 'white' }};
+        border:1px solid {{ '#334155' if dark else '#e2e8f0' }};
+        border-radius:14px; box-shadow:0 12px 32px rgba(0,0,0,0.22);
+        z-index:400; overflow:hidden;
+    }
+    .notif-dropdown.open { display:block; }
+    .notif-header {
+        padding:12px 16px 8px; font-size:13px; font-weight:700;
+        color:{{ '#e2e8f0' if dark else '#1e293b' }};
+        border-bottom:1px solid {{ '#334155' if dark else '#f1f5f9' }};
+        display:flex; align-items:center; justify-content:space-between;
+    }
+    .notif-item {
+        padding:12px 16px; border-bottom:1px solid {{ '#1e293b' if dark else '#f8fafc' }};
+        font-size:13px;
+    }
+    .notif-item:last-child { border-bottom:none; }
+    .notif-worker { font-weight:700; color:{{ '#93c5fd' if dark else '#1f4f82' }}; }
+    .notif-type { font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; margin:2px 0 6px; }
+    .notif-actions { display:flex; gap:6px; margin-top:6px; }
+    .notif-approve { padding:4px 12px; border-radius:6px; font-size:12px; font-weight:600;
+        background:#16a34a; color:white; border:none; cursor:pointer; }
+    .notif-reject  { padding:4px 12px; border-radius:6px; font-size:12px; font-weight:600;
+        background:#ef4444; color:white; border:none; cursor:pointer; }
+    /* Language dropdown */
+    .lang-dropdown {
+        display:none; position:absolute; top:46px; right:0; width:130px;
+        background:{{ '#1e293b' if dark else 'white' }};
+        border:1px solid {{ '#334155' if dark else '#e2e8f0' }};
+        border-radius:12px; box-shadow:0 12px 32px rgba(0,0,0,0.18);
+        z-index:400; overflow:hidden; padding:4px;
+    }
+    .lang-dropdown.open { display:block; }
+    .lang-option {
+        display:block; padding:9px 14px; border-radius:8px; font-size:13px;
+        font-weight:600; color:{{ '#e2e8f0' if dark else '#1e293b' }};
+        text-decoration:none; transition:background 0.1s;
+    }
+    .lang-option:hover { background:{{ '#334155' if dark else '#f1f5f9' }}; }
+    .lang-option.curr  { background:{{ 'rgba(59,130,246,0.18)' if dark else '#dbeafe' }};
+        color:{{ '#93c5fd' if dark else '#1d4ed8' }}; }
+    /* Search overlay */
+    .search-overlay {
+        display:none; position:fixed; inset:0; z-index:500;
+        background:rgba(0,0,0,0.5); backdrop-filter:blur(4px);
+        align-items:flex-start; justify-content:center; padding-top:80px;
+    }
+    .search-overlay.open { display:flex; }
+    .search-box {
+        background:{{ '#1e293b' if dark else 'white' }};
+        border-radius:16px; width:100%; max-width:560px; margin:0 16px;
+        box-shadow:0 24px 64px rgba(0,0,0,0.35); overflow:hidden;
+    }
+    .search-input-row {
+        display:flex; align-items:center; padding:14px 18px; gap:12px;
+        border-bottom:1px solid {{ '#334155' if dark else '#f1f5f9' }};
+    }
+    .search-input-row input {
+        flex:1; border:none; background:transparent; font-size:17px;
+        color:{{ '#e2e8f0' if dark else '#1e293b' }}; outline:none;
+    }
+    .search-input-row input::placeholder { color:{{ '#4b5563' if dark else '#94a3b8' }}; }
+    .search-results { max-height:380px; overflow-y:auto; padding:6px; }
+    .search-result-item {
+        display:flex; align-items:center; gap:10px; padding:10px 14px;
+        border-radius:10px; cursor:pointer; text-decoration:none;
+        color:{{ '#e2e8f0' if dark else '#1e293b' }}; font-size:14px;
+    }
+    .search-result-item:hover { background:{{ '#334155' if dark else '#f1f5f9' }}; }
+    .search-result-cat { font-size:10px; color:{{ '#64748b' if dark else '#94a3b8' }};
+        font-weight:600; padding:6px 14px 2px; text-transform:uppercase; letter-spacing:0.05em; }
     /* ── Narrow icon sidebar (Agendrix style) ── */
     .sidebar {
         display:none; position:fixed; left:0; top:0; bottom:0; width:66px;
@@ -2414,11 +2553,12 @@ BASE_STYLE = """
     }
 
     @media (min-width:601px) {
-        body { margin-left:66px; }
+        body { margin-left:66px; margin-top:52px; }
         .sidebar { display:flex !important; }
         .brandbar { display:none !important; }
+        .topbar  { display:flex !important; }
     }
-    @media (min-width:601px) and (max-width:900px) { body { margin:12px 12px 12px 78px; } }
+    @media (min-width:601px) and (max-width:900px) { body { margin:64px 12px 12px 78px; } }
 
     /* Telefon vodoravno (landscape) — sedmični kalendar puni širinu */
     @media (orientation:landscape) and (max-height:520px) {
@@ -2639,6 +2779,186 @@ def header_html():
       </div>
     </aside>
     {% endif %}
+
+    <!-- ═══ Desktop topbar action icons ═══ -->
+    {% if session.get('user') %}
+    <header class="topbar" id="mainTopbar">
+      <!-- Search -->
+      <button class="topicon-btn" onclick="openSearch()" title="Pretraga" aria-label="Pretraga">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+      </button>
+      <!-- Theme toggle -->
+      {% if get_theme() == 'dark' %}
+      <a class="topicon-btn" href="/set_theme/light" title="Prebaci na svijetlu temu" aria-label="Tema">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+      </a>
+      {% else %}
+      <a class="topicon-btn" href="/set_theme/dark" title="Prebaci na tamnu temu" aria-label="Tema">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </a>
+      {% endif %}
+      <!-- Language -->
+      <div style="position:relative;">
+        <button class="topicon-btn topicon-lang" onclick="toggleLangDrop()" title="Jezik / Langue / Language" id="langBtn">
+          {{ hdr_lang[:2] }}
+        </button>
+        <div class="lang-dropdown" id="langDrop">
+          <a class="lang-option {{ 'curr' if hdr_lang == 'FR' else '' }}" href="/set_lang/fr">🇫🇷 Français</a>
+          <a class="lang-option {{ 'curr' if hdr_lang == 'BOS' else '' }}" href="/set_lang/bos">🇧🇦 Bosanski</a>
+          <a class="lang-option {{ 'curr' if hdr_lang == 'EN' else '' }}" href="/set_lang/en">🇬🇧 English</a>
+          <a class="lang-option {{ 'curr' if hdr_lang == 'DE' else '' }}" href="/set_lang/de">🇩🇪 Deutsch</a>
+          <a class="lang-option {{ 'curr' if hdr_lang == 'PT' else '' }}" href="/set_lang/pt">🇵🇹 Português</a>
+        </div>
+      </div>
+      <!-- Notification bell -->
+      <div style="position:relative;">
+        <button class="topicon-btn {{ 'active' if hdr_pending_count > 0 else '' }}"
+                onclick="toggleNotifDrop()" title="Notifikacije" id="bellBtn"
+                style="{{ 'background:#ef4444; border-color:#ef4444; color:white;' if hdr_pending_count > 0 else '' }}">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          {% if hdr_pending_count > 0 %}
+          <span class="notif-badge">{{ hdr_pending_count }}</span>
+          {% endif %}
+        </button>
+        <!-- Notification dropdown -->
+        <div class="notif-dropdown" id="notifDrop">
+          <div class="notif-header">
+            <span>🔔 Zahtjevi radnika</span>
+            <span style="font-size:11px; color:{{ '#64748b' if dark else '#94a3b8' }};">{{ hdr_pending_count }} na čekanju</span>
+          </div>
+          {% if hdr_pending_items %}
+            {% for item in hdr_pending_items %}
+            <div class="notif-item">
+              <div class="notif-worker">👤 {{ item.worker }}</div>
+              <div class="notif-type">
+                {% if item.type == 'vacation' %}🏖️ Godišnji odmor
+                {% elif item.type == 'sick' %}🤒 Bolovanje
+                {% elif item.type == 'unpaid' %}📋 Neplaćeni dopust
+                {% else %}📝 {{ item.type }}{% endif %}
+                · {{ item.dfrom }} → {{ item.dto }}
+              </div>
+              {% if item.note %}<div style="font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; margin-bottom:4px;">{{ item.note }}</div>{% endif %}
+              <div class="notif-actions">
+                <form method="post" action="/leave_request/approve/{{ item.id }}" style="display:inline;">
+                  <button type="submit" class="notif-approve">✓ Odobri</button>
+                </form>
+                <form method="post" action="/leave_request/reject/{{ item.id }}" style="display:inline;">
+                  <button type="submit" class="notif-reject">✗ Odbij</button>
+                </form>
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div style="padding:20px 16px; text-align:center; color:{{ '#64748b' if dark else '#94a3b8' }}; font-size:13px;">
+              ✅ Nema zahtjeva na čekanju
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </header>
+
+    <!-- Search overlay -->
+    <div class="search-overlay" id="searchOverlay" onclick="if(event.target===this)closeSearch()">
+      <div class="search-box">
+        <div class="search-input-row">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="{{ '#94a3b8' if dark else '#64748b' }}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" id="searchInput" placeholder="Pretraži radnike, klijente, fakture…"
+                 oninput="runSearch(this.value)" autocomplete="off" spellcheck="false">
+          <button onclick="closeSearch()" style="background:none;border:none;cursor:pointer;color:{{ '#94a3b8' if dark else '#64748b' }};font-size:18px;padding:0;">✕</button>
+        </div>
+        <div class="search-results" id="searchResults">
+          <div style="padding:16px; text-align:center; color:{{ '#64748b' if dark else '#94a3b8' }}; font-size:13px;">
+            Počni tipkati za pretragu…
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <script>
+    // ── Notification dropdown ──
+    function toggleNotifDrop() {
+      var d = document.getElementById('notifDrop');
+      if (!d) return;
+      var isOpen = d.classList.contains('open');
+      closeAllDropdowns();
+      if (!isOpen) d.classList.add('open');
+    }
+    // ── Language dropdown ──
+    function toggleLangDrop() {
+      var d = document.getElementById('langDrop');
+      if (!d) return;
+      var isOpen = d.classList.contains('open');
+      closeAllDropdowns();
+      if (!isOpen) d.classList.add('open');
+    }
+    function closeAllDropdowns() {
+      document.querySelectorAll('.notif-dropdown,.lang-dropdown').forEach(function(el){ el.classList.remove('open'); });
+    }
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('#bellBtn') && !e.target.closest('#notifDrop') &&
+          !e.target.closest('#langBtn')  && !e.target.closest('#langDrop')) {
+        closeAllDropdowns();
+      }
+    });
+    // ── Search ──
+    function openSearch() {
+      document.getElementById('searchOverlay').classList.add('open');
+      setTimeout(function(){ var i=document.getElementById('searchInput'); if(i){i.focus();i.value='';} }, 80);
+      document.getElementById('searchResults').innerHTML = '<div style="padding:16px;text-align:center;color:#94a3b8;font-size:13px;">Počni tipkati za pretragu…</div>';
+    }
+    function closeSearch() { document.getElementById('searchOverlay').classList.remove('open'); }
+    document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ closeSearch(); closeAllDropdowns(); } });
+    // ── Search logic ──
+    var _srTimer = null;
+    function runSearch(q) {
+      q = q.trim();
+      if (q.length < 2) {
+        document.getElementById('searchResults').innerHTML = '<div style="padding:16px;text-align:center;color:#94a3b8;font-size:13px;">Unesi najmanje 2 slova…</div>';
+        return;
+      }
+      clearTimeout(_srTimer);
+      _srTimer = setTimeout(function(){
+        fetch('/api/search?q=' + encodeURIComponent(q))
+          .then(function(r){ return r.json(); })
+          .then(function(data){ renderSearchResults(data); });
+      }, 220);
+    }
+    function renderSearchResults(data) {
+      var html = '';
+      var icons = { workers:'👷', clients:'🏢', invoices:'🧾' };
+      var labels = { workers:'Radnici', clients:'Klijenti', invoices:'Fakture' };
+      ['workers','clients','invoices'].forEach(function(cat){
+        var items = data[cat] || [];
+        if (!items.length) return;
+        html += '<div class="search-result-cat">' + labels[cat] + '</div>';
+        items.forEach(function(item){
+          html += '<a class="search-result-item" href="' + item.url + '" onclick="closeSearch();">'
+                + '<span style="font-size:20px;">' + icons[cat] + '</span>'
+                + '<div><div style="font-weight:600;">' + escHtml(item.name) + '</div>'
+                + (item.sub ? '<div style="font-size:11px;opacity:0.65;">' + escHtml(item.sub) + '</div>' : '')
+                + '</div></a>';
+        });
+      });
+      if (!html) html = '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px;">Nema rezultata.</div>';
+      document.getElementById('searchResults').innerHTML = html;
+    }
+    function escHtml(s){ var d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+    </script>
 
     <!-- Mobile top bar (hidden on tablet+desktop via CSS) -->
     <div class="brandbar">
@@ -6471,6 +6791,28 @@ def diagram_page():
      total_unpaid=total_unpaid, total_inv=total_inv,
      best_month_idx=best_month_idx, yoy_pct=yoy_pct, prev_year=prev_year,
      month_names=MONTH_NAMES, client_names=client_names, client_totals=client_totals)
+
+
+@app.route("/api/search")
+def api_search():
+    if "user" not in session:
+        return {"workers": [], "clients": [], "invoices": []}
+    q = request.args.get("q", "").strip().lower()
+    if len(q) < 2:
+        return {"workers": [], "clients": [], "invoices": []}
+    from flask import jsonify
+    conn = get_conn(); c = conn.cursor()
+    workers = [{"name": r[0], "sub": r[1] or "", "url": "/workers"}
+               for r in c.execute("SELECT name, address FROM workers WHERE LOWER(name) LIKE ? LIMIT 6",
+                                  (f"%{q}%",)).fetchall()]
+    clients = [{"name": r[0], "sub": r[1] or "", "url": "/clients"}
+               for r in c.execute("SELECT name, address FROM clients WHERE LOWER(name) LIKE ? OR LOWER(address) LIKE ? LIMIT 6",
+                                  (f"%{q}%", f"%{q}%")).fetchall()]
+    invoices = [{"name": r[0], "sub": f"{r[1]} · {r[2]} €", "url": "/invoices"}
+                for r in c.execute("SELECT invoice_number, client_name, total FROM invoice_records WHERE deleted=0 AND (LOWER(invoice_number) LIKE ? OR LOWER(client_name) LIKE ?) LIMIT 6",
+                                   (f"%{q}%", f"%{q}%")).fetchall()]
+    conn.close()
+    return jsonify({"workers": workers, "clients": clients, "invoices": invoices})
 
 
 @app.route("/payroll/save_settings", methods=["POST"])
