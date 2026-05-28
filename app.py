@@ -510,6 +510,12 @@ DOCUMENT_TRANSLATIONS = {
         "folder_created": "Fascikla je kreirana.", "open_folder": "Otvori fasciklu",
         "delete_folder": "Obrisi fasciklu",
         "delete_folder_confirm": "Da li zelite obrisati ovu fasciklu i sve dokumente u njoj?",
+        "cleanup_confirm": "Obrisati sve zapise ciji fajl ne postoji na serveru?",
+        "cleanup_orphans": "Ocisti izgubljene",
+        "doc_delete_confirm": "Obrisati dokument?",
+        "share_link_invalid": "Link istekao ili nije validan.",
+        "folder_unavailable": "Folder nije dostupan.",
+        "folder_not_found_pub": "Folder nije pronadjen.",
     },
     "en": {
         "documents": "Documents", "upload_document": "Upload document", "document_name": "Document name",
@@ -534,6 +540,12 @@ DOCUMENT_TRANSLATIONS = {
         "folder_created": "Folder created.", "open_folder": "Open folder",
         "delete_folder": "Delete folder",
         "delete_folder_confirm": "Delete this folder and all documents inside it?",
+        "cleanup_confirm": "Delete all records whose file no longer exists on the server?",
+        "cleanup_orphans": "Clean up lost files",
+        "doc_delete_confirm": "Delete this document?",
+        "share_link_invalid": "Link expired or is not valid.",
+        "folder_unavailable": "Folder is not accessible.",
+        "folder_not_found_pub": "Folder not found.",
     },
     "fr": {
         "documents": "Documents", "upload_document": "Ajouter document", "document_name": "Nom du document",
@@ -558,6 +570,12 @@ DOCUMENT_TRANSLATIONS = {
         "folder_created": "Dossier cree.", "open_folder": "Ouvrir dossier",
         "delete_folder": "Supprimer dossier",
         "delete_folder_confirm": "Supprimer ce dossier et tous les documents qu'il contient?",
+        "cleanup_confirm": "Supprimer tous les enregistrements dont le fichier n'existe plus sur le serveur?",
+        "cleanup_orphans": "Nettoyer les fichiers perdus",
+        "doc_delete_confirm": "Supprimer ce document?",
+        "share_link_invalid": "Lien expire ou invalide.",
+        "folder_unavailable": "Dossier inaccessible.",
+        "folder_not_found_pub": "Dossier introuvable.",
     },
     "de": {
         "documents": "Dokumente", "upload_document": "Dokument hochladen", "document_name": "Dokumentname",
@@ -582,6 +600,12 @@ DOCUMENT_TRANSLATIONS = {
         "folder_created": "Ordner erstellt.", "open_folder": "Ordner oeffnen",
         "delete_folder": "Ordner loeschen",
         "delete_folder_confirm": "Diesen Ordner und alle Dokumente darin loeschen?",
+        "cleanup_confirm": "Alle Eintraege loeschen, deren Datei nicht mehr auf dem Server vorhanden ist?",
+        "cleanup_orphans": "Verlorene bereinigen",
+        "doc_delete_confirm": "Dieses Dokument loeschen?",
+        "share_link_invalid": "Link abgelaufen oder ungueltig.",
+        "folder_unavailable": "Ordner nicht zugaenglich.",
+        "folder_not_found_pub": "Ordner nicht gefunden.",
     },
     "pt": {
         "documents": "Documentos", "upload_document": "Carregar documento", "document_name": "Nome do documento",
@@ -606,6 +630,12 @@ DOCUMENT_TRANSLATIONS = {
         "folder_created": "Pasta criada.", "open_folder": "Abrir pasta",
         "delete_folder": "Apagar pasta",
         "delete_folder_confirm": "Apagar esta pasta e todos os documentos dentro dela?",
+        "cleanup_confirm": "Apagar todos os registos cujo ficheiro ja nao existe no servidor?",
+        "cleanup_orphans": "Limpar perdidos",
+        "doc_delete_confirm": "Apagar este documento?",
+        "share_link_invalid": "Ligacao expirada ou invalida.",
+        "folder_unavailable": "Pasta inacessivel.",
+        "folder_not_found_pub": "Pasta nao encontrada.",
     },
 }
 for _lang, _values in DOCUMENT_TRANSLATIONS.items():
@@ -4280,7 +4310,7 @@ def documents():
                 <button class="toolbar-button" type="button" onclick="document.getElementById('uploadDrawer').classList.toggle('open');">&#8679; {{ tr["upload_documents"] }}</button>
                 <button class="toolbar-button" type="button" onclick="document.getElementById('newFolderForm').style.display='flex';">+ {{ tr["new_folder"] }}</button>
                 <a class="toolbar-link" href="/documents">&#8635;</a>
-                <form class="inline-form" method="post" action="/documents/cleanup" onsubmit="return confirm('Obrisati sve zapise čiji fajl ne postoji na serveru?');"><button class="toolbar-button" type="submit" style="background:#7f1d1d;color:#fca5a5;border:none;">&#128465; Očisti izgubljene</button></form>
+                <form class="inline-form" method="post" action="/documents/cleanup" onsubmit="return confirm({{ tr['cleanup_confirm']|tojson }});"><button class="toolbar-button" type="submit" style="background:#7f1d1d;color:#fca5a5;border:none;">&#128465; {{ tr['cleanup_orphans'] }}</button></form>
                 <form id="newFolderForm" method="post" action="/documents/folder" style="display:none;gap:6px;align-items:center;">
                     {% if folder_id %}<input type="hidden" name="parent_id" value="{{ folder_id }}">{% endif %}
                     <input name="name" placeholder="{{ tr['folder_name'] }}" required>
@@ -4356,7 +4386,7 @@ def documents():
                             <a href="/documents/view/{{ doc.id }}">{{ tr["preview"] }}</a>
                             <a href="/documents/file/{{ doc.id }}?download=1">{{ tr["download"] }}</a>
                             <button type="button" class="share-toggle" onclick="var f=document.getElementById('sf{{ doc.id }}');f.style.display=f.style.display==='flex'?'none':'flex';" title="{{ tr['create_share_link'] }}">&#128279;</button>
-                            <form class="inline-form" method="post" action="/documents/delete/{{ doc.id }}" onsubmit="return confirm('Obrisati dokument?');"><button>{{ tr["delete"] }}</button></form>
+                            <form class="inline-form" method="post" action="/documents/delete/{{ doc.id }}" onsubmit="return confirm({{ tr['doc_delete_confirm']|tojson }});"><button>{{ tr["delete"] }}</button></form>
                         </div>
                         <form id="sf{{ doc.id }}" class="share-inline-form" method="post" action="/documents/share/{{ doc.id }}">
                             <select name="days" style="width:auto;font-size:11px;padding:3px 4px;">
@@ -4532,6 +4562,7 @@ def documents_folder_delete(folder_id):
             c.execute("DELETE FROM document_shares WHERE document_id = ?", (document["id"],))
             c.execute("DELETE FROM documents WHERE id = ?", (document["id"],))
     for current_id in reversed(folder_ids):
+        c.execute("DELETE FROM folder_shares WHERE folder_id = ?", (current_id,))
         c.execute("DELETE FROM document_folders WHERE id = ?", (current_id,))
     conn.commit()
     conn.close()
@@ -4887,21 +4918,22 @@ def shared_folder(token):
 
 @app.route("/share/folder/<token>/sub/<int:sub_id>")
 def shared_folder_sub(token, sub_id):
+    tr = t()
     conn = get_conn()
     info = _shared_folder_validate(conn, token)
     if not info:
         conn.close()
-        return "Link istekao ili nije validan.", 404
+        return tr["share_link_invalid"], 404
     root_id, expires_at, root_name = info
     tree_ids = _folder_tree_ids(conn, root_id)
     if sub_id not in tree_ids:
         conn.close()
-        return "Folder nije dostupan.", 403
+        return tr["folder_unavailable"], 403
     sub_row = conn.cursor().execute(
         "SELECT id, name FROM document_folders WHERE id = ?", (sub_id,)).fetchone()
     if not sub_row:
         conn.close()
-        return "Folder nije pronađen.", 404
+        return tr["folder_not_found_pub"], 404
     subfolders = conn.cursor().execute(
         "SELECT id, name FROM document_folders WHERE parent_id = ? ORDER BY name", (sub_id,)).fetchall()
     doc_rows = conn.cursor().execute("""
@@ -5002,14 +5034,21 @@ def shared_folder_zip(token, sub_id=None):
                 diag = "Greška pri kreiranju ZIP-a:\n" + "\n".join(errors[:10])
                 return diag, 500
             return "Folder ne sadrži dokumente.", 404
-        with open(tmp_path, "rb") as f:
-            data = f.read()
-        os.unlink(tmp_path)
         safe_name = re.sub(r'[\\/:*?"<>|]', "_", zip_folder_name) or "folder"
-        response = app.response_class(data, mimetype="application/zip")
-        response.headers["Content-Disposition"] = f'attachment; filename="{safe_name}.zip"'
-        response.headers["Content-Length"] = str(len(data))
-        return response
+        file_size = os.path.getsize(tmp_path)
+
+        @app.after_request
+        def _del_tmp(response, _p=tmp_path):
+            try: os.unlink(_p)
+            except: pass
+            return response
+
+        return send_file(
+            tmp_path,
+            mimetype="application/zip",
+            as_attachment=True,
+            download_name=f"{safe_name}.zip",
+        )
     except Exception:
         conn.close()
         try:
@@ -6337,24 +6376,75 @@ def backup_page():
     """, tr=tr, dark=dark, notice=notice, backups=backups)
 
 
+def _backup_export_db(conn):
+    """Export all tables to a dict {table: {columns, rows}} — works on SQLite and PostgreSQL."""
+    c = conn.cursor()
+    if USE_POSTGRES:
+        c.execute(
+            "SELECT table_name FROM information_schema.tables "
+            "WHERE table_schema='public' AND table_type='BASE TABLE'"
+        )
+        tables = [r[0] for r in c.fetchall()]
+    else:
+        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+        tables = [r[0] for r in c.fetchall()]
+    export = {}
+    for tbl in tables:
+        try:
+            c.execute(f"SELECT * FROM {tbl}")
+            rows = c.fetchall()
+            cols = [d[0] for d in c.description] if c.description else []
+            export[tbl] = {"columns": cols, "rows": [list(r) for r in rows]}
+        except Exception:
+            pass
+    return export
+
+
+def _backup_import_db(conn, export):
+    """Re-import table data exported by _backup_export_db. Clears existing rows first."""
+    c = conn.cursor()
+    for tbl, data in export.items():
+        cols = data.get("columns", [])
+        rows = data.get("rows", [])
+        if not cols:
+            continue
+        try:
+            c.execute(f"DELETE FROM {tbl}")
+        except Exception:
+            continue
+        col_str = ", ".join(cols)
+        placeholders = ", ".join(["?"] * len(cols))
+        for row in rows:
+            try:
+                c.execute(f"INSERT INTO {tbl} ({col_str}) VALUES ({placeholders})", row)
+            except Exception:
+                pass
+    conn.commit()
+
+
 @app.route("/backup/create", methods=["POST"])
 def backup_create():
     if session.get("role") != "admin": return redirect("/")
     os.makedirs(BACKUP_ROOT, exist_ok=True)
     ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    backup_name = f"Backup_{ts}.zip"
+    db_label = "postgres" if USE_POSTGRES else "sqlite"
+    backup_name = f"Backup_{ts}_{db_label}.zip"
     backup_path = os.path.join(BACKUP_ROOT, backup_name)
     tmp_fd, tmp_path = tempfile.mkstemp(suffix=".zip")
     os.close(tmp_fd)
     try:
+        conn = get_conn()
+        db_export = _backup_export_db(conn)
+        conn.close()
         with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zf:
-            if os.path.exists(SQLITE_PATH):
-                zf.write(SQLITE_PATH, "db.sqlite")
+            zf.writestr("db_export.json",
+                        json.dumps(db_export, ensure_ascii=False, default=str))
             if os.path.isdir(DOCUMENT_ROOT):
                 for root_dir, dirs, files in os.walk(DOCUMENT_ROOT):
                     for fname in files:
                         fpath = os.path.join(root_dir, fname)
-                        arcname = "documents/" + os.path.relpath(fpath, DOCUMENT_ROOT).replace("\\", "/")
+                        arcname = "documents/" + os.path.relpath(
+                            fpath, DOCUMENT_ROOT).replace("\\", "/")
                         zf.write(fpath, arcname)
         os.replace(tmp_path, backup_path)
         msg = f"Backup kreiran: {backup_name}"
@@ -6385,15 +6475,35 @@ def backup_restore(filename):
     try:
         with zipfile.ZipFile(fpath, "r") as zf:
             names = zf.namelist()
-            if "db.sqlite" not in names:
-                return redirect("/backup?notice=" + urllib.parse.quote("Backup ne sadrži bazu podataka."))
-            db_data = zf.read("db.sqlite")
-        tmp_fd, tmp_path = tempfile.mkstemp(suffix=".sqlite", dir=STORAGE_ROOT)
-        os.close(tmp_fd)
-        with open(tmp_path, "wb") as f:
-            f.write(db_data)
-        os.replace(tmp_path, SQLITE_PATH)
-        msg = f"Baza podataka uspješno obnovljena iz: {safe_name}"
+            # Support both new JSON format and legacy SQLite format
+            if "db_export.json" in names:
+                db_export = json.loads(zf.read("db_export.json").decode("utf-8"))
+                conn = get_conn()
+                _backup_import_db(conn, db_export)
+                conn.close()
+                db_msg = "JSON export"
+            elif "db.sqlite" in names and not USE_POSTGRES:
+                db_data = zf.read("db.sqlite")
+                tmp_fd, tmp_path = tempfile.mkstemp(suffix=".sqlite", dir=STORAGE_ROOT)
+                os.close(tmp_fd)
+                with open(tmp_path, "wb") as f:
+                    f.write(db_data)
+                os.replace(tmp_path, SQLITE_PATH)
+                db_msg = "SQLite"
+            else:
+                return redirect("/backup?notice=" + urllib.parse.quote(
+                    "Backup ne sadrži bazu podataka (db_export.json)."))
+            # Restore document files
+            doc_files = [n for n in names if n.startswith("documents/")]
+            for arc in doc_files:
+                rel = arc[len("documents/"):]
+                if not rel:
+                    continue
+                dest = os.path.join(DOCUMENT_ROOT, rel.replace("/", os.sep))
+                os.makedirs(os.path.dirname(dest), exist_ok=True)
+                with zf.open(arc) as src, open(dest, "wb") as dst:
+                    dst.write(src.read())
+        msg = f"Baza ({db_msg}) i dokumenti uspješno obnovljeni iz: {safe_name}"
     except Exception as e:
         msg = f"Greška pri restauraciji: {e}"
     return redirect("/backup?notice=" + urllib.parse.quote(msg))
