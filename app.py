@@ -2790,7 +2790,7 @@ def header_html():
         </svg>
       </button>
       <!-- Theme toggle -->
-      {% if get_theme() == 'dark' %}
+      {% if dark %}
       <a class="topicon-btn" href="/set_theme/light" title="Prebaci na svijetlu temu" aria-label="Tema">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
@@ -6467,7 +6467,9 @@ def diagram_page():
     total_paid   = round(sum(month_paid), 2)
     total_unpaid = round(sum(month_unpaid), 2)
     total_inv    = sum(month_count)
-    best_month_idx = month_ttc.index(max(month_ttc)) if any(month_ttc) else -1
+    best_month_idx  = month_ttc.index(max(month_ttc)) if any(month_ttc) else -1
+    active_months   = sum(1 for v in month_ttc if v > 0)
+    avg_monthly     = round(total_ttc / max(active_months, 1), 2)
 
     # Per-client breakdown for the year
     client_rows = c.execute("""
@@ -6581,9 +6583,9 @@ def diagram_page():
     <div class="kpi-card" style="border-left:4px solid #06b6d4;">
       <div class="kpi-label">Prosjek / mj</div>
       <div class="kpi-value" style="color:{{ '#67e8f9' if dark else '#0891b2' }};">
-        {{ '%.2f'|format(total_ttc / [month_ttc|selectattr('>', 0)|list|length, 1]|max) }} €
+        {{ '%.2f'|format(avg_monthly) }} €
       </div>
-      <div class="kpi-sub">TTC, aktivni mj: {{ month_ttc|selectattr('>', 0)|list|length }}</div>
+      <div class="kpi-sub">TTC, aktivni mj: {{ active_months }}</div>
     </div>
   </div>
 
@@ -6790,7 +6792,8 @@ def diagram_page():
      total_ht=total_ht, total_ttc=total_ttc, total_paid=total_paid,
      total_unpaid=total_unpaid, total_inv=total_inv,
      best_month_idx=best_month_idx, yoy_pct=yoy_pct, prev_year=prev_year,
-     month_names=MONTH_NAMES, client_names=client_names, client_totals=client_totals)
+     month_names=MONTH_NAMES, client_names=client_names, client_totals=client_totals,
+     active_months=active_months, avg_monthly=avg_monthly)
 
 
 @app.route("/api/search")
