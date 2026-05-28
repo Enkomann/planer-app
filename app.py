@@ -7085,14 +7085,14 @@ def api_search():
         ).fetchall()
     else:
         # Delimiter-aware exact match in SQL so LIMIT 8 applies after the user
-        # restriction. Wrapping the field with commas and stripping spaces after
-        # commas lets us search for ',name,' which never matches substrings
-        # (e.g. 'Ana' won't match 'Anastasia'). worker_in_shift() is kept as
-        # the authoritative membership check after fetch.
-        _user_pattern = f"%,{current_user.lower()},%"
+        # restriction. Escape LIKE metacharacters (%, _, !) in the username so
+        # special chars never act as wildcards. '!' is the escape character —
+        # it avoids backslash handling differences between SQLite and PostgreSQL.
+        _ue = current_user.lower().replace("!", "!!").replace("%", "!%").replace("_", "!_")
+        _user_pattern = f"%,{_ue},%"
         shifts_rows = c.execute(
             "SELECT worker, client, date, time FROM shifts"
-            " WHERE ',' || REPLACE(LOWER(worker), ', ', ',') || ',' LIKE ?"
+            " WHERE ',' || REPLACE(LOWER(worker), ', ', ',') || ',' LIKE ? ESCAPE '!'"
             " AND (LOWER(worker) LIKE ? OR LOWER(client) LIKE ?)"
             " ORDER BY date DESC LIMIT 8",
             (_user_pattern, _like, _like),
