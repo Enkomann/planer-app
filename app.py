@@ -2855,18 +2855,7 @@ def index():
     data = load_index_data()
 
     return render_template_string(BASE_STYLE + header_html() + """
-    <div class="app-shell">
-        <aside class="card sidebar">
-            <div class="sidebar-title">{{ tr["professional_menu"] }}</div>
-            <a class="nav-link" href="/">🏠 {{ tr["dashboard"] }}</a>
-            {% if is_admin %}<a class="nav-link" href="/documents">&#128193; {{ tr["documents"] }}</a>{% endif %}
-            <a class="nav-link" href="/week">📅 {{ tr["week_calendar"] }}</a>
-            <a class="nav-link" href="/month">🗓️ {{ tr["month_calendar"] }}</a>
-            {% if is_admin %}<a class="nav-link" href="/route_optimizer">🧭 {{ tr["route_optimizer"] }}</a>{% endif %}
-            {% if is_admin %}<a class="nav-link" href="/invoices">📄 {{ tr["invoices"] }}</a>{% endif %}
-            <a class="nav-link" href="/month_pdf" target="_blank">📄 {{ tr["month_pdf"] }}</a>
-        </aside>
-        <main class="main-content">
+    <div class="page-content">
             {% if is_admin %}<div class="hero">
                 <h1>{{ tr["dashboard"] }}</h1>
                 <div class="muted">Luxmann Planner · {{ tr["overview"] }}</div>
@@ -3006,7 +2995,6 @@ def index():
         </div>
         <a class="week-link" href="/week">{{ tr["week_calendar"] }}</a><a class="week-link" href="/month">{{ tr["month_calendar"] }}</a><a class="week-link" href="/route_optimizer">{{ tr["route_optimizer"] }}</a><a class="pdf-link" href="/export_pdf{% if request.args.get('date') %}?date={{ request.args.get('date') }}{% endif %}" target="_blank">{{ tr["pdf"] }}</a>
     </div>
-        </main>
     </div>
 
   <script>
