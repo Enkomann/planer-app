@@ -2607,6 +2607,9 @@ def header_html():
         <a href="/payroll" class="sidebar-link {% if request.path.startswith('/payroll') %}active{% endif %}" title="Obračun plata">
           <span class="sl-icon">💰</span><span>Plate</span>
         </a>
+        <a href="/diagram" class="sidebar-link {% if request.path == '/diagram' %}active{% endif %}" title="Dijagram zarade">
+          <span class="sl-icon">📊</span><span>Dijagram</span>
+        </a>
         <a href="/route_optimizer" class="sidebar-link {% if request.path == '/route_optimizer' %}active{% endif %}" title="Optimizacija rute">
           <span class="sl-icon">🗺️</span><span>Ruta</span>
         </a>
@@ -6082,6 +6085,392 @@ def backup_delete_file(filename):
     if os.path.exists(fpath):
         os.unlink(fpath)
     return redirect("/backup")
+
+
+@app.route("/diagram")
+def diagram_page():
+    if session.get("role") != "admin": return redirect("/")
+    tr = t(); dark = get_theme() == "dark"
+    conn = get_conn(); c = conn.cursor()
+
+    # Available years from invoice_records
+    year_rows = c.execute(
+        "SELECT DISTINCT strftime('%Y', invoice_date) as y FROM invoice_records WHERE deleted=0 AND invoice_date != '' ORDER BY y DESC"
+    ).fetchall()
+    available_years = [r[0] for r in year_rows if r[0]]
+    current_year_str = str(lux_now().year)
+    if current_year_str not in available_years:
+        available_years.insert(0, current_year_str)
+    sel_year = request.args.get("year", current_year_str)
+    if sel_year not in available_years:
+        sel_year = available_years[0] if available_years else current_year_str
+
+    # Monthly data for selected year
+    monthly_rows = c.execute("""
+        SELECT
+            CAST(strftime('%m', invoice_date) AS INTEGER) as m,
+            COALESCE(SUM(amount), 0) as ht,
+            COALESCE(SUM(total),  0) as ttc,
+            COALESCE(SUM(CASE WHEN paid=1 THEN total ELSE 0 END), 0) as paid_ttc,
+            COALESCE(SUM(CASE WHEN paid=0 THEN total ELSE 0 END), 0) as unpaid_ttc,
+            COUNT(*) as cnt
+        FROM invoice_records
+        WHERE deleted=0 AND invoice_date != '' AND strftime('%Y', invoice_date) = ?
+        GROUP BY m ORDER BY m
+    """, (sel_year,)).fetchall()
+
+    # Build full 12-month arrays (0 for missing months)
+    month_ht      = [0.0] * 12
+    month_ttc     = [0.0] * 12
+    month_paid    = [0.0] * 12
+    month_unpaid  = [0.0] * 12
+    month_count   = [0]   * 12
+    for row in monthly_rows:
+        idx = int(row[0]) - 1
+        if 0 <= idx < 12:
+            month_ht[idx]     = round(row[1], 2)
+            month_ttc[idx]    = round(row[2], 2)
+            month_paid[idx]   = round(row[3], 2)
+            month_unpaid[idx] = round(row[4], 2)
+            month_count[idx]  = int(row[5])
+
+    # Cumulative TTC
+    cumul = []
+    running = 0.0
+    for v in month_ttc:
+        running += v
+        cumul.append(round(running, 2))
+
+    # Totals
+    total_ht     = round(sum(month_ht), 2)
+    total_ttc    = round(sum(month_ttc), 2)
+    total_paid   = round(sum(month_paid), 2)
+    total_unpaid = round(sum(month_unpaid), 2)
+    total_inv    = sum(month_count)
+    best_month_idx = month_ttc.index(max(month_ttc)) if any(month_ttc) else -1
+
+    # Per-client breakdown for the year
+    client_rows = c.execute("""
+        SELECT client_name, COALESCE(SUM(total),0) as ttc, COUNT(*) as cnt
+        FROM invoice_records
+        WHERE deleted=0 AND invoice_date != '' AND strftime('%Y', invoice_date) = ?
+        GROUP BY client_name ORDER BY ttc DESC LIMIT 12
+    """, (sel_year,)).fetchall()
+    client_names  = [r[0] or '—' for r in client_rows]
+    client_totals = [round(r[1], 2) for r in client_rows]
+
+    # Previous year comparison
+    prev_year = str(int(sel_year) - 1)
+    prev_row = c.execute(
+        "SELECT COALESCE(SUM(total),0) FROM invoice_records WHERE deleted=0 AND invoice_date!='' AND strftime('%Y',invoice_date)=?",
+        (prev_year,)
+    ).fetchone()
+    prev_total = round((prev_row[0] or 0), 2)
+    yoy_pct = round(((total_ttc - prev_total) / prev_total * 100) if prev_total > 0 else 0, 1)
+
+    MONTH_NAMES = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec']
+
+    conn.close()
+
+    return render_template_string(BASE_STYLE + header_html() + """
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+.kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; margin-bottom:22px; }
+.kpi-card { padding:18px 16px; border-radius:14px; background:{{ '#111827' if dark else 'white' }};
+    border:1px solid {{ '#1e293b' if dark else '#e2e8f0' }}; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
+.kpi-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em;
+    color:{{ '#64748b' if dark else '#94a3b8' }}; margin-bottom:6px; }
+.kpi-value { font-size:24px; font-weight:800; line-height:1.1; }
+.kpi-sub { font-size:11px; color:{{ '#64748b' if dark else '#94a3b8' }}; margin-top:4px; }
+.chart-card { background:{{ '#111827' if dark else 'white' }}; border-radius:16px;
+    border:1px solid {{ '#1e293b' if dark else '#e2e8f0' }}; padding:20px; margin-bottom:20px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.06); }
+.chart-title { font-size:14px; font-weight:700; margin-bottom:16px;
+    color:{{ '#e2e8f0' if dark else '#1e293b' }}; }
+.year-selector { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.year-btn { padding:7px 18px; border-radius:20px; border:1px solid {{ '#334155' if dark else '#cbd5e1' }};
+    background:{{ '#1e293b' if dark else '#f8fafc' }}; color:{{ '#94a3b8' if dark else '#64748b' }};
+    text-decoration:none; font-size:13px; font-weight:600; transition:all 0.15s; }
+.year-btn.active, .year-btn:hover { background:#1f4f82; color:white; border-color:#1f4f82; }
+.month-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:6px; }
+.month-table th { padding:9px 12px; text-align:right; background:{{ '#1e293b' if dark else '#f1f5f9' }};
+    color:{{ '#94a3b8' if dark else '#475569' }}; font-size:11px; font-weight:600;
+    text-transform:uppercase; letter-spacing:0.04em; }
+.month-table th:first-child { text-align:left; }
+.month-table td { padding:9px 12px; border-bottom:1px solid {{ '#1e293b' if dark else '#f8fafc' }};
+    text-align:right; }
+.month-table td:first-child { text-align:left; font-weight:600; }
+.month-table tfoot td { font-weight:700; background:{{ '#172039' if dark else '#eff6ff' }};
+    border-top:2px solid {{ '#3b82f6' if dark else '#6366f1' }}; }
+.bar-inline { display:inline-block; height:6px; border-radius:3px; background:#3b82f6;
+    vertical-align:middle; margin-left:6px; }
+.trend-up { color:#4ade80; } .trend-down { color:#f87171; } .trend-flat { color:#94a3b8; }
+</style>
+
+<div class="page-content">
+  <div class="hero">
+    <h1>📊 Dijagram zarade</h1>
+    <div class="muted">Prihod iz faktura — {{ sel_year }}</div>
+  </div>
+
+  <!-- Year selector -->
+  <div class="chart-card" style="margin-bottom:18px; padding:14px 20px;">
+    <div class="year-selector">
+      <span style="font-size:13px; font-weight:600; color:{{ '#94a3b8' if dark else '#64748b' }};">Godina:</span>
+      {% for y in available_years %}
+      <a href="/diagram?year={{ y }}" class="year-btn {{ 'active' if y == sel_year else '' }}">{{ y }}</a>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- KPI cards -->
+  <div class="kpi-grid">
+    <div class="kpi-card" style="border-left:4px solid #3b82f6;">
+      <div class="kpi-label">Ukupno HT</div>
+      <div class="kpi-value" style="color:{{ '#93c5fd' if dark else '#2563eb' }};">{{ '%.2f'|format(total_ht) }} €</div>
+      <div class="kpi-sub">Bez TVA — {{ total_inv }} faktura</div>
+    </div>
+    <div class="kpi-card" style="border-left:4px solid #8b5cf6;">
+      <div class="kpi-label">Ukupno TTC</div>
+      <div class="kpi-value" style="color:{{ '#c4b5fd' if dark else '#7c3aed' }};">{{ '%.2f'|format(total_ttc) }} €</div>
+      <div class="kpi-sub">Sa TVA
+        {% if yoy_pct != 0 %}
+        · <span class="{{ 'trend-up' if yoy_pct > 0 else 'trend-down' }}">
+          {{ '+' if yoy_pct > 0 else '' }}{{ yoy_pct }}% vs {{ prev_year }}
+        </span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="kpi-card" style="border-left:4px solid #22c55e;">
+      <div class="kpi-label">Naplaćeno</div>
+      <div class="kpi-value" style="color:{{ '#4ade80' if dark else '#16a34a' }};">{{ '%.2f'|format(total_paid) }} €</div>
+      <div class="kpi-sub">{{ '%.0f'|format(total_paid/total_ttc*100) if total_ttc > 0 else 0 }}% od TTC</div>
+    </div>
+    <div class="kpi-card" style="border-left:4px solid #f59e0b;">
+      <div class="kpi-label">Neplaćeno</div>
+      <div class="kpi-value" style="color:{{ '#fbbf24' if dark else '#d97706' }};">{{ '%.2f'|format(total_unpaid) }} €</div>
+      <div class="kpi-sub">Otvorene fakture</div>
+    </div>
+    {% if best_month_idx >= 0 %}
+    <div class="kpi-card" style="border-left:4px solid #ec4899;">
+      <div class="kpi-label">Najbolji mjesec</div>
+      <div class="kpi-value" style="color:{{ '#f9a8d4' if dark else '#be185d' }};">{{ month_names[best_month_idx] }}</div>
+      <div class="kpi-sub">{{ '%.2f'|format(month_ttc[best_month_idx]) }} € TTC</div>
+    </div>
+    {% endif %}
+    <div class="kpi-card" style="border-left:4px solid #06b6d4;">
+      <div class="kpi-label">Prosjek / mj</div>
+      <div class="kpi-value" style="color:{{ '#67e8f9' if dark else '#0891b2' }};">
+        {{ '%.2f'|format(total_ttc / [month_ttc|selectattr('>', 0)|list|length, 1]|max) }} €
+      </div>
+      <div class="kpi-sub">TTC, aktivni mj: {{ month_ttc|selectattr('>', 0)|list|length }}</div>
+    </div>
+  </div>
+
+  <!-- Main bar + line chart -->
+  <div class="chart-card">
+    <div class="chart-title">📈 Prihod po mjesecima — {{ sel_year }}</div>
+    <canvas id="mainChart" style="max-height:340px;"></canvas>
+  </div>
+
+  <!-- Naplaćeno vs Nenaplaćeno stacked -->
+  <div class="chart-card">
+    <div class="chart-title">💳 Naplaćeno vs Neplaćeno (TTC)</div>
+    <canvas id="paidChart" style="max-height:260px;"></canvas>
+  </div>
+
+  <!-- Per-client horizontal bar -->
+  {% if client_names %}
+  <div class="chart-card">
+    <div class="chart-title">🏢 Prihod po klijentu — {{ sel_year }} (Top {{ client_names|length }})</div>
+    <canvas id="clientChart" style="max-height:{{ [client_names|length * 44, 360]|min }}px;"></canvas>
+  </div>
+  {% endif %}
+
+  <!-- Monthly data table -->
+  <div class="chart-card">
+    <div class="chart-title">📋 Detalji po mjesecima</div>
+    <div style="overflow-x:auto;">
+    <table class="month-table">
+      <thead>
+        <tr>
+          <th>Mj.</th>
+          <th>HT (€)</th>
+          <th>TVA (€)</th>
+          <th>TTC (€)</th>
+          <th>Naplaćeno</th>
+          <th>Neplaćeno</th>
+          <th>Br. fakt.</th>
+          <th>Kumulativ</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for i in range(12) %}
+      {% set pct = (month_ttc[i]/total_ttc*100)|round(0)|int if total_ttc > 0 else 0 %}
+      <tr style="{{ 'opacity:0.4;' if month_ttc[i] == 0 else '' }}{{ 'background:' + ('#172039' if dark else '#eff6ff') + ';' if i == best_month_idx else '' }}">
+        <td>
+          {{ month_names[i] }}
+          {% if i == best_month_idx and month_ttc[i] > 0 %}
+          <span style="font-size:10px; background:#ec4899; color:white; padding:1px 5px; border-radius:4px; margin-left:4px;">★ best</span>
+          {% endif %}
+        </td>
+        <td>{{ '%.2f'|format(month_ht[i]) if month_ht[i] > 0 else '—' }}</td>
+        <td style="color:{{ '#64748b' if dark else '#94a3b8' }}; font-size:12px;">{{ '%.2f'|format(month_ttc[i] - month_ht[i]) if month_ttc[i] > 0 else '—' }}</td>
+        <td style="font-weight:700; color:{{ '#c4b5fd' if dark else '#7c3aed' }};">{{ '%.2f'|format(month_ttc[i]) if month_ttc[i] > 0 else '—' }}</td>
+        <td style="color:{{ '#4ade80' if dark else '#16a34a' }};">{{ '%.2f'|format(month_paid[i]) if month_paid[i] > 0 else '—' }}</td>
+        <td style="color:{{ '#fbbf24' if dark else '#d97706' }};">{{ '%.2f'|format(month_unpaid[i]) if month_unpaid[i] > 0 else '—' }}</td>
+        <td style="text-align:center;">{{ month_count[i] if month_count[i] > 0 else '—' }}</td>
+        <td style="color:{{ '#94a3b8' if dark else '#64748b' }}; font-size:12px;">
+          {% if cumul[i] > 0 %}{{ '%.2f'|format(cumul[i]) }}{% else %}—{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td>UKUPNO</td>
+          <td>{{ '%.2f'|format(total_ht) }} €</td>
+          <td style="font-size:12px;">{{ '%.2f'|format(total_ttc - total_ht) }} €</td>
+          <td style="color:{{ '#c4b5fd' if dark else '#7c3aed' }};">{{ '%.2f'|format(total_ttc) }} €</td>
+          <td style="color:{{ '#4ade80' if dark else '#16a34a' }};">{{ '%.2f'|format(total_paid) }} €</td>
+          <td style="color:{{ '#fbbf24' if dark else '#d97706' }};">{{ '%.2f'|format(total_unpaid) }} €</td>
+          <td style="text-align:center;">{{ total_inv }}</td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var isDark = {{ 'true' if dark else 'false' }};
+  var textColor  = isDark ? '#94a3b8' : '#475569';
+  var gridColor  = isDark ? '#1e293b' : '#f1f5f9';
+  var tooltipBg  = isDark ? '#1e293b' : '#ffffff';
+  var tooltipTxt = isDark ? '#e2e8f0' : '#1e293b';
+
+  var months    = {{ month_names | tojson }};
+  var ht        = {{ month_ht | tojson }};
+  var ttc       = {{ month_ttc | tojson }};
+  var paid      = {{ month_paid | tojson }};
+  var unpaid    = {{ month_unpaid | tojson }};
+  var cumul     = {{ cumul | tojson }};
+  var cliNames  = {{ client_names | tojson }};
+  var cliTotals = {{ client_totals | tojson }};
+
+  var commonOpts = {
+    responsive: true,
+    plugins: {
+      legend: { labels: { color: textColor, font: { size: 12 } } },
+      tooltip: {
+        backgroundColor: tooltipBg, titleColor: tooltipTxt, bodyColor: tooltipTxt,
+        borderColor: isDark ? '#334155' : '#e2e8f0', borderWidth: 1,
+        callbacks: { label: function(ctx){ return ' ' + ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2) + ' €'; } }
+      }
+    },
+    scales: {
+      x: { ticks: { color: textColor }, grid: { color: gridColor } },
+      y: { ticks: { color: textColor, callback: function(v){ return v.toLocaleString('fr-LU') + ' €'; } },
+           grid: { color: gridColor } }
+    }
+  };
+
+  /* ── Main chart: HT bars + TTC line + cumulative line ── */
+  new Chart(document.getElementById('mainChart'), {
+    data: {
+      labels: months,
+      datasets: [
+        { type:'bar', label:'HT (€)', data: ht, backgroundColor: isDark ? 'rgba(59,130,246,0.55)' : 'rgba(59,130,246,0.45)',
+          borderColor: '#3b82f6', borderWidth:1.5, borderRadius:6, order:2 },
+        { type:'bar', label:'TTC (€)', data: ttc, backgroundColor: isDark ? 'rgba(139,92,246,0.45)' : 'rgba(139,92,246,0.35)',
+          borderColor: '#8b5cf6', borderWidth:1.5, borderRadius:6, order:2 },
+        { type:'line', label:'Kumulativ TTC', data: cumul, borderColor:'#f59e0b', backgroundColor:'transparent',
+          borderWidth:2.5, pointBackgroundColor:'#f59e0b', pointRadius:3, tension:0.3,
+          yAxisID:'yCumul', order:1 }
+      ]
+    },
+    options: Object.assign({}, commonOpts, {
+      plugins: Object.assign({}, commonOpts.plugins, { legend: { labels: { color: textColor } } }),
+      scales: {
+        x: commonOpts.scales.x,
+        y: Object.assign({}, commonOpts.scales.y, { position:'left' }),
+        yCumul: { position:'right', ticks: { color:'#f59e0b', callback: function(v){ return v.toLocaleString('fr-LU') + ' €'; } },
+                  grid: { drawOnChartArea: false } }
+      }
+    })
+  });
+
+  /* ── Paid vs Unpaid stacked bar ── */
+  new Chart(document.getElementById('paidChart'), {
+    type:'bar',
+    data: {
+      labels: months,
+      datasets: [
+        { label:'Naplaćeno', data: paid, backgroundColor: isDark ? 'rgba(34,197,94,0.6)' : 'rgba(22,163,74,0.5)',
+          borderColor:'#22c55e', borderWidth:1.5, borderRadius:4, stack:'s' },
+        { label:'Neplaćeno', data: unpaid, backgroundColor: isDark ? 'rgba(245,158,11,0.5)' : 'rgba(217,119,6,0.4)',
+          borderColor:'#f59e0b', borderWidth:1.5, borderRadius:4, stack:'s' }
+      ]
+    },
+    options: Object.assign({}, commonOpts, {
+      plugins: Object.assign({}, commonOpts.plugins, {
+        tooltip: Object.assign({}, commonOpts.plugins.tooltip, {
+          callbacks: { label: function(ctx){ return ' ' + ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2) + ' €'; } }
+        })
+      })
+    })
+  });
+
+  /* ── Per-client horizontal bar ── */
+  {% if client_names %}
+  new Chart(document.getElementById('clientChart'), {
+    type:'bar',
+    data: {
+      labels: cliNames,
+      datasets: [{
+        label:'TTC (€)', data: cliTotals,
+        backgroundColor: cliNames.map(function(_,i){
+          var palette = ['#3b82f6','#8b5cf6','#ec4899','#f59e0b','#22c55e','#06b6d4',
+                         '#f97316','#a855f7','#14b8a6','#ef4444','#84cc16','#64748b'];
+          var c = palette[i % palette.length];
+          return c + (isDark ? '99' : '77');
+        }),
+        borderColor: cliNames.map(function(_,i){
+          var palette = ['#3b82f6','#8b5cf6','#ec4899','#f59e0b','#22c55e','#06b6d4',
+                         '#f97316','#a855f7','#14b8a6','#ef4444','#84cc16','#64748b'];
+          return palette[i % palette.length];
+        }),
+        borderWidth: 1.5, borderRadius: 6
+      }]
+    },
+    options: {
+      indexAxis:'y',
+      responsive:true,
+      plugins: {
+        legend:{ display:false },
+        tooltip:{ backgroundColor:tooltipBg, titleColor:tooltipTxt, bodyColor:tooltipTxt,
+          borderColor: isDark ? '#334155' : '#e2e8f0', borderWidth:1,
+          callbacks:{ label: function(ctx){ return ' ' + ctx.parsed.x.toFixed(2) + ' €'; } } }
+      },
+      scales: {
+        x: { ticks:{ color:textColor, callback: function(v){ return v.toLocaleString('fr-LU') + ' €'; } },
+             grid:{ color:gridColor } },
+        y: { ticks:{ color:textColor, font:{ size:12 } }, grid:{ color:gridColor } }
+      }
+    }
+  });
+  {% endif %}
+})();
+</script>
+""", tr=tr, dark=dark, sel_year=sel_year, available_years=available_years,
+     month_ht=month_ht, month_ttc=month_ttc, month_paid=month_paid,
+     month_unpaid=month_unpaid, month_count=month_count, cumul=cumul,
+     total_ht=total_ht, total_ttc=total_ttc, total_paid=total_paid,
+     total_unpaid=total_unpaid, total_inv=total_inv,
+     best_month_idx=best_month_idx, yoy_pct=yoy_pct, prev_year=prev_year,
+     month_names=MONTH_NAMES, client_names=client_names, client_totals=client_totals)
 
 
 @app.route("/payroll/save_settings", methods=["POST"])
