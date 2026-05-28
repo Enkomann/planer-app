@@ -3005,9 +3005,9 @@ def header_html():
     }
     function renderSearchResults(data) {
       var html = '';
-      var icons = { workers:'👷', clients:'🏢', invoices:'🧾' };
-      var labels = { workers:'Radnici', clients:'Klijenti', invoices:'Fakture' };
-      ['workers','clients','invoices'].forEach(function(cat){
+      var icons   = { shifts:'📅', workers:'👷', clients:'🏢', invoices:'🧾' };
+      var labels  = { shifts:'{{ tr.get("search_shifts","Smjene") }}', workers:'{{ tr.get("workers","Radnici") }}', clients:'{{ tr.get("clients","Klijenti") }}', invoices:'{{ tr.get("invoices","Fakture") }}' };
+      ['shifts','workers','clients','invoices'].forEach(function(cat){
         var items = data[cat] || [];
         if (!items.length) return;
         html += '<div class="search-result-cat">' + labels[cat] + '</div>';
@@ -3019,7 +3019,7 @@ def header_html():
                 + '</div></a>';
         });
       });
-      if (!html) html = '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px;">Nema rezultata.</div>';
+      if (!html) html = '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px;">{{ tr.get("no_results","Nema rezultata.") }}</div>';
       document.getElementById('searchResults').innerHTML = html;
     }
     function escHtml(s){ var d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
@@ -7062,23 +7062,34 @@ def _diagram_page_inner():
 @app.route("/api/search")
 def api_search():
     if "user" not in session:
-        return {"workers": [], "clients": [], "invoices": []}
+        return {"shifts": [], "workers": [], "clients": [], "invoices": []}
     q = request.args.get("q", "").strip().lower()
     if len(q) < 2:
-        return {"workers": [], "clients": [], "invoices": []}
+        return {"shifts": [], "workers": [], "clients": [], "invoices": []}
     from flask import jsonify
     conn = get_conn(); c = conn.cursor()
+    is_admin = session.get("role") == "admin"
+    current_user = session.get("user")
+    _like = f"%{q}%"
+    shifts_rows = c.execute(
+        "SELECT worker, client, date, time FROM shifts WHERE LOWER(worker) LIKE ? OR LOWER(client) LIKE ? ORDER BY date DESC LIMIT 8",
+        (_like, _like),
+    ).fetchall()
+    if not is_admin:
+        shifts_rows = [r for r in shifts_rows if worker_in_shift(current_user, r[0])]
+    shifts = [{"name": r[1], "sub": f"{r[0]} · {r[2]}", "url": f"/week?start={r[2]}"}
+              for r in shifts_rows]
     workers = [{"name": r[0], "sub": r[1] or "", "url": "/workers"}
                for r in c.execute("SELECT name, address FROM workers WHERE LOWER(name) LIKE ? LIMIT 6",
-                                  (f"%{q}%",)).fetchall()]
+                                  (_like,)).fetchall()]
     clients = [{"name": r[0], "sub": r[1] or "", "url": "/clients"}
                for r in c.execute("SELECT name, address FROM clients WHERE LOWER(name) LIKE ? OR LOWER(address) LIKE ? LIMIT 6",
-                                  (f"%{q}%", f"%{q}%")).fetchall()]
+                                  (_like, _like)).fetchall()]
     invoices = [{"name": r[0], "sub": f"{r[1]} · {r[2]} €", "url": "/invoices"}
                 for r in c.execute("SELECT invoice_number, client_name, total FROM invoice_records WHERE deleted=0 AND (LOWER(invoice_number) LIKE ? OR LOWER(client_name) LIKE ?) LIMIT 6",
-                                   (f"%{q}%", f"%{q}%")).fetchall()]
+                                   (_like, _like)).fetchall()]
     conn.close()
-    return jsonify({"workers": workers, "clients": clients, "invoices": invoices})
+    return jsonify({"shifts": shifts, "workers": workers, "clients": clients, "invoices": invoices})
 
 
 @app.route("/payroll/save_settings", methods=["POST"])
