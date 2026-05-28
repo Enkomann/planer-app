@@ -6409,7 +6409,14 @@ def backup_delete_file(filename):
 
 @app.route("/diagram")
 def diagram_page():
+    import traceback as _tb
     if session.get("role") != "admin": return redirect("/")
+    try:
+     return _diagram_page_inner()
+    except Exception as _e:
+     return "<pre style='padding:20px;font-size:13px;'><b>DIAGRAM ERROR:</b>\n" + _tb.format_exc() + "</pre>", 500
+
+def _diagram_page_inner():
     tr = t(); dark = get_theme() == "dark"
     conn = get_conn(); c = conn.cursor()
 
