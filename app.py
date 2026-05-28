@@ -2425,9 +2425,8 @@ def header_html():
             </div>
             {% if session.get('user') %}
             <button onclick="openSettingsSheet()" type="button"
-                    style="background:{{ '#1e3a5f' if not dark else '#334155' }};color:white;border:none;
-                           border-radius:10px;padding:10px 14px;font-size:20px;cursor:pointer;
-                           line-height:1;flex-shrink:0;"
+                    style="background:none;border:none;padding:4px;font-size:22px;cursor:pointer;
+                           line-height:1;flex-shrink:0;opacity:0.75;"
                     title="Postavke / Administracija">⚙️</button>
             {% endif %}
         </div>
