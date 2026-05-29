@@ -6321,15 +6321,7 @@ def invoices_manual():
         inv_date      = request.form.get("invoice_date",  lux_now().strftime("%Y-%m-%d")).strip()
         payment_terms = request.form.get("payment_terms", "").strip()
 
-        # P1: protect auto invoices — if the number belongs to an auto invoice, reassign
-        existing_src = c.execute(
-            "SELECT source FROM invoice_records WHERE invoice_number=? AND COALESCE(deleted,0)=0",
-            (inv_num,)
-        ).fetchone()
-        if existing_src and existing_src[0] != "manual":
-            inv_num = next_invoice_number(conn)
-
-        # Collect line items from form arrays (P3: safe parse, skip empty rows)
+        # Collect line items from form arrays (safe parse, skip empty rows)
         designations = request.form.getlist("designation[]")
         amounts      = request.form.getlist("amount[]")
         vat_rates    = request.form.getlist("vat_rate[]")
@@ -6355,7 +6347,41 @@ def invoices_manual():
         total_ttc = total_ht + total_vat
         items_json = json.dumps(items, ensure_ascii=False)
 
-        # Save draft (full data for PDF regeneration)
+        # ── Reserve invoice number: write invoice_records FIRST, verify ownership,
+        #    then write the draft. This prevents a race where the draft exists
+        #    but invoice_records was taken by an auto invoice concurrently.
+        # Pre-check: reassign if obviously taken by an auto invoice
+        existing_src = c.execute(
+            "SELECT source FROM invoice_records WHERE invoice_number=? AND COALESCE(deleted,0)=0",
+            (inv_num,)
+        ).fetchone()
+        if existing_src and existing_src[0] != "manual":
+            inv_num = next_invoice_number(conn)
+
+        for _attempt in range(3):
+            c.execute("""
+                INSERT INTO invoice_records
+                    (invoice_number, client_name, date_from, date_to, invoice_date,
+                     amount, vat_amount, total, paid, sent, deleted, source)
+                VALUES (?,?,?,?,?,?,?,?,0,0,0,'manual')
+                ON CONFLICT(invoice_number) DO UPDATE SET
+                    client_name=excluded.client_name, invoice_date=excluded.invoice_date,
+                    amount=excluded.amount, vat_amount=excluded.vat_amount,
+                    total=excluded.total, source='manual'
+                WHERE invoice_records.source='manual'
+            """, (inv_num, client_name, inv_date, inv_date, inv_date,
+                  total_ht, total_vat, total_ttc))
+            conn.commit()
+            # Verify we own the number (race-proof)
+            owned = c.execute(
+                "SELECT 1 FROM invoice_records WHERE invoice_number=? AND COALESCE(source,'auto')='manual'",
+                (inv_num,)
+            ).fetchone()
+            if owned:
+                break
+            inv_num = next_invoice_number(conn)  # try next on conflict
+
+        # Draft saved only after ownership is confirmed
         now_str = lux_now().strftime("%Y-%m-%d %H:%M")
         c.execute("""
             INSERT INTO manual_invoice_drafts
@@ -6369,21 +6395,6 @@ def invoices_manual():
                 total_vat=excluded.total_vat, total_ttc=excluded.total_ttc
         """, (inv_num, client_name, client_addr, inv_date, items_json,
               payment_terms, total_ht, total_vat, total_ttc, now_str))
-
-        # Register in invoice_records (idempotent; WHERE guard ensures
-        # we never overwrite an auto invoice even under race conditions)
-        c.execute("""
-            INSERT INTO invoice_records
-                (invoice_number, client_name, date_from, date_to, invoice_date,
-                 amount, vat_amount, total, paid, sent, deleted, source)
-            VALUES (?,?,?,?,?,?,?,?,0,0,0,'manual')
-            ON CONFLICT(invoice_number) DO UPDATE SET
-                client_name=excluded.client_name, invoice_date=excluded.invoice_date,
-                amount=excluded.amount, vat_amount=excluded.vat_amount,
-                total=excluded.total, source='manual'
-            WHERE invoice_records.source='manual'
-        """, (inv_num, client_name, inv_date, inv_date, inv_date,
-              total_ht, total_vat, total_ttc))
         conn.commit(); conn.close()
 
         if request.form.get("download_pdf"):
