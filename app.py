@@ -2686,7 +2686,7 @@ BASE_STYLE = """
         border-left:5px solid var(--shift-accent) !important;
         box-shadow:none;
         margin-bottom:3px;
-        border-bottom:{{ '1px solid rgba(255,255,255,0.07)' if dark else 'inherit' }} !important;
+        border-bottom:{{ '1px solid rgba(255,255,255,0.07)' if dark else '1px solid transparent' }} !important;
     }
     .client-city { font-weight:700; text-transform:capitalize; white-space:nowrap; }
     .user-row, .hours-row { padding:8px 0; border-bottom:1px solid {{ '#2c2c30' if dark else '#e5e7eb' }}; }
@@ -4165,7 +4165,7 @@ def week_view():
             {% set holiday_name = holidays_map.get(day) %}
             <div class="card calendar-day-card {% if holiday_name %}holiday-soft{% endif %} {% if is_weekend(day) %}weekend-soft{% endif %}" style="width:180px; min-height:130px; position:relative;" ondragover="allowDrop(event)" ondragleave="clearDrop(event)" ondrop="dropShift(event, '{{ day }}')">
                 <a class="week-day-heading" href="{% if is_admin %}javascript:void(0){% else %}/?selected_date={{ day }}{% endif %}" {% if is_admin %}onclick="openHolidayModal('{{ day }}')"{% endif %}>{{ day_names[loop.index0] }}<br>{{ format_date(day) }}</a>
-                {% if is_admin %}<div class="day-menu-wrapper" style="position:absolute;top:4px;right:4px;"><button onclick="toggleDayMenu(this)" title="{{ tr['add_shift'] }}" style="background:none;border:none;font-size:20px;font-weight:bold;cursor:pointer;padding:2px 5px;line-height:1;width:auto;margin:0;color:{% if dark %}#4ade80{% else %}#1f4f82{% endif %};opacity:{% if dark %}0.9{% else %}0.7{% endif %};" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='{% if dark %}0.9{% else %}0.7{% endif %}'">+</button><div class="day-mini-menu" style="display:none;position:absolute;right:0;top:28px;z-index:300;min-width:155px;border-radius:8px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,0.18);background:{% if dark %}#1e293b{% else %}white{% endif %};border:1px solid {% if dark %}#2d4060{% else %}#dbeafe{% endif %};"><a href="javascript:void(0)" onclick="openAddShiftModal('{{ day }}')" style="display:block;padding:10px 15px;text-decoration:none;color:{% if dark %}#93c5fd{% else %}#1f4f82{% endif %};font-size:13px;font-weight:600;white-space:nowrap;" onmouseover="this.style.background='{% if dark %}#2d3f56{% else %}#eef4ff{% endif %}'" onmouseout="this.style.background='transparent'">+ {{ tr['add_shift'] }}</a></div></div>{% endif %}
+                {% if is_admin %}<div class="day-menu-wrapper" style="position:absolute;top:4px;right:4px;"><button onclick="toggleDayMenu(this)" title="{{ tr['add_shift'] }}" style="background:none;border:none;font-size:20px;font-weight:bold;cursor:pointer;padding:2px 5px;line-height:1;width:auto;margin:0;color:{% if dark %}#4ade80{% else %}#1f4f82{% endif %};opacity:{% if dark %}0.9{% else %}0.7{% endif %};" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='{% if dark %}0.9{% else %}0.7{% endif %}'">+</button><div class="day-mini-menu" style="display:none;position:absolute;right:0;top:28px;z-index:300;min-width:155px;border-radius:8px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,0.18);background:{% if dark %}#1d1d1f{% else %}white{% endif %};border:1px solid {% if dark %}#2c2c30{% else %}#dbeafe{% endif %};"><a href="javascript:void(0)" onclick="openAddShiftModal('{{ day }}')" style="display:block;padding:10px 15px;text-decoration:none;color:{% if dark %}#93c5fd{% else %}#1f4f82{% endif %};font-size:13px;font-weight:600;white-space:nowrap;" onmouseover="this.style.background='{% if dark %}#2c2c30{% else %}#eef4ff{% endif %}'" onmouseout="this.style.background='transparent'">+ {{ tr['add_shift'] }}</a></div></div>{% endif %}
                 {% if holiday_name %}<small class="holiday-note">{{ holiday_name }}</small>{% endif %}
                 {% for s in shifts %}{% if s[3] == day %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="--shift-accent:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#7aa7df') }};"><b>{{ s[1] }}</b><br>{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}<br>{{ s[4] }}{% if is_admin %}<div style="display:flex;flex-wrap:nowrap;gap:2px;margin-top:4px;"><a class="mini-link edit-link" style="flex:1;min-width:0;padding:3px 4px;font-size:11px;justify-content:center;" href="javascript:void(0)" data-eid="{{ s[0] }}" data-ew="{{ s[1]|e }}" data-ecl="{{ s[2]|e }}" data-edt="{{ s[3]|e }}" data-etm="{{ s[4]|e }}" data-est="{{ s[5]|e }}" onclick="openEditModalW(this)">{{ tr["edit"] }}</a><a class="mini-link delete-link" style="flex:1;min-width:0;padding:3px 4px;font-size:11px;justify-content:center;" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a><a class="mini-link copy-link" style="flex:1;min-width:0;padding:3px 4px;font-size:11px;justify-content:center;" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a></div>{% endif %}</div>{% endif %}{% endfor %}
             </div>
@@ -4332,7 +4332,7 @@ def month_view():
     <div class="calendar-board month-grid">
         {% for week in month_days %}{% for day in week %}{% set daystr = day.strftime('%Y-%m-%d') %}{% set holiday_name = holidays_map.get(daystr) %}
             <div class="card calendar-day-card {% if holiday_name %}holiday-soft{% endif %} {% if day.weekday() >= 5 %}weekend-soft{% endif %}" style="min-height:120px; position:relative;" ondragover="allowDrop(event)" ondragleave="clearDrop(event)" ondrop="dropShift(event, '{{ daystr }}')">
-                {% if is_admin %}<div class="day-menu-wrapper" style="position:absolute;top:4px;right:4px;"><button onclick="toggleDayMenu(this)" title="{{ tr['add_shift'] }}" style="background:none;border:none;font-size:20px;font-weight:bold;cursor:pointer;padding:2px 5px;line-height:1;width:auto;margin:0;color:{% if dark %}#4ade80{% else %}#1f4f82{% endif %};opacity:{% if dark %}0.9{% else %}0.7{% endif %};" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='{% if dark %}0.9{% else %}0.7{% endif %}'">+</button><div class="day-mini-menu" style="display:none;position:absolute;right:0;top:28px;z-index:300;min-width:155px;border-radius:8px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,0.18);background:{% if dark %}#1e293b{% else %}white{% endif %};border:1px solid {% if dark %}#2d4060{% else %}#dbeafe{% endif %};"><a href="javascript:void(0)" onclick="openAddShiftModal('{{ daystr }}')" style="display:block;padding:10px 15px;text-decoration:none;color:{% if dark %}#93c5fd{% else %}#1f4f82{% endif %};font-size:13px;font-weight:600;white-space:nowrap;" onmouseover="this.style.background='{% if dark %}#2d3f56{% else %}#eef4ff{% endif %}'" onmouseout="this.style.background='transparent'">+ {{ tr['add_shift'] }}</a></div></div>{% endif %}
+                {% if is_admin %}<div class="day-menu-wrapper" style="position:absolute;top:4px;right:4px;"><button onclick="toggleDayMenu(this)" title="{{ tr['add_shift'] }}" style="background:none;border:none;font-size:20px;font-weight:bold;cursor:pointer;padding:2px 5px;line-height:1;width:auto;margin:0;color:{% if dark %}#4ade80{% else %}#1f4f82{% endif %};opacity:{% if dark %}0.9{% else %}0.7{% endif %};" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='{% if dark %}0.9{% else %}0.7{% endif %}'">+</button><div class="day-mini-menu" style="display:none;position:absolute;right:0;top:28px;z-index:300;min-width:155px;border-radius:8px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,0.18);background:{% if dark %}#1d1d1f{% else %}white{% endif %};border:1px solid {% if dark %}#2c2c30{% else %}#dbeafe{% endif %};"><a href="javascript:void(0)" onclick="openAddShiftModal('{{ daystr }}')" style="display:block;padding:10px 15px;text-decoration:none;color:{% if dark %}#93c5fd{% else %}#1f4f82{% endif %};font-size:13px;font-weight:600;white-space:nowrap;" onmouseover="this.style.background='{% if dark %}#2c2c30{% else %}#eef4ff{% endif %}'" onmouseout="this.style.background='transparent'">+ {{ tr['add_shift'] }}</a></div></div>{% endif %}
                 <div style="font-weight:bold; margin-bottom:8px;"><a class="month-day-date" data-short="{{ day.strftime('%d') }}" href="{% if is_admin %}javascript:void(0){% else %}/?selected_date={{ daystr }}{% endif %}" {% if is_admin %}onclick="openHolidayModal('{{ daystr }}')"{% endif %} style="{% if day.weekday() >= 5 %}color:#ef4444;{% endif %}">{{ day.strftime('%d/%m/%Y') }}</a>{% if is_admin and copied_shift_id %}<br><a style="display:inline-block;margin-top:6px;padding:4px 7px;border-radius:6px;background:#16a34a;color:white!important;font-size:11px;" href="/paste_shift/{{ daystr }}">{{ tr["paste"] }}</a>{% endif %}</div>
                 {% if holiday_name %}<small class="holiday-note">{{ holiday_name }}</small>{% endif %}
                 {% for s in shifts_by_date.get(daystr, []) %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="--shift-accent:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#7aa7df') }};" data-w="{{ s[1]|e }}" data-c="{{ s[2]|e }}" data-city="{{ client_cities.get(s[2], '')|e }}" data-t="{{ s[4]|e }}"><b>{{ s[1] }}</b><br>{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}<br>{{ s[4] }}{% if is_admin %}<br><a class="mini-link edit-link" href="javascript:void(0)" data-eid="{{ s[0] }}" data-ew="{{ s[1]|e }}" data-ecl="{{ s[2]|e }}" data-edt="{{ s[3]|e }}" data-etm="{{ s[4]|e }}" data-est="{{ s[5]|e }}" onclick="openEditModalM(this)">{{ tr["edit"] }}</a><a class="mini-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a><a class="mini-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>{% endif %}</div>{% endfor %}
@@ -6569,7 +6569,7 @@ def pwa_manifest():
         "scope": "/",
         "display": "standalone",
         "orientation": "any",
-        "background_color": "#0f172a",
+        "background_color": "#111113",
         "theme_color": "#1e3a5f",
         "icons": [
             {"src": "/static/logo.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
@@ -7345,8 +7345,8 @@ def _diagram_page_inner():
 (function(){
   var isDark = {{ 'true' if dark else 'false' }};
   var textColor  = isDark ? '#94a3b8' : '#475569';
-  var gridColor  = isDark ? '#1e293b' : '#f1f5f9';
-  var tooltipBg  = isDark ? '#1e293b' : '#ffffff';
+  var gridColor  = isDark ? '#1d1d1f' : '#f1f5f9';
+  var tooltipBg  = isDark ? '#1d1d1f' : '#ffffff';
   var tooltipTxt = isDark ? '#e2e8f0' : '#1e293b';
 
   var months    = {{ month_names | tojson }};
@@ -7364,7 +7364,7 @@ def _diagram_page_inner():
       legend: { labels: { color: textColor, font: { size: 12 } } },
       tooltip: {
         backgroundColor: tooltipBg, titleColor: tooltipTxt, bodyColor: tooltipTxt,
-        borderColor: isDark ? '#334155' : '#e2e8f0', borderWidth: 1,
+        borderColor: isDark ? '#2c2c30' : '#e2e8f0', borderWidth: 1,
         callbacks: { label: function(ctx){ return ' ' + ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2) + ' €'; } }
       }
     },
@@ -7449,7 +7449,7 @@ def _diagram_page_inner():
       plugins: {
         legend:{ display:false },
         tooltip:{ backgroundColor:tooltipBg, titleColor:tooltipTxt, bodyColor:tooltipTxt,
-          borderColor: isDark ? '#334155' : '#e2e8f0', borderWidth:1,
+          borderColor: isDark ? '#2c2c30' : '#e2e8f0', borderWidth:1,
           callbacks:{ label: function(ctx){ return ' ' + ctx.parsed.x.toFixed(2) + ' €'; } } }
       },
       scales: {
@@ -7867,7 +7867,7 @@ function toggleSalType(idx, type) {
   var lH   = document.getElementById('lbl_hourly_' + idx);
   var lF   = document.getElementById('lbl_fixed_' + idx);
   var activeStyle = 'background:#1f4f82; color:white;';
-  var inactiveStyleD = 'background:#0f172a; color:#94a3b8;';
+  var inactiveStyleD = 'background:#111113; color:#94a3b8;';
   var inactiveStyleL = 'background:#f1f5f9; color:#64748b;';
   var isDark = document.body.style.getPropertyValue('color-scheme') === 'dark'
     || document.documentElement.classList.contains('dark')
