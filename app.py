@@ -2472,23 +2472,26 @@ def build_manual_invoice_pdf(draft, settings):
             Paragraph(f"{amt+vat:.2f}", normal),
         ])
     total_ttc = total_ht + total_vat
+    n_body = len(items) + 1   # number of rows before totals (header + item rows)
     tdata += [
-        ["", Paragraph(f"<b>Total HT</b>&nbsp;&nbsp;&nbsp; {total_ht:.2f}", normal), "", ""],
-        ["", Paragraph(f"TVA&nbsp;&nbsp;&nbsp; {total_vat:.2f}", normal), "", ""],
+        ["", Paragraph(f"Total HT:  {total_ht:.2f} EUR", normal), "", ""],
+        ["", Paragraph(f"TVA:  {total_vat:.2f} EUR", normal), "", ""],
         [Paragraph("<b>TOTAL TTC</b>", styles["Heading2"]), "", "",
          Paragraph(f"<b>{total_ttc:.2f} EUR</b>", styles["Heading2"])],
     ]
+    n_total = len(tdata) - 1   # row index of the TOTAL TTC row
     items_tbl = Table(tdata, colWidths=[8.8*cm, 3.2*cm, 1.8*cm, 3.7*cm])
-    n_body = len(items) + 1          # header + item rows
     items_tbl.setStyle(TableStyle([
-        ("GRID",       (0,0),  (-1,n_body-1), 0.5, colors.grey),
-        ("BACKGROUND", (0,0),  (-1,0),        colors.whitesmoke),
-        ("ALIGN",      (1,0),  (-1,-1),       "RIGHT"),
-        ("VALIGN",     (0,0),  (-1,-1),       "TOP"),
-        ("SPAN",       (0,n_body), (0,-1)),   # merge first col on total rows
-        ("BACKGROUND", (0,-1), (-1,-1),       colors.whitesmoke),
-        ("FONTNAME",   (0,-1), (-1,-1),       "Helvetica-Bold"),
-        ("LINEABOVE",  (0,-1), (-1,-1),       1,   colors.grey),
+        ("GRID",       (0,0),       (-1, n_body-1), 0.5, colors.grey),
+        ("BACKGROUND", (0,0),       (-1, 0),         colors.whitesmoke),
+        ("ALIGN",      (1,0),       (-1, -1),        "RIGHT"),
+        ("VALIGN",     (0,0),       (-1, -1),        "TOP"),
+        # TOTAL TTC row: span cols 0-2 so the label is visible
+        ("SPAN",       (0,n_total), (2, n_total)),
+        ("ALIGN",      (0,n_total), (0, n_total),    "LEFT"),
+        ("BACKGROUND", (0,n_total), (-1, n_total),   colors.whitesmoke),
+        ("FONTNAME",   (0,n_total), (-1, n_total),   "Helvetica-Bold"),
+        ("LINEABOVE",  (0,n_total), (-1, n_total),   1, colors.grey),
     ]))
 
     # ── Payment terms ─────────────────────────────────────────────────────
@@ -5803,8 +5806,14 @@ def invoices():
                 <tr class="invoice-row" data-paid="{{ 1 if row.paid else 0 }}" data-search="{{ (row.client ~ ' ' ~ row.invoice_number)|lower }}">
                     <td><input type="checkbox" style="width:auto;"></td>
                     <td><a href="/invoices/client?client={{ row.client|urlencode }}&date_from={{ date_from }}&date_to={{ date_to }}" style="color:white;text-decoration:underline;">{{ row.client }}</a></td>
-                    <td>{{ tr["invoices"] }}</td>
-                    <td><a href="/invoices/view?invoice_number={{ row.invoice_number }}" style="color:white;text-decoration:underline;">{{ row.invoice_number }}</a></td>
+                    <td>{{ tr["invoices"] }}{% if row.source == 'manual' %} <span style="font-size:10px;background:#22c55e;color:#111;padding:1px 5px;border-radius:4px;">✏️</span>{% endif %}</td>
+                    <td>
+                      {% if row.source == 'manual' %}
+                        <a href="/invoices/manual?invoice_number={{ row.invoice_number }}" style="color:#ffd429;text-decoration:underline;">{{ row.invoice_number }}</a>
+                      {% else %}
+                        <a href="/invoices/view?invoice_number={{ row.invoice_number }}" style="color:white;text-decoration:underline;">{{ row.invoice_number }}</a>
+                      {% endif %}
+                    </td>
                     <td>{{ format_date(row.invoice_date) }}</td>
                     <td>
                         <span class="payment-label {{ 'paid-text' if row.paid else 'unpaid-text' }}">{{ tr["paid"] if row.paid else tr["unpaid"] }}</span><br>
@@ -6312,15 +6321,34 @@ def invoices_manual():
         inv_date      = request.form.get("invoice_date",  lux_now().strftime("%Y-%m-%d")).strip()
         payment_terms = request.form.get("payment_terms", "").strip()
 
-        # Collect line items from form arrays
+        # P1: protect auto invoices — if the number belongs to an auto invoice, reassign
+        existing_src = c.execute(
+            "SELECT source FROM invoice_records WHERE invoice_number=? AND COALESCE(deleted,0)=0",
+            (inv_num,)
+        ).fetchone()
+        if existing_src and existing_src[0] != "manual":
+            inv_num = next_invoice_number(conn)
+
+        # Collect line items from form arrays (P3: safe parse, skip empty rows)
         designations = request.form.getlist("designation[]")
         amounts      = request.form.getlist("amount[]")
         vat_rates    = request.form.getlist("vat_rate[]")
         items = []
         total_ht = 0.0; total_vat = 0.0
         for i, desig in enumerate(designations):
-            amt = float(amounts[i] if i < len(amounts) else 0)
-            vr  = float(vat_rates[i] if i < len(vat_rates) else 0)
+            try:
+                raw_a = amounts[i].strip() if i < len(amounts) else ""
+                amt = float(raw_a) if raw_a else 0.0
+            except (ValueError, TypeError):
+                amt = 0.0
+            try:
+                raw_v = vat_rates[i].strip() if i < len(vat_rates) else ""
+                vr = float(raw_v) if raw_v else 0.0
+            except (ValueError, TypeError):
+                vr = 0.0
+            desig = desig.strip()
+            if not desig and amt == 0.0:
+                continue  # skip entirely blank rows
             items.append({"designation": desig, "amount": amt, "vat_rate": vr})
             total_ht  += amt
             total_vat += amt * vr / 100.0
@@ -6591,8 +6619,8 @@ def invoices_manual():
 </div>
 
 <script>
-var miProfiles = {{ profiles_json|safe }};
-var prefillItems = {{ prefill_items_json|safe }};
+var miProfiles = {{ profiles|tojson }};
+var prefillItems = {{ prefill_items|tojson }};
 
 function fillMiClient(){
   var name = document.getElementById('miClientSearch').value;
@@ -6655,11 +6683,11 @@ prefillItems.forEach(function(it){
 });
 </script>
 """, tr=tr, dark=dark, auto_num=auto_num, today=lux_now().strftime("%Y-%m-%d"),
-     profiles=profiles, profiles_json=profiles_json_str,
+     profiles=profiles,
      draft=type("D", (), draft)() if draft else type("D", (), {"invoice_number":"","client_name":"","client_address":"","invoice_date":"","payment_terms":""})(),
      default_terms=default_terms,
      templates_list=templates_list,
-     prefill_items_json=json.dumps(prefill_items, ensure_ascii=False))
+     prefill_items=prefill_items)
 
 
 @app.route("/invoices/manual/pdf")
