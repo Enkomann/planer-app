@@ -6370,7 +6370,8 @@ def invoices_manual():
         """, (inv_num, client_name, client_addr, inv_date, items_json,
               payment_terms, total_ht, total_vat, total_ttc, now_str))
 
-        # Register in invoice_records (idempotent)
+        # Register in invoice_records (idempotent; WHERE guard ensures
+        # we never overwrite an auto invoice even under race conditions)
         c.execute("""
             INSERT INTO invoice_records
                 (invoice_number, client_name, date_from, date_to, invoice_date,
@@ -6380,6 +6381,7 @@ def invoices_manual():
                 client_name=excluded.client_name, invoice_date=excluded.invoice_date,
                 amount=excluded.amount, vat_amount=excluded.vat_amount,
                 total=excluded.total, source='manual'
+            WHERE invoice_records.source='manual'
         """, (inv_num, client_name, inv_date, inv_date, inv_date,
               total_ht, total_vat, total_ttc))
         conn.commit(); conn.close()
@@ -6414,10 +6416,8 @@ def invoices_manual():
     if not prefill_items:
         prefill_items = [{"designation": "", "amount": "", "vat_rate": 17}]
 
-    profiles_json_str = json.dumps(profiles)
     templates_list = [{"id": r[0], "designation": r[1], "amount": r[2], "vat": r[3]}
                       for r in templates]
-    templates_json = json.dumps(templates_list, ensure_ascii=False)
 
     return render_template_string(BASE_STYLE + header_html() + r"""
 <style>
