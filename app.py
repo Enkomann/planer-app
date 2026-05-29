@@ -1401,6 +1401,10 @@ class _PgCursor:
     def description(self):
         return self.cursor.description
 
+    @property
+    def rowcount(self):
+        return self.cursor.rowcount
+
 
 class _PgConn:
     def __init__(self, conn):
@@ -6368,27 +6372,45 @@ def invoices_manual():
 
         reserved = False
         for _attempt in range(3):
-            c.execute("""
-                INSERT INTO invoice_records
-                    (invoice_number, client_name, date_from, date_to, invoice_date,
-                     amount, vat_amount, total, paid, sent, deleted, source)
-                VALUES (?,?,?,?,?,?,?,?,0,0,0,'manual')
-                ON CONFLICT(invoice_number) DO UPDATE SET
-                    client_name=excluded.client_name, invoice_date=excluded.invoice_date,
-                    amount=excluded.amount, vat_amount=excluded.vat_amount,
-                    total=excluded.total, source='manual'
-                WHERE invoice_records.source='manual'
-            """, (inv_num, client_name, inv_date, inv_date, inv_date,
-                  total_ht, total_vat, total_ttc))
-            conn.commit()
-            owned = c.execute(
-                "SELECT 1 FROM invoice_records WHERE invoice_number=? AND COALESCE(source,'auto')='manual'",
-                (inv_num,)
-            ).fetchone()
-            if owned:
-                reserved = True
-                break
-            inv_num = next_invoice_number(conn)  # try next on conflict
+            if form_mode == "create":
+                # CREATE: only insert if the number is completely free.
+                # ON CONFLICT DO NOTHING is atomic — rowcount==1 means WE
+                # inserted it; rowcount==0 means someone else holds it.
+                c.execute("""
+                    INSERT INTO invoice_records
+                        (invoice_number, client_name, date_from, date_to, invoice_date,
+                         amount, vat_amount, total, paid, sent, deleted, source)
+                    VALUES (?,?,?,?,?,?,?,?,0,0,0,'manual')
+                    ON CONFLICT(invoice_number) DO NOTHING
+                """, (inv_num, client_name, inv_date, inv_date, inv_date,
+                      total_ht, total_vat, total_ttc))
+                conn.commit()
+                if c.rowcount == 1:
+                    reserved = True
+                    break
+            else:
+                # EDIT: update this manual invoice (WHERE guard blocks auto invoices)
+                c.execute("""
+                    INSERT INTO invoice_records
+                        (invoice_number, client_name, date_from, date_to, invoice_date,
+                         amount, vat_amount, total, paid, sent, deleted, source)
+                    VALUES (?,?,?,?,?,?,?,?,0,0,0,'manual')
+                    ON CONFLICT(invoice_number) DO UPDATE SET
+                        client_name=excluded.client_name, invoice_date=excluded.invoice_date,
+                        amount=excluded.amount, vat_amount=excluded.vat_amount,
+                        total=excluded.total, source='manual'
+                    WHERE invoice_records.source='manual'
+                """, (inv_num, client_name, inv_date, inv_date, inv_date,
+                      total_ht, total_vat, total_ttc))
+                conn.commit()
+                owned = c.execute(
+                    "SELECT 1 FROM invoice_records WHERE invoice_number=? AND COALESCE(source,'auto')='manual'",
+                    (inv_num,)
+                ).fetchone()
+                if owned:
+                    reserved = True
+                    break
+            inv_num = next_invoice_number(conn)  # conflict: try next number
 
         if not reserved:
             conn.close()
