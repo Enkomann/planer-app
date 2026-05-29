@@ -2822,7 +2822,7 @@ BASE_STYLE = """
         color:{{ '#e2e8f0' if dark else '#1e293b' }}; font-size:14px;
     }
     .search-result-item:hover { background:{{ '#2c2c30' if dark else '#f1f5f9' }}; }
-    .search-result-cat { font-size:10px; color:{{ '#64748b' if dark else '#94a3b8' }};
+    .search-result-cat { font-size:10px; color:{{ '#94a3b8' if dark else '#64748b' }};
         font-weight:600; padding:6px 14px 2px; text-transform:uppercase; letter-spacing:0.05em; }
     /* ── Narrow icon sidebar (Agendrix style) ── */
     .sidebar {
@@ -2868,7 +2868,7 @@ BASE_STYLE = """
     }
     .sidebar-user {
         display:flex; flex-direction:column; align-items:center; padding:6px 4px 2px;
-        font-size:8px; color:{{ '#475569' if dark else '#94a3b8' }}; text-align:center;
+        font-size:8px; color:{{ '#94a3b8' if dark else '#475569' }}; text-align:center;
     }
     .sidebar-user strong {
         display:flex; align-items:center; justify-content:center;
@@ -3319,7 +3319,7 @@ def header_html():
         <div class="notif-dropdown" id="notifDrop">
           <div class="notif-header">
             <span>🔔 Zahtjevi radnika</span>
-            <span style="font-size:11px; color:{{ '#64748b' if dark else '#94a3b8' }};">{{ hdr_pending_count }} na čekanju</span>
+            <span style="font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }};">{{ hdr_pending_count }} na čekanju</span>
           </div>
           {% if hdr_pending_items %}
             {% for item in hdr_pending_items %}
@@ -3344,7 +3344,7 @@ def header_html():
             </div>
             {% endfor %}
           {% else %}
-            <div style="padding:20px 16px; text-align:center; color:{{ '#64748b' if dark else '#94a3b8' }}; font-size:13px;">
+            <div style="padding:20px 16px; text-align:center; color:{{ '#94a3b8' if dark else '#64748b' }}; font-size:13px;">
               ✅ Nema zahtjeva na čekanju
             </div>
           {% endif %}
@@ -3364,7 +3364,7 @@ def header_html():
           <button onclick="closeSearch()" style="background:none;border:none;cursor:pointer;color:{{ '#94a3b8' if dark else '#64748b' }};font-size:18px;padding:0;">✕</button>
         </div>
         <div class="search-results" id="searchResults">
-          <div style="padding:16px; text-align:center; color:{{ '#64748b' if dark else '#94a3b8' }}; font-size:13px;">
+          <div style="padding:16px; text-align:center; color:{{ '#94a3b8' if dark else '#64748b' }}; font-size:13px;">
             Počni tipkati za pretragu…
           </div>
         </div>
@@ -5245,7 +5245,7 @@ a{color:inherit;text-decoration:none;}
             color:{{ '#6ee7b7' if dark else '#065f46' }};
             border-color:{{ '#065f46' if dark else '#a7f3d0' }};}
 .sf-btn-zip:hover{background:#065f46;color:white;border-color:#065f46;}
-.sf-empty{color:{{ '#475569' if dark else '#94a3b8' }};padding:24px 0;text-align:center;}
+.sf-empty{color:{{ '#94a3b8' if dark else '#475569' }};padding:24px 0;text-align:center;}
 .sf-size{color:{{ '#94a3b8' if dark else '#64748b' }};font-size:12px;}
 @media(max-width:600px){
   .sf-table th:nth-child(2),.sf-table td:nth-child(2){display:none;}
@@ -7177,9 +7177,9 @@ def _diagram_page_inner():
 .kpi-card { padding:18px 16px; border-radius:14px; background:{{ '#161618' if dark else 'white' }};
     border:1px solid {{ '#1d1d1f' if dark else '#e2e8f0' }}; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
 .kpi-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em;
-    color:{{ '#64748b' if dark else '#94a3b8' }}; margin-bottom:6px; }
+    color:{{ '#94a3b8' if dark else '#64748b' }}; margin-bottom:6px; }
 .kpi-value { font-size:24px; font-weight:800; line-height:1.1; }
-.kpi-sub { font-size:11px; color:{{ '#64748b' if dark else '#94a3b8' }}; margin-top:4px; }
+.kpi-sub { font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; margin-top:4px; }
 .chart-card { background:{{ '#161618' if dark else 'white' }}; border-radius:16px;
     border:1px solid {{ '#1d1d1f' if dark else '#e2e8f0' }}; padding:20px; margin-bottom:20px;
     box-shadow:0 2px 8px rgba(0,0,0,0.06); }
@@ -7313,7 +7313,7 @@ def _diagram_page_inner():
           {% endif %}
         </td>
         <td>{{ '%.2f'|format(month_ht[i]) if month_ht[i] > 0 else '—' }}</td>
-        <td style="color:{{ '#64748b' if dark else '#94a3b8' }}; font-size:12px;">{{ '%.2f'|format(month_ttc[i] - month_ht[i]) if month_ttc[i] > 0 else '—' }}</td>
+        <td style="color:{{ '#94a3b8' if dark else '#64748b' }}; font-size:12px;">{{ '%.2f'|format(month_ttc[i] - month_ht[i]) if month_ttc[i] > 0 else '—' }}</td>
         <td style="font-weight:700; color:{{ '#c4b5fd' if dark else '#7c3aed' }};">{{ '%.2f'|format(month_ttc[i]) if month_ttc[i] > 0 else '—' }}</td>
         <td style="color:{{ '#4ade80' if dark else '#16a34a' }};">{{ '%.2f'|format(month_paid[i]) if month_paid[i] > 0 else '—' }}</td>
         <td style="color:{{ '#fbbf24' if dark else '#d97706' }};">{{ '%.2f'|format(month_unpaid[i]) if month_unpaid[i] > 0 else '—' }}</td>
@@ -7680,7 +7680,7 @@ def payroll_page():
               <input type="number" name="wrate[]" value="{{ ws.hourly_rate }}" step="0.01" min="0" placeholder="{{ '%.2f'|format(lux_ssm_h) }}">
             </div>
             <div style="display:flex; align-items:flex-end; padding-bottom:1px;">
-              <div style="font-size:11px; color:{{ '#64748b' if dark else '#94a3b8' }}; padding:8px 10px; border-radius:8px; background:{{ '#1d1d1f' if dark else '#f8fafc' }}; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; line-height:1.5;">
+              <div style="font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; padding:8px 10px; border-radius:8px; background:{{ '#1d1d1f' if dark else '#f8fafc' }}; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; line-height:1.5;">
                 SSM 2025<br><b>{{ '%.2f'|format(lux_ssm_h) }} €/h</b>
               </div>
             </div>
@@ -7694,7 +7694,7 @@ def payroll_page():
               <input type="number" name="wfixed[]" value="{{ ws.fixed_gross }}" step="0.01" min="0" placeholder="{{ tr.get('payroll_eg_placeholder','npr. 2800.00') }}">
             </div>
             <div style="display:flex; align-items:flex-end; padding-bottom:1px;">
-              <div style="font-size:11px; color:{{ '#64748b' if dark else '#94a3b8' }}; padding:8px 10px; border-radius:8px; background:{{ '#1d1d1f' if dark else '#f8fafc' }}; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; line-height:1.5;">
+              <div style="font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; padding:8px 10px; border-radius:8px; background:{{ '#1d1d1f' if dark else '#f8fafc' }}; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; line-height:1.5;">
                 {{ tr.get("payroll_independent_hours","Neovisno od sati") }}
               </div>
             </div>
@@ -7775,7 +7775,7 @@ def payroll_page():
       <tr>
         <td>
           <div style="font-weight:700;">{{ r.worker }}</div>
-          <div style="font-size:11px; color:{{ '#64748b' if dark else '#94a3b8' }};">
+          <div style="font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }};">
             {% if r.sal_type == 'fixed' %}
               <span style="background:{{ '#1e3a5f' if dark else '#dbeafe' }}; color:{{ '#93c5fd' if dark else '#1d4ed8' }}; padding:1px 6px; border-radius:4px; font-weight:600;">💼 {{ tr.get("payroll_fix_gross_badge","Fix bruto") }}</span>
             {% else %}
