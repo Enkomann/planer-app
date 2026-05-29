@@ -589,6 +589,28 @@ MODULE_TRANSLATIONS = {
         "payroll_worker_plural": "radnika",
         "payroll_calculation_note": "Napomena o obracunu:",
         "payroll_no_results": "Nema evidentiranih smjena za odabrani period ili nijedan radnik nema unesenu satnicu.",
+        # Manual invoice UI
+        "mi_title": "Rucna faktura",
+        "mi_invoice_num": "Broj fakture",
+        "mi_billed_to": "Fakturisi na",
+        "mi_billing_address": "Adresa fakturiranja",
+        "mi_items_title": "Stavke / Usluge",
+        "mi_designation": "Opis",
+        "mi_amount_ht": "Iznos HT (EUR)",
+        "mi_add_item": "+ Dodaj stavku",
+        "mi_payment_conditions": "Uslovi placanja",
+        "mi_saved_items": "Sacuvane stavke",
+        "mi_use_item": "+ Koristi",
+        "mi_delete_template_confirm": "Obrisati ovaj sablon?",
+        "mi_no_templates": "Nema sacuvanih sablona.",
+        "mi_save_template_btn": "+ Sacuvaj sablon",
+        "mi_default_amount": "Podrazumijevani iznos (EUR)",
+        "mi_default_vat": "Podrazumijevana TVA (%)",
+        "mi_save_template": "Sacuvaj sablon",
+        "mi_save_invoice": "Sacuvaj fakturu",
+        "mi_save_pdf": "Sacuvaj + PDF",
+        "mi_designation_placeholder": "Opis usluge...",
+        "mi_reserve_error": "Nije moguce rezervisati broj fakture. Pokusajte ponovo.",
         "payroll_note_franchise_abbr": "franšiza",
         "payroll_note_tax_line": "Porez: progresivni razredi ACD + impôt de solidarité (7% kl.1/1a · 9% kl.2). Odbitna stavka: maladie + pension + forfait frais d'obtention 45 €/mj.",
         "payroll_note_disclaimer": "Ovaj obračun je informativan — provjerite sa fiduciaire ili CCSS za tačne iznose.",
@@ -663,6 +685,27 @@ MODULE_TRANSLATIONS = {
         "payroll_worker_plural": "workers",
         "payroll_calculation_note": "Calculation note:",
         "payroll_no_results": "No recorded shifts for the selected period or no worker has an hourly rate set.",
+        "mi_title": "Manual invoice",
+        "mi_invoice_num": "Invoice no.",
+        "mi_billed_to": "Bill to",
+        "mi_billing_address": "Billing address",
+        "mi_items_title": "Items / Services",
+        "mi_designation": "Description",
+        "mi_amount_ht": "Amount HT (EUR)",
+        "mi_add_item": "+ Add item",
+        "mi_payment_conditions": "Payment conditions",
+        "mi_saved_items": "Saved items",
+        "mi_use_item": "+ Use",
+        "mi_delete_template_confirm": "Delete this template?",
+        "mi_no_templates": "No saved templates.",
+        "mi_save_template_btn": "+ Save template",
+        "mi_default_amount": "Default amount (EUR)",
+        "mi_default_vat": "Default VAT (%)",
+        "mi_save_template": "Save template",
+        "mi_save_invoice": "Save invoice",
+        "mi_save_pdf": "Save + PDF",
+        "mi_designation_placeholder": "Description of service...",
+        "mi_reserve_error": "Could not reserve invoice number. Please try again.",
         "payroll_note_franchise_abbr": "franchise",
         "payroll_note_tax_line": "Tax: progressive ACD brackets + impôt de solidarité (7% class 1/1a · 9% class 2). Deductible: maladie + pension + forfait frais d'obtention 45 €/mo.",
         "payroll_note_disclaimer": "This calculation is indicative — verify with your fiduciaire or CCSS for exact amounts.",
@@ -737,6 +780,27 @@ MODULE_TRANSLATIONS = {
         "payroll_worker_plural": "employes",
         "payroll_calculation_note": "Note de calcul:",
         "payroll_no_results": "Aucune mission pour la periode selectionnee ou aucun employe n'a de taux horaire defini.",
+        "mi_title": "Facture manuelle",
+        "mi_invoice_num": "Facture n°",
+        "mi_billed_to": "Facturé à",
+        "mi_billing_address": "Adresse de facturation",
+        "mi_items_title": "Articles / Prestations",
+        "mi_designation": "Désignation",
+        "mi_amount_ht": "Montant HT (€)",
+        "mi_add_item": "+ Ajouter un article",
+        "mi_payment_conditions": "Conditions et modalités de paiement",
+        "mi_saved_items": "Articles sauvegardés",
+        "mi_use_item": "+ Utiliser",
+        "mi_delete_template_confirm": "Supprimer ce modèle ?",
+        "mi_no_templates": "Aucun modèle sauvegardé.",
+        "mi_save_template_btn": "+ Sauvegarder un modèle",
+        "mi_default_amount": "Montant par défaut (€)",
+        "mi_default_vat": "TVA par défaut (%)",
+        "mi_save_template": "Sauvegarder le modèle",
+        "mi_save_invoice": "Sauvegarder la facture",
+        "mi_save_pdf": "Sauvegarder + PDF",
+        "mi_designation_placeholder": "Désignation de la prestation...",
+        "mi_reserve_error": "Impossible de réserver le numéro de facture. Veuillez réessayer.",
         "payroll_note_franchise_abbr": "franchise",
         "payroll_note_tax_line": "Impot: bareme progressif de l'ACD + impot de solidarite (7% cl.1/1a · 9% cl.2). Deductions: maladie + pension + forfait frais d'obtention 45 €/mois.",
         "payroll_note_disclaimer": "Ce calcul est indicatif — verifiez avec votre fiduciaire ou la CCSS pour les montants exacts.",
@@ -811,6 +875,27 @@ MODULE_TRANSLATIONS = {
         "payroll_worker_plural": "Mitarbeiter",
         "payroll_calculation_note": "Hinweis zur Berechnung:",
         "payroll_no_results": "Keine Schichten fuer den gewahlten Zeitraum oder kein Mitarbeiter hat einen Stundensatz.",
+        "mi_title": "Manuelle Rechnung",
+        "mi_invoice_num": "Rechnung Nr.",
+        "mi_billed_to": "Rechnungsempfanger",
+        "mi_billing_address": "Rechnungsadresse",
+        "mi_items_title": "Positionen / Leistungen",
+        "mi_designation": "Bezeichnung",
+        "mi_amount_ht": "Betrag HT (EUR)",
+        "mi_add_item": "+ Position hinzufuegen",
+        "mi_payment_conditions": "Zahlungsbedingungen",
+        "mi_saved_items": "Gespeicherte Positionen",
+        "mi_use_item": "+ Verwenden",
+        "mi_delete_template_confirm": "Diese Vorlage loeschen?",
+        "mi_no_templates": "Keine gespeicherten Vorlagen.",
+        "mi_save_template_btn": "+ Vorlage speichern",
+        "mi_default_amount": "Standardbetrag (EUR)",
+        "mi_default_vat": "Standard-MwSt (%)",
+        "mi_save_template": "Vorlage speichern",
+        "mi_save_invoice": "Rechnung speichern",
+        "mi_save_pdf": "Speichern + PDF",
+        "mi_designation_placeholder": "Leistungsbeschreibung...",
+        "mi_reserve_error": "Rechnungsnummer konnte nicht reserviert werden. Bitte erneut versuchen.",
         "payroll_note_franchise_abbr": "Freibetrag",
         "payroll_note_tax_line": "Steuer: progressive ACD-Klassen + impot de solidarite (7% Kl.1/1a · 9% Kl.2). Abzuge: maladie + pension + forfait frais d'obtention 45 €/Mon.",
         "payroll_note_disclaimer": "Diese Berechnung ist informativ — prufen Sie mit dem Steuerberater oder der CCSS fuer genaue Betrage.",
@@ -885,6 +970,27 @@ MODULE_TRANSLATIONS = {
         "payroll_worker_plural": "trabalhadores",
         "payroll_calculation_note": "Nota de calculo:",
         "payroll_no_results": "Nenhum turno registado para o periodo selecionado ou nenhum trabalhador tem taxa horaria.",
+        "mi_title": "Fatura manual",
+        "mi_invoice_num": "Fatura n.°",
+        "mi_billed_to": "Faturar a",
+        "mi_billing_address": "Endereco de faturacao",
+        "mi_items_title": "Artigos / Servicos",
+        "mi_designation": "Descricao",
+        "mi_amount_ht": "Montante HT (EUR)",
+        "mi_add_item": "+ Adicionar artigo",
+        "mi_payment_conditions": "Condicoes de pagamento",
+        "mi_saved_items": "Artigos guardados",
+        "mi_use_item": "+ Usar",
+        "mi_delete_template_confirm": "Eliminar este modelo?",
+        "mi_no_templates": "Sem modelos guardados.",
+        "mi_save_template_btn": "+ Guardar modelo",
+        "mi_default_amount": "Montante predefinido (EUR)",
+        "mi_default_vat": "IVA predefinido (%)",
+        "mi_save_template": "Guardar modelo",
+        "mi_save_invoice": "Guardar fatura",
+        "mi_save_pdf": "Guardar + PDF",
+        "mi_designation_placeholder": "Descricao do servico...",
+        "mi_reserve_error": "Nao foi possivel reservar o numero da fatura. Tente novamente.",
         "payroll_note_franchise_abbr": "franquia",
         "payroll_note_tax_line": "Imposto: escaloes progressivos ACD + impot de solidarite (7% cl.1/1a · 9% cl.2). Deducoes: maladie + pension + forfait frais d'obtention 45 €/mes.",
         "payroll_note_disclaimer": "Este calculo e indicativo — verifique com o fiduciaire ou a CCSS para valores exactos.",
@@ -5801,7 +5907,7 @@ def invoices():
                 <a class="invoice-tab" href="#" onclick="filterInvoiceStatus('unpaid', this);return false;">{{ tr["unpaid"] }} <span class="pill red">{{ unpaid_rows|length }}</span></a>
                 <a class="invoice-tab" href="#" onclick="filterInvoiceStatus('paid', this);return false;">{{ tr["paid"] }} <span class="pill green">{{ paid_rows|length }}</span></a>
                 <a class="invoice-tab" href="/invoices/quote">{{ tr["quote"] }}</a>
-                <a class="invoice-tab" href="/invoices/manual" style="background:#22c55e;color:#111;">✏️ Facture manuelle</a>
+                <a class="invoice-tab" href="/invoices/manual" style="background:#22c55e;color:#111;">✏️ {{ tr.get("mi_title","Facture manuelle") }}</a>
             </div>
 
             <table class="invoice-table">
@@ -6414,7 +6520,7 @@ def invoices_manual():
 
         if not reserved:
             conn.close()
-            flash("Nije moguće rezervisati broj fakture. Pokušajte ponovo.", "error")
+            flash(t().get("mi_reserve_error", "Nije moguce rezervisati broj fakture. Pokusajte ponovo."), "error")
             return redirect("/invoices/manual")
 
         # Draft saved only after ownership is confirmed
@@ -6524,7 +6630,7 @@ def invoices_manual():
 
 <div class="mi-shell">
   <div class="mi-top">
-    <div class="mi-brand">Luxmann <span>Facture manuelle</span></div>
+    <div class="mi-brand">Luxmann <span>{{ tr.get("mi_title","Facture manuelle") }}</span></div>
     <a class="back-button" href="/invoices">{{ tr["back"] }}</a>
   </div>
   {% with msgs = get_flashed_messages(with_categories=true) %}
@@ -6543,13 +6649,13 @@ def invoices_manual():
         <!-- Invoice number + date -->
         <div class="mi-card" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
           <div>
-            <div class="mi-label">Facture n°</div>
+            <div class="mi-label">{{ tr.get("mi_invoice_num","Facture n°") }}</div>
             <div class="mi-number-box" id="dispNum">{{ auto_num }}</div>
             <input type="hidden" name="invoice_number" id="invoiceNumber" value="{{ auto_num }}">
             <input type="hidden" name="mode" value="{{ 'edit' if draft.invoice_number else 'create' }}">
           </div>
           <div>
-            <div class="mi-label">Date</div>
+            <div class="mi-label">{{ tr["invoice_date"] }}</div>
             <input class="mi-input" type="date" name="invoice_date"
                    value="{{ draft.invoice_date or today }}">
           </div>
@@ -6557,7 +6663,7 @@ def invoices_manual():
 
         <!-- Client -->
         <div class="mi-card">
-          <h3>👤 Facturé à</h3>
+          <h3>👤 {{ tr.get("mi_billed_to","Facturé à") }}</h3>
           <label class="mi-label">{{ tr["search_client"] }}</label>
           <input class="mi-input" id="miClientSearch" list="miClientList"
                  placeholder="{{ tr['search_client'] }}" oninput="fillMiClient()" autocomplete="off">
@@ -6567,19 +6673,19 @@ def invoices_manual():
           <label class="mi-label">{{ tr["client_name"] }}</label>
           <input class="mi-input" name="client_name" id="miClientName"
                  value="{{ draft.client_name or '' }}" required>
-          <label class="mi-label">Adresse de facturation</label>
+          <label class="mi-label">{{ tr.get("mi_billing_address","Adresse de facturation") }}</label>
           <textarea class="mi-textarea" name="client_address" id="miClientAddress"
                     style="min-height:80px;">{{ draft.client_address or '' }}</textarea>
         </div>
 
         <!-- Line items -->
         <div class="mi-card">
-          <h3>📋 Articles / Prestations</h3>
+          <h3>📋 {{ tr.get("mi_items_title","Articles / Prestations") }}</h3>
           <div class="mi-row-hdr">
-            <span>Désignation</span><span>Montant HT (€)</span><span>TVA (%)</span><span></span>
+            <span>{{ tr.get("mi_designation","Désignation") }}</span><span>{{ tr.get("mi_amount_ht","Montant HT (€)") }}</span><span>TVA (%)</span><span></span>
           </div>
           <div id="itemsContainer"></div>
-          <button type="button" class="mi-add-btn" onclick="addItem()">+ Ajouter un article</button>
+          <button type="button" class="mi-add-btn" onclick="addItem()">{{ tr.get("mi_add_item","+ Ajouter un article") }}</button>
 
           <div class="mi-totals">
             <div class="mi-tot-row"><span>Total HT</span><span id="totHT">0.00 €</span></div>
@@ -6590,7 +6696,7 @@ def invoices_manual():
 
         <!-- Payment terms -->
         <div class="mi-card">
-          <h3>🏦 Conditions et modalités de paiement</h3>
+          <h3>🏦 {{ tr.get("mi_payment_conditions","Conditions et modalités de paiement") }}</h3>
           <textarea class="mi-textarea" name="payment_terms"
                     style="min-height:100px;">{{ draft.payment_terms or default_terms }}</textarea>
         </div>
@@ -6602,7 +6708,7 @@ def invoices_manual():
 
         <!-- Articles sauvegardés -->
         <div class="mi-card">
-          <h3>📂 Articles sauvegardés</h3>
+          <h3>📂 {{ tr.get("mi_saved_items","Articles sauvegardés") }}</h3>
           <div id="tplList">
             {% for tpl in templates_list %}
             <div class="tpl-item">
@@ -6614,34 +6720,34 @@ def invoices_manual():
               </div>
               <button type="button" class="tpl-use"
                       onclick="useTemplate({{ tpl.designation|tojson }}, {{ tpl.amount }}, {{ tpl.vat }})">
-                + Utiliser
+                {{ tr.get("mi_use_item","+ Utiliser") }}
               </button>
               <form method="post" action="/invoices/manual" style="display:inline;">
                 <input type="hidden" name="action" value="delete_template">
                 <input type="hidden" name="tpl_id" value="{{ tpl.id }}">
                 <button type="submit" class="tpl-del"
-                        onclick="return confirm('Supprimer ce modèle?');">🗑</button>
+                        onclick="return confirm({{ tr.get('mi_delete_template_confirm','Supprimer ce modèle ?')|tojson }});">🗑</button>
               </form>
             </div>
             {% else %}
-            <div style="font-size:13px;color:#6b7280;">Aucun modèle sauvegardé.</div>
+            <div style="font-size:13px;color:#6b7280;">{{ tr.get("mi_no_templates","Aucun modèle sauvegardé.") }}</div>
             {% endfor %}
           </div>
 
           <!-- Save new template -->
           <details style="margin-top:14px;">
             <summary style="cursor:pointer;font-size:13px;color:#93c5fd;">
-              + Sauvegarder un modèle
+              {{ tr.get("mi_save_template_btn","+ Sauvegarder un modèle") }}
             </summary>
             <div style="margin-top:10px;">
               <form method="post" action="/invoices/manual">
                 <input type="hidden" name="action" value="save_template">
-                <label class="mi-label">Désignation</label>
+                <label class="mi-label">{{ tr.get("mi_designation","Désignation") }}</label>
                 <textarea class="mi-textarea" name="tpl_designation"
                           style="min-height:55px;" required></textarea>
-                <label class="mi-label">Montant par défaut (€)</label>
+                <label class="mi-label">{{ tr.get("mi_default_amount","Montant par défaut (€)") }}</label>
                 <input class="mi-input" type="number" step="0.01" name="tpl_amount" value="0">
-                <label class="mi-label">TVA par défaut (%)</label>
+                <label class="mi-label">{{ tr.get("mi_default_vat","TVA par défaut (%)") }}</label>
                 <select class="mi-input" name="tpl_vat" style="padding:6px 10px;">
                   <option value="17">17%</option>
                   <option value="8">8%</option>
@@ -6649,7 +6755,7 @@ def invoices_manual():
                   <option value="0">0%</option>
                 </select>
                 <button type="submit" class="mi-add-btn" style="margin-top:10px;">
-                  💾 Sauvegarder le modèle
+                  💾 {{ tr.get("mi_save_template","Sauvegarder le modèle") }}
                 </button>
               </form>
             </div>
@@ -6660,10 +6766,10 @@ def invoices_manual():
         <div class="mi-card">
           <h3>💾 Actions</h3>
           <button type="submit" name="action" value="save" class="mi-save-btn">
-            💾 Sauvegarder la facture
+            💾 {{ tr.get("mi_save_invoice","Sauvegarder la facture") }}
           </button>
           <button type="submit" name="download_pdf" value="1" class="mi-pdf-btn">
-            📄 Sauvegarder + PDF
+            📄 {{ tr.get("mi_save_pdf","Sauvegarder + PDF") }}
           </button>
         </div>
 
@@ -6675,6 +6781,7 @@ def invoices_manual():
 <script>
 var miProfiles = {{ profiles|tojson }};
 var prefillItems = {{ prefill_items|tojson }};
+var miPlaceholder = {{ tr.get("mi_designation_placeholder","Désignation de la prestation...")|tojson }};
 
 function fillMiClient(){
   var name = document.getElementById('miClientSearch').value;
@@ -6709,7 +6816,7 @@ function addItem(desig, amt, vat){
   d.className = 'mi-row mi-item-row';
   d.innerHTML =
     '<textarea class="mi-textarea mi-desig" name="designation[]" rows="2"'
-    +' placeholder="Désignation de la prestation..." oninput="recalc()">'
+    +' placeholder="' + escHtml(miPlaceholder) + '" oninput="recalc()">'
     + escHtml(String(desig)) + '</textarea>'
     + '<input class="mi-input mi-amt" type="number" step="0.01" name="amount[]"'
     +' value="'+(amt===''?'':Number(amt).toFixed(2))+'" placeholder="0.00" oninput="recalc()">'
