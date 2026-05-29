@@ -611,6 +611,8 @@ MODULE_TRANSLATIONS = {
         "mi_save_pdf": "Sacuvaj + PDF",
         "mi_designation_placeholder": "Opis usluge...",
         "mi_reserve_error": "Nije moguce rezervisati broj fakture. Pokusajte ponovo.",
+        "mi_vat_col": "TVA (%)",
+        "mi_actions": "Akcije",
         "payroll_note_franchise_abbr": "franšiza",
         "payroll_note_tax_line": "Porez: progresivni razredi ACD + impôt de solidarité (7% kl.1/1a · 9% kl.2). Odbitna stavka: maladie + pension + forfait frais d'obtention 45 €/mj.",
         "payroll_note_disclaimer": "Ovaj obračun je informativan — provjerite sa fiduciaire ili CCSS za tačne iznose.",
@@ -706,6 +708,8 @@ MODULE_TRANSLATIONS = {
         "mi_save_pdf": "Save + PDF",
         "mi_designation_placeholder": "Description of service...",
         "mi_reserve_error": "Could not reserve invoice number. Please try again.",
+        "mi_vat_col": "VAT (%)",
+        "mi_actions": "Actions",
         "payroll_note_franchise_abbr": "franchise",
         "payroll_note_tax_line": "Tax: progressive ACD brackets + impôt de solidarité (7% class 1/1a · 9% class 2). Deductible: maladie + pension + forfait frais d'obtention 45 €/mo.",
         "payroll_note_disclaimer": "This calculation is indicative — verify with your fiduciaire or CCSS for exact amounts.",
@@ -801,6 +805,8 @@ MODULE_TRANSLATIONS = {
         "mi_save_pdf": "Sauvegarder + PDF",
         "mi_designation_placeholder": "Désignation de la prestation...",
         "mi_reserve_error": "Impossible de réserver le numéro de facture. Veuillez réessayer.",
+        "mi_vat_col": "TVA (%)",
+        "mi_actions": "Actions",
         "payroll_note_franchise_abbr": "franchise",
         "payroll_note_tax_line": "Impot: bareme progressif de l'ACD + impot de solidarite (7% cl.1/1a · 9% cl.2). Deductions: maladie + pension + forfait frais d'obtention 45 €/mois.",
         "payroll_note_disclaimer": "Ce calcul est indicatif — verifiez avec votre fiduciaire ou la CCSS pour les montants exacts.",
@@ -896,6 +902,8 @@ MODULE_TRANSLATIONS = {
         "mi_save_pdf": "Speichern + PDF",
         "mi_designation_placeholder": "Leistungsbeschreibung...",
         "mi_reserve_error": "Rechnungsnummer konnte nicht reserviert werden. Bitte erneut versuchen.",
+        "mi_vat_col": "MwSt (%)",
+        "mi_actions": "Aktionen",
         "payroll_note_franchise_abbr": "Freibetrag",
         "payroll_note_tax_line": "Steuer: progressive ACD-Klassen + impot de solidarite (7% Kl.1/1a · 9% Kl.2). Abzuge: maladie + pension + forfait frais d'obtention 45 €/Mon.",
         "payroll_note_disclaimer": "Diese Berechnung ist informativ — prufen Sie mit dem Steuerberater oder der CCSS fuer genaue Betrage.",
@@ -991,6 +999,8 @@ MODULE_TRANSLATIONS = {
         "mi_save_pdf": "Guardar + PDF",
         "mi_designation_placeholder": "Descricao do servico...",
         "mi_reserve_error": "Nao foi possivel reservar o numero da fatura. Tente novamente.",
+        "mi_vat_col": "IVA (%)",
+        "mi_actions": "Acoes",
         "payroll_note_franchise_abbr": "franquia",
         "payroll_note_tax_line": "Imposto: escaloes progressivos ACD + impot de solidarite (7% cl.1/1a · 9% cl.2). Deducoes: maladie + pension + forfait frais d'obtention 45 €/mes.",
         "payroll_note_disclaimer": "Este calculo e indicativo — verifique com o fiduciaire ou a CCSS para valores exactos.",
@@ -6682,7 +6692,7 @@ def invoices_manual():
         <div class="mi-card">
           <h3>📋 {{ tr.get("mi_items_title","Articles / Prestations") }}</h3>
           <div class="mi-row-hdr">
-            <span>{{ tr.get("mi_designation","Désignation") }}</span><span>{{ tr.get("mi_amount_ht","Montant HT (€)") }}</span><span>TVA (%)</span><span></span>
+            <span>{{ tr.get("mi_designation","Désignation") }}</span><span>{{ tr.get("mi_amount_ht","Montant HT (€)") }}</span>{{ tr.get("mi_vat_col","TVA (%)") }}</span><span></span>
           </div>
           <div id="itemsContainer"></div>
           <button type="button" class="mi-add-btn" onclick="addItem()">{{ tr.get("mi_add_item","+ Ajouter un article") }}</button>
@@ -6726,7 +6736,7 @@ def invoices_manual():
                 <input type="hidden" name="action" value="delete_template">
                 <input type="hidden" name="tpl_id" value="{{ tpl.id }}">
                 <button type="submit" class="tpl-del"
-                        onclick="return confirm({{ tr.get('mi_delete_template_confirm','Supprimer ce modèle ?')|tojson }});">🗑</button>
+                        onclick='return confirm({{ tr.get("mi_delete_template_confirm","Supprimer ce modèle ?")|tojson }});'>🗑</button>
               </form>
             </div>
             {% else %}
@@ -6764,7 +6774,7 @@ def invoices_manual():
 
         <!-- Save / PDF buttons -->
         <div class="mi-card">
-          <h3>💾 Actions</h3>
+          <h3>💾 {{ tr.get("mi_actions","Actions") }}</h3>
           <button type="submit" name="action" value="save" class="mi-save-btn">
             💾 {{ tr.get("mi_save_invoice","Sauvegarder la facture") }}
           </button>
