@@ -2162,6 +2162,7 @@ def invoice_record_to_dict(record):
         "paid_date": record[9] or "",
         "sent": bool(record[10]) if len(record) > 10 else False,
         "sent_date": record[11] if len(record) > 11 and record[11] else "",
+        "source": record[12] if len(record) > 12 and record[12] else "auto",
     }
 
 
@@ -2202,7 +2203,7 @@ def fetch_invoice_records(conn, date_from=None, date_to=None, client=None, statu
         conditions.append("paid = 0")
     where = (" WHERE " + " AND ".join(conditions)) if conditions else ""
     query = f"""
-        SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date, COALESCE(sent, 0), COALESCE(sent_date, '')
+        SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date, COALESCE(sent, 0), COALESCE(sent_date, ''), COALESCE(source, 'auto')
         FROM invoice_records
         {where}
         ORDER BY invoice_date DESC, CAST(invoice_number AS INTEGER) DESC
@@ -2366,6 +2367,141 @@ def build_client_statement_pdf(client_name, records, date_from, date_to):
         ("FONTNAME", (0,-1), (-1,-1), "Helvetica-Bold"),
     ]))
     elements += [table, Spacer(1, 12), Paragraph(f"Non paye: {total_unpaid:.2f} EUR", styles["Normal"])]
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+
+def next_invoice_number(conn):
+    """Return the next sequential invoice number as a string."""
+    c = conn.cursor()
+    settings = get_invoice_settings(conn)
+    start = int(settings.get("invoice_start_number") or 1)
+    rows = c.execute(
+        "SELECT invoice_number FROM invoice_records WHERE COALESCE(deleted,0)=0"
+    ).fetchall()
+    nums = []
+    for (n,) in rows:
+        try:
+            nums.append(int("".join(filter(str.isdigit, str(n)))))
+        except Exception:
+            pass
+    return str(max(max(nums) + 1, start) if nums else start)
+
+
+def build_manual_invoice_pdf(draft, settings):
+    """Build a ReportLab PDF for a manually created multi-line-item invoice."""
+    buffer = io.BytesIO()
+    inv_num = draft["invoice_number"]
+    doc = pdf_doc(
+        buffer, f"FACTURE {inv_num} - {draft.get('client_name','')[:40]}",
+        pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm,
+        topMargin=1.5*cm, bottomMargin=1.5*cm,
+    )
+    styles = getSampleStyleSheet()
+    accent = {"orange": "#ff7a2f", "blue": "#1f4f82", "green": "#2f7d32"}.get(
+        settings.get("invoice_template", "orange"), "#ff7a2f"
+    )
+    normal = styles["Normal"]
+
+    # ── Header bar ────────────────────────────────────────────────────────
+    header = Table([
+        [Paragraph(f"<b>{settings.get('company_name','')}</b>", styles["Title"]),
+         Paragraph("<b>FACTURE</b>", styles["Title"])]
+    ], colWidths=[12.5*cm, 5*cm])
+    header.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,-1), colors.HexColor(accent)),
+        ("TEXTCOLOR", (0,0), (-1,-1), colors.white),
+        ("ALIGN", (1,0), (1,0), "RIGHT"),
+        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+        ("LEFTPADDING", (0,0), (-1,-1), 8),
+        ("RIGHTPADDING", (0,0), (-1,-1), 8),
+    ]))
+
+    # ── Company info + logo ───────────────────────────────────────────────
+    co_lines = [settings.get("company_address", "").replace("\n", "<br/>")]
+    if settings.get("company_phone"):
+        co_lines.append(f"Tel: {settings['company_phone']}")
+    if settings.get("company_email"):
+        co_lines.append(settings["company_email"])
+    logo_cell = (Image("static/logo.png", width=4.5*cm, height=2.4*cm)
+                 if os.path.exists("static/logo.png") else "")
+    co_tbl = Table(
+        [[Paragraph("<br/>".join([x for x in co_lines if x]), normal), logo_cell]],
+        colWidths=[10*cm, 7.5*cm],
+    )
+    co_tbl.setStyle(TableStyle([
+        ("ALIGN", (1,0), (1,0), "RIGHT"),
+        ("VALIGN", (0,0), (-1,-1), "TOP"),
+    ]))
+
+    # ── Billing address + invoice meta ────────────────────────────────────
+    addr = (draft.get("client_address") or draft.get("client_name","")).replace("\n", "<br/>")
+    billing = Paragraph(f"<b>Facture a</b><br/>{addr}", normal)
+    meta = Paragraph(
+        f"<b>Facture no</b>&nbsp;&nbsp;&nbsp; {inv_num}<br/>"
+        f"<b>Date</b>&nbsp;&nbsp;&nbsp; {format_date(draft.get('invoice_date',''))}",
+        normal,
+    )
+    bill_meta = Table([[billing, meta]], colWidths=[10*cm, 7.5*cm],
+                      style=[("ALIGN",(1,0),(1,0),"RIGHT"),("VALIGN",(0,0),(-1,-1),"TOP")])
+
+    # ── Line items table ──────────────────────────────────────────────────
+    try:
+        items = json.loads(draft.get("items_json") or "[]")
+    except Exception:
+        items = []
+
+    tdata = [[
+        Paragraph("<b>DESIGNATION</b>", normal),
+        Paragraph("<b>HT (EUR)</b>", normal),
+        Paragraph("<b>TVA</b>", normal),
+        Paragraph("<b>TTC (EUR)</b>", normal),
+    ]]
+    total_ht = 0.0; total_vat = 0.0
+    for item in items:
+        amt = float(item.get("amount") or 0)
+        vr  = float(item.get("vat_rate") or 0) / 100.0
+        vat = amt * vr
+        total_ht  += amt
+        total_vat += vat
+        tdata.append([
+            Paragraph((item.get("designation") or "").replace("\n", "<br/>"), normal),
+            Paragraph(f"{amt:.2f}", normal),
+            Paragraph(f"{vr*100:.0f}%", normal),
+            Paragraph(f"{amt+vat:.2f}", normal),
+        ])
+    total_ttc = total_ht + total_vat
+    tdata += [
+        ["", Paragraph(f"<b>Total HT</b>&nbsp;&nbsp;&nbsp; {total_ht:.2f}", normal), "", ""],
+        ["", Paragraph(f"TVA&nbsp;&nbsp;&nbsp; {total_vat:.2f}", normal), "", ""],
+        [Paragraph("<b>TOTAL TTC</b>", styles["Heading2"]), "", "",
+         Paragraph(f"<b>{total_ttc:.2f} EUR</b>", styles["Heading2"])],
+    ]
+    items_tbl = Table(tdata, colWidths=[8.8*cm, 3.2*cm, 1.8*cm, 3.7*cm])
+    n_body = len(items) + 1          # header + item rows
+    items_tbl.setStyle(TableStyle([
+        ("GRID",       (0,0),  (-1,n_body-1), 0.5, colors.grey),
+        ("BACKGROUND", (0,0),  (-1,0),        colors.whitesmoke),
+        ("ALIGN",      (1,0),  (-1,-1),       "RIGHT"),
+        ("VALIGN",     (0,0),  (-1,-1),       "TOP"),
+        ("SPAN",       (0,n_body), (0,-1)),   # merge first col on total rows
+        ("BACKGROUND", (0,-1), (-1,-1),       colors.whitesmoke),
+        ("FONTNAME",   (0,-1), (-1,-1),       "Helvetica-Bold"),
+        ("LINEABOVE",  (0,-1), (-1,-1),       1,   colors.grey),
+    ]))
+
+    # ── Payment terms ─────────────────────────────────────────────────────
+    pay = (draft.get("payment_terms") or settings.get("payment_terms", "")).replace("\n", "<br/>")
+
+    elements = [
+        header, Spacer(1, 18),
+        co_tbl,  Spacer(1, 34),
+        bill_meta, Spacer(1, 28),
+        items_tbl, Spacer(1, 60),
+        Paragraph("<b>Conditions et modalites de paiement</b>", normal),
+        Paragraph(pay, normal),
+    ]
     doc.build(elements)
     buffer.seek(0)
     return buffer
@@ -2578,7 +2714,32 @@ def init_db():
             paid_date TEXT DEFAULT '',
             sent INTEGER DEFAULT 0,
             sent_date TEXT DEFAULT '',
-            deleted INTEGER DEFAULT 0
+            deleted INTEGER DEFAULT 0,
+            source TEXT DEFAULT 'auto'
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS manual_invoice_drafts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            invoice_number TEXT UNIQUE,
+            client_name TEXT DEFAULT '',
+            client_address TEXT DEFAULT '',
+            invoice_date TEXT DEFAULT '',
+            items_json TEXT DEFAULT '[]',
+            payment_terms TEXT DEFAULT '',
+            total_ht REAL DEFAULT 0,
+            total_vat REAL DEFAULT 0,
+            total_ttc REAL DEFAULT 0,
+            created_at TEXT DEFAULT ''
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS manual_item_templates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            designation TEXT DEFAULT '',
+            default_amount REAL DEFAULT 0,
+            default_vat REAL DEFAULT 17,
+            sort_order INTEGER DEFAULT 0
         )
     """)
 
@@ -2612,6 +2773,8 @@ def init_db():
         c.execute("ALTER TABLE invoice_records ADD COLUMN sent INTEGER DEFAULT 0")
     if "sent_date" not in invoice_record_cols:
         c.execute("ALTER TABLE invoice_records ADD COLUMN sent_date TEXT DEFAULT ''")
+    if "source" not in invoice_record_cols:
+        c.execute("ALTER TABLE invoice_records ADD COLUMN source TEXT DEFAULT 'auto'")
     document_cols = [row[1] for row in c.execute("PRAGMA table_info(documents)").fetchall()]
     if "folder_id" not in document_cols:
         c.execute("ALTER TABLE documents ADD COLUMN folder_id INTEGER")
@@ -5631,6 +5794,7 @@ def invoices():
                 <a class="invoice-tab" href="#" onclick="filterInvoiceStatus('unpaid', this);return false;">{{ tr["unpaid"] }} <span class="pill red">{{ unpaid_rows|length }}</span></a>
                 <a class="invoice-tab" href="#" onclick="filterInvoiceStatus('paid', this);return false;">{{ tr["paid"] }} <span class="pill green">{{ paid_rows|length }}</span></a>
                 <a class="invoice-tab" href="/invoices/quote">{{ tr["quote"] }}</a>
+                <a class="invoice-tab" href="/invoices/manual" style="background:#22c55e;color:#111;">✏️ Facture manuelle</a>
             </div>
 
             <table class="invoice-table">
@@ -5651,7 +5815,14 @@ def invoices():
                         <a class="ajax-invoice-toggle" data-kind="sent" data-sent-label="{{ tr['sent_yes'] }}" data-unsent-label="{{ tr['sent_no'] }}" data-mark-sent="{{ tr['mark_sent'] }}" data-mark-unsent="{{ tr['mark_unsent'] }}" href="/invoices/mark_sent?invoice_number={{ row.invoice_number }}&sent={{ 0 if row.sent else 1 }}&ajax=1" style="color:#e5e7eb;">{{ tr["mark_unsent"] if row.sent else tr["mark_sent"] }}</a>
                     </td>
                     <td><b>{{ "%.2f"|format(row.total) }} EUR</b></td>
-                    <td><a href="/invoices/download?client={{ row.client|urlencode }}&date_from={{ row.date_from }}&date_to={{ row.date_to }}&invoice_date={{ row.invoice_date }}" style="color:#93c5fd;">PDF</a></td>
+                    <td>
+                      {% if row.source == 'manual' %}
+                        <a href="/invoices/manual/pdf?invoice_number={{ row.invoice_number }}" style="color:#93c5fd;">PDF</a>
+                        <a href="/invoices/manual?invoice_number={{ row.invoice_number }}" style="color:#ffd429;margin-left:6px;font-size:11px;">✏️</a>
+                      {% else %}
+                        <a href="/invoices/download?client={{ row.client|urlencode }}&date_from={{ row.date_from }}&date_to={{ row.date_to }}&invoice_date={{ row.invoice_date }}" style="color:#93c5fd;">PDF</a>
+                      {% endif %}
+                    </td>
                     <td><a href="/invoices/delete?invoice_number={{ row.invoice_number }}" onclick="return confirm('Obrisati fakturu?');" style="color:#fb7185;">{{ tr["delete"] }}</a></td>
                 </tr>
                 {% endfor %}
@@ -6095,6 +6266,425 @@ def invoices_quote():
     }
     </script>
     """, tr=tr, dark=dark, profiles=profiles, profiles_json=profiles_json, today=lux_now().strftime("%Y-%m-%d"), now_code=lux_now().strftime("%Y%m%d"))
+
+
+@app.route("/invoices/manual", methods=["GET", "POST"])
+def invoices_manual():
+    if session.get("role") != "admin":
+        return redirect("/")
+    tr = t(); dark = get_theme() == "dark"
+    conn = get_conn(); c = conn.cursor()
+    settings = get_invoice_settings(conn)
+    profiles = get_invoice_profiles(conn)
+    templates = c.execute(
+        "SELECT id, designation, default_amount, default_vat FROM manual_item_templates ORDER BY sort_order, id"
+    ).fetchall()
+
+    if request.method == "POST":
+        action = request.form.get("action", "save")
+
+        # ── Save article template ─────────────────────────────────────────
+        if action == "save_template":
+            desig  = request.form.get("tpl_designation", "").strip()
+            amount = float(request.form.get("tpl_amount", 0) or 0)
+            vat    = float(request.form.get("tpl_vat", 17) or 17)
+            if desig:
+                c.execute(
+                    "INSERT INTO manual_item_templates (designation, default_amount, default_vat) VALUES (?,?,?)",
+                    (desig, amount, vat),
+                )
+                conn.commit()
+            conn.close()
+            return redirect("/invoices/manual")
+
+        # ── Delete article template ───────────────────────────────────────
+        if action == "delete_template":
+            tpl_id = request.form.get("tpl_id", "")
+            c.execute("DELETE FROM manual_item_templates WHERE id=?", (tpl_id,))
+            conn.commit()
+            conn.close()
+            return redirect("/invoices/manual")
+
+        # ── Save invoice ──────────────────────────────────────────────────
+        inv_num       = request.form.get("invoice_number", "").strip()
+        client_name   = request.form.get("client_name",   "").strip()
+        client_addr   = request.form.get("client_address","").strip()
+        inv_date      = request.form.get("invoice_date",  lux_now().strftime("%Y-%m-%d")).strip()
+        payment_terms = request.form.get("payment_terms", "").strip()
+
+        # Collect line items from form arrays
+        designations = request.form.getlist("designation[]")
+        amounts      = request.form.getlist("amount[]")
+        vat_rates    = request.form.getlist("vat_rate[]")
+        items = []
+        total_ht = 0.0; total_vat = 0.0
+        for i, desig in enumerate(designations):
+            amt = float(amounts[i] if i < len(amounts) else 0)
+            vr  = float(vat_rates[i] if i < len(vat_rates) else 0)
+            items.append({"designation": desig, "amount": amt, "vat_rate": vr})
+            total_ht  += amt
+            total_vat += amt * vr / 100.0
+        total_ttc = total_ht + total_vat
+        items_json = json.dumps(items, ensure_ascii=False)
+
+        # Save draft (full data for PDF regeneration)
+        now_str = lux_now().strftime("%Y-%m-%d %H:%M")
+        c.execute("""
+            INSERT INTO manual_invoice_drafts
+                (invoice_number, client_name, client_address, invoice_date, items_json,
+                 payment_terms, total_ht, total_vat, total_ttc, created_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?)
+            ON CONFLICT(invoice_number) DO UPDATE SET
+                client_name=excluded.client_name, client_address=excluded.client_address,
+                invoice_date=excluded.invoice_date, items_json=excluded.items_json,
+                payment_terms=excluded.payment_terms, total_ht=excluded.total_ht,
+                total_vat=excluded.total_vat, total_ttc=excluded.total_ttc
+        """, (inv_num, client_name, client_addr, inv_date, items_json,
+              payment_terms, total_ht, total_vat, total_ttc, now_str))
+
+        # Register in invoice_records (idempotent)
+        c.execute("""
+            INSERT INTO invoice_records
+                (invoice_number, client_name, date_from, date_to, invoice_date,
+                 amount, vat_amount, total, paid, sent, deleted, source)
+            VALUES (?,?,?,?,?,?,?,?,0,0,0,'manual')
+            ON CONFLICT(invoice_number) DO UPDATE SET
+                client_name=excluded.client_name, invoice_date=excluded.invoice_date,
+                amount=excluded.amount, vat_amount=excluded.vat_amount,
+                total=excluded.total, source='manual'
+        """, (inv_num, client_name, inv_date, inv_date, inv_date,
+              total_ht, total_vat, total_ttc))
+        conn.commit(); conn.close()
+
+        if request.form.get("download_pdf"):
+            return redirect(f"/invoices/manual/pdf?invoice_number={inv_num}")
+        return redirect("/invoices")
+
+    # ── GET: show form ────────────────────────────────────────────────────
+    # Pre-fill from existing draft if invoice_number given
+    load_num = request.args.get("invoice_number", "").strip()
+    draft = {}
+    if load_num:
+        row = c.execute(
+            "SELECT invoice_number, client_name, client_address, invoice_date, "
+            "items_json, payment_terms FROM manual_invoice_drafts WHERE invoice_number=?",
+            (load_num,)
+        ).fetchone()
+        if row:
+            draft = {"invoice_number": row[0], "client_name": row[1],
+                     "client_address": row[2], "invoice_date": row[3],
+                     "items_json": row[4], "payment_terms": row[5]}
+
+    auto_num = draft.get("invoice_number") or next_invoice_number(conn)
+    default_terms = settings.get("payment_terms", "")
+    conn.close()
+
+    try:
+        prefill_items = json.loads(draft.get("items_json") or "[]")
+    except Exception:
+        prefill_items = []
+    if not prefill_items:
+        prefill_items = [{"designation": "", "amount": "", "vat_rate": 17}]
+
+    profiles_json_str = json.dumps(profiles)
+    templates_list = [{"id": r[0], "designation": r[1], "amount": r[2], "vat": r[3]}
+                      for r in templates]
+    templates_json = json.dumps(templates_list, ensure_ascii=False)
+
+    return render_template_string(BASE_STYLE + header_html() + r"""
+<style>
+.mi-shell { background:#2b2b2b; color:white; border-radius:10px; padding:0 0 22px 0; overflow:hidden; }
+.mi-top { display:flex; align-items:center; justify-content:space-between; gap:18px;
+          padding:18px 22px; background:#3d3d3d; }
+.mi-brand { font-size:22px; font-weight:800; }
+.mi-brand span { background:#ffd429; color:#111; border-radius:6px; padding:2px 6px; }
+.mi-body { max-width:1100px; margin:28px auto; padding:0 24px; display:grid;
+           grid-template-columns:1fr 340px; gap:24px; }
+.mi-main {}
+.mi-sidebar {}
+.mi-card { background:#3d3d3d; border-radius:10px; padding:18px; margin-bottom:16px; }
+.mi-card h3 { margin:0 0 12px; font-size:14px; color:#ffd429; text-transform:uppercase;
+              letter-spacing:.05em; }
+.mi-label { font-size:12px; color:#9ca3af; margin:10px 0 3px; display:block; }
+.mi-input { width:100%; padding:8px 10px; border-radius:7px; border:1px solid #555;
+            background:#2b2b2b; color:white; font-size:14px; box-sizing:border-box;
+            margin:0; }
+.mi-input::placeholder { color:#6b7280; }
+.mi-textarea { width:100%; padding:8px 10px; border-radius:7px; border:1px solid #555;
+               background:#2b2b2b; color:white; font-size:13px; box-sizing:border-box;
+               resize:vertical; margin:0; min-height:70px; }
+.mi-row { display:grid; grid-template-columns:1fr 130px 100px 36px; gap:8px;
+          align-items:start; margin-bottom:8px; }
+.mi-row-hdr { display:grid; grid-template-columns:1fr 130px 100px 36px; gap:8px;
+              font-size:11px; color:#9ca3af; text-transform:uppercase;
+              letter-spacing:.05em; margin-bottom:4px; }
+.mi-del-btn { background:#ef4444; border:none; color:white; border-radius:6px;
+              cursor:pointer; padding:0; height:38px; width:36px; font-size:18px; }
+.mi-add-btn { width:100%; padding:10px; background:#1f4f82; color:white;
+              border:none; border-radius:7px; cursor:pointer; font-size:14px;
+              font-weight:600; margin-top:6px; }
+.mi-totals { border-top:1px solid #555; margin-top:14px; padding-top:10px; }
+.mi-tot-row { display:flex; justify-content:space-between; padding:4px 0;
+              font-size:14px; }
+.mi-tot-row.big { font-size:18px; font-weight:800; color:#ffd429; }
+.mi-save-btn { width:100%; padding:13px; background:#22c55e; color:#111;
+               border:none; border-radius:8px; cursor:pointer; font-size:16px;
+               font-weight:800; margin-top:8px; }
+.mi-pdf-btn  { width:100%; padding:13px; background:#3b82f6; color:white;
+               border:none; border-radius:8px; cursor:pointer; font-size:16px;
+               font-weight:700; margin-top:8px; }
+.tpl-item { display:flex; align-items:center; gap:8px; padding:7px 0;
+            border-bottom:1px solid #4a4a4a; }
+.tpl-use  { background:#1f4f82; color:white; border:none; border-radius:5px;
+            padding:4px 10px; cursor:pointer; font-size:12px; }
+.tpl-del  { background:#ef4444; color:white; border:none; border-radius:5px;
+            padding:4px 8px; cursor:pointer; font-size:12px; }
+.mi-number-box { background:#1e1e20; border-radius:8px; padding:10px 14px;
+                 font-size:22px; font-weight:800; color:#ffd429; margin-bottom:6px; }
+@media (max-width:760px){
+  .mi-body { grid-template-columns:1fr; }
+  .mi-row { grid-template-columns:1fr 110px 80px 36px; }
+}
+</style>
+
+<div class="mi-shell">
+  <div class="mi-top">
+    <div class="mi-brand">Luxmann <span>Facture manuelle</span></div>
+    <a class="back-button" href="/invoices">{{ tr["back"] }}</a>
+  </div>
+
+  <form id="miForm" method="post" action="/invoices/manual">
+    <div class="mi-body">
+
+      <!-- LEFT: main form -->
+      <div class="mi-main">
+
+        <!-- Invoice number + date -->
+        <div class="mi-card" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div>
+            <div class="mi-label">Facture n°</div>
+            <div class="mi-number-box" id="dispNum">{{ auto_num }}</div>
+            <input type="hidden" name="invoice_number" id="invoiceNumber" value="{{ auto_num }}">
+          </div>
+          <div>
+            <div class="mi-label">Date</div>
+            <input class="mi-input" type="date" name="invoice_date"
+                   value="{{ draft.invoice_date or today }}">
+          </div>
+        </div>
+
+        <!-- Client -->
+        <div class="mi-card">
+          <h3>👤 Facturé à</h3>
+          <label class="mi-label">{{ tr["search_client"] }}</label>
+          <input class="mi-input" id="miClientSearch" list="miClientList"
+                 placeholder="{{ tr['search_client'] }}" oninput="fillMiClient()" autocomplete="off">
+          <datalist id="miClientList">
+            {% for p in profiles %}<option value="{{ p.client }}"></option>{% endfor %}
+          </datalist>
+          <label class="mi-label">{{ tr["client_name"] }}</label>
+          <input class="mi-input" name="client_name" id="miClientName"
+                 value="{{ draft.client_name or '' }}" required>
+          <label class="mi-label">Adresse de facturation</label>
+          <textarea class="mi-textarea" name="client_address" id="miClientAddress"
+                    style="min-height:80px;">{{ draft.client_address or '' }}</textarea>
+        </div>
+
+        <!-- Line items -->
+        <div class="mi-card">
+          <h3>📋 Articles / Prestations</h3>
+          <div class="mi-row-hdr">
+            <span>Désignation</span><span>Montant HT (€)</span><span>TVA (%)</span><span></span>
+          </div>
+          <div id="itemsContainer"></div>
+          <button type="button" class="mi-add-btn" onclick="addItem()">+ Ajouter un article</button>
+
+          <div class="mi-totals">
+            <div class="mi-tot-row"><span>Total HT</span><span id="totHT">0.00 €</span></div>
+            <div class="mi-tot-row"><span>TVA</span><span id="totVAT">0.00 €</span></div>
+            <div class="mi-tot-row big"><span>TOTAL EUR</span><span id="totTTC">0.00 €</span></div>
+          </div>
+        </div>
+
+        <!-- Payment terms -->
+        <div class="mi-card">
+          <h3>🏦 Conditions et modalités de paiement</h3>
+          <textarea class="mi-textarea" name="payment_terms"
+                    style="min-height:100px;">{{ draft.payment_terms or default_terms }}</textarea>
+        </div>
+
+      </div><!-- /mi-main -->
+
+      <!-- RIGHT: sidebar -->
+      <div class="mi-sidebar">
+
+        <!-- Articles sauvegardés -->
+        <div class="mi-card">
+          <h3>📂 Articles sauvegardés</h3>
+          <div id="tplList">
+            {% for tpl in templates_list %}
+            <div class="tpl-item">
+              <div style="flex:1;font-size:13px;">
+                <div style="font-weight:600;">{{ tpl.designation }}</div>
+                <div style="font-size:11px;color:#9ca3af;">
+                  {{ "%.2f"|format(tpl.amount) }} € · TVA {{ tpl.vat }}%
+                </div>
+              </div>
+              <button type="button" class="tpl-use"
+                      onclick="useTemplate({{ tpl.designation|tojson }}, {{ tpl.amount }}, {{ tpl.vat }})">
+                + Utiliser
+              </button>
+              <form method="post" action="/invoices/manual" style="display:inline;">
+                <input type="hidden" name="action" value="delete_template">
+                <input type="hidden" name="tpl_id" value="{{ tpl.id }}">
+                <button type="submit" class="tpl-del"
+                        onclick="return confirm('Supprimer ce modèle?');">🗑</button>
+              </form>
+            </div>
+            {% else %}
+            <div style="font-size:13px;color:#6b7280;">Aucun modèle sauvegardé.</div>
+            {% endfor %}
+          </div>
+
+          <!-- Save new template -->
+          <details style="margin-top:14px;">
+            <summary style="cursor:pointer;font-size:13px;color:#93c5fd;">
+              + Sauvegarder un modèle
+            </summary>
+            <div style="margin-top:10px;">
+              <form method="post" action="/invoices/manual">
+                <input type="hidden" name="action" value="save_template">
+                <label class="mi-label">Désignation</label>
+                <textarea class="mi-textarea" name="tpl_designation"
+                          style="min-height:55px;" required></textarea>
+                <label class="mi-label">Montant par défaut (€)</label>
+                <input class="mi-input" type="number" step="0.01" name="tpl_amount" value="0">
+                <label class="mi-label">TVA par défaut (%)</label>
+                <select class="mi-input" name="tpl_vat" style="padding:6px 10px;">
+                  <option value="17">17%</option>
+                  <option value="8">8%</option>
+                  <option value="3">3%</option>
+                  <option value="0">0%</option>
+                </select>
+                <button type="submit" class="mi-add-btn" style="margin-top:10px;">
+                  💾 Sauvegarder le modèle
+                </button>
+              </form>
+            </div>
+          </details>
+        </div>
+
+        <!-- Save / PDF buttons -->
+        <div class="mi-card">
+          <h3>💾 Actions</h3>
+          <button type="submit" name="action" value="save" class="mi-save-btn">
+            💾 Sauvegarder la facture
+          </button>
+          <button type="submit" name="download_pdf" value="1" class="mi-pdf-btn">
+            📄 Sauvegarder + PDF
+          </button>
+        </div>
+
+      </div><!-- /mi-sidebar -->
+    </div>
+  </form>
+</div>
+
+<script>
+var miProfiles = {{ profiles_json|safe }};
+var prefillItems = {{ prefill_items_json|safe }};
+
+function fillMiClient(){
+  var name = document.getElementById('miClientSearch').value;
+  var p = miProfiles.find(function(x){ return x.client === name; });
+  if(!p) return;
+  document.getElementById('miClientName').value = p.client || '';
+  document.getElementById('miClientAddress').value = p.address || '';
+}
+
+function fmtN(n){ return n.toFixed(2) + ' €'; }
+
+function recalc(){
+  var rows = document.querySelectorAll('.mi-item-row');
+  var ht=0, vat=0;
+  rows.forEach(function(r){
+    var a = parseFloat(r.querySelector('.mi-amt').value) || 0;
+    var v = parseFloat(r.querySelector('.mi-vat').value) || 0;
+    ht  += a;
+    vat += a * v / 100;
+  });
+  document.getElementById('totHT').textContent  = fmtN(ht);
+  document.getElementById('totVAT').textContent  = fmtN(vat);
+  document.getElementById('totTTC').textContent  = fmtN(ht+vat);
+}
+
+function addItem(desig, amt, vat){
+  desig = desig || '';
+  amt   = (amt !== undefined) ? amt : '';
+  vat   = (vat !== undefined) ? vat : 17;
+  var c = document.getElementById('itemsContainer');
+  var d = document.createElement('div');
+  d.className = 'mi-row mi-item-row';
+  d.innerHTML =
+    '<textarea class="mi-textarea mi-desig" name="designation[]" rows="2"'
+    +' placeholder="Désignation de la prestation..." oninput="recalc()">'
+    + escHtml(String(desig)) + '</textarea>'
+    + '<input class="mi-input mi-amt" type="number" step="0.01" name="amount[]"'
+    +' value="'+(amt===''?'':Number(amt).toFixed(2))+'" placeholder="0.00" oninput="recalc()">'
+    + '<select class="mi-input mi-vat" name="vat_rate[]" onchange="recalc()">'
+    + '<option value="17"'+(vat==17?' selected':'')+'>17%</option>'
+    + '<option value="8"'+(vat==8?' selected':'')+'>8%</option>'
+    + '<option value="3"'+(vat==3?' selected':'')+'>3%</option>'
+    + '<option value="0"'+(vat==0?' selected':'')+'>0%</option>'
+    + '</select>'
+    + '<button type="button" class="mi-del-btn" onclick="this.closest(\'.mi-item-row\').remove();recalc();">×</button>';
+  c.appendChild(d);
+  recalc();
+}
+
+function useTemplate(desig, amt, vat){ addItem(desig, amt, vat); }
+
+function escHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+          .replace(/"/g,'&quot;');
+}
+
+// Load prefill items on page load
+prefillItems.forEach(function(it){
+  addItem(it.designation, it.amount !== ''? it.amount : '', it.vat_rate || 17);
+});
+</script>
+""", tr=tr, dark=dark, auto_num=auto_num, today=lux_now().strftime("%Y-%m-%d"),
+     profiles=profiles, profiles_json=profiles_json_str,
+     draft=type("D", (), draft)() if draft else type("D", (), {"invoice_number":"","client_name":"","client_address":"","invoice_date":"","payment_terms":""})(),
+     default_terms=default_terms,
+     templates_list=templates_list,
+     prefill_items_json=json.dumps(prefill_items, ensure_ascii=False))
+
+
+@app.route("/invoices/manual/pdf")
+def invoices_manual_pdf():
+    if session.get("role") != "admin":
+        return redirect("/")
+    inv_num = request.args.get("invoice_number", "").strip()
+    if not inv_num:
+        return redirect("/invoices/manual")
+    conn = get_conn(); c = conn.cursor()
+    row = c.execute(
+        "SELECT invoice_number, client_name, client_address, invoice_date, "
+        "items_json, payment_terms FROM manual_invoice_drafts WHERE invoice_number=?",
+        (inv_num,)
+    ).fetchone()
+    settings = get_invoice_settings(conn)
+    conn.close()
+    if not row:
+        return redirect("/invoices/manual")
+    draft = {"invoice_number": row[0], "client_name": row[1], "client_address": row[2],
+             "invoice_date": row[3], "items_json": row[4], "payment_terms": row[5]}
+    pdf = build_manual_invoice_pdf(draft, settings)
+    fname = safe_pdf_name(inv_num, row[1] or "manuel")
+    return send_file(pdf, as_attachment=True, download_name=f"{fname}.pdf",
+                     mimetype="application/pdf")
 
 
 @app.route("/invoices/devis_pdf")
