@@ -2922,7 +2922,7 @@ BASE_STYLE = """
     .settings-sheet { display:none; position:fixed; inset:0; z-index:500; background:rgba(0,0,0,0.55); align-items:flex-end; }
     .settings-sheet.open { display:flex; }
     .settings-inner { background:{{ '#1d1d1f' if dark else 'white' }}; border-radius:20px 20px 0 0; width:100%; max-height:82vh; overflow-y:auto; padding-bottom:calc(20px + env(safe-area-inset-bottom,0)); }
-    .settings-handle { width:40px; height:4px; border-radius:2px; background:{{ '#4b5563' if dark else '#d1d5db' }}; margin:14px auto 18px; }
+    .settings-handle { width:40px; height:4px; border-radius:2px; background:{{ '#6b7280' if dark else '#d1d5db' }}; margin:14px auto 18px; }
     .settings-section { padding:0 20px 14px; margin-bottom:4px; }
     .settings-section + .settings-section { border-top:1px solid {{ '#2c2c30' if dark else '#f1f5f9' }}; padding-top:14px; }
     .settings-section h4 { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:{{ '#94a3b8' if dark else '#64748b' }}; margin:0 0 12px; }
