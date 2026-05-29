@@ -612,6 +612,7 @@ MODULE_TRANSLATIONS = {
         "mi_designation_placeholder": "Opis usluge...",
         "mi_reserve_error": "Nije moguce rezervisati broj fakture. Pokusajte ponovo.",
         "mi_vat_col": "TVA (%)",
+        "mi_vat_short": "TVA",
         "mi_actions": "Akcije",
         "payroll_note_franchise_abbr": "franšiza",
         "payroll_note_tax_line": "Porez: progresivni razredi ACD + impôt de solidarité (7% kl.1/1a · 9% kl.2). Odbitna stavka: maladie + pension + forfait frais d'obtention 45 €/mj.",
@@ -709,6 +710,7 @@ MODULE_TRANSLATIONS = {
         "mi_designation_placeholder": "Description of service...",
         "mi_reserve_error": "Could not reserve invoice number. Please try again.",
         "mi_vat_col": "VAT (%)",
+        "mi_vat_short": "VAT",
         "mi_actions": "Actions",
         "payroll_note_franchise_abbr": "franchise",
         "payroll_note_tax_line": "Tax: progressive ACD brackets + impôt de solidarité (7% class 1/1a · 9% class 2). Deductible: maladie + pension + forfait frais d'obtention 45 €/mo.",
@@ -806,6 +808,7 @@ MODULE_TRANSLATIONS = {
         "mi_designation_placeholder": "Désignation de la prestation...",
         "mi_reserve_error": "Impossible de réserver le numéro de facture. Veuillez réessayer.",
         "mi_vat_col": "TVA (%)",
+        "mi_vat_short": "TVA",
         "mi_actions": "Actions",
         "payroll_note_franchise_abbr": "franchise",
         "payroll_note_tax_line": "Impot: bareme progressif de l'ACD + impot de solidarite (7% cl.1/1a · 9% cl.2). Deductions: maladie + pension + forfait frais d'obtention 45 €/mois.",
@@ -903,6 +906,7 @@ MODULE_TRANSLATIONS = {
         "mi_designation_placeholder": "Leistungsbeschreibung...",
         "mi_reserve_error": "Rechnungsnummer konnte nicht reserviert werden. Bitte erneut versuchen.",
         "mi_vat_col": "MwSt (%)",
+        "mi_vat_short": "MwSt",
         "mi_actions": "Aktionen",
         "payroll_note_franchise_abbr": "Freibetrag",
         "payroll_note_tax_line": "Steuer: progressive ACD-Klassen + impot de solidarite (7% Kl.1/1a · 9% Kl.2). Abzuge: maladie + pension + forfait frais d'obtention 45 €/Mon.",
@@ -1000,6 +1004,7 @@ MODULE_TRANSLATIONS = {
         "mi_designation_placeholder": "Descricao do servico...",
         "mi_reserve_error": "Nao foi possivel reservar o numero da fatura. Tente novamente.",
         "mi_vat_col": "IVA (%)",
+        "mi_vat_short": "IVA",
         "mi_actions": "Acoes",
         "payroll_note_franchise_abbr": "franquia",
         "payroll_note_tax_line": "Imposto: escaloes progressivos ACD + impot de solidarite (7% cl.1/1a · 9% cl.2). Deducoes: maladie + pension + forfait frais d'obtention 45 €/mes.",
@@ -6692,7 +6697,7 @@ def invoices_manual():
         <div class="mi-card">
           <h3>📋 {{ tr.get("mi_items_title","Articles / Prestations") }}</h3>
           <div class="mi-row-hdr">
-            <span>{{ tr.get("mi_designation","Désignation") }}</span><span>{{ tr.get("mi_amount_ht","Montant HT (€)") }}</span>{{ tr.get("mi_vat_col","TVA (%)") }}</span><span></span>
+            <span>{{ tr.get("mi_designation","Désignation") }}</span><span>{{ tr.get("mi_amount_ht","Montant HT (€)") }}</span><span>{{ tr.get("mi_vat_col","TVA (%)") }}</span><span></span>
           </div>
           <div id="itemsContainer"></div>
           <button type="button" class="mi-add-btn" onclick="addItem()">{{ tr.get("mi_add_item","+ Ajouter un article") }}</button>
@@ -6725,7 +6730,7 @@ def invoices_manual():
               <div style="flex:1;font-size:13px;">
                 <div style="font-weight:600;">{{ tpl.designation }}</div>
                 <div style="font-size:11px;color:#9ca3af;">
-                  {{ "%.2f"|format(tpl.amount) }} € · TVA {{ tpl.vat }}%
+                  {{ "%.2f"|format(tpl.amount) }} € · {{ tr.get("mi_vat_short","TVA") }} {{ tpl.vat }}%
                 </div>
               </div>
               <button type="button" class="tpl-use"
