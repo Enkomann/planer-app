@@ -516,6 +516,356 @@ TRANSLATIONS["pt"].update({
     "leave_reject": "Recusar", "leave_no_requests": "Sem pedidos",
 })
 
+# ── Module translations: Workers, Backup, Diagram, Payroll ───────────────────
+MODULE_TRANSLATIONS = {
+    "bos": {
+        # Workers
+        "color_label": "Boja:",
+        "delete_worker_confirm": "Obrisati radnika",
+        # Backup
+        "backup_create_new": "Kreiraj novi backup",
+        "backup_create_desc": "Kreira ZIP arhivu koja sadrzi bazu podataka i sve uploadovane dokumente. Backup se cuva na persistentnom disku.",
+        "backup_create_btn": "Kreiraj backup sada",
+        "backup_list_title": "Sacuvani backupi",
+        "backup_restore_confirm": "Restore backup {name}? Baza podataka i dokumenti ce biti zamijenjeni podacima iz backup-a.",
+        "backup_restore_btn": "Restore backup",
+        "backup_delete_confirm": "Obrisati backup {name}?",
+        "backup_empty": "Nema sacuvanih backupa. Kreirajte prvi backup gore.",
+        "backup_note_restore": "Restore vraca bazu podataka i uploadovane dokumente. Redoslijed: (1) dokumenti se ekstraktuju u privremeni folder, (2) baza se importuje — ako bilo koji korak ne uspije, baza se rollback-uje i staging se brise. (3) Tek nakon uspjesnog importa, fajlovi se premjestaju na finalne lokacije. Greske pri premjestanju fajlova (korak 3) se prijavljuju odvojeno.",
+        # Diagram
+        "diagram_title": "Dijagram zarade",
+        "diagram_subtitle": "Prihod iz faktura",
+        "diagram_year_label": "Godina:",
+        "diagram_total_ht": "Ukupno HT",
+        "diagram_without_vat_note": "Bez TVA",
+        "diagram_total_ttc": "Ukupno TTC",
+        "diagram_with_vat_note": "Sa TVA",
+        "diagram_paid_label": "Naplaceno",
+        "diagram_pct_of_ttc": "od TTC",
+        "diagram_unpaid_label": "Neplaceno",
+        "diagram_open_invoices": "Otvorene fakture",
+        "diagram_best_month": "Najbolji mjesec",
+        "diagram_avg_month": "Prosjek / mj",
+        "diagram_active_months_abbr": "aktivni mj",
+        "diagram_revenue_by_month": "Prihod po mjesecima",
+        "diagram_cumulative_ttc": "Kumulativ TTC",
+        "diagram_paid_vs_unpaid_ttc": "Naplaceno vs Neplaceno (TTC)",
+        "diagram_revenue_by_client": "Prihod po klijentu",
+        "diagram_details_by_month": "Detalji po mjesecima",
+        "diagram_month_col": "Mj.",
+        "diagram_num_invoices_abbr": "Br. fakt.",
+        "diagram_cumulative": "Kumulativ",
+        "diagram_total_row": "UKUPNO",
+        # Payroll
+        "payroll_title": "Obracun plata — Luksemburg",
+        "payroll_settings_per_worker": "Podesavanja po radniku",
+        "payroll_salary_type_label": "Tip plate",
+        "payroll_hourly_label": "Satnica",
+        "payroll_fixed_label": "Fiksna bruto",
+        "payroll_hourly_rate_input": "Satnica (EUR/h)",
+        "payroll_fixed_gross_input": "Fiksna bruto plata (EUR/mj)",
+        "payroll_independent_hours": "Neovisno od sati",
+        "payroll_tax_class_label": "Klasa d'impot",
+        "payroll_single_option": "1 – Samac",
+        "payroll_single_parent_option": "1a – Monoparental",
+        "payroll_married_option": "2 – Bracni par",
+        "payroll_children_label": "Broj djece",
+        "payroll_period_title": "Period obracuna",
+        "payroll_calculate_btn": "Izracunaj plate",
+        "payroll_results_title": "Rezultati:",
+        "payroll_gross_legend": "Brut (EUR)",
+        "payroll_deductions_legend": "Odbitci CCSS + impot",
+        "payroll_employer_legend": "Cijena za poslodavca",
+        "payroll_worker_col": "Radnik",
+        "payroll_hours_col": "Sati",
+        "payroll_ccss_col": "CCSS odbitci",
+        "payroll_tax_col": "Porez",
+        "payroll_employer_col": "Cijena poslodc.",
+        "payroll_fix_gross_badge": "Fix bruto",
+        "payroll_total_ccss": "Ukupno CCSS",
+        "payroll_tax_base_abbr": "Baza:",
+        "payroll_total_row": "UKUPNO",
+        "payroll_worker_singular": "radnik",
+        "payroll_worker_plural": "radnika",
+        "payroll_calculation_note": "Napomena o obracunu:",
+        "payroll_no_results": "Nema evidentiranih smjena za odabrani period ili nijedan radnik nema unesenu satnicu.",
+    },
+    "en": {
+        "color_label": "Color:",
+        "delete_worker_confirm": "Delete worker",
+        "backup_create_new": "Create new backup",
+        "backup_create_desc": "Creates a ZIP archive with the database and all uploaded documents. Backup stored on persistent disk.",
+        "backup_create_btn": "Create backup now",
+        "backup_list_title": "Saved backups",
+        "backup_restore_confirm": "Restore backup {name}? The database and documents will be replaced with backup data.",
+        "backup_restore_btn": "Restore backup",
+        "backup_delete_confirm": "Delete backup {name}?",
+        "backup_empty": "No saved backups. Create the first backup above.",
+        "backup_note_restore": "Restore replaces the database and uploaded documents. Steps: (1) documents extracted to temp folder, (2) database imported — if either step fails the DB is rolled back and staging is deleted. (3) Files moved to final locations only after a successful import. Move errors (step 3) are reported separately and do not roll back the database.",
+        "diagram_title": "Revenue chart",
+        "diagram_subtitle": "Revenue from invoices",
+        "diagram_year_label": "Year:",
+        "diagram_total_ht": "Total HT",
+        "diagram_without_vat_note": "Excl. VAT",
+        "diagram_total_ttc": "Total TTC",
+        "diagram_with_vat_note": "Incl. VAT",
+        "diagram_paid_label": "Paid",
+        "diagram_pct_of_ttc": "of TTC",
+        "diagram_unpaid_label": "Unpaid",
+        "diagram_open_invoices": "Open invoices",
+        "diagram_best_month": "Best month",
+        "diagram_avg_month": "Avg / month",
+        "diagram_active_months_abbr": "active mo.",
+        "diagram_revenue_by_month": "Revenue by month",
+        "diagram_cumulative_ttc": "Cumulative TTC",
+        "diagram_paid_vs_unpaid_ttc": "Paid vs Unpaid (TTC)",
+        "diagram_revenue_by_client": "Revenue by client",
+        "diagram_details_by_month": "Details by month",
+        "diagram_month_col": "Mo.",
+        "diagram_num_invoices_abbr": "# inv.",
+        "diagram_cumulative": "Cumulative",
+        "diagram_total_row": "TOTAL",
+        "payroll_title": "Payroll — Luxembourg",
+        "payroll_settings_per_worker": "Settings per worker",
+        "payroll_salary_type_label": "Salary type",
+        "payroll_hourly_label": "Hourly",
+        "payroll_fixed_label": "Fixed gross",
+        "payroll_hourly_rate_input": "Hourly rate (EUR/h)",
+        "payroll_fixed_gross_input": "Fixed gross salary (EUR/mo.)",
+        "payroll_independent_hours": "Independent of hours",
+        "payroll_tax_class_label": "Tax class (Klasse d'impot)",
+        "payroll_single_option": "1 – Single",
+        "payroll_single_parent_option": "1a – Single parent",
+        "payroll_married_option": "2 – Married",
+        "payroll_children_label": "Number of children",
+        "payroll_period_title": "Calculation period",
+        "payroll_calculate_btn": "Calculate payroll",
+        "payroll_results_title": "Results:",
+        "payroll_gross_legend": "Gross (EUR)",
+        "payroll_deductions_legend": "CCSS + tax deductions",
+        "payroll_employer_legend": "Employer cost",
+        "payroll_worker_col": "Worker",
+        "payroll_hours_col": "Hours",
+        "payroll_ccss_col": "CCSS deductions",
+        "payroll_tax_col": "Tax",
+        "payroll_employer_col": "Employer cost",
+        "payroll_fix_gross_badge": "Fixed gross",
+        "payroll_total_ccss": "Total CCSS",
+        "payroll_tax_base_abbr": "Base:",
+        "payroll_total_row": "TOTAL",
+        "payroll_worker_singular": "worker",
+        "payroll_worker_plural": "workers",
+        "payroll_calculation_note": "Calculation note:",
+        "payroll_no_results": "No recorded shifts for the selected period or no worker has an hourly rate set.",
+    },
+    "fr": {
+        "color_label": "Couleur:",
+        "delete_worker_confirm": "Supprimer le travailleur",
+        "backup_create_new": "Creer une sauvegarde",
+        "backup_create_desc": "Cree une archive ZIP avec la base de donnees et tous les documents. Sauvegarde stockee sur disque persistant.",
+        "backup_create_btn": "Creer maintenant",
+        "backup_list_title": "Sauvegardes enregistrees",
+        "backup_restore_confirm": "Restaurer la sauvegarde {name} ? La base et les documents seront remplacees par les donnees de la sauvegarde.",
+        "backup_restore_btn": "Restaurer",
+        "backup_delete_confirm": "Supprimer la sauvegarde {name} ?",
+        "backup_empty": "Aucune sauvegarde. Creez la premiere sauvegarde ci-dessus.",
+        "backup_note_restore": "La restauration remplace la base de donnees et les documents. Etapes : (1) extraction dans un dossier temporaire, (2) import de la base — en cas d'echec la base est restauree et le staging supprime. (3) Les fichiers sont deplaces vers les emplacements finaux apres un import reussi. Les erreurs de deplacement (etape 3) sont signalees separement.",
+        "diagram_title": "Graphique des revenus",
+        "diagram_subtitle": "Revenus des factures",
+        "diagram_year_label": "Annee:",
+        "diagram_total_ht": "Total HT",
+        "diagram_without_vat_note": "Hors TVA",
+        "diagram_total_ttc": "Total TTC",
+        "diagram_with_vat_note": "TVA incl.",
+        "diagram_paid_label": "Encaisse",
+        "diagram_pct_of_ttc": "du TTC",
+        "diagram_unpaid_label": "Non encaisse",
+        "diagram_open_invoices": "Factures ouvertes",
+        "diagram_best_month": "Meilleur mois",
+        "diagram_avg_month": "Moy. / mois",
+        "diagram_active_months_abbr": "mois actifs",
+        "diagram_revenue_by_month": "Revenus par mois",
+        "diagram_cumulative_ttc": "Cumulatif TTC",
+        "diagram_paid_vs_unpaid_ttc": "Encaisse vs Non encaisse (TTC)",
+        "diagram_revenue_by_client": "Revenus par client",
+        "diagram_details_by_month": "Details par mois",
+        "diagram_month_col": "Mois",
+        "diagram_num_invoices_abbr": "Nb fac.",
+        "diagram_cumulative": "Cumulatif",
+        "diagram_total_row": "TOTAL",
+        "payroll_title": "Calcul des salaires — Luxembourg",
+        "payroll_settings_per_worker": "Parametres par employe",
+        "payroll_salary_type_label": "Type de salaire",
+        "payroll_hourly_label": "Horaire",
+        "payroll_fixed_label": "Fixe brut",
+        "payroll_hourly_rate_input": "Taux horaire (EUR/h)",
+        "payroll_fixed_gross_input": "Salaire fixe brut (EUR/mois)",
+        "payroll_independent_hours": "Independant des heures",
+        "payroll_tax_class_label": "Classe d'impot",
+        "payroll_single_option": "1 – Celibataire",
+        "payroll_single_parent_option": "1a – Monoparental",
+        "payroll_married_option": "2 – Marie",
+        "payroll_children_label": "Nombre d'enfants",
+        "payroll_period_title": "Periode de calcul",
+        "payroll_calculate_btn": "Calculer les salaires",
+        "payroll_results_title": "Resultats:",
+        "payroll_gross_legend": "Brut (EUR)",
+        "payroll_deductions_legend": "Retenues CCSS + impot",
+        "payroll_employer_legend": "Cout employeur",
+        "payroll_worker_col": "Employe",
+        "payroll_hours_col": "Heures",
+        "payroll_ccss_col": "Retenues CCSS",
+        "payroll_tax_col": "Impot",
+        "payroll_employer_col": "Cout empl.",
+        "payroll_fix_gross_badge": "Fixe brut",
+        "payroll_total_ccss": "Total CCSS",
+        "payroll_tax_base_abbr": "Base:",
+        "payroll_total_row": "TOTAL",
+        "payroll_worker_singular": "employe",
+        "payroll_worker_plural": "employes",
+        "payroll_calculation_note": "Note de calcul:",
+        "payroll_no_results": "Aucune mission pour la periode selectionnee ou aucun employe n'a de taux horaire defini.",
+    },
+    "de": {
+        "color_label": "Farbe:",
+        "delete_worker_confirm": "Mitarbeiter loschen",
+        "backup_create_new": "Neue Sicherung erstellen",
+        "backup_create_desc": "Erstellt ein ZIP-Archiv mit Datenbank und allen hochgeladenen Dokumenten. Sicherung auf persistentem Speicher.",
+        "backup_create_btn": "Jetzt sichern",
+        "backup_list_title": "Gespeicherte Sicherungen",
+        "backup_restore_confirm": "Sicherung {name} wiederherstellen? Datenbank und Dokumente werden durch Sicherungsdaten ersetzt.",
+        "backup_restore_btn": "Wiederherstellen",
+        "backup_delete_confirm": "Sicherung {name} loeschen?",
+        "backup_empty": "Keine Sicherungen. Erste Sicherung oben erstellen.",
+        "backup_note_restore": "Die Wiederherstellung ersetzt Datenbank und Dokumente. Schritte: (1) Extraktion in Temp-Ordner, (2) Datenbankimport — schlaegt ein Schritt fehl wird die DB zurueckgesetzt und Staging geloescht. (3) Dateien werden nach erfolgreichem Import verschoben. Fehler beim Verschieben (Schritt 3) werden getrennt gemeldet.",
+        "diagram_title": "Einnahmendiagramm",
+        "diagram_subtitle": "Einnahmen aus Rechnungen",
+        "diagram_year_label": "Jahr:",
+        "diagram_total_ht": "Gesamt HT",
+        "diagram_without_vat_note": "Ohne MwSt",
+        "diagram_total_ttc": "Gesamt TTC",
+        "diagram_with_vat_note": "Mit MwSt",
+        "diagram_paid_label": "Bezahlt",
+        "diagram_pct_of_ttc": "von TTC",
+        "diagram_unpaid_label": "Offen",
+        "diagram_open_invoices": "Offene Rechnungen",
+        "diagram_best_month": "Bester Monat",
+        "diagram_avg_month": "Durchschn. / Mon.",
+        "diagram_active_months_abbr": "akt. Mon.",
+        "diagram_revenue_by_month": "Einnahmen pro Monat",
+        "diagram_cumulative_ttc": "Kumulativ TTC",
+        "diagram_paid_vs_unpaid_ttc": "Bezahlt vs Offen (TTC)",
+        "diagram_revenue_by_client": "Einnahmen pro Kunde",
+        "diagram_details_by_month": "Details pro Monat",
+        "diagram_month_col": "Mon.",
+        "diagram_num_invoices_abbr": "Anz. Re.",
+        "diagram_cumulative": "Kumulativ",
+        "diagram_total_row": "GESAMT",
+        "payroll_title": "Lohnabrechnung — Luxemburg",
+        "payroll_settings_per_worker": "Einstellungen pro Mitarbeiter",
+        "payroll_salary_type_label": "Gehaltstyp",
+        "payroll_hourly_label": "Stundenlohn",
+        "payroll_fixed_label": "Fixes Bruttogehalt",
+        "payroll_hourly_rate_input": "Stundensatz (EUR/h)",
+        "payroll_fixed_gross_input": "Fixes Bruttogehalt (EUR/Mon.)",
+        "payroll_independent_hours": "Unabhaengig von Stunden",
+        "payroll_tax_class_label": "Steuerklasse (Klasse d'impot)",
+        "payroll_single_option": "1 – Ledig",
+        "payroll_single_parent_option": "1a – Alleinerziehend",
+        "payroll_married_option": "2 – Verheiratet",
+        "payroll_children_label": "Anzahl Kinder",
+        "payroll_period_title": "Abrechnungszeitraum",
+        "payroll_calculate_btn": "Gehalt berechnen",
+        "payroll_results_title": "Ergebnisse:",
+        "payroll_gross_legend": "Brutto (EUR)",
+        "payroll_deductions_legend": "CCSS + Steuer Abzuege",
+        "payroll_employer_legend": "Arbeitgeberkosten",
+        "payroll_worker_col": "Mitarbeiter",
+        "payroll_hours_col": "Stunden",
+        "payroll_ccss_col": "CCSS Abzuege",
+        "payroll_tax_col": "Steuer",
+        "payroll_employer_col": "AG-Kosten",
+        "payroll_fix_gross_badge": "Fix Brutto",
+        "payroll_total_ccss": "Gesamt CCSS",
+        "payroll_tax_base_abbr": "Basis:",
+        "payroll_total_row": "GESAMT",
+        "payroll_worker_singular": "Mitarbeiter",
+        "payroll_worker_plural": "Mitarbeiter",
+        "payroll_calculation_note": "Hinweis zur Berechnung:",
+        "payroll_no_results": "Keine Schichten fuer den gewahlten Zeitraum oder kein Mitarbeiter hat einen Stundensatz.",
+    },
+    "pt": {
+        "color_label": "Cor:",
+        "delete_worker_confirm": "Eliminar trabalhador",
+        "backup_create_new": "Criar copia de seguranca",
+        "backup_create_desc": "Cria um arquivo ZIP com a base de dados e todos os documentos. Copia guardada em disco persistente.",
+        "backup_create_btn": "Criar agora",
+        "backup_list_title": "Copias guardadas",
+        "backup_restore_confirm": "Restaurar copia {name}? A base de dados e os documentos serao substituidos pelos dados da copia.",
+        "backup_restore_btn": "Restaurar",
+        "backup_delete_confirm": "Eliminar copia {name}?",
+        "backup_empty": "Sem copias de seguranca. Crie a primeira copia acima.",
+        "backup_note_restore": "A restauracao substitui a base de dados e os documentos. Passos: (1) extracao para pasta temporaria, (2) importacao da base — em caso de falha a base e revertida e o staging eliminado. (3) Os ficheiros sao movidos para locais finais apos importacao bem-sucedida. Erros de movimentacao (passo 3) sao reportados separadamente.",
+        "diagram_title": "Grafico de receitas",
+        "diagram_subtitle": "Receitas de faturas",
+        "diagram_year_label": "Ano:",
+        "diagram_total_ht": "Total HT",
+        "diagram_without_vat_note": "Sem IVA",
+        "diagram_total_ttc": "Total TTC",
+        "diagram_with_vat_note": "Com IVA",
+        "diagram_paid_label": "Cobrado",
+        "diagram_pct_of_ttc": "do TTC",
+        "diagram_unpaid_label": "Por cobrar",
+        "diagram_open_invoices": "Faturas em aberto",
+        "diagram_best_month": "Melhor mes",
+        "diagram_avg_month": "Media / mes",
+        "diagram_active_months_abbr": "meses ativos",
+        "diagram_revenue_by_month": "Receitas por mes",
+        "diagram_cumulative_ttc": "Cumulativo TTC",
+        "diagram_paid_vs_unpaid_ttc": "Cobrado vs Por cobrar (TTC)",
+        "diagram_revenue_by_client": "Receitas por cliente",
+        "diagram_details_by_month": "Detalhes por mes",
+        "diagram_month_col": "Mes",
+        "diagram_num_invoices_abbr": "Nr. fat.",
+        "diagram_cumulative": "Cumulativo",
+        "diagram_total_row": "TOTAL",
+        "payroll_title": "Calculo de salarios — Luxemburgo",
+        "payroll_settings_per_worker": "Definicoes por trabalhador",
+        "payroll_salary_type_label": "Tipo de salario",
+        "payroll_hourly_label": "Hora",
+        "payroll_fixed_label": "Fixo bruto",
+        "payroll_hourly_rate_input": "Taxa horaria (EUR/h)",
+        "payroll_fixed_gross_input": "Salario fixo bruto (EUR/mes)",
+        "payroll_independent_hours": "Independente das horas",
+        "payroll_tax_class_label": "Classe de imposto (Klasse d'impot)",
+        "payroll_single_option": "1 – Solteiro",
+        "payroll_single_parent_option": "1a – Monoparental",
+        "payroll_married_option": "2 – Casado",
+        "payroll_children_label": "Numero de filhos",
+        "payroll_period_title": "Periodo de calculo",
+        "payroll_calculate_btn": "Calcular salarios",
+        "payroll_results_title": "Resultados:",
+        "payroll_gross_legend": "Bruto (EUR)",
+        "payroll_deductions_legend": "Deducoes CCSS + imposto",
+        "payroll_employer_legend": "Custo patronal",
+        "payroll_worker_col": "Trabalhador",
+        "payroll_hours_col": "Horas",
+        "payroll_ccss_col": "Deducoes CCSS",
+        "payroll_tax_col": "Imposto",
+        "payroll_employer_col": "Custo patronal",
+        "payroll_fix_gross_badge": "Fixo bruto",
+        "payroll_total_ccss": "Total CCSS",
+        "payroll_tax_base_abbr": "Base:",
+        "payroll_total_row": "TOTAL",
+        "payroll_worker_singular": "trabalhador",
+        "payroll_worker_plural": "trabalhadores",
+        "payroll_calculation_note": "Nota de calculo:",
+        "payroll_no_results": "Nenhum turno registado para o periodo selecionado ou nenhum trabalhador tem taxa horaria.",
+    },
+}
+for _lang, _values in MODULE_TRANSLATIONS.items():
+    TRANSLATIONS[_lang].update(_values)
+
 DOCUMENT_TRANSLATIONS = {
     "bos": {
         "documents": "Dokumenti", "upload_document": "Dodaj dokument", "document_name": "Naziv dokumenta",
@@ -6123,7 +6473,7 @@ def workers_page():
                 </div>
             </div>
             <div class="worker-color-row">
-                <span style="font-size:12px;color:{{ '#94a3b8' if dark else '#64748b' }};">Boja:</span>
+                <span style="font-size:12px;color:{{ '#94a3b8' if dark else '#64748b' }};">{{ tr.get("color_label","Boja:") }}</span>
                 <form method="post" action="/update_worker_color" style="display:flex;align-items:center;gap:6px;">
                     <input type="hidden" name="worker_name" value="{{ w[0] }}">
                     <input type="color" name="color" value="{{ wcolor }}"
@@ -6134,7 +6484,7 @@ def workers_page():
             <div class="worker-actions">
                 <a href="/edit_worker/{{ w[0]|urlencode }}">{{ tr["edit"] }}</a>
                 <a href="/delete_worker/{{ w[0]|urlencode }}"
-                   onclick="return confirm('Obrisati radnika {{ w[0] }}?')"
+                   onclick="return confirm('{{ tr.get("delete_worker_confirm","Obrisati radnika") }} {{ w[0] }}?')"
                    style="color:#dc2626;border:1px solid #fecaca;background:#fff1f2;">{{ tr["delete"] }}</a>
             </div>
         </div>
@@ -6394,18 +6744,17 @@ def backup_page():
 
     <!-- Create backup -->
     <div class="backup-create-card">
-      <h3 style="margin:0 0 8px;">📦 Kreiraj novi backup</h3>
+      <h3 style="margin:0 0 8px;">📦 {{ tr.get("backup_create_new","Kreiraj novi backup") }}</h3>
       <p style="font-size:13px;opacity:0.7;margin:0 0 12px;">
-        Kreira ZIP arhivu koja sadrži bazu podataka i sve uploadovane dokumente.
-        Backup se čuva na persistentnom disku.
+        {{ tr.get("backup_create_desc","Kreira ZIP arhivu koja sadrzi bazu podataka i sve uploadovane dokumente. Backup se cuva na persistentnom disku.") }}
       </p>
       <form method="post" action="/backup/create">
-        <button style="width:auto;background:#0ea5e9;border-color:#0ea5e9;">💾 Kreiraj backup sada</button>
+        <button style="width:auto;background:#0ea5e9;border-color:#0ea5e9;">💾 {{ tr.get("backup_create_btn","Kreiraj backup sada") }}</button>
       </form>
     </div>
 
     <!-- Backup list -->
-    <h3 style="margin-top:28px;margin-bottom:8px;">📋 Sačuvani backupi</h3>
+    <h3 style="margin-top:28px;margin-bottom:8px;">📋 {{ tr.get("backup_list_title","Sacuvani backupi") }}</h3>
     {% if backups %}
     <div class="backup-list">
       {% for b in backups %}
@@ -6416,14 +6765,14 @@ def backup_page():
           <div class="backup-item-meta">{{ b.date }} · {{ b.size }}</div>
         </div>
         <div class="backup-item-actions">
-          <a href="/backup/download/{{ b.name }}">⬇️ Preuzmi</a>
+          <a href="/backup/download/{{ b.name }}">⬇️ {{ tr["download"] }}</a>
           <form method="post" action="/backup/restore/{{ b.name }}"
-                onsubmit="return confirm('Restore backup {{ b.name }}? Baza podataka i dokumenti će biti zamijenjeni podacima iz backup-a.');"
+                onsubmit="return confirm('{{ tr.get("backup_restore_confirm","Restore backup {name}? Baza podataka i dokumenti ce biti zamijenjeni podacima iz backup-a.").replace("{name}", b.name) }}');"
                 style="display:inline;">
-            <button style="background:#f59e0b;border-color:#f59e0b;">🔄 Restore backup</button>
+            <button style="background:#f59e0b;border-color:#f59e0b;">🔄 {{ tr.get("backup_restore_btn","Restore backup") }}</button>
           </form>
           <form method="post" action="/backup/delete/{{ b.name }}"
-                onsubmit="return confirm('Obrisati backup {{ b.name }}?');"
+                onsubmit="return confirm('{{ tr.get("backup_delete_confirm","Obrisati backup {name}?").replace("{name}", b.name) }}');"
                 style="display:inline;">
             <button style="background:#ef4444;border-color:#ef4444;">🗑</button>
           </form>
@@ -6432,17 +6781,13 @@ def backup_page():
       {% endfor %}
     </div>
     {% else %}
-    <div class="muted" style="padding:16px;">Nema sačuvanih backupa. Kreirajte prvi backup gore.</div>
+    <div class="muted" style="padding:16px;">{{ tr.get("backup_empty","Nema sacuvanih backupa. Kreirajte prvi backup gore.") }}</div>
     {% endif %}
 
     <div style="margin-top:24px;padding:12px 16px;background:{{ '#172334' if dark else '#fffbeb' }};
                 border:1px solid {{ '#334155' if dark else '#fde68a' }};border-radius:8px;
                 font-size:12px;max-width:600px;">
-      ℹ️ <b>Napomena:</b> Restore vraća bazu podataka <b>i</b> uploadovane dokumente.
-      Redoslijed: (1) dokumenti se ekstraktuju u privremeni folder, (2) baza se importuje —
-      ako bilo koji od ova dva koraka ne uspije, baza se rollback-uje i staging se briše.
-      (3) Tek nakon uspješnog importa, fajlovi se premještaju na finalne lokacije.
-      Greške pri premještanju fajlova (korak 3) se prijavljuju odvojeno i ne rollback-uju bazu.
+      ℹ️ <b>{{ tr["note"] }}:</b> {{ tr.get("backup_note_restore","Restore vraca bazu podataka i uploadovane dokumente. Redoslijed: (1) dokumenti se ekstraktuju, (2) baza se importuje — ako ne uspije, rollback. (3) Fajlovi premjesteni tek nakon uspjesnog importa. Greske prijavljene odvojeno.") }}
     </div>
     """, tr=tr, dark=dark, notice=notice, backups=backups)
 
@@ -6829,14 +7174,14 @@ def _diagram_page_inner():
 
 <div class="page-content">
   <div class="hero">
-    <h1>📊 Dijagram zarade</h1>
-    <div class="muted">Prihod iz faktura — {{ sel_year }}</div>
+    <h1>📊 {{ tr.get("diagram_title","Dijagram zarade") }}</h1>
+    <div class="muted">{{ tr.get("diagram_subtitle","Prihod iz faktura") }} — {{ sel_year }}</div>
   </div>
 
   <!-- Year selector -->
   <div class="chart-card" style="margin-bottom:18px; padding:14px 20px;">
     <div class="year-selector">
-      <span style="font-size:13px; font-weight:600; color:{{ '#94a3b8' if dark else '#64748b' }};">Godina:</span>
+      <span style="font-size:13px; font-weight:600; color:{{ '#94a3b8' if dark else '#64748b' }};">{{ tr.get("diagram_year_label","Godina:") }}</span>
       {% for y in available_years %}
       <a href="/diagram?year={{ y }}" class="year-btn {{ 'active' if y == sel_year else '' }}">{{ y }}</a>
       {% endfor %}
@@ -6846,14 +7191,14 @@ def _diagram_page_inner():
   <!-- KPI cards -->
   <div class="kpi-grid">
     <div class="kpi-card" style="border-left:4px solid #3b82f6;">
-      <div class="kpi-label">Ukupno HT</div>
+      <div class="kpi-label">{{ tr.get("diagram_total_ht","Ukupno HT") }}</div>
       <div class="kpi-value" style="color:{{ '#93c5fd' if dark else '#2563eb' }};">{{ '%.2f'|format(total_ht) }} €</div>
-      <div class="kpi-sub">Bez TVA — {{ total_inv }} faktura</div>
+      <div class="kpi-sub">{{ tr.get("diagram_without_vat_note","Bez TVA") }} — {{ total_inv }} faktura</div>
     </div>
     <div class="kpi-card" style="border-left:4px solid #8b5cf6;">
-      <div class="kpi-label">Ukupno TTC</div>
+      <div class="kpi-label">{{ tr.get("diagram_total_ttc","Ukupno TTC") }}</div>
       <div class="kpi-value" style="color:{{ '#c4b5fd' if dark else '#7c3aed' }};">{{ '%.2f'|format(total_ttc) }} €</div>
-      <div class="kpi-sub">Sa TVA
+      <div class="kpi-sub">{{ tr.get("diagram_with_vat_note","Sa TVA") }}
         {% if yoy_pct != 0 %}
         · <span class="{{ 'trend-up' if yoy_pct > 0 else 'trend-down' }}">
           {{ '+' if yoy_pct > 0 else '' }}{{ yoy_pct }}% vs {{ prev_year }}
@@ -6862,66 +7207,66 @@ def _diagram_page_inner():
       </div>
     </div>
     <div class="kpi-card" style="border-left:4px solid #22c55e;">
-      <div class="kpi-label">Naplaćeno</div>
+      <div class="kpi-label">{{ tr.get("diagram_paid_label","Naplaceno") }}</div>
       <div class="kpi-value" style="color:{{ '#4ade80' if dark else '#16a34a' }};">{{ '%.2f'|format(total_paid) }} €</div>
-      <div class="kpi-sub">{{ '%.0f'|format(total_paid/total_ttc*100) if total_ttc > 0 else 0 }}% od TTC</div>
+      <div class="kpi-sub">{{ '%.0f'|format(total_paid/total_ttc*100) if total_ttc > 0 else 0 }}% {{ tr.get("diagram_pct_of_ttc","od TTC") }}</div>
     </div>
     <div class="kpi-card" style="border-left:4px solid #f59e0b;">
-      <div class="kpi-label">Neplaćeno</div>
+      <div class="kpi-label">{{ tr.get("diagram_unpaid_label","Neplaceno") }}</div>
       <div class="kpi-value" style="color:{{ '#fbbf24' if dark else '#d97706' }};">{{ '%.2f'|format(total_unpaid) }} €</div>
-      <div class="kpi-sub">Otvorene fakture</div>
+      <div class="kpi-sub">{{ tr.get("diagram_open_invoices","Otvorene fakture") }}</div>
     </div>
     {% if best_month_idx >= 0 %}
     <div class="kpi-card" style="border-left:4px solid #ec4899;">
-      <div class="kpi-label">Najbolji mjesec</div>
+      <div class="kpi-label">{{ tr.get("diagram_best_month","Najbolji mjesec") }}</div>
       <div class="kpi-value" style="color:{{ '#f9a8d4' if dark else '#be185d' }};">{{ month_names[best_month_idx] }}</div>
       <div class="kpi-sub">{{ '%.2f'|format(month_ttc[best_month_idx]) }} € TTC</div>
     </div>
     {% endif %}
     <div class="kpi-card" style="border-left:4px solid #06b6d4;">
-      <div class="kpi-label">Prosjek / mj</div>
+      <div class="kpi-label">{{ tr.get("diagram_avg_month","Prosjek / mj") }}</div>
       <div class="kpi-value" style="color:{{ '#67e8f9' if dark else '#0891b2' }};">
         {{ '%.2f'|format(avg_monthly) }} €
       </div>
-      <div class="kpi-sub">TTC, aktivni mj: {{ active_months }}</div>
+      <div class="kpi-sub">TTC, {{ tr.get("diagram_active_months_abbr","aktivni mj") }}: {{ active_months }}</div>
     </div>
   </div>
 
   <!-- Main bar + line chart -->
   <div class="chart-card">
-    <div class="chart-title">📈 Prihod po mjesecima — {{ sel_year }}</div>
+    <div class="chart-title">📈 {{ tr.get("diagram_revenue_by_month","Prihod po mjesecima") }} — {{ sel_year }}</div>
     <canvas id="mainChart" style="max-height:340px;"></canvas>
   </div>
 
   <!-- Naplaćeno vs Nenaplaćeno stacked -->
   <div class="chart-card">
-    <div class="chart-title">💳 Naplaćeno vs Neplaćeno (TTC)</div>
+    <div class="chart-title">💳 {{ tr.get("diagram_paid_vs_unpaid_ttc","Naplaceno vs Neplaceno (TTC)") }}</div>
     <canvas id="paidChart" style="max-height:260px;"></canvas>
   </div>
 
   <!-- Per-client horizontal bar -->
   {% if client_names %}
   <div class="chart-card">
-    <div class="chart-title">🏢 Prihod po klijentu — {{ sel_year }} (Top {{ client_names|length }})</div>
+    <div class="chart-title">🏢 {{ tr.get("diagram_revenue_by_client","Prihod po klijentu") }} — {{ sel_year }} (Top {{ client_names|length }})</div>
     <canvas id="clientChart" style="max-height:{{ [client_names|length * 44, 360]|min }}px;"></canvas>
   </div>
   {% endif %}
 
   <!-- Monthly data table -->
   <div class="chart-card">
-    <div class="chart-title">📋 Detalji po mjesecima</div>
+    <div class="chart-title">📋 {{ tr.get("diagram_details_by_month","Detalji po mjesecima") }}</div>
     <div style="overflow-x:auto;">
     <table class="month-table">
       <thead>
         <tr>
-          <th>Mj.</th>
+          <th>{{ tr.get("diagram_month_col","Mj.") }}</th>
           <th>HT (€)</th>
           <th>TVA (€)</th>
           <th>TTC (€)</th>
-          <th>Naplaćeno</th>
-          <th>Neplaćeno</th>
-          <th>Br. fakt.</th>
-          <th>Kumulativ</th>
+          <th>{{ tr.get("diagram_paid_label","Naplaceno") }}</th>
+          <th>{{ tr.get("diagram_unpaid_label","Neplaceno") }}</th>
+          <th>{{ tr.get("diagram_num_invoices_abbr","Br. fakt.") }}</th>
+          <th>{{ tr.get("diagram_cumulative","Kumulativ") }}</th>
         </tr>
       </thead>
       <tbody>
@@ -6948,7 +7293,7 @@ def _diagram_page_inner():
       </tbody>
       <tfoot>
         <tr>
-          <td>UKUPNO</td>
+          <td>{{ tr.get("diagram_total_row","UKUPNO") }}</td>
           <td>{{ '%.2f'|format(total_ht) }} €</td>
           <td style="font-size:12px;">{{ '%.2f'|format(total_ttc - total_ht) }} €</td>
           <td style="color:{{ '#c4b5fd' if dark else '#7c3aed' }};">{{ '%.2f'|format(total_ttc) }} €</td>
@@ -7006,7 +7351,7 @@ def _diagram_page_inner():
           borderColor: '#3b82f6', borderWidth:1.5, borderRadius:6, order:2 },
         { type:'bar', label:'TTC (€)', data: ttc, backgroundColor: isDark ? 'rgba(139,92,246,0.45)' : 'rgba(139,92,246,0.35)',
           borderColor: '#8b5cf6', borderWidth:1.5, borderRadius:6, order:2 },
-        { type:'line', label:'Kumulativ TTC', data: cumul, borderColor:'#f59e0b', backgroundColor:'transparent',
+        { type:'line', label:{{ tr.get("diagram_cumulative_ttc","Kumulativ TTC")|tojson }}, data: cumul, borderColor:'#f59e0b', backgroundColor:'transparent',
           borderWidth:2.5, pointBackgroundColor:'#f59e0b', pointRadius:3, tension:0.3,
           yAxisID:'yCumul', order:1 }
       ]
@@ -7028,9 +7373,9 @@ def _diagram_page_inner():
     data: {
       labels: months,
       datasets: [
-        { label:'Naplaćeno', data: paid, backgroundColor: isDark ? 'rgba(34,197,94,0.6)' : 'rgba(22,163,74,0.5)',
+        { label:{{ tr.get("diagram_paid_label","Naplaceno")|tojson }}, data: paid, backgroundColor: isDark ? 'rgba(34,197,94,0.6)' : 'rgba(22,163,74,0.5)',
           borderColor:'#22c55e', borderWidth:1.5, borderRadius:4, stack:'s' },
-        { label:'Neplaćeno', data: unpaid, backgroundColor: isDark ? 'rgba(245,158,11,0.5)' : 'rgba(217,119,6,0.4)',
+        { label:{{ tr.get("diagram_unpaid_label","Neplaceno")|tojson }}, data: unpaid, backgroundColor: isDark ? 'rgba(245,158,11,0.5)' : 'rgba(217,119,6,0.4)',
           borderColor:'#f59e0b', borderWidth:1.5, borderRadius:4, stack:'s' }
       ]
     },
@@ -7253,13 +7598,13 @@ def payroll_page():
 </style>
 <div class="page-content">
   <div class="hero">
-    <h1>💰 Obračun plata — Luksemburg</h1>
+    <h1>💰 {{ tr.get("payroll_title","Obracun plata — Luksemburg") }}</h1>
     <div class="muted">CCSS (maladie 3.05% · pension 8% · dépendance 1.4%) · Retenue d'impôt · 2025</div>
   </div>
 
   <!-- Settings card -->
   <div class="card" style="margin-bottom:20px;">
-    <div class="section-title"><h3>⚙️ Podešavanja po radniku</h3></div>
+    <div class="section-title"><h3>⚙️ {{ tr.get("payroll_settings_per_worker","Podesavanja po radniku") }}</h3></div>
     <form method="post" action="/payroll/save_settings">
       <div class="payroll-grid">
         {% for w in workers_list %}
@@ -7271,7 +7616,7 @@ def payroll_page():
 
           <!-- Tip plate: satnica ili fiksna -->
           <div style="margin-bottom:10px;">
-            <label style="font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; display:block; margin-bottom:6px;">Tip plate</label>
+            <label style="font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; display:block; margin-bottom:6px;">{{ tr.get("payroll_salary_type_label","Tip plate") }}</label>
             <div style="display:flex; gap:0; border-radius:8px; overflow:hidden; border:1px solid {{ '#334155' if dark else '#cbd5e1' }};">
               <label style="flex:1; text-align:center; padding:7px 4px; cursor:pointer; font-size:12px; font-weight:600;
                 background:{% if ws.salary_type == 'hourly' %}{{ '#1f4f82' if dark else '#1f4f82' }}{% else %}{{ '#0f172a' if dark else '#f1f5f9' }}{% endif %};
@@ -7280,7 +7625,7 @@ def payroll_page():
                 <input type="radio" name="wsaltype[]" value="hourly"
                   {% if ws.salary_type != 'fixed' %}checked{% endif %}
                   onchange="toggleSalType({{ wi }}, 'hourly')" style="display:none;">
-                🕐 Satnica
+                🕐 {{ tr.get("payroll_hourly_label","Satnica") }}
               </label>
               <label style="flex:1; text-align:center; padding:7px 4px; cursor:pointer; font-size:12px; font-weight:600;
                 background:{% if ws.salary_type == 'fixed' %}{{ '#1f4f82' if dark else '#1f4f82' }}{% else %}{{ '#0f172a' if dark else '#f1f5f9' }}{% endif %};
@@ -7289,7 +7634,7 @@ def payroll_page():
                 <input type="radio" name="wsaltype[]" value="fixed"
                   {% if ws.salary_type == 'fixed' %}checked{% endif %}
                   onchange="toggleSalType({{ wi }}, 'fixed')" style="display:none;">
-                💼 Fiksna bruto
+                💼 {{ tr.get("payroll_fixed_label","Fiksna bruto") }}
               </label>
             </div>
           </div>
@@ -7298,7 +7643,7 @@ def payroll_page():
           <div class="pw-field pw-hourly-row" id="row_hourly_{{ wi }}"
                style="{{ 'display:none;' if ws.salary_type == 'fixed' else '' }}">
             <div>
-              <label>Satnica (€/h)</label>
+              <label>{{ tr.get("payroll_hourly_rate_input","Satnica (EUR/h)") }}</label>
               <input type="number" name="wrate[]" value="{{ ws.hourly_rate }}" step="0.01" min="0" placeholder="{{ '%.2f'|format(lux_ssm_h) }}">
             </div>
             <div style="display:flex; align-items:flex-end; padding-bottom:1px;">
@@ -7312,57 +7657,57 @@ def payroll_page():
           <div class="pw-field pw-fixed-row" id="row_fixed_{{ wi }}"
                style="{{ '' if ws.salary_type == 'fixed' else 'display:none;' }}">
             <div>
-              <label>Fiksna bruto plata (€/mj)</label>
+              <label>{{ tr.get("payroll_fixed_gross_input","Fiksna bruto plata (EUR/mj)") }}</label>
               <input type="number" name="wfixed[]" value="{{ ws.fixed_gross }}" step="0.01" min="0" placeholder="npr. 2800.00">
             </div>
             <div style="display:flex; align-items:flex-end; padding-bottom:1px;">
               <div style="font-size:11px; color:{{ '#64748b' if dark else '#94a3b8' }}; padding:8px 10px; border-radius:8px; background:{{ '#1e293b' if dark else '#f8fafc' }}; border:1px solid {{ '#334155' if dark else '#e2e8f0' }}; line-height:1.5;">
-                Neovisno<br><b>od sati</b>
+                {{ tr.get("payroll_independent_hours","Neovisno od sati") }}
               </div>
             </div>
           </div>
 
           <div class="pw-field">
             <div>
-              <label>Klasa d'impôt</label>
+              <label>{{ tr.get("payroll_tax_class_label","Klasa d'impot") }}</label>
               <select name="wclass[]">
-                <option value="1" {% if ws.tax_class == '1' %}selected{% endif %}>1 – Samac</option>
-                <option value="1a" {% if ws.tax_class == '1a' %}selected{% endif %}>1a – Monoparental</option>
-                <option value="2" {% if ws.tax_class == '2' %}selected{% endif %}>2 – Bračni par</option>
+                <option value="1" {% if ws.tax_class == '1' %}selected{% endif %}>{{ tr.get("payroll_single_option","1 – Samac") }}</option>
+                <option value="1a" {% if ws.tax_class == '1a' %}selected{% endif %}>{{ tr.get("payroll_single_parent_option","1a – Monoparental") }}</option>
+                <option value="2" {% if ws.tax_class == '2' %}selected{% endif %}>{{ tr.get("payroll_married_option","2 – Bracni par") }}</option>
               </select>
             </div>
             <div>
-              <label>Broj djece</label>
+              <label>{{ tr.get("payroll_children_label","Broj djece") }}</label>
               <input type="number" name="wchildren[]" value="{{ ws.num_children }}" min="0" max="20">
             </div>
           </div>
           <div>
-            <label style="font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; display:block; margin-bottom:4px;">Napomena</label>
+            <label style="font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; display:block; margin-bottom:4px;">{{ tr["note"] }}</label>
             <input type="text" name="wnotes[]" value="{{ ws.notes }}" placeholder="frontalier, CDD, étudiant…"
               style="width:100%; padding:7px 10px; border-radius:8px; border:1px solid {{ '#334155' if dark else '#cbd5e1' }}; background:{{ '#0f172a' if dark else '#f8fafc' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }}; font-size:13px; box-sizing:border-box;">
           </div>
         </div>
         {% endfor %}
       </div>
-      <button type="submit" class="btn" style="margin-top:4px;">💾 Sačuvaj podešavanja</button>
+      <button type="submit" class="btn" style="margin-top:4px;">💾 {{ tr["save_settings"] }}</button>
     </form>
   </div>
 
   <!-- Calculate card -->
   <div class="card" style="margin-bottom:20px;">
-    <div class="section-title"><h3>📅 Period obračuna</h3></div>
+    <div class="section-title"><h3>📅 {{ tr.get("payroll_period_title","Period obracuna") }}</h3></div>
     <form method="post" action="/payroll">
       <input type="hidden" name="action" value="calculate">
       <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end;">
         <div>
-          <label style="font-size:12px; color:{{ '#94a3b8' if dark else '#64748b' }}; display:block; margin-bottom:4px;">Od datuma</label>
+          <label style="font-size:12px; color:{{ '#94a3b8' if dark else '#64748b' }}; display:block; margin-bottom:4px;">{{ tr["date_from"] }}</label>
           <input type="date" name="date_from" value="{{ date_from }}" required style="padding:9px 12px; border-radius:8px; border:1px solid {{ '#334155' if dark else '#cbd5e1' }}; background:{{ '#0f172a' if dark else '#f8fafc' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }};">
         </div>
         <div>
-          <label style="font-size:12px; color:{{ '#94a3b8' if dark else '#64748b' }}; display:block; margin-bottom:4px;">Do datuma</label>
+          <label style="font-size:12px; color:{{ '#94a3b8' if dark else '#64748b' }}; display:block; margin-bottom:4px;">{{ tr["date_to"] }}</label>
           <input type="date" name="date_to" value="{{ date_to }}" required style="padding:9px 12px; border-radius:8px; border:1px solid {{ '#334155' if dark else '#cbd5e1' }}; background:{{ '#0f172a' if dark else '#f8fafc' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }};">
         </div>
-        <button type="submit" class="btn" style="background:#16a34a; color:white;">🧮 Izračunaj plate</button>
+        <button type="submit" class="btn" style="background:#16a34a; color:white;">🧮 {{ tr.get("payroll_calculate_btn","Izracunaj plate") }}</button>
       </div>
     </form>
   </div>
@@ -7371,25 +7716,25 @@ def payroll_page():
   {% if results %}
   <div class="card">
     <div class="section-title">
-      <h3>📊 Rezultati: {{ date_from }} → {{ date_to }}</h3>
+      <h3>📊 {{ tr.get("payroll_results_title","Rezultati:") }} {{ date_from }} → {{ date_to }}</h3>
     </div>
     <div class="legend-box">
-      <div class="legend-item"><div class="legend-dot" style="background:#3b82f6;"></div> Brut (€)</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#ef4444;"></div> Odbitci CCSS + impôt</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#3b82f6;"></div> {{ tr.get("payroll_gross_legend","Brut (EUR)") }}</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ef4444;"></div> {{ tr.get("payroll_deductions_legend","Odbitci CCSS + impot") }}</div>
       <div class="legend-item"><div class="legend-dot" style="background:#16a34a;"></div> Net (€)</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#f59e0b;"></div> Cijena za poslodavca</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f59e0b;"></div> {{ tr.get("payroll_employer_legend","Cijena za poslodavca") }}</div>
     </div>
     <div style="overflow-x:auto;">
     <table class="result-table">
       <thead>
         <tr>
-          <th>Radnik</th>
-          <th>Sati</th>
-          <th>Brut (€)</th>
-          <th>CCSS odbitci</th>
-          <th>Porez</th>
+          <th>{{ tr.get("payroll_worker_col","Radnik") }}</th>
+          <th>{{ tr.get("payroll_hours_col","Sati") }}</th>
+          <th>{{ tr.get("payroll_gross_legend","Brut (EUR)") }}</th>
+          <th>{{ tr.get("payroll_ccss_col","CCSS odbitci") }}</th>
+          <th>{{ tr.get("payroll_tax_col","Porez") }}</th>
           <th>Net (€)</th>
-          <th>Cijena poslodc.</th>
+          <th>{{ tr.get("payroll_employer_col","Cijena poslodc.") }}</th>
         </tr>
       </thead>
       <tbody>
@@ -7399,7 +7744,7 @@ def payroll_page():
           <div style="font-weight:700;">{{ r.worker }}</div>
           <div style="font-size:11px; color:{{ '#64748b' if dark else '#94a3b8' }};">
             {% if r.sal_type == 'fixed' %}
-              <span style="background:{{ '#1e3a5f' if dark else '#dbeafe' }}; color:{{ '#93c5fd' if dark else '#1d4ed8' }}; padding:1px 6px; border-radius:4px; font-weight:600;">💼 Fix bruto</span>
+              <span style="background:{{ '#1e3a5f' if dark else '#dbeafe' }}; color:{{ '#93c5fd' if dark else '#1d4ed8' }}; padding:1px 6px; border-radius:4px; font-weight:600;">💼 {{ tr.get("payroll_fix_gross_badge","Fix bruto") }}</span>
             {% else %}
               {{ r.rate }} €/h
             {% endif %}
@@ -7427,11 +7772,11 @@ def payroll_page():
           <div class="deduction-row"><span>C. Maladie Espèces (0.25%)</span><span>−{{ '%.2f'|format(r.maladie_especes) }} €</span></div>
           <div class="deduction-row"><span>C. Pension (8.00%)</span><span>−{{ '%.2f'|format(r.pension) }} €</span></div>
           <div class="deduction-row"><span>C. Dépendance (1.40%)</span><span>−{{ '%.2f'|format(r.dependency) }} €</span></div>
-          <div class="deduction-row bold"><span>Ukupno CCSS</span><span>−{{ '%.2f'|format(r.total_ccss) }} €</span></div>
+          <div class="deduction-row bold"><span>{{ tr.get("payroll_total_ccss","Ukupno CCSS") }}</span><span>−{{ '%.2f'|format(r.total_ccss) }} €</span></div>
         </td>
         <td>
           <div style="font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }};">
-            Baza: {{ '%.2f'|format(r.taxable_m) }} €/mj<br>
+            {{ tr.get("payroll_tax_base_abbr","Baza:") }} {{ '%.2f'|format(r.taxable_m) }} €/mj<br>
             <span style="font-weight:700; color:{{ '#fca5a5' if dark else '#dc2626' }};">
               −{{ '%.2f'|format(r.income_tax) }} €
             </span>
@@ -7455,7 +7800,7 @@ def payroll_page():
       </tbody>
       <tfoot>
         <tr>
-          <td><b>UKUPNO ({{ results|length }} radnik{{ 'a' if results|length > 1 else '' }})</b></td>
+          <td><b>{{ tr.get("payroll_total_row","UKUPNO") }} ({{ results|length }} {{ tr.get("payroll_worker_singular","radnik") if results|length == 1 else tr.get("payroll_worker_plural","radnika") }})</b></td>
           <td><b>{{ '%.2f'|format(tot('hours')) }} h</b></td>
           <td><b>{{ '%.2f'|format(tot('gross')) }} €</b></td>
           <td><b>−{{ '%.2f'|format(tot('total_ccss')) }} €</b></td>
@@ -7469,7 +7814,7 @@ def payroll_page():
 
     <!-- Info box -->
     <div style="margin-top:16px; padding:12px 16px; border-radius:10px; background:{{ '#172039' if dark else '#eff6ff' }}; border:1px solid {{ '#1e3a5f' if dark else '#bfdbfe' }}; font-size:12px; color:{{ '#93c5fd' if dark else '#1e40af' }}; line-height:1.7;">
-      <b>ℹ️ Napomena o obračunu:</b><br>
+      <b>ℹ️ {{ tr.get("payroll_calculation_note","Napomena o obracunu:") }}</b><br>
       CCSS 2025 (salarié): C. Maladie Soins 2.80% · C. Maladie Espèces 0.25% · C. Pension 8.00% · C. Dépendance 1.40% (franšiza {{ '%.2f'|format(dep_franchise) }} €/mj).<br>
       Porez: progresivni razredi ACD + impôt de solidarité (7% kl.1/1a · 9% kl.2). Odbitna stavka: maladie + pension + forfait frais d'obtention 45 €/mj.<br>
       <b>Ovaj obračun je informativan — provjerite sa fiduciaire ili CCSS za tačne iznose.</b>
@@ -7477,7 +7822,7 @@ def payroll_page():
   </div>
   {% elif request.method == 'POST' and request.form.get('action') == 'calculate' %}
   <div class="card" style="text-align:center; padding:32px; color:{{ '#94a3b8' if dark else '#64748b' }};">
-    ⚠️ Nema evidentiranih smjena za odabrani period ili nijedan radnik nema unesenu satnicu.
+    ⚠️ {{ tr.get("payroll_no_results","Nema evidentiranih smjena za odabrani period ili nijedan radnik nema unesenu satnicu.") }}
   </div>
   {% endif %}
 
