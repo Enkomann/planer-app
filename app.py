@@ -7869,9 +7869,7 @@ function toggleSalType(idx, type) {
   var activeStyle = 'background:#1f4f82; color:white;';
   var inactiveStyleD = 'background:#111113; color:#94a3b8;';
   var inactiveStyleL = 'background:#f1f5f9; color:#64748b;';
-  var isDark = document.body.style.getPropertyValue('color-scheme') === 'dark'
-    || document.documentElement.classList.contains('dark')
-    || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  var isDark = {{ 'true' if dark else 'false' }};
   if (type === 'hourly') {
     if (hRow) hRow.style.display = '';
     if (fRow) fRow.style.display = 'none';
