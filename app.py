@@ -130,6 +130,9 @@ TRANSLATIONS = {
         "monday": "Pon", "tuesday": "Uto", "wednesday": "Sri", "thursday": "Cet",
         "friday": "Pet", "saturday": "Sub", "sunday": "Ned", "cancel": "Odustani",
         "duplicate_shift_warning": "Ova smjena sa istim radnicima, istim vremenom i istim klijentom vec postoji.",
+        "nav_week": "Sedmica", "nav_month": "Mjesec", "nav_payroll": "Plate",
+        "nav_diagram": "Dijagram", "nav_route": "Ruta", "nav_settings": "Postavke",
+        "nav_docs_short": "Dok.",
     }
 }
 
@@ -146,11 +149,17 @@ TRANSLATIONS["fr"].update({
     "back": "Retour", "save": "Enregistrer", "delete": "Supprimer", "edit": "Modifier",
     "sick": "Maladie", "vacation": "Conge", "sick_vacation": "Maladie / Conge",
     "duplicate_shift_warning": "Cette mission avec les memes employes, horaires et client existe deja.",
+    "nav_week": "Semaine", "nav_month": "Mois", "nav_payroll": "Salaires",
+    "nav_diagram": "Graphique", "nav_route": "Itineraire", "nav_settings": "Reglages",
+    "nav_docs_short": "Doc.",
 })
 TRANSLATIONS["en"].update({
     "login_title": "Login", "login_btn": "Login", "logout": "Logout",
     "title": "WORK SCHEDULE", "add_worker": "Add worker", "add_client": "Add client",
     "add_shift": "Add shift", "workers": "Workers", "clients": "Clients",
+    "nav_week": "Week", "nav_month": "Month", "nav_payroll": "Payroll",
+    "nav_diagram": "Chart", "nav_route": "Route", "nav_settings": "Settings",
+    "nav_docs_short": "Docs",
     "week_calendar": "Weekly calendar", "month_calendar": "Monthly calendar",
     "monthly_hours": "Monthly hours", "weekly_hours": "Weekly hours",
     "back": "Back", "save": "Save", "delete": "Delete", "edit": "Edit",
@@ -166,6 +175,9 @@ TRANSLATIONS["de"].update({
     "back": "Zuruck", "save": "Speichern", "delete": "Loschen", "edit": "Bearbeiten",
     "sick": "Krankheit", "vacation": "Urlaub", "sick_vacation": "Krankheit / Urlaub",
     "duplicate_shift_warning": "Dieser Einsatz mit denselben Mitarbeitern, derselben Zeit und demselben Kunden existiert bereits.",
+    "nav_week": "Woche", "nav_month": "Monat", "nav_payroll": "Gehalt",
+    "nav_diagram": "Diagramm", "nav_route": "Route", "nav_settings": "Einst.",
+    "nav_docs_short": "Dok.",
 })
 TRANSLATIONS["pt"].update({
     "login_title": "Entrar", "login_btn": "Entrar", "logout": "Sair",
@@ -176,6 +188,9 @@ TRANSLATIONS["pt"].update({
     "back": "Voltar", "save": "Guardar", "delete": "Apagar", "edit": "Editar",
     "sick": "Baixa medica", "vacation": "Ferias", "sick_vacation": "Baixa / Ferias",
     "duplicate_shift_warning": "Este turno com os mesmos trabalhadores, horario e cliente ja existe.",
+    "nav_week": "Semana", "nav_month": "Mes", "nav_payroll": "Salarios",
+    "nav_diagram": "Grafico", "nav_route": "Rota", "nav_settings": "Definicoes",
+    "nav_docs_short": "Doc.",
 })
 
 ROUTE_TRANSLATIONS = {
@@ -2794,40 +2809,40 @@ def header_html():
         <a href="/" class="sidebar-link {% if request.path == '/' %}active{% endif %}" title="Plan">
           <span class="sl-icon">🏠</span><span>Plan</span>
         </a>
-        <a href="/week" class="sidebar-link {% if request.path == '/week' %}active{% endif %}" title="Sedmica">
-          <span class="sl-icon">📅</span><span>Sedmica</span>
+        <a href="/week" class="sidebar-link {% if request.path == '/week' %}active{% endif %}" title="{{ tr.get('nav_week','Sedmica') }}">
+          <span class="sl-icon">📅</span><span>{{ tr.get("nav_week","Sedmica") }}</span>
         </a>
-        <a href="/month" class="sidebar-link {% if request.path == '/month' %}active{% endif %}" title="Mjesec">
-          <span class="sl-icon">🗓️</span><span>Mjesec</span>
+        <a href="/month" class="sidebar-link {% if request.path == '/month' %}active{% endif %}" title="{{ tr.get('nav_month','Mjesec') }}">
+          <span class="sl-icon">🗓️</span><span>{{ tr.get("nav_month","Mjesec") }}</span>
         </a>
-        <a href="/documents" class="sidebar-link {% if request.path.startswith('/documents') %}active{% endif %}" title="Dokumenti">
-          <span class="sl-icon">📁</span><span>Dokumenti</span>
+        <a href="/documents" class="sidebar-link {% if request.path.startswith('/documents') %}active{% endif %}" title="{{ tr.get('documents','Dokumenti') }}">
+          <span class="sl-icon">📁</span><span>{{ tr.get("documents","Dokumenti") }}</span>
         </a>
         {% if session.get('role') == 'admin' %}
         <div class="sidebar-divider"></div>
-        <a href="/workers" class="sidebar-link {% if request.path == '/workers' %}active{% endif %}" title="Radnici">
-          <span class="sl-icon">👷</span><span>Radnici</span>
+        <a href="/workers" class="sidebar-link {% if request.path == '/workers' %}active{% endif %}" title="{{ tr.get('workers','Radnici') }}">
+          <span class="sl-icon">👷</span><span>{{ tr.get("workers","Radnici") }}</span>
         </a>
-        <a href="/clients" class="sidebar-link {% if request.path == '/clients' %}active{% endif %}" title="Klijenti">
-          <span class="sl-icon">🏢</span><span>Klijenti</span>
+        <a href="/clients" class="sidebar-link {% if request.path == '/clients' %}active{% endif %}" title="{{ tr.get('clients','Klijenti') }}">
+          <span class="sl-icon">🏢</span><span>{{ tr.get("clients","Klijenti") }}</span>
         </a>
-        <a href="/invoices" class="sidebar-link {% if request.path.startswith('/invoices') %}active{% endif %}" title="Fakture">
-          <span class="sl-icon">🧾</span><span>Fakture</span>
+        <a href="/invoices" class="sidebar-link {% if request.path.startswith('/invoices') %}active{% endif %}" title="{{ tr.get('invoices','Fakture') }}">
+          <span class="sl-icon">🧾</span><span>{{ tr.get("invoices","Fakture") }}</span>
         </a>
-        <a href="/payroll" class="sidebar-link {% if request.path.startswith('/payroll') %}active{% endif %}" title="Obračun plata">
-          <span class="sl-icon">💰</span><span>Plate</span>
+        <a href="/payroll" class="sidebar-link {% if request.path.startswith('/payroll') %}active{% endif %}" title="{{ tr.get('nav_payroll','Plate') }}">
+          <span class="sl-icon">💰</span><span>{{ tr.get("nav_payroll","Plate") }}</span>
         </a>
-        <a href="/diagram" class="sidebar-link {% if request.path == '/diagram' %}active{% endif %}" title="Dijagram zarade">
-          <span class="sl-icon">📊</span><span>Dijagram</span>
+        <a href="/diagram" class="sidebar-link {% if request.path == '/diagram' %}active{% endif %}" title="{{ tr.get('nav_diagram','Dijagram') }}">
+          <span class="sl-icon">📊</span><span>{{ tr.get("nav_diagram","Dijagram") }}</span>
         </a>
-        <a href="/route_optimizer" class="sidebar-link {% if request.path == '/route_optimizer' %}active{% endif %}" title="Optimizacija rute">
-          <span class="sl-icon">🗺️</span><span>Ruta</span>
+        <a href="/route_optimizer" class="sidebar-link {% if request.path == '/route_optimizer' %}active{% endif %}" title="{{ tr.get('nav_route','Ruta') }}">
+          <span class="sl-icon">🗺️</span><span>{{ tr.get("nav_route","Ruta") }}</span>
         </a>
         <div class="sidebar-divider"></div>
-        <a href="/admin" class="sidebar-link {% if request.path == '/admin' %}active{% endif %}" title="Administracija">
+        <a href="/admin" class="sidebar-link {% if request.path == '/admin' %}active{% endif %}" title="Admin">
           <span class="sl-icon">🔧</span><span>Admin</span>
         </a>
-        <a href="/backup" class="sidebar-link {% if request.path == '/backup' %}active{% endif %}" title="Backup & Restore">
+        <a href="/backup" class="sidebar-link {% if request.path == '/backup' %}active{% endif %}" title="Backup">
           <span class="sl-icon">💾</span><span>Backup</span>
         </a>
         {% endif %}
@@ -2837,14 +2852,14 @@ def header_html():
           <strong>{{ session['user'][0]|upper }}</strong>
           <span>{{ session['user'][:6] }}</span>
         </div>
-        <button onclick="openSettingsSheet()" class="sidebar-link" type="button" title="Postavke / Tema / Jezik">
+        <button onclick="openSettingsSheet()" class="sidebar-link" type="button" title="{{ tr.get('nav_settings','Postavke') }}">
           <svg class="sl-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
             <path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/>
           </svg>
-          <span>Postavke</span>
+          <span>{{ tr.get("nav_settings","Postavke") }}</span>
         </button>
-        <a href="/logout" class="sidebar-link danger" title="Odjava">
-          <span class="sl-icon">🚪</span><span>Odjava</span>
+        <a href="/logout" class="sidebar-link danger" title="{{ tr['logout'] }}">
+          <span class="sl-icon">🚪</span><span>{{ tr["logout"] }}</span>
         </a>
       </div>
     </aside>
@@ -3061,21 +3076,21 @@ def header_html():
             <span>🏠</span><small>Plan</small>
         </a>
         <a href="/week" class="bottom-nav-item {% if request.path == '/week' %}active{% endif %}">
-            <span>📅</span><small>Sedmica</small>
+            <span>📅</span><small>{{ tr.get("nav_week","Sedmica") }}</small>
         </a>
         <a href="/month" class="bottom-nav-item {% if request.path == '/month' %}active{% endif %}">
-            <span>🗓️</span><small>Mjesec</small>
+            <span>🗓️</span><small>{{ tr.get("nav_month","Mjesec") }}</small>
         </a>
         {% if session.get('role') == 'admin' %}
         <a href="/workers" class="bottom-nav-item {% if request.path == '/workers' %}active{% endif %}">
-            <span>👥</span><small>Radnici</small>
+            <span>👥</span><small>{{ tr.get("workers","Radnici") }}</small>
         </a>
         <a href="/documents" class="bottom-nav-item {% if request.path == '/documents' %}active{% endif %}">
-            <span>📁</span><small>Dok.</small>
+            <span>📁</span><small>{{ tr.get("nav_docs_short","Dok.") }}</small>
         </a>
         {% endif %}
-        <button class="bottom-nav-item" onclick="openSettingsSheet()" aria-label="Postavke">
-            <span>⚙️</span><small>Postavke</small>
+        <button class="bottom-nav-item" onclick="openSettingsSheet()" aria-label="{{ tr.get('nav_settings','Postavke') }}">
+            <span>⚙️</span><small>{{ tr.get("nav_settings","Postavke") }}</small>
         </button>
     </nav>
 
@@ -3154,7 +3169,7 @@ def header_html():
           {% endif %}
           <a href="/logout" class="settings-navlink danger">
             <span class="settings-navlink-icon">🚪</span>
-            <div style="font-weight:600;">Odjava</div>
+            <div style="font-weight:600;">{{ tr["logout"] }}</div>
           </a>
         </div>
       </div>
