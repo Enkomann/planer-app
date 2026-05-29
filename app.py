@@ -2647,10 +2647,10 @@ BASE_STYLE = """
 <link rel="manifest" href="/manifest.json">
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(function(){});}</script>
 <style>
-    body { font-family: Arial, sans-serif; margin:24px; background: {{ '#0f172a' if dark else '#f4f6f8' }}; color: {{ '#e5e7eb' if dark else '#1f2937' }}; }
+    body { font-family: Arial, sans-serif; margin:24px; background: {{ '#111113' if dark else '#f4f6f8' }}; color: {{ '#e5e7eb' if dark else '#1f2937' }}; }
     h1 { color: {{ '#93c5fd' if dark else '#1f4f82' }}; }
     h2, h3, h4 { color: {{ '#e5e7eb' if dark else '#111827' }}; }
-    .brandbar, .card { background: {{ '#111827' if dark else 'white' }}; border-radius:12px; box-shadow:0 4px 14px rgba(0,0,0,0.06); }
+    .brandbar, .card { background: {{ '#161618' if dark else 'white' }}; border-radius:12px; box-shadow:0 4px 14px rgba(0,0,0,0.06); }
     .brandbar { display:flex; justify-content:space-between; align-items:center; padding:14px 18px; margin-bottom:18px; }
     .brandleft { display:flex; align-items:center; gap:14px; }
     .brandleft img { height:56px; {% if dark %}filter:invert(1) hue-rotate(180deg);{% else %}mix-blend-mode:multiply;{% endif %} }
@@ -2658,19 +2658,19 @@ BASE_STYLE = """
     .langbar a, .topbar a, .theme-links a, .week-link, .pdf-link, .reset-link, a { color: {{ '#93c5fd' if dark else '#1f4f82' }}; text-decoration:none; font-weight:bold; margin-right:10px; }
     .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px; }
     .card { padding:18px; }
-    input, select, button { padding:10px; margin:6px 0; width:100%; box-sizing:border-box; border:1px solid {{ '#374151' if dark else '#cbd5e1' }}; border-radius:8px; background: {{ '#1f2937' if dark else 'white' }}; color: {{ '#e5e7eb' if dark else '#111827' }}; }
+    input, select, button { padding:10px; margin:6px 0; width:100%; box-sizing:border-box; border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }}; border-radius:8px; background: {{ '#1e1e20' if dark else 'white' }}; color: {{ '#e5e7eb' if dark else '#111827' }}; }
     button { background:#1f4f82; color:white; border:none; cursor:pointer; }
-    .shift { background: {{ 'linear-gradient(135deg, #111827, #1f2937)' if dark else 'linear-gradient(135deg, #ffffff, #f1f5f9)' }}; padding:14px; margin:12px 0; border-radius:12px; box-shadow:0 4px 14px rgba(0,0,0,0.06); }
-    .mini-shift { margin-top:6px; padding:6px; border-radius:8px; font-size:12px; background: {{ '#1f2937' if dark else '#f8fafc' }}; }
-    .calendar-board { border-radius:16px; padding:10px; background:{{ '#0b1220' if dark else '#eef3fb' }}; border:1px solid {{ '#243244' if dark else '#dce5f2' }}; }
-    .calendar-day-card { background:{{ '#121c2d' if dark else '#fbfcff' }} !important; border:1px solid {{ '#26364d' if dark else '#dfe7f2' }}; border-radius:9px; box-shadow:0 1px 5px rgba(15,23,42,0.07) !important; }
+    .shift { background: {{ 'linear-gradient(135deg, #161618, #1e1e20)' if dark else 'linear-gradient(135deg, #ffffff, #f1f5f9)' }}; padding:14px; margin:12px 0; border-radius:12px; box-shadow:0 4px 14px rgba(0,0,0,0.06); }
+    .mini-shift { margin-top:6px; padding:6px; border-radius:8px; font-size:12px; background: {{ '#1e1e20' if dark else '#f8fafc' }}; }
+    .calendar-board { border-radius:16px; padding:10px; background:{{ '#0c0c0e' if dark else '#eef3fb' }}; border:1px solid {{ '#222225' if dark else '#dce5f2' }}; }
+    .calendar-day-card { background:{{ '#141416' if dark else '#fbfcff' }} !important; border:1px solid {{ '#222225' if dark else '#dfe7f2' }}; border-radius:9px; box-shadow:0 1px 5px rgba(15,23,42,0.07) !important; }
     .week-day-heading {
         display:block;
         margin:-7px -7px 10px;
         padding:11px 10px;
         border-radius:8px;
-        background:{{ '#20344e' if dark else '#d9e6f8' }};
-        border:1px solid {{ '#365372' if dark else '#b7cee9' }};
+        background:{{ '#1e2124' if dark else '#d9e6f8' }};
+        border:1px solid {{ '#2e3035' if dark else '#b7cee9' }};
         color:{{ '#dbeafe' if dark else '#173b63' }} !important;
         box-shadow:0 3px 8px rgba(15,23,42,0.1);
         line-height:1.35;
@@ -2680,14 +2680,16 @@ BASE_STYLE = """
         --shift-accent:#7aa7df;
         padding:8px;
         color:{{ '#e5e7eb' if dark else '#1f2937' }};
-        background:{{ '#172334' if dark else '#eaf2fd' }};
-        background:color-mix(in srgb, var(--shift-accent) {{ '28%' if dark else '23%' }}, {{ '#111827' if dark else 'white' }});
-        border:1px solid color-mix(in srgb, var(--shift-accent) {{ '48%' if dark else '34%' }}, {{ '#243244' if dark else '#d8e2f0' }});
+        background:{{ '#191919' if dark else '#eaf2fd' }};
+        background:color-mix(in srgb, var(--shift-accent) {{ '28%' if dark else '23%' }}, {{ '#161618' if dark else 'white' }});
+        border:1px solid color-mix(in srgb, var(--shift-accent) {{ '48%' if dark else '34%' }}, {{ '#222225' if dark else '#d8e2f0' }});
         border-left:5px solid var(--shift-accent) !important;
         box-shadow:none;
+        margin-bottom:3px;
+        border-bottom:{{ '1px solid rgba(255,255,255,0.07)' if dark else 'inherit' }} !important;
     }
     .client-city { font-weight:700; text-transform:capitalize; white-space:nowrap; }
-    .user-row, .hours-row { padding:8px 0; border-bottom:1px solid {{ '#374151' if dark else '#e5e7eb' }}; }
+    .user-row, .hours-row { padding:8px 0; border-bottom:1px solid {{ '#2c2c30' if dark else '#e5e7eb' }}; }
     .muted { color: {{ '#9ca3af' if dark else '#64748b' }}; font-size:14px; }
     .status-badge { color:white; padding:4px 8px; border-radius:6px; font-size:12px; font-weight:bold; margin-left:8px; }
     .action-link, .mini-link { display:inline-flex; align-items:center; justify-content:center; text-decoration:none; margin:2px 2px 0; font-weight:bold; font-size:12px; padding:5px 8px; border-radius:6px; min-height:28px; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
@@ -2701,25 +2703,25 @@ BASE_STYLE = """
     .holiday-note { display:block; color:#dc2626; font-size:11px; margin-top:4px; font-weight:bold; }
     .drop-target { outline:2px dashed #22c55e; }
     .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:50; }
-    .modal-card { max-width:420px; margin:12vh auto; background:{{ '#111827' if dark else 'white' }}; color:{{ '#e5e7eb' if dark else '#111827' }}; border-radius:12px; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,0.25); }
+    .modal-card { max-width:420px; margin:12vh auto; background:{{ '#161618' if dark else 'white' }}; color:{{ '#e5e7eb' if dark else '#111827' }}; border-radius:12px; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,0.25); }
     .client-search-wrapper { position:relative; }
-    .client-search-dropdown { display:none; position:absolute; top:100%; left:0; right:0; z-index:500; background:{{ '#1e293b' if dark else 'white' }}; border:1px solid {{ '#2d4060' if dark else '#dbeafe' }}; border-radius:0 0 8px 8px; max-height:220px; overflow-y:auto; box-shadow:0 6px 20px rgba(0,0,0,0.15); }
-    .client-search-item { padding:9px 13px; cursor:pointer; font-size:13px; border-bottom:1px solid {{ '#2d3f56' if dark else '#f0f4fa' }}; line-height:1.4; }
-    .client-search-item:hover, .client-search-item.active { background:{{ '#2d3f56' if dark else '#eef4ff' }}; }
+    .client-search-dropdown { display:none; position:absolute; top:100%; left:0; right:0; z-index:500; background:{{ '#1d1d1f' if dark else 'white' }}; border:1px solid {{ '#2c2c30' if dark else '#dbeafe' }}; border-radius:0 0 8px 8px; max-height:220px; overflow-y:auto; box-shadow:0 6px 20px rgba(0,0,0,0.15); }
+    .client-search-item { padding:9px 13px; cursor:pointer; font-size:13px; border-bottom:1px solid {{ '#2c2c30' if dark else '#f0f4fa' }}; line-height:1.4; }
+    .client-search-item:hover, .client-search-item.active { background:{{ '#2c2c30' if dark else '#eef4ff' }}; }
     .client-search-item:last-child { border-bottom:none; }
 
     /* ── Topbar action icons (desktop/tablet only) ── */
     .topbar {
         display:none; position:fixed; top:0; left:66px; right:0; height:52px;
-        background:{{ '#0d1829' if dark else '#f8fafc' }};
-        border-bottom:1px solid {{ '#1e293b' if dark else '#e2e8f0' }};
+        background:{{ '#0e0e10' if dark else '#f8fafc' }};
+        border-bottom:1px solid {{ '#1d1d1f' if dark else '#e2e8f0' }};
         z-index:250; align-items:center; justify-content:flex-end;
         padding:0 16px; gap:8px;
     }
     .topicon-btn {
         width:38px; height:38px; border-radius:50%;
-        border:1px solid {{ '#1e293b' if dark else '#e2e8f0' }};
-        background:{{ '#1e293b' if dark else '#ffffff' }};
+        border:1px solid {{ '#1d1d1f' if dark else '#e2e8f0' }};
+        background:{{ '#1d1d1f' if dark else '#ffffff' }};
         display:flex; align-items:center; justify-content:center;
         cursor:pointer; color:{{ '#94a3b8' if dark else '#475569' }};
         position:relative; transition:all 0.15s; flex-shrink:0;
@@ -2727,9 +2729,9 @@ BASE_STYLE = """
         box-shadow: 0 1px 4px rgba(0,0,0,{{ '0.25' if dark else '0.07' }});
     }
     .topicon-btn:hover {
-        background:{{ '#2d4060' if dark else '#e9f0f8' }};
+        background:{{ '#2c2c30' if dark else '#e9f0f8' }};
         color:{{ '#e2e8f0' if dark else '#1f4f82' }};
-        border-color:{{ '#3b5578' if dark else '#c8def7' }};
+        border-color:{{ '#363638' if dark else '#c8def7' }};
     }
     .topicon-btn.active {
         background:#1f4f82; color:white; border-color:#1f4f82;
@@ -2741,7 +2743,7 @@ BASE_STYLE = """
         position:absolute; top:-3px; right:-3px; min-width:16px; height:16px;
         border-radius:8px; background:#ef4444; color:white;
         font-size:9px; font-weight:800; display:flex; align-items:center;
-        justify-content:center; padding:0 3px; border:2px solid {{ '#0d1829' if dark else '#f8fafc' }};
+        justify-content:center; padding:0 3px; border:2px solid {{ '#0e0e10' if dark else '#f8fafc' }};
         animation: notif-pulse 2s infinite;
     }
     @keyframes notif-pulse {
@@ -2751,8 +2753,8 @@ BASE_STYLE = """
     /* Notification dropdown */
     .notif-dropdown {
         display:none; position:absolute; top:46px; right:0; width:320px;
-        background:{{ '#1e293b' if dark else 'white' }};
-        border:1px solid {{ '#334155' if dark else '#e2e8f0' }};
+        background:{{ '#1d1d1f' if dark else 'white' }};
+        border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};
         border-radius:14px; box-shadow:0 12px 32px rgba(0,0,0,0.22);
         z-index:400; overflow:hidden;
     }
@@ -2760,11 +2762,11 @@ BASE_STYLE = """
     .notif-header {
         padding:12px 16px 8px; font-size:13px; font-weight:700;
         color:{{ '#e2e8f0' if dark else '#1e293b' }};
-        border-bottom:1px solid {{ '#334155' if dark else '#f1f5f9' }};
+        border-bottom:1px solid {{ '#2c2c30' if dark else '#f1f5f9' }};
         display:flex; align-items:center; justify-content:space-between;
     }
     .notif-item {
-        padding:12px 16px; border-bottom:1px solid {{ '#1e293b' if dark else '#f8fafc' }};
+        padding:12px 16px; border-bottom:1px solid {{ '#1d1d1f' if dark else '#f8fafc' }};
         font-size:13px;
     }
     .notif-item:last-child { border-bottom:none; }
@@ -2778,8 +2780,8 @@ BASE_STYLE = """
     /* Language dropdown */
     .lang-dropdown {
         display:none; position:absolute; top:46px; right:0; width:130px;
-        background:{{ '#1e293b' if dark else 'white' }};
-        border:1px solid {{ '#334155' if dark else '#e2e8f0' }};
+        background:{{ '#1d1d1f' if dark else 'white' }};
+        border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};
         border-radius:12px; box-shadow:0 12px 32px rgba(0,0,0,0.18);
         z-index:400; overflow:hidden; padding:4px;
     }
@@ -2789,7 +2791,7 @@ BASE_STYLE = """
         font-weight:600; color:{{ '#e2e8f0' if dark else '#1e293b' }};
         text-decoration:none; transition:background 0.1s;
     }
-    .lang-option:hover { background:{{ '#334155' if dark else '#f1f5f9' }}; }
+    .lang-option:hover { background:{{ '#2c2c30' if dark else '#f1f5f9' }}; }
     .lang-option.curr  { background:{{ 'rgba(59,130,246,0.18)' if dark else '#dbeafe' }};
         color:{{ '#93c5fd' if dark else '#1d4ed8' }}; }
     /* Search overlay */
@@ -2800,13 +2802,13 @@ BASE_STYLE = """
     }
     .search-overlay.open { display:flex; }
     .search-box {
-        background:{{ '#1e293b' if dark else 'white' }};
+        background:{{ '#1d1d1f' if dark else 'white' }};
         border-radius:16px; width:100%; max-width:560px; margin:0 16px;
         box-shadow:0 24px 64px rgba(0,0,0,0.35); overflow:hidden;
     }
     .search-input-row {
         display:flex; align-items:center; padding:14px 18px; gap:12px;
-        border-bottom:1px solid {{ '#334155' if dark else '#f1f5f9' }};
+        border-bottom:1px solid {{ '#2c2c30' if dark else '#f1f5f9' }};
     }
     .search-input-row input {
         flex:1; border:none; background:transparent; font-size:17px;
@@ -2819,19 +2821,19 @@ BASE_STYLE = """
         border-radius:10px; cursor:pointer; text-decoration:none;
         color:{{ '#e2e8f0' if dark else '#1e293b' }}; font-size:14px;
     }
-    .search-result-item:hover { background:{{ '#334155' if dark else '#f1f5f9' }}; }
+    .search-result-item:hover { background:{{ '#2c2c30' if dark else '#f1f5f9' }}; }
     .search-result-cat { font-size:10px; color:{{ '#64748b' if dark else '#94a3b8' }};
         font-weight:600; padding:6px 14px 2px; text-transform:uppercase; letter-spacing:0.05em; }
     /* ── Narrow icon sidebar (Agendrix style) ── */
     .sidebar {
         display:none; position:fixed; left:0; top:0; bottom:0; width:66px;
-        background:{{ '#0f172a' if dark else '#f8fafc' }};
-        border-right:1px solid {{ '#1e293b' if dark else '#e2e8f0' }};
+        background:{{ '#111113' if dark else '#f8fafc' }};
+        border-right:1px solid {{ '#1d1d1f' if dark else '#e2e8f0' }};
         z-index:300; flex-direction:column; overflow-y:auto; overflow-x:hidden;
     }
     .sidebar-logo {
         padding:14px 0 10px; display:flex; flex-direction:column; align-items:center;
-        border-bottom:1px solid {{ '#1e293b' if dark else '#e2e8f0' }};
+        border-bottom:1px solid {{ '#1d1d1f' if dark else '#e2e8f0' }};
         text-decoration:none; flex-shrink:0;
     }
     .sidebar-logo img {
@@ -2848,9 +2850,10 @@ BASE_STYLE = """
         text-decoration:none; font-size:9.5px; font-weight:500; line-height:1.2;
         width:100%; box-sizing:border-box; border:none; background:none; cursor:pointer;
         text-align:center;
+        border-bottom:1px solid {{ 'rgba(255,255,255,0.05)' if dark else 'rgba(0,0,0,0.04)' }};
     }
     .sidebar-link:hover {
-        background:{{ '#1e293b' if dark else '#e9f0f8' }};
+        background:{{ '#1d1d1f' if dark else '#e9f0f8' }};
         color:{{ '#93c5fd' if dark else '#1f4f82' }};
     }
     .sidebar-link.active {
@@ -2858,9 +2861,9 @@ BASE_STYLE = """
         color:{{ '#93c5fd' if dark else '#1f4f82' }}; font-weight:700;
     }
     .sl-icon { font-size:22px; line-height:1; display:block; }
-    .sidebar-divider { height:1px; background:{{ '#1e293b' if dark else '#e2e8f0' }}; margin:4px 8px; }
+    .sidebar-divider { height:1px; background:{{ 'rgba(255,255,255,0.10)' if dark else '#e2e8f0' }}; margin:4px 8px; }
     .sidebar-bottom {
-        border-top:1px solid {{ '#1e293b' if dark else '#e2e8f0' }};
+        border-top:1px solid {{ '#1d1d1f' if dark else '#e2e8f0' }};
         padding:6px 4px 10px; flex-shrink:0;
     }
     .sidebar-user {
@@ -2875,13 +2878,13 @@ BASE_STYLE = """
     }
     .sidebar-link.danger { color:#ef4444; }
     .sidebar-link.danger:hover { background:rgba(239,68,68,0.10); color:#ef4444; }
-    .nav-link { display:block; padding:11px 12px; border-radius:10px; margin:6px 0; background:{{ '#1f2937' if dark else '#f8fafc' }}; color:{{ '#e5e7eb' if dark else '#1f4f82' }} !important; }
+    .nav-link { display:block; padding:11px 12px; border-radius:10px; margin:6px 0; background:{{ '#1e1e20' if dark else '#f8fafc' }}; color:{{ '#e5e7eb' if dark else '#1f4f82' }} !important; }
     .nav-link:hover { transform:translateX(2px); box-shadow:0 3px 10px rgba(0,0,0,0.08); }
     .main-content { min-width:0; }
-    .hero { padding:22px; border-radius:16px; background:{{ 'linear-gradient(135deg,#111827,#1f2937)' if dark else 'linear-gradient(135deg,#ffffff,#eaf2fb)' }}; margin-bottom:18px; }
+    .hero { padding:22px; border-radius:16px; background:{{ 'linear-gradient(135deg,#161618,#1e1e20)' if dark else 'linear-gradient(135deg,#ffffff,#eaf2fb)' }}; margin-bottom:18px; }
     .hero h1 { margin:0 0 6px 0; }
     .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; margin:14px 0 18px 0; }
-    .stat-card { padding:16px; border-radius:14px; background:{{ '#111827' if dark else 'white' }}; box-shadow:0 4px 14px rgba(0,0,0,0.06); border-left:5px solid #1f4f82; border:1px solid transparent; }
+    .stat-card { padding:16px; border-radius:14px; background:{{ '#161618' if dark else 'white' }}; box-shadow:0 4px 14px rgba(0,0,0,0.06); border-left:5px solid #1f4f82; border:1px solid transparent; }
     .stat-today { background:{{ '#142638' if dark else '#eaf3ff' }}; border-color:{{ '#274e73' if dark else '#c8def7' }}; border-left-color:#4b8fd8; }
     .stat-workers { background:{{ '#142b29' if dark else '#e8f7f1' }}; border-color:{{ '#24554c' if dark else '#c4eadb' }}; border-left-color:#37a47d; }
     .stat-clients { background:{{ '#292238' if dark else '#f1edff' }}; border-color:{{ '#51426d' if dark else '#d9cdf9' }}; border-left-color:#8d75cf; }
@@ -2897,10 +2900,10 @@ BASE_STYLE = """
     .stat-number { font-size:26px; font-weight:800; margin-top:6px; }
     .section-title { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:22px 0 12px; }
     .big-map-button { display:inline-block; padding:16px 26px; border-radius:14px; background:#16a34a; color:white !important; font-size:18px; font-weight:800; text-decoration:none; box-shadow:0 6px 18px rgba(0,0,0,0.18); }
-    .back-button { display:inline-flex; align-items:center; gap:7px; width:auto; padding:10px 14px; border-radius:999px; background:{{ '#e5e7eb' if dark else '#111827' }}; color:{{ '#111827' if dark else 'white' }} !important; box-shadow:0 4px 12px rgba(0,0,0,0.14); margin-right:14px; }
+    .back-button { display:inline-flex; align-items:center; gap:7px; width:auto; padding:10px 14px; border-radius:999px; background:{{ '#e5e7eb' if dark else '#111827' }}; color:{{ '#161618' if dark else 'white' }} !important; box-shadow:0 4px 12px rgba(0,0,0,0.14); margin-right:14px; }
     .back-button::before { content:'<'; font-weight:900; }
     .alert-backdrop { display:none; position:fixed; inset:0; z-index:100; background:rgba(15,23,42,0.55); align-items:center; justify-content:center; padding:20px; }
-    .alert-dialog { width:min(460px, 94vw); background:{{ '#111827' if dark else 'white' }}; color:{{ '#e5e7eb' if dark else '#111827' }}; border-radius:16px; padding:22px; box-shadow:0 20px 50px rgba(0,0,0,0.35); border-top:6px solid #f59e0b; }
+    .alert-dialog { width:min(460px, 94vw); background:{{ '#161618' if dark else 'white' }}; color:{{ '#e5e7eb' if dark else '#111827' }}; border-radius:16px; padding:22px; box-shadow:0 20px 50px rgba(0,0,0,0.35); border-top:6px solid #f59e0b; }
     .alert-dialog h3 { margin:0 0 10px 0; }
     .alert-dialog p { margin:0 0 18px 0; line-height:1.45; }
     .alert-dialog button { width:auto; min-width:110px; float:right; }
@@ -2909,7 +2912,7 @@ BASE_STYLE = """
     button { touch-action:manipulation; }
 
     /* Bottom navigation (mobile only) */
-    .bottom-nav { display:none; position:fixed; bottom:0; left:0; right:0; background:{{ '#111827' if dark else 'white' }}; border-top:1px solid {{ '#374151' if dark else '#e5e7eb' }}; z-index:200; padding:0 0 env(safe-area-inset-bottom,0); box-shadow:0 -3px 16px rgba(0,0,0,0.12); }
+    .bottom-nav { display:none; position:fixed; bottom:0; left:0; right:0; background:{{ '#161618' if dark else 'white' }}; border-top:1px solid {{ '#2c2c30' if dark else '#e5e7eb' }}; z-index:200; padding:0 0 env(safe-area-inset-bottom,0); box-shadow:0 -3px 16px rgba(0,0,0,0.12); }
     .bottom-nav-item { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:7px 4px 6px; color:{{ '#6b7280' if dark else '#94a3b8' }}; text-decoration:none; font-size:10px; min-height:54px; font-weight:500; border:none; background:none; cursor:pointer; }
     .bottom-nav-item span { font-size:22px; line-height:1.1; }
     .bottom-nav-item small { margin-top:2px; font-size:10px; white-space:nowrap; }
@@ -2918,15 +2921,15 @@ BASE_STYLE = """
     /* Settings bottom sheet */
     .settings-sheet { display:none; position:fixed; inset:0; z-index:500; background:rgba(0,0,0,0.55); align-items:flex-end; }
     .settings-sheet.open { display:flex; }
-    .settings-inner { background:{{ '#1e293b' if dark else 'white' }}; border-radius:20px 20px 0 0; width:100%; max-height:82vh; overflow-y:auto; padding-bottom:calc(20px + env(safe-area-inset-bottom,0)); }
+    .settings-inner { background:{{ '#1d1d1f' if dark else 'white' }}; border-radius:20px 20px 0 0; width:100%; max-height:82vh; overflow-y:auto; padding-bottom:calc(20px + env(safe-area-inset-bottom,0)); }
     .settings-handle { width:40px; height:4px; border-radius:2px; background:{{ '#4b5563' if dark else '#d1d5db' }}; margin:14px auto 18px; }
     .settings-section { padding:0 20px 14px; margin-bottom:4px; }
-    .settings-section + .settings-section { border-top:1px solid {{ '#374151' if dark else '#f1f5f9' }}; padding-top:14px; }
+    .settings-section + .settings-section { border-top:1px solid {{ '#2c2c30' if dark else '#f1f5f9' }}; padding-top:14px; }
     .settings-section h4 { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:{{ '#6b7280' if dark else '#94a3b8' }}; margin:0 0 12px; }
     .settings-pills { display:flex; gap:8px; flex-wrap:wrap; }
-    .settings-pill { display:inline-flex; align-items:center; gap:5px; padding:7px 14px; border-radius:20px; font-size:13px; font-weight:600; text-decoration:none; border:2px solid {{ '#374151' if dark else '#e5e7eb' }}; color:{{ '#d1d5db' if dark else '#374151' }}; background:{{ '#111827' if dark else '#f8fafc' }}; }
+    .settings-pill { display:inline-flex; align-items:center; gap:5px; padding:7px 14px; border-radius:20px; font-size:13px; font-weight:600; text-decoration:none; border:2px solid {{ '#2c2c30' if dark else '#e5e7eb' }}; color:{{ '#d1d5db' if dark else '#374151' }}; background:{{ '#161618' if dark else '#f8fafc' }}; }
     .settings-pill.current { border-color:{{ '#3b82f6' if dark else '#1f4f82' }}; color:{{ '#93c5fd' if dark else '#1f4f82' }}; background:{{ 'rgba(59,130,246,0.15)' if dark else 'rgba(31,79,130,0.08)' }}; }
-    .settings-navlink { display:flex; align-items:center; gap:14px; padding:13px 0; font-size:15px; font-weight:500; color:{{ '#d1d5db' if dark else '#1f2937' }}; text-decoration:none; border-bottom:1px solid {{ '#1f2937' if dark else '#f3f4f6' }}; }
+    .settings-navlink { display:flex; align-items:center; gap:14px; padding:13px 0; font-size:15px; font-weight:500; color:{{ '#d1d5db' if dark else '#1f2937' }}; text-decoration:none; border-bottom:1px solid {{ '#1e1e20' if dark else '#f3f4f6' }}; }
     .settings-navlink:last-child { border-bottom:none; }
     .settings-navlink-icon { font-size:22px; width:34px; text-align:center; flex-shrink:0; }
     .settings-navlink.danger { color:#ef4444; }
@@ -4288,7 +4291,7 @@ def month_view():
             gap: 10px;
             padding: 0 11px;
             box-sizing: border-box;
-            background: {{ '#0b1220' if dark else '#eef3fb' }};
+            background: {{ '#0c0c0e' if dark else '#eef3fb' }};
             margin-bottom: 4px;
         }
         @media (max-width:600px) { #monthWdBar { top: 0; } }
@@ -4308,7 +4311,7 @@ def month_view():
             min-height:auto;
             text-align:center;
             font-weight:bold;
-            background:{{ '#20344e' if dark else '#d9e6f8' }} !important;
+            background:{{ '#1e2124' if dark else '#d9e6f8' }} !important;
             border:2px solid #ff2244;
             color:{{ '#dbeafe' if dark else '#173b63' }};
             animation: rgbLed 1.4s linear infinite;
@@ -4546,7 +4549,7 @@ def route_optimizer():
         <p><b>{{ tr["route_distance_return"] }}:</b> {{ "%.1f"|format(result.total_km) }} km</p>
         <ol style="padding-left:22px; margin:0;">
             {% for stop in result.ordered %}
-                <li style="margin-bottom:14px; padding:10px 12px; border-radius:10px; background:{{ '#1e293b' if dark else '#f8fafc' }}; border:1px solid {{ '#334155' if dark else '#e2e8f0' }}; list-style-position:outside;">
+                <li style="margin-bottom:14px; padding:10px 12px; border-radius:10px; background:{{ '#1d1d1f' if dark else '#f8fafc' }}; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; list-style-position:outside;">
                     <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
                         <div style="min-width:0;">
                             <div style="font-weight:700; font-size:15px;">{{ stop.client }}</div>
@@ -4695,41 +4698,41 @@ def documents():
         })
     return render_template_string(BASE_STYLE + header_html() + """
     <style>
-        .file-manager { display:grid; grid-template-columns:245px minmax(0,1fr); min-height:72vh; overflow:hidden; border-radius:12px; background:{{ '#111827' if dark else 'white' }}; box-shadow:0 4px 14px rgba(0,0,0,0.08); }
-        .file-nav { border-right:1px solid {{ '#334155' if dark else '#e2e8f0' }}; padding:18px 12px; display:flex; flex-direction:column; gap:6px; }
+        .file-manager { display:grid; grid-template-columns:245px minmax(0,1fr); min-height:72vh; overflow:hidden; border-radius:12px; background:{{ '#161618' if dark else 'white' }}; box-shadow:0 4px 14px rgba(0,0,0,0.08); }
+        .file-nav { border-right:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; padding:18px 12px; display:flex; flex-direction:column; gap:6px; }
         .file-nav a { display:flex; align-items:center; gap:10px; padding:11px 12px; border-radius:10px; margin:0; color:inherit; font-weight:600; }
         .file-nav a.active { background:{{ '#1d3557' if dark else '#e8f1ff' }}; color:{{ '#bfdbfe' if dark else '#2563eb' }}; }
         .file-main { padding:26px 30px; min-width:0; }
         .file-head { display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; }
-        .file-search { width:min(520px,100%); display:flex; gap:8px; border:1px solid {{ '#334155' if dark else '#dbe3ee' }}; border-radius:999px; padding:2px 10px; background:{{ '#0f172a' if dark else '#f4f6f8' }}; }
+        .file-search { width:min(520px,100%); display:flex; gap:8px; border:1px solid {{ '#2c2c30' if dark else '#dbe3ee' }}; border-radius:999px; padding:2px 10px; background:{{ '#111113' if dark else '#f4f6f8' }}; }
         .file-search input { border:0; box-shadow:none; background:transparent; margin:0; }
         .file-search button { width:auto; border-radius:999px; margin:4px 0; padding:8px 12px; }
         .file-toolbar { display:flex; gap:9px; align-items:center; flex-wrap:wrap; margin:18px 0; }
         .toolbar-button, .toolbar-link { width:auto; display:inline-flex; align-items:center; gap:8px; margin:0; padding:11px 14px; border-radius:9px; }
-        .toolbar-link { border:1px solid {{ '#334155' if dark else '#cbd5e1' }}; color:inherit; }
+        .toolbar-link { border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }}; color:inherit; }
         .upload-drawer { display:none; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px; margin-bottom:16px; }
         .upload-drawer.open { display:grid; }
-        .upload-panel { padding:14px; border-radius:10px; border:1px solid {{ '#334155' if dark else '#dbe3ee' }}; background:{{ '#172334' if dark else '#f8fbff' }}; }
+        .upload-panel { padding:14px; border-radius:10px; border:1px solid {{ '#2c2c30' if dark else '#dbe3ee' }}; background:{{ '#191919' if dark else '#f8fbff' }}; }
         .breadcrumb { display:flex; gap:7px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
         .breadcrumb a { margin:0; } .storage-meter { margin-top:auto; padding:18px 10px 4px; }
-        .storage-track { height:7px; border-radius:999px; background:{{ '#334155' if dark else '#e5e7eb' }}; overflow:hidden; margin:8px 0; }
+        .storage-track { height:7px; border-radius:999px; background:{{ '#2c2c30' if dark else '#e5e7eb' }}; overflow:hidden; margin:8px 0; }
         .storage-fill { height:100%; min-width:4px; background:#3b82f6; width:{{ storage_percent }}%; }
         .document-table { width:100%; border-collapse:collapse; }
-        .document-table th, .document-table td { padding:6px 8px; border-bottom:1px solid {{ '#334155' if dark else '#e2e8f0' }}; text-align:left; vertical-align:middle; }
+        .document-table th, .document-table td { padding:6px 8px; border-bottom:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; text-align:left; vertical-align:middle; }
         .document-table th { font-size:12px; text-transform:uppercase; color:{{ '#cbd5e1' if dark else '#475569' }}; }
         .file-name { display:flex; gap:12px; align-items:center; min-width:250px; }
-        .file-icon { display:inline-grid; place-items:center; width:32px; height:32px; border-radius:8px; font-size:20px; background:{{ '#1e293b' if dark else '#eff6ff' }}; }
-        .file-row:hover { background:{{ '#172334' if dark else '#f8fbff' }}; }
+        .file-icon { display:inline-grid; place-items:center; width:32px; height:32px; border-radius:8px; font-size:20px; background:{{ '#1d1d1f' if dark else '#eff6ff' }}; }
+        .file-row:hover { background:{{ '#191919' if dark else '#f8fbff' }}; }
         .document-actions { display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
         .document-actions a, .document-actions button { width:auto; margin:0; padding:4px 8px; font-size:11px; }
         .folder-actions { display:flex; align-items:center; justify-content:flex-end; gap:6px; }
-        .share-toggle { background:{{ '#1e3a5f' if dark else '#e8f1ff' }} !important; color:{{ '#93c5fd' if dark else '#2563eb' }} !important; border:1px solid {{ '#334155' if dark else '#bfdbfe' }} !important; font-size:13px !important; padding:3px 7px !important; line-height:1; }
+        .share-toggle { background:{{ '#1e3a5f' if dark else '#e8f1ff' }} !important; color:{{ '#93c5fd' if dark else '#2563eb' }} !important; border:1px solid {{ '#2c2c30' if dark else '#bfdbfe' }} !important; font-size:13px !important; padding:3px 7px !important; line-height:1; }
         .share-inline-form { display:none; gap:6px; align-items:center; margin-top:4px; flex-wrap:wrap; }
         .folder-delete-button { color:#dc2626!important; border:1px solid {{ '#7f1d1d' if dark else '#fecaca' }}!important; background:{{ '#2f1519' if dark else '#fff1f2' }}!important; min-width:36px; min-height:36px; padding:6px!important; font-size:18px!important; line-height:1; }
-        .share-row { padding:8px; margin-top:7px; border-radius:8px; background:{{ '#172334' if dark else '#eef5ff' }}; }
+        .share-row { padding:8px; margin-top:7px; border-radius:8px; background:{{ '#191919' if dark else '#eef5ff' }}; }
         .share-row input { margin:0 0 5px; font-size:12px; }
         .inline-form { display:inline; } .inline-form button { display:inline-block; }
-        @media (max-width:900px) { .file-manager { grid-template-columns:1fr; } .file-nav { border-right:0; border-bottom:1px solid {{ '#334155' if dark else '#e2e8f0' }}; } .file-main { padding:18px; } .document-table { display:block; overflow-x:auto; } }
+        @media (max-width:900px) { .file-manager { grid-template-columns:1fr; } .file-nav { border-right:0; border-bottom:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; } .file-main { padding:18px; } .document-table { display:block; overflow-x:auto; } }
     </style>
     <h1>{{ tr["documents"] }}</h1><a class="back-button" href="/">{{ tr["back"] }}</a>
     <div class="file-manager" style="margin-top:16px;">
@@ -5187,25 +5190,25 @@ SHARED_FOLDER_TMPL = """
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:system-ui,sans-serif;
-     background:{{ '#0f172a' if dark else '#f1f5f9' }};
+     background:{{ '#111113' if dark else '#f1f5f9' }};
      color:{{ '#e2e8f0' if dark else '#1e293b' }};min-height:100vh;}
 a{color:inherit;text-decoration:none;}
 /* Top bar */
 .sf-topbar{display:flex;align-items:center;justify-content:space-between;
            padding:10px 20px;
-           background:{{ '#0b1220' if dark else '#1e3a5f' }};
+           background:{{ '#0c0c0e' if dark else '#1e3a5f' }};
            color:white;gap:12px;flex-wrap:wrap;}
 .sf-brand{font-size:18px;font-weight:800;color:#93c5fd;display:flex;align-items:center;gap:8px;}
 .sf-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
 .sf-lang{display:flex;gap:4px;}
 .sf-lang a{padding:4px 9px;border-radius:6px;font-size:12px;font-weight:700;
-           color:#cbd5e1;border:1px solid #334155;}
+           color:#cbd5e1;border:1px solid #2c2c30;}
 .sf-lang a.sf-active{background:#2563eb;color:white;border-color:#2563eb;}
 .sf-lang a:hover{background:#1e3a5f;color:white;}
 .sf-theme-btn{padding:5px 10px;border-radius:6px;font-size:16px;
-              background:{{ '#1e293b' if dark else '#e2e8f0' }};
+              background:{{ '#1d1d1f' if dark else '#e2e8f0' }};
               color:{{ '#fbbf24' if dark else '#1e3a5f' }};
-              border:1px solid {{ '#334155' if dark else '#cbd5e1' }};cursor:pointer;}
+              border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};cursor:pointer;}
 /* Wrap */
 .sf-wrap{max-width:960px;margin:0 auto;padding:20px 16px;}
 .sf-head{margin:16px 0 4px;}
@@ -5221,13 +5224,13 @@ a{color:inherit;text-decoration:none;}
 /* Table */
 .sf-table{width:100%;border-collapse:collapse;}
 .sf-table th{text-align:left;padding:8px 10px;
-             border-bottom:2px solid {{ '#334155' if dark else '#e2e8f0' }};
+             border-bottom:2px solid {{ '#2c2c30' if dark else '#e2e8f0' }};
              font-size:11px;text-transform:uppercase;
              color:{{ '#94a3b8' if dark else '#64748b' }};}
 .sf-table td{padding:7px 10px;
-             border-bottom:1px solid {{ '#1e293b' if dark else '#e2e8f0' }};
+             border-bottom:1px solid {{ '#1d1d1f' if dark else '#e2e8f0' }};
              vertical-align:middle;}
-.sf-table tr:hover td{background:{{ '#1e293b' if dark else '#f8fafc' }};}
+.sf-table tr:hover td{background:{{ '#1d1d1f' if dark else '#f8fafc' }};}
 .sf-folder-link{display:flex;align-items:center;gap:8px;font-weight:600;}
 .sf-folder-link:hover{color:#3b82f6;}
 .sf-file-link{display:flex;align-items:center;gap:8px;}
@@ -5236,7 +5239,7 @@ a{color:inherit;text-decoration:none;}
 .sf-btn{display:inline-block;padding:5px 11px;border-radius:6px;font-size:12px;
         background:{{ '#1e3a5f' if dark else '#e8f1ff' }};
         color:{{ '#93c5fd' if dark else '#2563eb' }};
-        border:1px solid {{ '#334155' if dark else '#bfdbfe' }};margin-left:5px;}
+        border:1px solid {{ '#2c2c30' if dark else '#bfdbfe' }};margin-left:5px;}
 .sf-btn:hover{background:#2563eb;color:white;border-color:#2563eb;}
 .sf-btn-zip{background:{{ '#064e3b' if dark else '#ecfdf5' }};
             color:{{ '#6ee7b7' if dark else '#065f46' }};
@@ -6463,8 +6466,8 @@ def workers_page():
     return render_template_string(BASE_STYLE + header_html() + """
     <style>
     .workers-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-top:16px;}
-    .worker-card{background:{{ '#1e293b' if dark else 'white' }};border-radius:12px;padding:16px;
-                 border:1px solid {{ '#334155' if dark else '#e2e8f0' }};display:flex;flex-direction:column;gap:10px;}
+    .worker-card{background:{{ '#1d1d1f' if dark else 'white' }};border-radius:12px;padding:16px;
+                 border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};display:flex;flex-direction:column;gap:10px;}
     .worker-card-top{display:flex;align-items:center;gap:12px;}
     .worker-avatar{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;
                    font-weight:800;font-size:18px;color:white;flex-shrink:0;}
@@ -6473,7 +6476,7 @@ def workers_page():
     .worker-actions{display:flex;gap:8px;margin-top:4px;}
     .worker-actions a,.worker-actions button{width:auto;padding:6px 12px;font-size:12px;margin:0;}
     .worker-color-row{display:flex;align-items:center;gap:8px;}
-    .add-worker-card{background:{{ '#172334' if dark else '#f8fbff' }};border:2px dashed {{ '#334155' if dark else '#cbd5e1' }};
+    .add-worker-card{background:{{ '#191919' if dark else '#f8fbff' }};border:2px dashed {{ '#2c2c30' if dark else '#cbd5e1' }};
                      border-radius:12px;padding:20px;}
     </style>
     <h1>{{ tr["workers"] }}</h1>
@@ -6618,7 +6621,7 @@ def admin_page():
     <style>
     .admin-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-top:20px;}
     .admin-user-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;
-                    border-bottom:1px solid {{ '#334155' if dark else '#f1f5f9' }};}
+                    border-bottom:1px solid {{ '#2c2c30' if dark else '#f1f5f9' }};}
     .admin-user-row:last-child{border-bottom:none;}
     </style>
     <h1>🔧 Administracija</h1>
@@ -6690,14 +6693,14 @@ def clients_page():
     return render_template_string(BASE_STYLE + header_html() + """
     <style>
     .clients-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:20px;}
-    .client-card{background:{{ '#1e293b' if dark else 'white' }};border-radius:12px;padding:14px;
-                 border:1px solid {{ '#334155' if dark else '#e2e8f0' }};display:flex;flex-direction:column;gap:8px;}
+    .client-card{background:{{ '#1d1d1f' if dark else 'white' }};border-radius:12px;padding:14px;
+                 border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};display:flex;flex-direction:column;gap:8px;}
     .client-card-name{font-weight:700;font-size:15px;}
     .client-card-addr{font-size:12px;color:{{ '#94a3b8' if dark else '#64748b' }};}
     .client-card-actions{display:flex;gap:8px;}
     .client-card-actions a{width:auto;padding:5px 12px;font-size:12px;margin:0;}
-    .add-client-card{background:{{ '#172334' if dark else '#f8fbff' }};
-                     border:2px dashed {{ '#334155' if dark else '#cbd5e1' }};
+    .add-client-card{background:{{ '#191919' if dark else '#f8fbff' }};
+                     border:2px dashed {{ '#2c2c30' if dark else '#cbd5e1' }};
                      border-radius:12px;padding:20px;max-width:480px;}
     </style>
     <h1>🏢 {{ tr["clients"] }}</h1>
@@ -6752,16 +6755,16 @@ def backup_page():
     return render_template_string(BASE_STYLE + header_html() + """
     <style>
     .backup-list{margin-top:20px;display:flex;flex-direction:column;gap:10px;max-width:700px;}
-    .backup-item{background:{{ '#1e293b' if dark else 'white' }};border-radius:10px;padding:14px 16px;
-                 border:1px solid {{ '#334155' if dark else '#e2e8f0' }};
+    .backup-item{background:{{ '#1d1d1f' if dark else 'white' }};border-radius:10px;padding:14px 16px;
+                 border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};
                  display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
     .backup-item-info{flex:1;min-width:0;}
     .backup-item-name{font-weight:600;font-size:14px;word-break:break-all;}
     .backup-item-meta{font-size:12px;color:{{ '#94a3b8' if dark else '#64748b' }};margin-top:2px;}
     .backup-item-actions{display:flex;gap:8px;flex-shrink:0;}
     .backup-item-actions a,.backup-item-actions button{width:auto;padding:5px 12px;font-size:12px;margin:0;}
-    .backup-create-card{background:{{ '#172334' if dark else '#f0f9ff' }};
-                        border:2px dashed {{ '#334155' if dark else '#bae6fd' }};
+    .backup-create-card{background:{{ '#191919' if dark else '#f0f9ff' }};
+                        border:2px dashed {{ '#2c2c30' if dark else '#bae6fd' }};
                         border-radius:12px;padding:20px;max-width:500px;margin-top:16px;}
     </style>
     <h1>💾 Backup &amp; Restore</h1>
@@ -6814,8 +6817,8 @@ def backup_page():
     <div class="muted" style="padding:16px;">{{ tr.get("backup_empty","Nema sacuvanih backupa. Kreirajte prvi backup gore.") }}</div>
     {% endif %}
 
-    <div style="margin-top:24px;padding:12px 16px;background:{{ '#172334' if dark else '#fffbeb' }};
-                border:1px solid {{ '#334155' if dark else '#fde68a' }};border-radius:8px;
+    <div style="margin-top:24px;padding:12px 16px;background:{{ '#191919' if dark else '#fffbeb' }};
+                border:1px solid {{ '#2c2c30' if dark else '#fde68a' }};border-radius:8px;
                 font-size:12px;max-width:600px;">
       ℹ️ <b>{{ tr["note"] }}:</b> {{ tr.get("backup_note_restore","Restore vraca bazu podataka i uploadovane dokumente. Redoslijed: (1) dokumenti se ekstraktuju, (2) baza se importuje — ako ne uspije, rollback. (3) Fajlovi premjesteni tek nakon uspjesnog importa. Greske prijavljene odvojeno.") }}
     </div>
@@ -7171,31 +7174,31 @@ def _diagram_page_inner():
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; margin-bottom:22px; }
-.kpi-card { padding:18px 16px; border-radius:14px; background:{{ '#111827' if dark else 'white' }};
-    border:1px solid {{ '#1e293b' if dark else '#e2e8f0' }}; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
+.kpi-card { padding:18px 16px; border-radius:14px; background:{{ '#161618' if dark else 'white' }};
+    border:1px solid {{ '#1d1d1f' if dark else '#e2e8f0' }}; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
 .kpi-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em;
     color:{{ '#64748b' if dark else '#94a3b8' }}; margin-bottom:6px; }
 .kpi-value { font-size:24px; font-weight:800; line-height:1.1; }
 .kpi-sub { font-size:11px; color:{{ '#64748b' if dark else '#94a3b8' }}; margin-top:4px; }
-.chart-card { background:{{ '#111827' if dark else 'white' }}; border-radius:16px;
-    border:1px solid {{ '#1e293b' if dark else '#e2e8f0' }}; padding:20px; margin-bottom:20px;
+.chart-card { background:{{ '#161618' if dark else 'white' }}; border-radius:16px;
+    border:1px solid {{ '#1d1d1f' if dark else '#e2e8f0' }}; padding:20px; margin-bottom:20px;
     box-shadow:0 2px 8px rgba(0,0,0,0.06); }
 .chart-title { font-size:14px; font-weight:700; margin-bottom:16px;
     color:{{ '#e2e8f0' if dark else '#1e293b' }}; }
 .year-selector { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-.year-btn { padding:7px 18px; border-radius:20px; border:1px solid {{ '#334155' if dark else '#cbd5e1' }};
-    background:{{ '#1e293b' if dark else '#f8fafc' }}; color:{{ '#94a3b8' if dark else '#64748b' }};
+.year-btn { padding:7px 18px; border-radius:20px; border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};
+    background:{{ '#1d1d1f' if dark else '#f8fafc' }}; color:{{ '#94a3b8' if dark else '#64748b' }};
     text-decoration:none; font-size:13px; font-weight:600; transition:all 0.15s; }
 .year-btn.active, .year-btn:hover { background:#1f4f82; color:white; border-color:#1f4f82; }
 .month-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:6px; }
-.month-table th { padding:9px 12px; text-align:right; background:{{ '#1e293b' if dark else '#f1f5f9' }};
+.month-table th { padding:9px 12px; text-align:right; background:{{ '#1d1d1f' if dark else '#f1f5f9' }};
     color:{{ '#94a3b8' if dark else '#475569' }}; font-size:11px; font-weight:600;
     text-transform:uppercase; letter-spacing:0.04em; }
 .month-table th:first-child { text-align:left; }
-.month-table td { padding:9px 12px; border-bottom:1px solid {{ '#1e293b' if dark else '#f8fafc' }};
+.month-table td { padding:9px 12px; border-bottom:1px solid {{ '#1d1d1f' if dark else '#f8fafc' }};
     text-align:right; }
 .month-table td:first-child { text-align:left; font-weight:600; }
-.month-table tfoot td { font-weight:700; background:{{ '#172039' if dark else '#eff6ff' }};
+.month-table tfoot td { font-weight:700; background:{{ '#141416' if dark else '#eff6ff' }};
     border-top:2px solid {{ '#3b82f6' if dark else '#6366f1' }}; }
 .bar-inline { display:inline-block; height:6px; border-radius:3px; background:#3b82f6;
     vertical-align:middle; margin-left:6px; }
@@ -7302,7 +7305,7 @@ def _diagram_page_inner():
       <tbody>
       {% for i in range(12) %}
       {% set pct = (month_ttc[i]/total_ttc*100)|round(0)|int if total_ttc > 0 else 0 %}
-      <tr style="{{ 'opacity:0.4;' if month_ttc[i] == 0 else '' }}{{ 'background:' + ('#172039' if dark else '#eff6ff') + ';' if i == best_month_idx else '' }}">
+      <tr style="{{ 'opacity:0.4;' if month_ttc[i] == 0 else '' }}{{ 'background:' + ('#141416' if dark else '#eff6ff') + ';' if i == best_month_idx else '' }}">
         <td>
           {{ month_names[i] }}
           {% if i == best_month_idx and month_ttc[i] > 0 %}
@@ -7608,16 +7611,16 @@ def payroll_page():
     return render_template_string(BASE_STYLE + header_html() + """
 <style>
 .payroll-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:14px; margin-bottom:20px; }
-.payroll-worker-card { background:{{ '#1e293b' if dark else 'white' }}; border:1px solid {{ '#334155' if dark else '#e2e8f0' }}; border-radius:12px; padding:16px; }
+.payroll-worker-card { background:{{ '#1d1d1f' if dark else 'white' }}; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; border-radius:12px; padding:16px; }
 .pw-name { font-weight:700; font-size:15px; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
 .pw-field { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px; }
 .pw-field label { font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; margin-bottom:2px; display:block; }
-.pw-field input, .pw-field select { width:100%; padding:7px 10px; border-radius:8px; border:1px solid {{ '#334155' if dark else '#cbd5e1' }}; background:{{ '#0f172a' if dark else '#f8fafc' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }}; font-size:13px; box-sizing:border-box; }
+.pw-field input, .pw-field select { width:100%; padding:7px 10px; border-radius:8px; border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }}; background:{{ '#111113' if dark else '#f8fafc' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }}; font-size:13px; box-sizing:border-box; }
 .result-table { width:100%; border-collapse:collapse; font-size:13px; }
-.result-table th { padding:10px 12px; text-align:left; background:{{ '#1e293b' if dark else '#f1f5f9' }}; color:{{ '#94a3b8' if dark else '#475569' }}; font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:0.04em; border-bottom:2px solid {{ '#334155' if dark else '#e2e8f0' }}; }
-.result-table td { padding:10px 12px; border-bottom:1px solid {{ '#1e293b' if dark else '#f1f5f9' }}; vertical-align:top; }
-.result-table tr:hover td { background:{{ '#1e293b' if dark else '#f8fafc' }}; }
-.result-table tfoot td { font-weight:700; background:{{ '#172039' if dark else '#eef2ff' }}; border-top:2px solid {{ '#3b82f6' if dark else '#6366f1' }}; }
+.result-table th { padding:10px 12px; text-align:left; background:{{ '#1d1d1f' if dark else '#f1f5f9' }}; color:{{ '#94a3b8' if dark else '#475569' }}; font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:0.04em; border-bottom:2px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; }
+.result-table td { padding:10px 12px; border-bottom:1px solid {{ '#1d1d1f' if dark else '#f1f5f9' }}; vertical-align:top; }
+.result-table tr:hover td { background:{{ '#1d1d1f' if dark else '#f8fafc' }}; }
+.result-table tfoot td { font-weight:700; background:{{ '#141416' if dark else '#eef2ff' }}; border-top:2px solid {{ '#3b82f6' if dark else '#6366f1' }}; }
 .deduction-row { display:flex; justify-content:space-between; font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; margin:1px 0; }
 .deduction-row.bold { font-weight:700; color:{{ '#ef4444' if dark else '#dc2626' }}; font-size:12px; }
 .net-amount { font-weight:800; font-size:15px; color:{{ '#4ade80' if dark else '#16a34a' }}; }
@@ -7647,9 +7650,9 @@ def payroll_page():
           <!-- Tip plate: satnica ili fiksna -->
           <div style="margin-bottom:10px;">
             <label style="font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; display:block; margin-bottom:6px;">{{ tr.get("payroll_salary_type_label","Tip plate") }}</label>
-            <div style="display:flex; gap:0; border-radius:8px; overflow:hidden; border:1px solid {{ '#334155' if dark else '#cbd5e1' }};">
+            <div style="display:flex; gap:0; border-radius:8px; overflow:hidden; border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};">
               <label style="flex:1; text-align:center; padding:7px 4px; cursor:pointer; font-size:12px; font-weight:600;
-                background:{% if ws.salary_type == 'hourly' %}{{ '#1f4f82' if dark else '#1f4f82' }}{% else %}{{ '#0f172a' if dark else '#f1f5f9' }}{% endif %};
+                background:{% if ws.salary_type == 'hourly' %}{{ '#1f4f82' if dark else '#1f4f82' }}{% else %}{{ '#111113' if dark else '#f1f5f9' }}{% endif %};
                 color:{% if ws.salary_type == 'hourly' %}white{% else %}{{ '#94a3b8' if dark else '#64748b' }}{% endif %};"
                 id="lbl_hourly_{{ wi }}">
                 <input type="radio" name="wsaltype[]" value="hourly"
@@ -7658,7 +7661,7 @@ def payroll_page():
                 🕐 {{ tr.get("payroll_hourly_label","Satnica") }}
               </label>
               <label style="flex:1; text-align:center; padding:7px 4px; cursor:pointer; font-size:12px; font-weight:600;
-                background:{% if ws.salary_type == 'fixed' %}{{ '#1f4f82' if dark else '#1f4f82' }}{% else %}{{ '#0f172a' if dark else '#f1f5f9' }}{% endif %};
+                background:{% if ws.salary_type == 'fixed' %}{{ '#1f4f82' if dark else '#1f4f82' }}{% else %}{{ '#111113' if dark else '#f1f5f9' }}{% endif %};
                 color:{% if ws.salary_type == 'fixed' %}white{% else %}{{ '#94a3b8' if dark else '#64748b' }}{% endif %};"
                 id="lbl_fixed_{{ wi }}">
                 <input type="radio" name="wsaltype[]" value="fixed"
@@ -7677,7 +7680,7 @@ def payroll_page():
               <input type="number" name="wrate[]" value="{{ ws.hourly_rate }}" step="0.01" min="0" placeholder="{{ '%.2f'|format(lux_ssm_h) }}">
             </div>
             <div style="display:flex; align-items:flex-end; padding-bottom:1px;">
-              <div style="font-size:11px; color:{{ '#64748b' if dark else '#94a3b8' }}; padding:8px 10px; border-radius:8px; background:{{ '#1e293b' if dark else '#f8fafc' }}; border:1px solid {{ '#334155' if dark else '#e2e8f0' }}; line-height:1.5;">
+              <div style="font-size:11px; color:{{ '#64748b' if dark else '#94a3b8' }}; padding:8px 10px; border-radius:8px; background:{{ '#1d1d1f' if dark else '#f8fafc' }}; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; line-height:1.5;">
                 SSM 2025<br><b>{{ '%.2f'|format(lux_ssm_h) }} €/h</b>
               </div>
             </div>
@@ -7691,7 +7694,7 @@ def payroll_page():
               <input type="number" name="wfixed[]" value="{{ ws.fixed_gross }}" step="0.01" min="0" placeholder="{{ tr.get('payroll_eg_placeholder','npr. 2800.00') }}">
             </div>
             <div style="display:flex; align-items:flex-end; padding-bottom:1px;">
-              <div style="font-size:11px; color:{{ '#64748b' if dark else '#94a3b8' }}; padding:8px 10px; border-radius:8px; background:{{ '#1e293b' if dark else '#f8fafc' }}; border:1px solid {{ '#334155' if dark else '#e2e8f0' }}; line-height:1.5;">
+              <div style="font-size:11px; color:{{ '#64748b' if dark else '#94a3b8' }}; padding:8px 10px; border-radius:8px; background:{{ '#1d1d1f' if dark else '#f8fafc' }}; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; line-height:1.5;">
                 {{ tr.get("payroll_independent_hours","Neovisno od sati") }}
               </div>
             </div>
@@ -7714,7 +7717,7 @@ def payroll_page():
           <div>
             <label style="font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; display:block; margin-bottom:4px;">{{ tr["note"] }}</label>
             <input type="text" name="wnotes[]" value="{{ ws.notes }}" placeholder="frontalier, CDD, étudiant…"
-              style="width:100%; padding:7px 10px; border-radius:8px; border:1px solid {{ '#334155' if dark else '#cbd5e1' }}; background:{{ '#0f172a' if dark else '#f8fafc' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }}; font-size:13px; box-sizing:border-box;">
+              style="width:100%; padding:7px 10px; border-radius:8px; border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }}; background:{{ '#111113' if dark else '#f8fafc' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }}; font-size:13px; box-sizing:border-box;">
           </div>
         </div>
         {% endfor %}
@@ -7731,11 +7734,11 @@ def payroll_page():
       <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end;">
         <div>
           <label style="font-size:12px; color:{{ '#94a3b8' if dark else '#64748b' }}; display:block; margin-bottom:4px;">{{ tr["date_from"] }}</label>
-          <input type="date" name="date_from" value="{{ date_from }}" required style="padding:9px 12px; border-radius:8px; border:1px solid {{ '#334155' if dark else '#cbd5e1' }}; background:{{ '#0f172a' if dark else '#f8fafc' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }};">
+          <input type="date" name="date_from" value="{{ date_from }}" required style="padding:9px 12px; border-radius:8px; border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }}; background:{{ '#111113' if dark else '#f8fafc' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }};">
         </div>
         <div>
           <label style="font-size:12px; color:{{ '#94a3b8' if dark else '#64748b' }}; display:block; margin-bottom:4px;">{{ tr["date_to"] }}</label>
-          <input type="date" name="date_to" value="{{ date_to }}" required style="padding:9px 12px; border-radius:8px; border:1px solid {{ '#334155' if dark else '#cbd5e1' }}; background:{{ '#0f172a' if dark else '#f8fafc' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }};">
+          <input type="date" name="date_to" value="{{ date_to }}" required style="padding:9px 12px; border-radius:8px; border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }}; background:{{ '#111113' if dark else '#f8fafc' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }};">
         </div>
         <button type="submit" class="btn" style="background:#16a34a; color:white;">🧮 {{ tr.get("payroll_calculate_btn","Izracunaj plate") }}</button>
       </div>
@@ -7843,7 +7846,7 @@ def payroll_page():
     </div>
 
     <!-- Info box -->
-    <div style="margin-top:16px; padding:12px 16px; border-radius:10px; background:{{ '#172039' if dark else '#eff6ff' }}; border:1px solid {{ '#1e3a5f' if dark else '#bfdbfe' }}; font-size:12px; color:{{ '#93c5fd' if dark else '#1e40af' }}; line-height:1.7;">
+    <div style="margin-top:16px; padding:12px 16px; border-radius:10px; background:{{ '#141416' if dark else '#eff6ff' }}; border:1px solid {{ '#1e3a5f' if dark else '#bfdbfe' }}; font-size:12px; color:{{ '#93c5fd' if dark else '#1e40af' }}; line-height:1.7;">
       <b>ℹ️ {{ tr.get("payroll_calculation_note","Napomena o obracunu:") }}</b><br>
       CCSS 2025 (salarié): C. Maladie Soins 2.80% · C. Maladie Espèces 0.25% · C. Pension 8.00% · C. Dépendance 1.40% ({{ tr.get("payroll_note_franchise_abbr","franšiza") }} {{ '%.2f'|format(dep_franchise) }} €/{{ tr.get("payroll_per_month_abbr","mj") }}).<br>
       {{ tr.get("payroll_note_tax_line","Porez: progresivni razredi ACD + impôt de solidarité (7% kl.1/1a · 9% kl.2). Odbitna stavka: maladie + pension + forfait frais d'obtention 45 €/mj.") }}<br>
