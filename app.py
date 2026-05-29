@@ -2814,7 +2814,7 @@ BASE_STYLE = """
         flex:1; border:none; background:transparent; font-size:17px;
         color:{{ '#e2e8f0' if dark else '#1e293b' }}; outline:none;
     }
-    .search-input-row input::placeholder { color:{{ '#4b5563' if dark else '#94a3b8' }}; }
+    .search-input-row input::placeholder { color:{{ '#94a3b8' if dark else '#6b7280' }}; }
     .search-results { max-height:380px; overflow-y:auto; padding:6px; }
     .search-result-item {
         display:flex; align-items:center; gap:10px; padding:10px 14px;
@@ -2913,7 +2913,7 @@ BASE_STYLE = """
 
     /* Bottom navigation (mobile only) */
     .bottom-nav { display:none; position:fixed; bottom:0; left:0; right:0; background:{{ '#161618' if dark else 'white' }}; border-top:1px solid {{ '#2c2c30' if dark else '#e5e7eb' }}; z-index:200; padding:0 0 env(safe-area-inset-bottom,0); box-shadow:0 -3px 16px rgba(0,0,0,0.12); }
-    .bottom-nav-item { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:7px 4px 6px; color:{{ '#6b7280' if dark else '#94a3b8' }}; text-decoration:none; font-size:10px; min-height:54px; font-weight:500; border:none; background:none; cursor:pointer; }
+    .bottom-nav-item { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:7px 4px 6px; color:{{ '#94a3b8' if dark else '#64748b' }}; text-decoration:none; font-size:10px; min-height:54px; font-weight:500; border:none; background:none; cursor:pointer; }
     .bottom-nav-item span { font-size:22px; line-height:1.1; }
     .bottom-nav-item small { margin-top:2px; font-size:10px; white-space:nowrap; }
     .bottom-nav-item.active { color:{{ '#93c5fd' if dark else '#1f4f82' }}; }
@@ -2925,7 +2925,7 @@ BASE_STYLE = """
     .settings-handle { width:40px; height:4px; border-radius:2px; background:{{ '#4b5563' if dark else '#d1d5db' }}; margin:14px auto 18px; }
     .settings-section { padding:0 20px 14px; margin-bottom:4px; }
     .settings-section + .settings-section { border-top:1px solid {{ '#2c2c30' if dark else '#f1f5f9' }}; padding-top:14px; }
-    .settings-section h4 { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:{{ '#6b7280' if dark else '#94a3b8' }}; margin:0 0 12px; }
+    .settings-section h4 { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:{{ '#94a3b8' if dark else '#64748b' }}; margin:0 0 12px; }
     .settings-pills { display:flex; gap:8px; flex-wrap:wrap; }
     .settings-pill { display:inline-flex; align-items:center; gap:5px; padding:7px 14px; border-radius:20px; font-size:13px; font-weight:600; text-decoration:none; border:2px solid {{ '#2c2c30' if dark else '#e5e7eb' }}; color:{{ '#d1d5db' if dark else '#374151' }}; background:{{ '#161618' if dark else '#f8fafc' }}; }
     .settings-pill.current { border-color:{{ '#3b82f6' if dark else '#1f4f82' }}; color:{{ '#93c5fd' if dark else '#1f4f82' }}; background:{{ 'rgba(59,130,246,0.15)' if dark else 'rgba(31,79,130,0.08)' }}; }
