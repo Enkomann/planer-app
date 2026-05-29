@@ -589,6 +589,11 @@ MODULE_TRANSLATIONS = {
         "payroll_worker_plural": "radnika",
         "payroll_calculation_note": "Napomena o obracunu:",
         "payroll_no_results": "Nema evidentiranih smjena za odabrani period ili nijedan radnik nema unesenu satnicu.",
+        "payroll_note_franchise_abbr": "franšiza",
+        "payroll_note_tax_line": "Porez: progresivni razredi ACD + impôt de solidarité (7% kl.1/1a · 9% kl.2). Odbitna stavka: maladie + pension + forfait frais d'obtention 45 €/mj.",
+        "payroll_note_disclaimer": "Ovaj obračun je informativan — provjerite sa fiduciaire ili CCSS za tačne iznose.",
+        "payroll_eg_placeholder": "npr. 2800.00",
+        "diagram_best_badge": "★ best",
     },
     "en": {
         "color_label": "Color:",
@@ -657,6 +662,11 @@ MODULE_TRANSLATIONS = {
         "payroll_worker_plural": "workers",
         "payroll_calculation_note": "Calculation note:",
         "payroll_no_results": "No recorded shifts for the selected period or no worker has an hourly rate set.",
+        "payroll_note_franchise_abbr": "franchise",
+        "payroll_note_tax_line": "Tax: progressive ACD brackets + impôt de solidarité (7% class 1/1a · 9% class 2). Deductible: maladie + pension + forfait frais d'obtention 45 €/mo.",
+        "payroll_note_disclaimer": "This calculation is indicative — verify with your fiduciaire or CCSS for exact amounts.",
+        "payroll_eg_placeholder": "e.g. 2800.00",
+        "diagram_best_badge": "★ best",
     },
     "fr": {
         "color_label": "Couleur:",
@@ -725,6 +735,11 @@ MODULE_TRANSLATIONS = {
         "payroll_worker_plural": "employes",
         "payroll_calculation_note": "Note de calcul:",
         "payroll_no_results": "Aucune mission pour la periode selectionnee ou aucun employe n'a de taux horaire defini.",
+        "payroll_note_franchise_abbr": "franchise",
+        "payroll_note_tax_line": "Impot: tranches progressives ACD + impot de solidarite (7% cl.1/1a · 9% cl.2). Deductions: maladie + pension + forfait frais d'obtention 45 €/mois.",
+        "payroll_note_disclaimer": "Ce calcul est indicatif — verifiez avec votre fiduciaire ou la CCSS pour les montants exacts.",
+        "payroll_eg_placeholder": "ex. 2800,00",
+        "diagram_best_badge": "★ meilleur",
     },
     "de": {
         "color_label": "Farbe:",
@@ -793,6 +808,11 @@ MODULE_TRANSLATIONS = {
         "payroll_worker_plural": "Mitarbeiter",
         "payroll_calculation_note": "Hinweis zur Berechnung:",
         "payroll_no_results": "Keine Schichten fuer den gewahlten Zeitraum oder kein Mitarbeiter hat einen Stundensatz.",
+        "payroll_note_franchise_abbr": "Freibetrag",
+        "payroll_note_tax_line": "Steuer: progressive ACD-Klassen + impot de solidarite (7% Kl.1/1a · 9% Kl.2). Abzuge: maladie + pension + forfait frais d'obtention 45 €/Mon.",
+        "payroll_note_disclaimer": "Diese Berechnung ist informativ — prufen Sie mit dem Steuerberater oder der CCSS fuer genaue Betrage.",
+        "payroll_eg_placeholder": "z.B. 2800,00",
+        "diagram_best_badge": "★ bester",
     },
     "pt": {
         "color_label": "Cor:",
@@ -861,6 +881,11 @@ MODULE_TRANSLATIONS = {
         "payroll_worker_plural": "trabalhadores",
         "payroll_calculation_note": "Nota de calculo:",
         "payroll_no_results": "Nenhum turno registado para o periodo selecionado ou nenhum trabalhador tem taxa horaria.",
+        "payroll_note_franchise_abbr": "franquia",
+        "payroll_note_tax_line": "Imposto: escaloes progressivos ACD + impot de solidarite (7% cl.1/1a · 9% cl.2). Deducoes: maladie + pension + forfait frais d'obtention 45 €/mes.",
+        "payroll_note_disclaimer": "Este calculo e indicativo — verifique com o fiduciaire ou a CCSS para valores exactos.",
+        "payroll_eg_placeholder": "ex. 2800,00",
+        "diagram_best_badge": "★ melhor",
     },
 }
 for _lang, _values in MODULE_TRANSLATIONS.items():
@@ -6484,7 +6509,7 @@ def workers_page():
             <div class="worker-actions">
                 <a href="/edit_worker/{{ w[0]|urlencode }}">{{ tr["edit"] }}</a>
                 <a href="/delete_worker/{{ w[0]|urlencode }}"
-                   onclick="return confirm('{{ tr.get("delete_worker_confirm","Obrisati radnika") }} {{ w[0] }}?')"
+                   onclick='return confirm({{ (tr.get("delete_worker_confirm","Obrisati radnika") ~ " " ~ w[0] ~ "?")|tojson }})'
                    style="color:#dc2626;border:1px solid #fecaca;background:#fff1f2;">{{ tr["delete"] }}</a>
             </div>
         </div>
@@ -6767,12 +6792,12 @@ def backup_page():
         <div class="backup-item-actions">
           <a href="/backup/download/{{ b.name }}">⬇️ {{ tr["download"] }}</a>
           <form method="post" action="/backup/restore/{{ b.name }}"
-                onsubmit="return confirm('{{ tr.get("backup_restore_confirm","Restore backup {name}? Baza podataka i dokumenti ce biti zamijenjeni podacima iz backup-a.").replace("{name}", b.name) }}');"
+                onsubmit='return confirm({{ (tr.get("backup_restore_confirm","Restore backup {name}? Baza podataka i dokumenti ce biti zamijenjeni podacima iz backup-a.").replace("{name}", b.name))|tojson }});'
                 style="display:inline;">
             <button style="background:#f59e0b;border-color:#f59e0b;">🔄 {{ tr.get("backup_restore_btn","Restore backup") }}</button>
           </form>
           <form method="post" action="/backup/delete/{{ b.name }}"
-                onsubmit="return confirm('{{ tr.get("backup_delete_confirm","Obrisati backup {name}?").replace("{name}", b.name) }}');"
+                onsubmit='return confirm({{ (tr.get("backup_delete_confirm","Obrisati backup {name}?").replace("{name}", b.name))|tojson }});'
                 style="display:inline;">
             <button style="background:#ef4444;border-color:#ef4444;">🗑</button>
           </form>
@@ -7276,7 +7301,7 @@ def _diagram_page_inner():
         <td>
           {{ month_names[i] }}
           {% if i == best_month_idx and month_ttc[i] > 0 %}
-          <span style="font-size:10px; background:#ec4899; color:white; padding:1px 5px; border-radius:4px; margin-left:4px;">★ best</span>
+          <span style="font-size:10px; background:#ec4899; color:white; padding:1px 5px; border-radius:4px; margin-left:4px;">{{ tr.get("diagram_best_badge","★ best") }}</span>
           {% endif %}
         </td>
         <td>{{ '%.2f'|format(month_ht[i]) if month_ht[i] > 0 else '—' }}</td>
@@ -7658,7 +7683,7 @@ def payroll_page():
                style="{{ '' if ws.salary_type == 'fixed' else 'display:none;' }}">
             <div>
               <label>{{ tr.get("payroll_fixed_gross_input","Fiksna bruto plata (EUR/mj)") }}</label>
-              <input type="number" name="wfixed[]" value="{{ ws.fixed_gross }}" step="0.01" min="0" placeholder="npr. 2800.00">
+              <input type="number" name="wfixed[]" value="{{ ws.fixed_gross }}" step="0.01" min="0" placeholder="{{ tr.get('payroll_eg_placeholder','npr. 2800.00') }}">
             </div>
             <div style="display:flex; align-items:flex-end; padding-bottom:1px;">
               <div style="font-size:11px; color:{{ '#64748b' if dark else '#94a3b8' }}; padding:8px 10px; border-radius:8px; background:{{ '#1e293b' if dark else '#f8fafc' }}; border:1px solid {{ '#334155' if dark else '#e2e8f0' }}; line-height:1.5;">
@@ -7815,9 +7840,9 @@ def payroll_page():
     <!-- Info box -->
     <div style="margin-top:16px; padding:12px 16px; border-radius:10px; background:{{ '#172039' if dark else '#eff6ff' }}; border:1px solid {{ '#1e3a5f' if dark else '#bfdbfe' }}; font-size:12px; color:{{ '#93c5fd' if dark else '#1e40af' }}; line-height:1.7;">
       <b>ℹ️ {{ tr.get("payroll_calculation_note","Napomena o obracunu:") }}</b><br>
-      CCSS 2025 (salarié): C. Maladie Soins 2.80% · C. Maladie Espèces 0.25% · C. Pension 8.00% · C. Dépendance 1.40% (franšiza {{ '%.2f'|format(dep_franchise) }} €/mj).<br>
-      Porez: progresivni razredi ACD + impôt de solidarité (7% kl.1/1a · 9% kl.2). Odbitna stavka: maladie + pension + forfait frais d'obtention 45 €/mj.<br>
-      <b>Ovaj obračun je informativan — provjerite sa fiduciaire ili CCSS za tačne iznose.</b>
+      CCSS 2025 (salarié): C. Maladie Soins 2.80% · C. Maladie Espèces 0.25% · C. Pension 8.00% · C. Dépendance 1.40% ({{ tr.get("payroll_note_franchise_abbr","franšiza") }} {{ '%.2f'|format(dep_franchise) }} €/mj).<br>
+      {{ tr.get("payroll_note_tax_line","Porez: progresivni razredi ACD + impôt de solidarité (7% kl.1/1a · 9% kl.2). Odbitna stavka: maladie + pension + forfait frais d'obtention 45 €/mj.") }}<br>
+      <b>{{ tr.get("payroll_note_disclaimer","Ovaj obračun je informativan — provjerite sa fiduciaire ili CCSS za tačne iznose.") }}</b>
     </div>
   </div>
   {% elif request.method == 'POST' and request.form.get('action') == 'calculate' %}
