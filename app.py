@@ -135,7 +135,7 @@ TRANSLATIONS = {
         "nav_settings": "Postavke", "nav_docs_short": "Dok.",
         "nav_language": "Jezik", "nav_tools": "Alati",
         "nav_admin_section": "Administracija", "nav_account": "Racun",
-        "nav_users": "Korisnici i lozinka",
+        "nav_users": "Korisnici i lozinka", "nav_navigation": "Navigacija",
     }
 }
 
@@ -157,7 +157,7 @@ TRANSLATIONS["fr"].update({
     "nav_settings": "Reglages", "nav_docs_short": "Doc.",
     "nav_language": "Langue", "nav_tools": "Outils",
     "nav_admin_section": "Administration", "nav_account": "Compte",
-    "nav_users": "Utilisateurs et mot de passe",
+    "nav_users": "Utilisateurs et mot de passe", "nav_navigation": "Navigation",
 })
 TRANSLATIONS["en"].update({
     "login_title": "Login", "login_btn": "Login", "logout": "Logout",
@@ -168,7 +168,7 @@ TRANSLATIONS["en"].update({
     "nav_settings": "Settings", "nav_docs_short": "Docs",
     "nav_language": "Language", "nav_tools": "Tools",
     "nav_admin_section": "Administration", "nav_account": "Account",
-    "nav_users": "Users & password",
+    "nav_users": "Users & password", "nav_navigation": "Navigation",
     "week_calendar": "Weekly calendar", "month_calendar": "Monthly calendar",
     "monthly_hours": "Monthly hours", "weekly_hours": "Weekly hours",
     "back": "Back", "save": "Save", "delete": "Delete", "edit": "Edit",
@@ -189,7 +189,7 @@ TRANSLATIONS["de"].update({
     "nav_settings": "Einst.", "nav_docs_short": "Dok.",
     "nav_language": "Sprache", "nav_tools": "Werkzeuge",
     "nav_admin_section": "Verwaltung", "nav_account": "Konto",
-    "nav_users": "Benutzer und Passwort",
+    "nav_users": "Benutzer und Passwort", "nav_navigation": "Navigation",
 })
 TRANSLATIONS["pt"].update({
     "login_title": "Entrar", "login_btn": "Entrar", "logout": "Sair",
@@ -205,7 +205,7 @@ TRANSLATIONS["pt"].update({
     "nav_settings": "Definicoes", "nav_docs_short": "Doc.",
     "nav_language": "Idioma", "nav_tools": "Ferramentas",
     "nav_admin_section": "Administracao", "nav_account": "Conta",
-    "nav_users": "Utilizadores e palavra-passe",
+    "nav_users": "Utilizadores e palavra-passe", "nav_navigation": "Navegacao",
 })
 
 ROUTE_TRANSLATIONS = {
@@ -3086,7 +3086,7 @@ def header_html():
             <div style="clear:both;"></div>
         </div>
     </div>
-    <nav class="bottom-nav" aria-label="Navigacija">
+    <nav class="bottom-nav" aria-label="{{ tr.get('nav_navigation','Navigacija') }}">
         <a href="/" class="bottom-nav-item {% if request.path == '/' %}active{% endif %}">
             <span>🏠</span><small>{{ tr.get("nav_plan","Plan") }}</small>
         </a>
@@ -3110,7 +3110,7 @@ def header_html():
     </nav>
 
     <!-- Settings bottom sheet -->
-    <div id="settingsSheet" class="settings-sheet" onclick="if(event.target===this)closeSettingsSheet();" role="dialog" aria-modal="true" aria-label="Postavke">
+    <div id="settingsSheet" class="settings-sheet" onclick="if(event.target===this)closeSettingsSheet();" role="dialog" aria-modal="true" aria-label="{{ tr.get('nav_settings','Postavke') }}">
       <div class="settings-inner">
         <div class="settings-handle"></div>
 
