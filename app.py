@@ -738,7 +738,7 @@ MODULE_TRANSLATIONS = {
         "payroll_calculation_note": "Note de calcul:",
         "payroll_no_results": "Aucune mission pour la periode selectionnee ou aucun employe n'a de taux horaire defini.",
         "payroll_note_franchise_abbr": "franchise",
-        "payroll_note_tax_line": "Impot: tranches progressives ACD + impot de solidarite (7% cl.1/1a · 9% cl.2). Deductions: maladie + pension + forfait frais d'obtention 45 €/mois.",
+        "payroll_note_tax_line": "Impot: bareme progressif de l'ACD + impot de solidarite (7% cl.1/1a · 9% cl.2). Deductions: maladie + pension + forfait frais d'obtention 45 €/mois.",
         "payroll_note_disclaimer": "Ce calcul est indicatif — verifiez avec votre fiduciaire ou la CCSS pour les montants exacts.",
         "payroll_eg_placeholder": "ex. 2800,00",
         "payroll_per_month_abbr": "mois",
@@ -7806,7 +7806,7 @@ def payroll_page():
         </td>
         <td>
           <div style="font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }};">
-            {{ tr.get("payroll_tax_base_abbr","Baza:") }} {{ '%.2f'|format(r.taxable_m) }} €/mj<br>
+            {{ tr.get("payroll_tax_base_abbr","Baza:") }} {{ '%.2f'|format(r.taxable_m) }} €/{{ tr.get("payroll_per_month_abbr","mj") }}<br>
             <span style="font-weight:700; color:{{ '#fca5a5' if dark else '#dc2626' }};">
               −{{ '%.2f'|format(r.income_tax) }} €
             </span>
