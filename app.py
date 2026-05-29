@@ -593,6 +593,7 @@ MODULE_TRANSLATIONS = {
         "payroll_note_tax_line": "Porez: progresivni razredi ACD + impôt de solidarité (7% kl.1/1a · 9% kl.2). Odbitna stavka: maladie + pension + forfait frais d'obtention 45 €/mj.",
         "payroll_note_disclaimer": "Ovaj obračun je informativan — provjerite sa fiduciaire ili CCSS za tačne iznose.",
         "payroll_eg_placeholder": "npr. 2800.00",
+        "payroll_per_month_abbr": "mj",
         "diagram_best_badge": "★ best",
     },
     "en": {
@@ -666,6 +667,7 @@ MODULE_TRANSLATIONS = {
         "payroll_note_tax_line": "Tax: progressive ACD brackets + impôt de solidarité (7% class 1/1a · 9% class 2). Deductible: maladie + pension + forfait frais d'obtention 45 €/mo.",
         "payroll_note_disclaimer": "This calculation is indicative — verify with your fiduciaire or CCSS for exact amounts.",
         "payroll_eg_placeholder": "e.g. 2800.00",
+        "payroll_per_month_abbr": "mo.",
         "diagram_best_badge": "★ best",
     },
     "fr": {
@@ -739,6 +741,7 @@ MODULE_TRANSLATIONS = {
         "payroll_note_tax_line": "Impot: tranches progressives ACD + impot de solidarite (7% cl.1/1a · 9% cl.2). Deductions: maladie + pension + forfait frais d'obtention 45 €/mois.",
         "payroll_note_disclaimer": "Ce calcul est indicatif — verifiez avec votre fiduciaire ou la CCSS pour les montants exacts.",
         "payroll_eg_placeholder": "ex. 2800,00",
+        "payroll_per_month_abbr": "mois",
         "diagram_best_badge": "★ meilleur",
     },
     "de": {
@@ -812,6 +815,7 @@ MODULE_TRANSLATIONS = {
         "payroll_note_tax_line": "Steuer: progressive ACD-Klassen + impot de solidarite (7% Kl.1/1a · 9% Kl.2). Abzuge: maladie + pension + forfait frais d'obtention 45 €/Mon.",
         "payroll_note_disclaimer": "Diese Berechnung ist informativ — prufen Sie mit dem Steuerberater oder der CCSS fuer genaue Betrage.",
         "payroll_eg_placeholder": "z.B. 2800,00",
+        "payroll_per_month_abbr": "Mon.",
         "diagram_best_badge": "★ bester",
     },
     "pt": {
@@ -885,6 +889,7 @@ MODULE_TRANSLATIONS = {
         "payroll_note_tax_line": "Imposto: escaloes progressivos ACD + impot de solidarite (7% cl.1/1a · 9% cl.2). Deducoes: maladie + pension + forfait frais d'obtention 45 €/mes.",
         "payroll_note_disclaimer": "Este calculo e indicativo — verifique com o fiduciaire ou a CCSS para valores exactos.",
         "payroll_eg_placeholder": "ex. 2800,00",
+        "payroll_per_month_abbr": "mes",
         "diagram_best_badge": "★ melhor",
     },
 }
@@ -7840,7 +7845,7 @@ def payroll_page():
     <!-- Info box -->
     <div style="margin-top:16px; padding:12px 16px; border-radius:10px; background:{{ '#172039' if dark else '#eff6ff' }}; border:1px solid {{ '#1e3a5f' if dark else '#bfdbfe' }}; font-size:12px; color:{{ '#93c5fd' if dark else '#1e40af' }}; line-height:1.7;">
       <b>ℹ️ {{ tr.get("payroll_calculation_note","Napomena o obracunu:") }}</b><br>
-      CCSS 2025 (salarié): C. Maladie Soins 2.80% · C. Maladie Espèces 0.25% · C. Pension 8.00% · C. Dépendance 1.40% ({{ tr.get("payroll_note_franchise_abbr","franšiza") }} {{ '%.2f'|format(dep_franchise) }} €/mj).<br>
+      CCSS 2025 (salarié): C. Maladie Soins 2.80% · C. Maladie Espèces 0.25% · C. Pension 8.00% · C. Dépendance 1.40% ({{ tr.get("payroll_note_franchise_abbr","franšiza") }} {{ '%.2f'|format(dep_franchise) }} €/{{ tr.get("payroll_per_month_abbr","mj") }}).<br>
       {{ tr.get("payroll_note_tax_line","Porez: progresivni razredi ACD + impôt de solidarité (7% kl.1/1a · 9% kl.2). Odbitna stavka: maladie + pension + forfait frais d'obtention 45 €/mj.") }}<br>
       <b>{{ tr.get("payroll_note_disclaimer","Ovaj obračun je informativan — provjerite sa fiduciaire ili CCSS za tačne iznose.") }}</b>
     </div>
