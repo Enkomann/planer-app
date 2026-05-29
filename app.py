@@ -6316,6 +6316,7 @@ def invoices_manual():
 
         # ── Save invoice ──────────────────────────────────────────────────
         inv_num       = request.form.get("invoice_number", "").strip()
+        form_mode     = request.form.get("mode", "create")   # 'create' | 'edit'
         client_name   = request.form.get("client_name",   "").strip()
         client_addr   = request.form.get("client_address","").strip()
         inv_date      = request.form.get("invoice_date",  lux_now().strftime("%Y-%m-%d")).strip()
@@ -6348,16 +6349,24 @@ def invoices_manual():
         items_json = json.dumps(items, ensure_ascii=False)
 
         # ── Reserve invoice number: write invoice_records FIRST, verify ownership,
-        #    then write the draft. This prevents a race where the draft exists
-        #    but invoice_records was taken by an auto invoice concurrently.
-        # Pre-check: reassign if obviously taken by an auto invoice
+        #    then write the draft.
+        #
+        # create mode: the number must not exist at all — reassign if taken.
+        # edit mode:   allow updating this specific manual invoice.
         existing_src = c.execute(
             "SELECT source FROM invoice_records WHERE invoice_number=? AND COALESCE(deleted,0)=0",
             (inv_num,)
         ).fetchone()
-        if existing_src and existing_src[0] != "manual":
+        if form_mode == "create" and existing_src:
+            # Number already taken (auto OR manual) — get a fresh one
             inv_num = next_invoice_number(conn)
+            existing_src = None   # now known to be free
+        elif form_mode == "edit" and existing_src and existing_src[0] != "manual":
+            # Editing but the number was tampered to point at an auto invoice
+            inv_num = next_invoice_number(conn)
+            existing_src = None
 
+        reserved = False
         for _attempt in range(3):
             c.execute("""
                 INSERT INTO invoice_records
@@ -6372,14 +6381,19 @@ def invoices_manual():
             """, (inv_num, client_name, inv_date, inv_date, inv_date,
                   total_ht, total_vat, total_ttc))
             conn.commit()
-            # Verify we own the number (race-proof)
             owned = c.execute(
                 "SELECT 1 FROM invoice_records WHERE invoice_number=? AND COALESCE(source,'auto')='manual'",
                 (inv_num,)
             ).fetchone()
             if owned:
+                reserved = True
                 break
             inv_num = next_invoice_number(conn)  # try next on conflict
+
+        if not reserved:
+            conn.close()
+            flash("Nije moguće rezervisati broj fakture. Pokušajte ponovo.", "error")
+            return redirect("/invoices/manual")
 
         # Draft saved only after ownership is confirmed
         now_str = lux_now().strftime("%Y-%m-%d %H:%M")
@@ -6491,6 +6505,12 @@ def invoices_manual():
     <div class="mi-brand">Luxmann <span>Facture manuelle</span></div>
     <a class="back-button" href="/invoices">{{ tr["back"] }}</a>
   </div>
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in msgs %}
+  <div style="background:{% if cat=='error' %}#ef4444{% else %}#22c55e{% endif %};color:white;
+              padding:10px 22px;font-weight:600;font-size:14px;">{{ msg }}</div>
+  {% endfor %}
+  {% endwith %}
 
   <form id="miForm" method="post" action="/invoices/manual">
     <div class="mi-body">
@@ -6504,6 +6524,7 @@ def invoices_manual():
             <div class="mi-label">Facture n°</div>
             <div class="mi-number-box" id="dispNum">{{ auto_num }}</div>
             <input type="hidden" name="invoice_number" id="invoiceNumber" value="{{ auto_num }}">
+            <input type="hidden" name="mode" value="{{ 'edit' if draft.invoice_number else 'create' }}">
           </div>
           <div>
             <div class="mi-label">Date</div>
