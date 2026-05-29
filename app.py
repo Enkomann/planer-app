@@ -130,9 +130,12 @@ TRANSLATIONS = {
         "monday": "Pon", "tuesday": "Uto", "wednesday": "Sri", "thursday": "Cet",
         "friday": "Pet", "saturday": "Sub", "sunday": "Ned", "cancel": "Odustani",
         "duplicate_shift_warning": "Ova smjena sa istim radnicima, istim vremenom i istim klijentom vec postoji.",
-        "nav_week": "Sedmica", "nav_month": "Mjesec", "nav_payroll": "Plate",
-        "nav_diagram": "Dijagram", "nav_route": "Ruta", "nav_settings": "Postavke",
-        "nav_docs_short": "Dok.",
+        "nav_plan": "Plan", "nav_week": "Sedmica", "nav_month": "Mjesec",
+        "nav_payroll": "Plate", "nav_diagram": "Dijagram", "nav_route": "Ruta",
+        "nav_settings": "Postavke", "nav_docs_short": "Dok.",
+        "nav_language": "Jezik", "nav_tools": "Alati",
+        "nav_admin_section": "Administracija", "nav_account": "Racun",
+        "nav_users": "Korisnici i lozinka",
     }
 }
 
@@ -149,17 +152,23 @@ TRANSLATIONS["fr"].update({
     "back": "Retour", "save": "Enregistrer", "delete": "Supprimer", "edit": "Modifier",
     "sick": "Maladie", "vacation": "Conge", "sick_vacation": "Maladie / Conge",
     "duplicate_shift_warning": "Cette mission avec les memes employes, horaires et client existe deja.",
-    "nav_week": "Semaine", "nav_month": "Mois", "nav_payroll": "Salaires",
-    "nav_diagram": "Graphique", "nav_route": "Itineraire", "nav_settings": "Reglages",
-    "nav_docs_short": "Doc.",
+    "nav_plan": "Plan", "nav_week": "Semaine", "nav_month": "Mois",
+    "nav_payroll": "Salaires", "nav_diagram": "Graphique", "nav_route": "Itineraire",
+    "nav_settings": "Reglages", "nav_docs_short": "Doc.",
+    "nav_language": "Langue", "nav_tools": "Outils",
+    "nav_admin_section": "Administration", "nav_account": "Compte",
+    "nav_users": "Utilisateurs et mot de passe",
 })
 TRANSLATIONS["en"].update({
     "login_title": "Login", "login_btn": "Login", "logout": "Logout",
     "title": "WORK SCHEDULE", "add_worker": "Add worker", "add_client": "Add client",
     "add_shift": "Add shift", "workers": "Workers", "clients": "Clients",
-    "nav_week": "Week", "nav_month": "Month", "nav_payroll": "Payroll",
-    "nav_diagram": "Chart", "nav_route": "Route", "nav_settings": "Settings",
-    "nav_docs_short": "Docs",
+    "nav_plan": "Plan", "nav_week": "Week", "nav_month": "Month",
+    "nav_payroll": "Payroll", "nav_diagram": "Chart", "nav_route": "Route",
+    "nav_settings": "Settings", "nav_docs_short": "Docs",
+    "nav_language": "Language", "nav_tools": "Tools",
+    "nav_admin_section": "Administration", "nav_account": "Account",
+    "nav_users": "Users & password",
     "week_calendar": "Weekly calendar", "month_calendar": "Monthly calendar",
     "monthly_hours": "Monthly hours", "weekly_hours": "Weekly hours",
     "back": "Back", "save": "Save", "delete": "Delete", "edit": "Edit",
@@ -175,9 +184,12 @@ TRANSLATIONS["de"].update({
     "back": "Zuruck", "save": "Speichern", "delete": "Loschen", "edit": "Bearbeiten",
     "sick": "Krankheit", "vacation": "Urlaub", "sick_vacation": "Krankheit / Urlaub",
     "duplicate_shift_warning": "Dieser Einsatz mit denselben Mitarbeitern, derselben Zeit und demselben Kunden existiert bereits.",
-    "nav_week": "Woche", "nav_month": "Monat", "nav_payroll": "Gehalt",
-    "nav_diagram": "Diagramm", "nav_route": "Route", "nav_settings": "Einst.",
-    "nav_docs_short": "Dok.",
+    "nav_plan": "Plan", "nav_week": "Woche", "nav_month": "Monat",
+    "nav_payroll": "Gehalt", "nav_diagram": "Diagramm", "nav_route": "Route",
+    "nav_settings": "Einst.", "nav_docs_short": "Dok.",
+    "nav_language": "Sprache", "nav_tools": "Werkzeuge",
+    "nav_admin_section": "Verwaltung", "nav_account": "Konto",
+    "nav_users": "Benutzer und Passwort",
 })
 TRANSLATIONS["pt"].update({
     "login_title": "Entrar", "login_btn": "Entrar", "logout": "Sair",
@@ -188,9 +200,12 @@ TRANSLATIONS["pt"].update({
     "back": "Voltar", "save": "Guardar", "delete": "Apagar", "edit": "Editar",
     "sick": "Baixa medica", "vacation": "Ferias", "sick_vacation": "Baixa / Ferias",
     "duplicate_shift_warning": "Este turno com os mesmos trabalhadores, horario e cliente ja existe.",
-    "nav_week": "Semana", "nav_month": "Mes", "nav_payroll": "Salarios",
-    "nav_diagram": "Grafico", "nav_route": "Rota", "nav_settings": "Definicoes",
-    "nav_docs_short": "Doc.",
+    "nav_plan": "Plano", "nav_week": "Semana", "nav_month": "Mes",
+    "nav_payroll": "Salarios", "nav_diagram": "Grafico", "nav_route": "Rota",
+    "nav_settings": "Definicoes", "nav_docs_short": "Doc.",
+    "nav_language": "Idioma", "nav_tools": "Ferramentas",
+    "nav_admin_section": "Administracao", "nav_account": "Conta",
+    "nav_users": "Utilizadores e palavra-passe",
 })
 
 ROUTE_TRANSLATIONS = {
@@ -2806,8 +2821,8 @@ def header_html():
         <img src="{{ url_for('static', filename='logo.png') }}" alt="L">
       </a>
       <nav class="sidebar-nav">
-        <a href="/" class="sidebar-link {% if request.path == '/' %}active{% endif %}" title="Plan">
-          <span class="sl-icon">🏠</span><span>Plan</span>
+        <a href="/" class="sidebar-link {% if request.path == '/' %}active{% endif %}" title="{{ tr.get('nav_plan','Plan') }}">
+          <span class="sl-icon">🏠</span><span>{{ tr.get("nav_plan","Plan") }}</span>
         </a>
         <a href="/week" class="sidebar-link {% if request.path == '/week' %}active{% endif %}" title="{{ tr.get('nav_week','Sedmica') }}">
           <span class="sl-icon">📅</span><span>{{ tr.get("nav_week","Sedmica") }}</span>
@@ -3073,7 +3088,7 @@ def header_html():
     </div>
     <nav class="bottom-nav" aria-label="Navigacija">
         <a href="/" class="bottom-nav-item {% if request.path == '/' %}active{% endif %}">
-            <span>🏠</span><small>Plan</small>
+            <span>🏠</span><small>{{ tr.get("nav_plan","Plan") }}</small>
         </a>
         <a href="/week" class="bottom-nav-item {% if request.path == '/week' %}active{% endif %}">
             <span>📅</span><small>{{ tr.get("nav_week","Sedmica") }}</small>
@@ -3101,16 +3116,16 @@ def header_html():
 
         <!-- Tema -->
         <div class="settings-section">
-          <h4>🎨 Tema</h4>
+          <h4>🎨 {{ tr["theme"] }}</h4>
           <div class="settings-pills">
-            <a href="/set_theme/light" class="settings-pill {% if not dark %}current{% endif %}">☀️ Svijetla</a>
-            <a href="/set_theme/dark"  class="settings-pill {% if dark %}current{% endif %}">🌙 Tamna</a>
+            <a href="/set_theme/light" class="settings-pill {% if not dark %}current{% endif %}">☀️ {{ tr["light_theme"] }}</a>
+            <a href="/set_theme/dark"  class="settings-pill {% if dark %}current{% endif %}">🌙 {{ tr["dark_theme"] }}</a>
           </div>
         </div>
 
         <!-- Jezik -->
         <div class="settings-section">
-          <h4>🌐 Jezik</h4>
+          <h4>🌐 {{ tr.get("nav_language","Jezik") }}</h4>
           <div class="settings-pills">
             <a href="/set_lang/bos" class="settings-pill {% if session.get('lang','bos')=='bos' %}current{% endif %}">🇧🇦 BOS</a>
             <a href="/set_lang/fr"  class="settings-pill {% if session.get('lang')=='fr' %}current{% endif %}">🇫🇷 FR</a>
@@ -3122,15 +3137,15 @@ def header_html():
 
         <!-- Alati -->
         <div class="settings-section">
-          <h4>🛠️ Alati</h4>
+          <h4>🛠️ {{ tr.get("nav_tools","Alati") }}</h4>
           <a href="/route_optimizer" class="settings-navlink">
             <span class="settings-navlink-icon">🗺️</span>
-            <div><div style="font-weight:600;">Optimizacija rute</div><div style="font-size:12px;opacity:0.6;">Redoslijed posjeta po datumu</div></div>
+            <div><div style="font-weight:600;">{{ tr.get("nav_route","Ruta") }}</div></div>
           </a>
           {% if session.get('role') == 'admin' %}
           <a href="/invoices" class="settings-navlink">
             <span class="settings-navlink-icon">🧾</span>
-            <div><div style="font-weight:600;">Fakture</div><div style="font-size:12px;opacity:0.6;">Pregled i kreiranje faktura</div></div>
+            <div><div style="font-weight:600;">{{ tr.get("invoices","Fakture") }}</div></div>
           </a>
           {% endif %}
         </div>
@@ -3138,29 +3153,29 @@ def header_html():
         {% if session.get('role') == 'admin' %}
         <!-- Administracija -->
         <div class="settings-section">
-          <h4>🔧 Administracija</h4>
+          <h4>🔧 {{ tr.get("nav_admin_section","Administracija") }}</h4>
           <a href="/admin" class="settings-navlink">
             <span class="settings-navlink-icon">👤</span>
-            <div><div style="font-weight:600;">Korisnici i lozinka</div><div style="font-size:12px;opacity:0.6;">Upravljanje korisnicima i sigurnošću</div></div>
+            <div><div style="font-weight:600;">{{ tr.get("nav_users","Korisnici i lozinka") }}</div></div>
           </a>
           <a href="/workers" class="settings-navlink">
             <span class="settings-navlink-icon">👷</span>
-            <div><div style="font-weight:600;">Radnici</div><div style="font-size:12px;opacity:0.6;">Upravljanje radnicima i bojama</div></div>
+            <div><div style="font-weight:600;">{{ tr.get("workers","Radnici") }}</div></div>
           </a>
           <a href="/clients" class="settings-navlink">
             <span class="settings-navlink-icon">🏢</span>
-            <div><div style="font-weight:600;">Klijenti</div><div style="font-size:12px;opacity:0.6;">Pregled i upravljanje klijentima</div></div>
+            <div><div style="font-weight:600;">{{ tr.get("clients","Klijenti") }}</div></div>
           </a>
           <a href="/backup" class="settings-navlink">
             <span class="settings-navlink-icon">💾</span>
-            <div><div style="font-weight:600;">Backup &amp; Restore</div><div style="font-size:12px;opacity:0.6;">Sigurnosna kopija svih podataka</div></div>
+            <div><div style="font-weight:600;">Backup &amp; Restore</div></div>
           </a>
         </div>
         {% endif %}
 
         <!-- Račun & odjava -->
         <div class="settings-section">
-          <h4>👤 Račun</h4>
+          <h4>👤 {{ tr.get("nav_account","Racun") }}</h4>
           {% if session.get('user') %}
           <div class="settings-navlink" style="cursor:default;">
             <span class="settings-navlink-icon">🙍</span>
