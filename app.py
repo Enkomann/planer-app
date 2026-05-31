@@ -3371,7 +3371,7 @@ BASE_STYLE = """
     ══════════════════════════════════════════════════════════ */
     body.wapp {
         margin: 0 !important;
-        padding-top: 90px !important;
+        padding-top: 78px !important;
         padding-bottom: 86px !important;
         background: {{ '#111113' if dark else '#f1f5f9' }} !important;
     }
@@ -3389,52 +3389,66 @@ BASE_STYLE = """
     body.wapp .back-button { display:none !important; }  /* workers use nav tabs */
     body.wapp .week-link, body.wapp .pdf-link { display:none !important; }
 
-    /* ── Worker status bar (frosted, top of screen) ─────────── */
     html.wapp-root { overscroll-behavior-x:none; }
-    .wapp-status {
-        display:none; position:fixed; top:0; left:0; right:0; height:44px;
-        z-index:200;
-        background:transparent;
-        align-items:center; justify-content:space-between;
-        padding: 10px 22px 0;
-    }
-    body.wapp .wapp-status { display:flex; }
-    .wapp-status-time  { font-size:15px; font-weight:700; color:{{ '#e2e8f0' if dark else '#0f172a' }}; }
-    .wapp-status-icons { font-size:12px; color:{{ '#e2e8f0' if dark else '#0f172a' }}; }
 
     /* ── Worker floating header — transparent bar ───────────── */
     .wapp-hdr {
-        display:none; position:fixed; top:44px; left:0; right:0; height:46px;
+        display:none; position:fixed; top:12px; left:0; right:0; min-height:52px;
         z-index:199;
         background:transparent;
-        align-items:center; justify-content:space-between;
+        align-items:flex-start; justify-content:space-between;
         padding:0 14px;
+        pointer-events:none;
     }
     body.wapp .wapp-hdr { display:flex; }
-    /* Frosted pill ONLY behind title */
+    body.wapp .wapp-hdr > * { pointer-events:auto; }
+    /* Clear glass pill ONLY behind title */
     .wapp-pill {
         display:flex; flex-direction:column; justify-content:center;
-        padding:5px 14px; border-radius:22px;
-        background:{{ 'rgba(28,28,30,0.84)' if dark else 'rgba(241,245,249,0.84)' }};
-        backdrop-filter: blur(22px) saturate(190%);
-        -webkit-backdrop-filter: blur(22px) saturate(190%);
-        border:1px solid {{ 'rgba(255,255,255,0.12)' if dark else 'rgba(255,255,255,0.7)' }};
-        box-shadow:0 2px 12px rgba(0,0,0,.10);
+        min-height:42px;
+        padding:6px 14px; border-radius:22px;
+        background:{{ 'rgba(255,255,255,0.10)' if dark else 'rgba(255,255,255,0.48)' }};
+        backdrop-filter:none;
+        -webkit-backdrop-filter:none;
+        border:1px solid {{ 'rgba(255,255,255,0.22)' if dark else 'rgba(255,255,255,0.78)' }};
+        box-shadow:0 8px 24px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,.28);
     }
     .wapp-page-title { font-size:17px; font-weight:800; color:{{ '#e2e8f0' if dark else '#1e293b' }}; line-height:1.1; }
     .wapp-page-sub   { font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; margin-top:1px; }
-    /* Frosted circle ONLY around bell */
-    .wapp-bell {
-        width:38px; height:38px; border-radius:50%; flex-shrink:0;
-        background:{{ 'rgba(28,28,30,0.84)' if dark else 'rgba(241,245,249,0.84)' }};
-        backdrop-filter: blur(22px) saturate(190%);
-        -webkit-backdrop-filter: blur(22px) saturate(190%);
-        border:1px solid {{ 'rgba(255,255,255,0.12)' if dark else 'rgba(255,255,255,0.7)' }};
-        box-shadow:0 2px 12px rgba(0,0,0,.10);
+    .wapp-menu-wrap { position:relative; }
+    /* Clear glass circle ONLY around menu */
+    .wapp-menu-btn {
+        width:42px; height:42px; border-radius:50%; flex-shrink:0;
+        background:{{ 'rgba(255,255,255,0.10)' if dark else 'rgba(255,255,255,0.48)' }};
+        backdrop-filter:none;
+        -webkit-backdrop-filter:none;
+        border:1px solid {{ 'rgba(255,255,255,0.22)' if dark else 'rgba(255,255,255,0.78)' }};
+        box-shadow:0 8px 24px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,.28);
+        color:{{ '#e2e8f0' if dark else '#1e293b' }};
         display:flex; align-items:center; justify-content:center;
-        font-size:19px; cursor:pointer;
-        text-decoration:none;
+        font-size:21px; cursor:pointer;
+        text-decoration:none; padding:0;
+        touch-action:manipulation;
     }
+    .wapp-menu-panel {
+        display:none; position:absolute; right:0; top:50px;
+        width:min(286px, calc(100vw - 28px));
+        padding:8px;
+        border-radius:22px;
+        background:{{ 'rgba(22,22,24,0.92)' if dark else 'rgba(255,255,255,0.92)' }};
+        border:1px solid {{ 'rgba(255,255,255,0.14)' if dark else 'rgba(226,232,240,0.95)' }};
+        box-shadow:0 18px 46px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.22);
+    }
+    .wapp-menu-panel.open { display:block; }
+    .wapp-menu-panel a {
+        display:flex; align-items:center; gap:11px;
+        padding:13px 12px; border-radius:16px;
+        color:{{ '#e5e7eb' if dark else '#1e293b' }};
+        text-decoration:none; font-size:16px; font-weight:800;
+    }
+    .wapp-menu-panel a:hover { background:{{ '#1e1e20' if dark else '#f1f5f9' }}; }
+    .wapp-menu-panel span { width:34px; flex-shrink:0; text-align:center; font-size:13px; font-weight:900; }
+    .wapp-menu-panel small { display:block; margin-top:2px; font-size:11px; font-weight:700; color:{{ '#94a3b8' if dark else '#64748b' }}; }
 
     /* ── Worker bottom nav — transparent, frosted bubbles ────── */
     .wapp-nav {
@@ -3442,24 +3456,29 @@ BASE_STYLE = """
         height:calc(74px + env(safe-area-inset-bottom,0px));
         z-index:199;
         background:transparent;
-        align-items:flex-start; justify-content:space-around;
-        padding:8px 8px env(safe-area-inset-bottom,0px);
+        align-items:flex-start; justify-content:space-between;
+        gap:6px;
+        padding:8px 10px env(safe-area-inset-bottom,0px);
     }
     body.wapp .wapp-nav { display:flex; }
     .wapp-btn {
-        display:flex; flex-direction:column; align-items:center;
-        text-decoration:none; color:{{ '#94a3b8' if dark else '#64748b' }}; flex:1;
-        border:none; background:transparent; cursor:pointer; padding:0;
+        display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+        text-decoration:none; color:{{ '#94a3b8' if dark else '#64748b' }};
+        flex:1 1 0; min-width:0; height:58px;
+        border:none; background:transparent; cursor:pointer; padding:0; margin:0;
+        font-family:inherit; line-height:1; appearance:none; -webkit-appearance:none;
+        touch-action:manipulation;
     }
-    /* Frosted bubble ONLY around icon + label */
+    /* Clear glass bubble ONLY around icon + label */
     .wapp-bubble {
-        display:flex; flex-direction:column; align-items:center;
-        gap:3px; padding:7px 14px 6px; border-radius:18px; min-width:54px;
-        background:{{ 'rgba(28,28,30,0.84)' if dark else 'rgba(241,245,249,0.84)' }};
-        backdrop-filter: blur(22px) saturate(190%);
-        -webkit-backdrop-filter: blur(22px) saturate(190%);
-        border:1px solid {{ 'rgba(255,255,255,0.12)' if dark else 'rgba(255,255,255,0.7)' }};
-        box-shadow:0 2px 14px rgba(0,0,0,.09);
+        display:flex; flex-direction:column; align-items:center; justify-content:center;
+        gap:3px; padding:7px 9px 6px; border-radius:18px; width:66px; max-width:100%;
+        min-height:52px; box-sizing:border-box;
+        background:{{ 'rgba(255,255,255,0.10)' if dark else 'rgba(255,255,255,0.48)' }};
+        backdrop-filter:none;
+        -webkit-backdrop-filter:none;
+        border:1px solid {{ 'rgba(255,255,255,0.22)' if dark else 'rgba(255,255,255,0.78)' }};
+        box-shadow:0 8px 24px rgba(0,0,0,.11), inset 0 1px 0 rgba(255,255,255,.28);
         transition:background .15s, border-color .15s;
     }
     .wapp-btn.wactive .wapp-bubble {
@@ -3469,7 +3488,7 @@ BASE_STYLE = """
     }
     .wapp-btn.wactive { color:#2563eb; }
     .wapp-bubble .wb-icon  { font-size:22px; line-height:1; display:block; }
-    .wapp-bubble .wb-label { font-size:10px; font-weight:600; white-space:nowrap; }
+    .wapp-bubble .wb-label { font-size:9.5px; font-weight:700; white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis; }
     body.wapp .page-content {
         max-width:520px;
         margin:0 auto;
@@ -3511,11 +3530,12 @@ BASE_STYLE = """
         box-shadow:0 4px 14px rgba(0,0,0,.07);
         overflow:hidden;
     }
-    .wapp-shift-row { display:grid; grid-template-columns:48px 1fr auto; gap:10px; padding:14px 16px; border-bottom:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; align-items:start; }
+    .wapp-shift-row { display:grid; grid-template-columns:48px minmax(0, 1fr) auto; gap:10px; padding:14px 16px; border-bottom:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; align-items:start; }
+    .wapp-shift-row.wroute { grid-template-columns:84px minmax(0, 1fr) 40px; }
     .wapp-shift-row:last-child { border-bottom:none; }
-    .wapp-time { text-align:right; font-weight:900; font-size:13px; padding-top:2px; color:{{ '#e2e8f0' if dark else '#1e293b' }}; }
-    .wapp-client { font-weight:850; color:{{ '#e5e7eb' if dark else '#1e293b' }}; }
-    .wapp-address { font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; margin-top:3px; line-height:1.35; }
+    .wapp-time { text-align:right; font-weight:900; font-size:13px; padding-top:2px; color:{{ '#e2e8f0' if dark else '#1e293b' }}; white-space:nowrap; }
+    .wapp-client { font-weight:850; color:{{ '#e5e7eb' if dark else '#1e293b' }}; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .wapp-address { font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; margin-top:3px; line-height:1.35; min-width:0; overflow:hidden; text-overflow:ellipsis; }
     .wapp-status-badge { display:inline-flex; margin-top:7px; padding:3px 9px; border-radius:999px; background:{{ '#1e1e20' if dark else '#f1f5f9' }}; color:{{ '#94a3b8' if dark else '#64748b' }}; font-size:10px; font-weight:800; }
     .wapp-map {
         display:inline-flex; align-items:center; justify-content:center;
@@ -3529,12 +3549,17 @@ BASE_STYLE = """
     .wapp-mini-card span { font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; font-weight:700; }
     .wapp-form-card { border-radius:20px; padding:16px; background:{{ '#161618' if dark else 'white' }}; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; box-shadow:0 4px 14px rgba(0,0,0,.07); }
     .wapp-form-card h3 { margin-top:0; }
-    body.wapp input, body.wapp select, body.wapp button { font-size:16px; }
+    body.wapp input, body.wapp select, body.wapp button,
+    body.wapp .settings-sheet input, body.wapp .settings-sheet select,
+    body.wapp .settings-sheet button, body.wapp .settings-pill,
+    body.wapp .settings-navlink { font-size:16px; }
     @media (max-width:420px) {
         body.wapp .page-content { padding:0 16px; }
         .wapp-shift-time { font-size:28px; }
         .wapp-shift-row { grid-template-columns:44px 1fr auto; padding:13px 14px; }
-        .wapp-bubble { padding-left:11px; padding-right:11px; min-width:50px; }
+        .wapp-shift-row.wroute { grid-template-columns:78px minmax(0, 1fr) 38px; }
+        .wapp-bubble { width:60px; padding-left:7px; padding-right:7px; }
+        .wapp-bubble .wb-label { font-size:9px; }
     }
 </style>
 <script>
@@ -3735,18 +3760,21 @@ def header_html():
       document.documentElement.classList.add('wapp-root');
       applyWorkerApp();
       if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', applyWorkerApp); }
+      var lastTouchEnd = 0;
+      document.addEventListener('touchend', function(ev){
+        var now = Date.now();
+        if(now - lastTouchEnd <= 300){ ev.preventDefault(); }
+        lastTouchEnd = now;
+      }, {passive:false});
+      document.addEventListener('gesturestart', function(ev){ ev.preventDefault(); }, {passive:false});
     })();
     </script>
-    <div class="wapp-status" aria-hidden="true">
-      <span class="wapp-status-time" id="wappClock">--:--</span>
-      <span class="wapp-status-icons">••• WiFi 🔋</span>
-    </div>
     <header class="wapp-hdr">
       <div class="wapp-pill">
         <div class="wapp-page-title">
           {% if request.path == '/week' %}{{ tr.get("nav_week","Sedmica") }}
           {% elif request.path == '/route_optimizer' %}{{ tr.get("nav_route","Ruta") }}
-          {% else %}{{ tr.get("today_shifts","Danas") }} 👋{% endif %}
+          {% else %}{{ tr.get("today_shifts","Danas") }}{% endif %}
         </div>
         <div class="wapp-page-sub">
           {% if request.path == '/week' %}{{ tr.get("week_calendar","Sedmicni kalendar") }}
@@ -3754,7 +3782,14 @@ def header_html():
           {% else %}{{ tr.get("logged_as","Prijavljen") }}: {{ session.get('user') }}{% endif %}
         </div>
       </div>
-      <a class="wapp-bell" href="/#wapp-leave" title="{{ tr.get('leave_request','Zahtjev za odsustvo') }}">🔔</a>
+      <div class="wapp-menu-wrap">
+        <button class="wapp-menu-btn" type="button" onclick="toggleWorkerMenu(event)" aria-expanded="false" aria-controls="wappMenu" aria-label="{{ tr.get('nav_tools','Alati') }}">☰</button>
+        <div class="wapp-menu-panel" id="wappMenu">
+          <a href="/#wapp-leave" onclick="closeWorkerMenu()"><span>☀</span><div>{{ tr.get("leave_request","Zahtjev za odsustvo") }}<small>{{ tr.get("leave_send","Posalji zahtjev") }}</small></div></a>
+          <a href="/week_pdf" target="_blank" rel="noopener" onclick="closeWorkerMenu()"><span>PDF</span><div>{{ tr.get("week_calendar","Sedmicni kalendar") }}<small>{{ tr.get("download","Preuzmi") }}</small></div></a>
+          <a href="/month_pdf" target="_blank" rel="noopener" onclick="closeWorkerMenu()"><span>PDF</span><div>{{ tr.get("month_calendar","Mjesecni kalendar") }}<small>{{ tr.get("download","Preuzmi") }}</small></div></a>
+        </div>
+      </div>
     </header>
     <nav class="wapp-nav" aria-label="{{ tr.get('nav_navigation','Navigacija') }}">
       <a href="/" class="wapp-btn {% if request.path == '/' %}wactive{% endif %}">
@@ -3771,16 +3806,28 @@ def header_html():
       </button>
     </nav>
     <script>
-    (function(){
-      function tick(){
-        var el = document.getElementById('wappClock');
-        if(!el) return;
-        var d = new Date();
-        el.textContent = String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
-      }
-      tick();
-      window.setInterval(tick, 30000);
-    })();
+    function toggleWorkerMenu(ev){
+      if(ev) ev.stopPropagation();
+      var menu = document.getElementById('wappMenu');
+      var btn = document.querySelector('.wapp-menu-btn');
+      if(!menu) return;
+      var open = !menu.classList.contains('open');
+      menu.classList.toggle('open', open);
+      if(btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    function closeWorkerMenu(){
+      var menu = document.getElementById('wappMenu');
+      var btn = document.querySelector('.wapp-menu-btn');
+      if(menu) menu.classList.remove('open');
+      if(btn) btn.setAttribute('aria-expanded', 'false');
+    }
+    document.addEventListener('click', function(ev){
+      var wrap = document.querySelector('.wapp-menu-wrap');
+      if(wrap && !wrap.contains(ev.target)) closeWorkerMenu();
+    });
+    document.addEventListener('keydown', function(ev){
+      if(ev.key === 'Escape') closeWorkerMenu();
+    });
     </script>
     {% endif %}
 
@@ -4342,7 +4389,6 @@ def index():
                 </section>
 
                 <a class="wapp-callout" href="#wapp-leave">
-                    <span style="font-size:28px;">🌴</span>
                     <span style="flex:1;"><strong>{{ tr.get("leave_request","Zahtjev za odsustvo") }}</strong><small>{{ tr.get("leave_send","Pošalji zahtjev") }}</small></span>
                     <span class="send">{{ tr.get("leave_send","Pošalji") }}</span>
                 </a>
@@ -4380,7 +4426,7 @@ def index():
                     {% if worker_upcoming_shifts %}
                         {% for s in worker_upcoming_shifts[:4] %}
                         {% set addr = client_addresses.get(s[2], s[2]) %}
-                        <div class="wapp-shift-row">
+                        <div class="wapp-shift-row wroute">
                             <div class="wapp-time">{{ format_date(s[3]) }}</div>
                             <div>
                                 <div class="wapp-client">{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}</div>
@@ -4397,7 +4443,7 @@ def index():
                 </section>
 
                 <section class="wapp-form-card" id="wapp-leave">
-                    <h3>🌴 {{ tr.get("leave_request","Zahtjev za odsustvo") }}</h3>
+                    <h3>{{ tr.get("leave_request","Zahtjev za odsustvo") }}</h3>
                     <form method="post" action="/leave_request">
                         <select name="type">
                             <option value="vacation">{{ tr["leave_type_vacation"] }}</option>
@@ -7481,7 +7527,6 @@ def week_pdf():
 @app.route("/month_pdf")
 def month_pdf():
     if "user" not in session: return redirect("/login")
-    if session.get("role") != "admin": return redirect("/")
     tr = t(); is_admin = session.get("role") == "admin"; current_user = session.get("user")
     year = request.args.get("year", type=int) or datetime.today().year; month = request.args.get("month", type=int) or datetime.today().month
     start_date = f"{year:04d}-{month:02d}-01"; end_date = f"{year:04d}-{month:02d}-{calendar.monthrange(year, month)[1]:02d}"
