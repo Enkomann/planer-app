@@ -3590,18 +3590,14 @@ BASE_STYLE = """
         color:{{ '#bfdbfe' if dark else '#1d4ed8' }};
     }
     .wapp-week-shifts {
-        display:flex; gap:12px; overflow-x:auto; overflow-y:hidden;
-        padding:2px 2px 12px; margin:0 -2px;
-        -webkit-overflow-scrolling:touch; scrollbar-width:none;
-        scroll-snap-type:x mandatory;
+        display:flex; flex-direction:column; gap:12px;
+        padding:2px 0 12px;
     }
-    .wapp-week-shifts::-webkit-scrollbar { display:none; }
     .wapp-week-card {
-        flex:0 0 min(84vw, 360px);
-        scroll-snap-align:start;
         border-radius:22px; padding:16px;
         background:{{ '#161618' if dark else 'white' }};
         border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};
+        border-left:7px solid var(--worker-color, #2563eb);
         box-shadow:0 6px 18px rgba(0,0,0,.08);
     }
     .wapp-week-time { font-size:24px; font-weight:900; color:{{ '#e5e7eb' if dark else '#1e293b' }}; }
@@ -4885,7 +4881,10 @@ def week_view():
     c = conn.cursor()
     worker_colors = get_worker_colors(conn)
     week_days = [(start_week + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
-    worker_days_dt = [start_week - timedelta(days=7) + timedelta(days=i) for i in range(21)]
+    worker_start = start_week - timedelta(days=7)
+    worker_year_end = datetime(start_week.year, 12, 31)
+    worker_day_count = max(1, (worker_year_end.date() - worker_start.date()).days + 1)
+    worker_days_dt = [worker_start + timedelta(days=i) for i in range(worker_day_count)]
     worker_days = [d.strftime("%Y-%m-%d") for d in worker_days_dt]
     query_start, query_end = (worker_days[0], worker_days[-1]) if not is_admin else (week_days[0], week_days[-1])
     shifts = c.execute("SELECT * FROM shifts WHERE date >= ? AND date <= ? ORDER BY date, time, id", (query_start, query_end)).fetchall()
@@ -4926,7 +4925,7 @@ def week_view():
               {% for s in shifts %}
                 {% if s[3] == day %}
                 {% set auto_status = get_auto_status(s[3], s[4]) %}
-                <article class="wapp-week-card">
+                <article class="wapp-week-card" style="--worker-color:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#2563eb') }};">
                   <div class="wapp-week-time">{{ s[4] }}</div>
                   <div class="wapp-week-client">{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}</div>
                   <div class="wapp-week-worker">{{ s[1] }}</div>
