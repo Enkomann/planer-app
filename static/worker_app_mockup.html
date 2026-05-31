@@ -6,6 +6,7 @@
 <title>Luxmann Worker App — Mockup</title>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
 :root {
   --blue:    #2563eb;
   --blue-dk: #1d4ed8;
@@ -17,216 +18,302 @@
   --red:     #dc2626;
   --red-lt:  #fee2e2;
   --gray:    #64748b;
-  --gray-lt: #f8fafc;
+  --gray-lt: #f1f5f9;
   --border:  #e2e8f0;
   --text:    #1e293b;
   --text2:   #64748b;
-  --white:   #ffffff;
-  --nav-h:   64px;
+  --nav-h:   68px;
+  --hdr-h:   88px;   /* notch(44) + header(44) */
   --safe-b:  env(safe-area-inset-bottom, 0px);
 }
-html, body { height: 100%; background: #e5e7eb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 
-/* Phone frame for desktop preview */
-.phone-wrap { display:flex; justify-content:center; align-items:flex-start; min-height:100vh; padding:24px 12px; }
+html, body {
+  height: 100%;
+  background: #c7cdd6;
+  background: radial-gradient(ellipse at 60% 20%, #d1e0f7 0%, #bcc8db 100%);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Phone shell ──────────────────────────────────────────────── */
+.phone-wrap {
+  display: flex; justify-content: center; align-items: flex-start;
+  min-height: 100vh; padding: 28px 12px 40px;
+}
 .phone {
-  width: 390px; max-width: 100%;
-  min-height: 844px;
-  background: #fff;
-  border-radius: 44px;
+  width: 390px; max-width: 100%; height: 844px;
+  border-radius: 50px;
   overflow: hidden;
-  box-shadow: 0 40px 80px rgba(0,0,0,0.35), 0 0 0 1.5px rgba(0,0,0,0.1);
   position: relative;
-  display: flex; flex-direction: column;
+  box-shadow:
+    0 50px 100px rgba(0,0,0,.42),
+    0 0 0 1px rgba(255,255,255,.15) inset,
+    0 0 0 2px rgba(0,0,0,.08);
+  background: #f1f5f9;   /* page background visible through blur */
 }
-/* On real mobile: fill screen */
 @media (max-width: 420px) {
-  .phone-wrap { padding: 0; background: #fff; min-height: 0; }
-  .phone { border-radius: 0; width: 100%; min-height: 100dvh; box-shadow: none; }
+  .phone-wrap { padding: 0; background: #f1f5f9; }
+  .phone { border-radius: 0; width: 100%; height: 100dvh; box-shadow: none; }
 }
 
-/* Notch */
-.notch { height: 44px; background: #fff; display:flex; align-items:center; justify-content:space-between; padding: 14px 24px 0; flex-shrink:0; }
-.notch-time { font-size:15px; font-weight:700; color:#0f172a; }
-.notch-icons { display:flex; gap:6px; align-items:center; font-size:13px; color:#0f172a; }
+/* ── Notch / status bar ───────────────────────────────────────── */
+.notch {
+  position: absolute; top: 0; left: 0; right: 0; height: 44px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 24px 0;
+  z-index: 50;
+  /* Frosted glass — status bar */
+  background: rgba(241,245,249,0.72);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+.notch-time { font-size: 15px; font-weight: 700; color: #0f172a; }
+.notch-icons { font-size: 13px; color: #0f172a; letter-spacing: .04em; }
 
-/* Screens */
-.screen { display:none; flex:1; flex-direction:column; overflow:hidden; }
-.screen.active { display:flex; }
+/* ── Screen (full-phone, scrollable) ─────────────────────────── */
+.screen {
+  display: none;
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  /* Content starts below notch + sticky header */
+  padding-top: var(--hdr-h);
+  padding-bottom: calc(var(--nav-h) + var(--safe-b));
+}
+.screen.active { display: block; }
 
-/* Header */
+/* ── Sticky header (frosted glass) ───────────────────────────── */
 .hdr {
-  padding: 14px 20px 12px;
-  background: #fff;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
+  position: fixed;            /* stays at top while content scrolls */
+  top: 0; left: 0; right: 0;
+  /* On desktop — positioned inside .phone-wrap; on mobile — full-screen */
+  /* We'll use a JS trick to align with phone on desktop */
+  height: var(--hdr-h);
+  padding: 44px 20px 0;    /* top=notch height */
+  z-index: 40;
+  background: rgba(241,245,249,0.76);
+  backdrop-filter: blur(22px) saturate(1.9);
+  -webkit-backdrop-filter: blur(22px) saturate(1.9);
+  border-bottom: 1px solid rgba(203,213,225,0.45);
 }
-.hdr-row { display:flex; justify-content:space-between; align-items:center; }
-.hdr-title { font-size: 22px; font-weight: 800; color: var(--text); }
-.hdr-sub   { font-size: 13px; color: var(--text2); margin-top: 2px; }
-.hdr-bell  { width:38px; height:38px; border-radius:50%; background:var(--gray-lt); display:flex; align-items:center; justify-content:center; font-size:18px; border:none; cursor:pointer; flex-shrink:0; }
-
-/* Scroll body */
-.scroll { flex:1; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; padding-bottom:calc(var(--nav-h) + 8px + var(--safe-b)); }
-
-/* Cards */
-.card { background:#fff; border-radius:16px; margin:12px 16px; padding:16px; box-shadow:0 1px 4px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.04); }
-.card-title { font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.06em; margin-bottom:10px; }
-
-/* Hero shift card */
-.hero-card {
-  margin: 12px 16px;
-  border-radius: 20px;
-  background: linear-gradient(135deg, var(--blue), var(--blue-dk));
-  color: #fff;
-  padding: 18px 20px;
-  box-shadow: 0 8px 24px rgba(37,99,235,0.35);
+.hdr-inner {
+  display: flex; justify-content: space-between; align-items: center;
+  height: 44px;
 }
-.hero-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; opacity:.75; }
-.hero-shift  { font-size:28px; font-weight:800; margin:4px 0 2px; }
-.hero-status { display:inline-flex; align-items:center; gap:5px; background:rgba(255,255,255,.18); border-radius:20px; padding:3px 10px; font-size:12px; font-weight:700; }
-.hero-status::before { content:''; width:7px; height:7px; border-radius:50%; background:#4ade80; flex-shrink:0; }
-.hero-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px; }
-.hero-stat { background:rgba(255,255,255,.12); border-radius:12px; padding:10px 12px; }
-.hero-stat-val { font-size:20px; font-weight:800; }
-.hero-stat-lbl { font-size:11px; opacity:.75; margin-top:2px; }
-
-/* Shift list items */
-.shift-item { display:flex; align-items:flex-start; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); }
-.shift-item:last-child { border-bottom:none; padding-bottom:0; }
-.shift-time-col { min-width:52px; text-align:right; flex-shrink:0; }
-.shift-time { font-size:13px; font-weight:700; color:var(--text); }
-.shift-dot { width:10px; height:10px; border-radius:50%; margin-top:4px; flex-shrink:0; }
-.shift-dot.done    { background:var(--green); }
-.shift-dot.current { background:var(--blue); box-shadow:0 0 0 3px rgba(37,99,235,.2); }
-.shift-dot.next    { background:var(--border); border:2px solid var(--text2); }
-.shift-info { flex:1; min-width:0; }
-.shift-client { font-size:14px; font-weight:700; color:var(--text); }
-.shift-addr   { font-size:12px; color:var(--text2); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.shift-badge  { display:inline-block; font-size:10px; font-weight:700; padding:2px 7px; border-radius:20px; margin-top:4px; }
-.badge-done    { background:var(--green-lt); color:var(--green); }
-.badge-current { background:var(--blue-lt); color:var(--blue); }
-.badge-next    { background:var(--gray-lt); color:var(--text2); }
-
-/* Week timeline */
-.week-day { margin-bottom: 4px; }
-.week-day-hdr {
-  font-size:12px; font-weight:700; color:var(--text2);
-  text-transform:uppercase; letter-spacing:.05em;
-  padding:10px 16px 4px;
+.hdr-title { font-size: 20px; font-weight: 800; color: var(--text); }
+.hdr-sub   { font-size: 12px; color: var(--text2); }
+.hdr-bell  {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: rgba(148,163,184,0.18);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; border: none; cursor: pointer;
 }
-.week-day-hdr.today-hdr { color:var(--blue); }
-.week-shift {
-  display:flex; align-items:center; gap:12px;
-  padding:10px 16px; margin:2px 16px;
-  border-radius:12px;
-  background:#fff;
-  box-shadow:0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px var(--border);
-  cursor:pointer;
-}
-.week-shift.today-shift { background:var(--blue-lt); box-shadow:0 1px 3px rgba(37,99,235,.12), 0 0 0 1px rgba(37,99,235,.18); }
-.week-shift-accent { width:4px; height:36px; border-radius:2px; flex-shrink:0; background:var(--blue); }
-.week-shift-accent.green { background:var(--green); }
-.week-shift-accent.gray  { background:var(--border); }
-.week-shift-body { flex:1; min-width:0; }
-.week-shift-client { font-size:13px; font-weight:700; color:var(--text); }
-.week-shift-meta   { font-size:11px; color:var(--text2); margin-top:1px; }
-.week-shift-time   { font-size:12px; font-weight:700; color:var(--text2); flex-shrink:0; }
 
-/* Doc list */
-.doc-cat { font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.06em; padding:12px 16px 6px; }
-.doc-item {
-  display:flex; align-items:center; gap:12px;
-  padding:12px 16px; background:#fff;
-  border-bottom:1px solid var(--border);
-  cursor:pointer;
-}
-.doc-item:active { background:var(--gray-lt); }
-.doc-icon { width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
-.doc-icon.pdf  { background:#fee2e2; }
-.doc-icon.img  { background:#fef9c3; }
-.doc-icon.word { background:#dbeafe; }
-.doc-name { flex:1; font-size:14px; font-weight:600; color:var(--text); }
-.doc-meta { font-size:11px; color:var(--text2); margin-top:1px; }
-.doc-arrow { color:var(--border); font-size:16px; }
-
-/* Profile */
-.profile-header { text-align:center; padding:24px 20px 16px; }
-.profile-avatar {
-  width:72px; height:72px; border-radius:50%;
-  background:linear-gradient(135deg,var(--blue),var(--blue-dk));
-  color:#fff; font-size:28px; font-weight:800;
-  display:flex; align-items:center; justify-content:center;
-  margin:0 auto 12px;
-}
-.profile-name { font-size:19px; font-weight:800; color:var(--text); }
-.profile-role { font-size:13px; color:var(--text2); margin-top:3px; }
-
-.menu-section { margin:4px 16px; }
-.menu-item {
-  display:flex; align-items:center; gap:14px;
-  padding:14px 16px; background:#fff;
-  border-radius:12px; margin-bottom:2px;
-  cursor:pointer; border:none; width:100%; text-align:left;
-  box-shadow:0 0 0 1px var(--border);
-}
-.menu-item:active { background:var(--gray-lt); }
-.menu-icon { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
-.menu-label { flex:1; font-size:15px; font-weight:600; color:var(--text); }
-.menu-arrow { color:var(--border); font-size:16px; }
-.menu-item.danger .menu-label { color:var(--red); }
-.menu-item.danger .menu-icon  { background:var(--red-lt); }
-
-.divider { height:1px; background:var(--border); margin:12px 16px; }
-
-/* Bottom nav */
+/* ── Bottom nav (frosted glass, transparent icons) ─────────────  */
 .bottom-nav {
-  display:flex;
-  background:#fff;
-  border-top:1px solid var(--border);
-  padding-bottom:var(--safe-b);
-  flex-shrink:0;
-  box-shadow:0 -4px 16px rgba(0,0,0,0.08);
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: calc(var(--nav-h) + var(--safe-b));
+  display: flex; align-items: flex-start;
+  padding-top: 8px;
+  padding-bottom: var(--safe-b);
+  z-index: 40;
+  /* ★ Frosted glass effect */
+  background: rgba(241,245,249,0.72);
+  backdrop-filter: blur(24px) saturate(200%);
+  -webkit-backdrop-filter: blur(24px) saturate(200%);
+  border-top: 1px solid rgba(203,213,225,0.4);
 }
 .nav-btn {
-  flex:1; display:flex; flex-direction:column; align-items:center;
-  justify-content:center; padding:8px 4px 6px;
-  border:none; background:none; cursor:pointer;
-  color:var(--text2); gap:3px;
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: flex-start;
+  gap: 3px; padding: 2px 4px;
+  border: none;
+  /* ★ Completely transparent — no background box */
+  background: transparent;
+  cursor: pointer;
+  color: var(--text2);
+  transition: color .15s;
 }
-.nav-btn.active { color:var(--blue); }
-.nav-icon { font-size:22px; line-height:1; }
-.nav-label { font-size:10px; font-weight:600; white-space:nowrap; }
+.nav-btn.active { color: var(--blue); }
+.nav-icon  { font-size: 24px; line-height: 1; }
+.nav-label { font-size: 10px; font-weight: 600; }
 
-/* Today section divider */
-.section-hdr {
-  font-size:11px; font-weight:700; color:var(--text2);
-  text-transform:uppercase; letter-spacing:.06em;
-  padding:14px 16px 4px;
+/* ── Section headings ─────────────────────────────────────────── */
+.sec-hdr {
+  font-size: 11px; font-weight: 700; color: var(--text2);
+  text-transform: uppercase; letter-spacing: .06em;
+  padding: 16px 16px 6px;
 }
 
-/* Absence card */
-.absence-card {
-  margin:8px 16px;
-  border-radius:14px;
-  background:var(--amber-lt);
-  border:1px solid #fde68a;
-  padding:12px 14px;
-  display:flex; gap:10px; align-items:center;
+/* ── Cards ───────────────────────────────────────────────────── */
+.card {
+  background: #fff; border-radius: 18px;
+  margin: 0 16px 12px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.04);
 }
-.absence-card-icon { font-size:22px; }
-.absence-card-text { flex:1; }
-.absence-card-title { font-size:13px; font-weight:700; color:#92400e; }
-.absence-card-sub   { font-size:11px; color:#92400e; opacity:.8; margin-top:1px; }
-.absence-btn { background:#d97706; color:#fff; border:none; border-radius:8px; padding:7px 12px; font-size:12px; font-weight:700; cursor:pointer; flex-shrink:0; }
+.card-lbl {
+  font-size: 10px; font-weight: 700; color: var(--text2);
+  text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px;
+}
 
-/* Scroll indicator on desktop */
-.desktop-hint { display:none; }
-@media (min-width:421px) {
-  .desktop-hint {
-    display:block; text-align:center;
-    font-size:12px; color:#94a3b8; padding:8px 0 16px;
+/* ── Hero shift card ─────────────────────────────────────────── */
+.hero {
+  background: linear-gradient(140deg, var(--blue) 0%, var(--blue-dk) 100%);
+  border-radius: 22px; margin: 8px 16px 12px; padding: 20px;
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(37,99,235,.38);
+}
+.hero-lbl   { font-size: 11px; font-weight: 700; opacity: .7; text-transform: uppercase; letter-spacing: .07em; }
+.hero-shift { font-size: 30px; font-weight: 800; margin: 4px 0 6px; }
+.hero-pill  {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(255,255,255,.18); border-radius: 20px;
+  padding: 3px 11px; font-size: 12px; font-weight: 700;
+}
+.hero-pill::before {
+  content: ''; width: 7px; height: 7px; border-radius: 50%;
+  background: #4ade80; flex-shrink: 0;
+}
+.hero-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+.hero-stat {
+  background: rgba(255,255,255,.13); border-radius: 13px; padding: 10px 12px;
+}
+.hero-val { font-size: 22px; font-weight: 800; }
+.hero-sub { font-size: 11px; opacity: .72; margin-top: 2px; }
+
+/* ── Shift items ─────────────────────────────────────────────── */
+.shift-row { display: flex; align-items: flex-start; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--border); }
+.shift-row:last-child { border-bottom: none; padding-bottom: 0; }
+.s-time  { min-width: 46px; text-align: right; font-size: 13px; font-weight: 700; color: var(--text); flex-shrink: 0; padding-top: 1px; }
+.s-dot   { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+.s-dot.done    { background: var(--green); }
+.s-dot.now     { background: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,.22); }
+.s-dot.next    { background: var(--border); border: 2px solid #94a3b8; }
+.s-body  { flex: 1; min-width: 0; }
+.s-name  { font-size: 14px; font-weight: 700; color: var(--text); }
+.s-addr  { font-size: 11px; color: var(--text2); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.badge   { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; margin-top: 5px; }
+.badge-done { background: var(--green-lt); color: var(--green); }
+.badge-now  { background: var(--blue-lt);  color: var(--blue); }
+.badge-next { background: var(--gray-lt);  color: var(--gray); }
+
+/* ── Week timeline ───────────────────────────────────────────── */
+.day-hdr { font-size: 11px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: .05em; padding: 12px 16px 4px; }
+.day-hdr.today { color: var(--blue); }
+.wshift  {
+  display: flex; align-items: center; gap: 10px;
+  background: #fff; border-radius: 13px;
+  margin: 3px 16px; padding: 10px 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06), 0 0 0 1px var(--border);
+  cursor: pointer;
+}
+.wshift.today { background: var(--blue-lt); box-shadow: 0 1px 4px rgba(37,99,235,.12), 0 0 0 1px rgba(37,99,235,.2); }
+.w-accent { width: 4px; height: 38px; border-radius: 2px; flex-shrink: 0; background: var(--blue); }
+.w-accent.green { background: var(--green); }
+.w-accent.gray  { background: #cbd5e1; }
+.w-body   { flex: 1; min-width: 0; }
+.w-client { font-size: 13px; font-weight: 700; color: var(--text); }
+.w-meta   { font-size: 11px; color: var(--text2); margin-top: 1px; }
+.w-time   { font-size: 12px; font-weight: 700; color: var(--text2); flex-shrink: 0; }
+
+/* ── Documents ───────────────────────────────────────────────── */
+.doc-cat { font-size: 11px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: .06em; padding: 12px 16px 4px; }
+.doc-row {
+  display: flex; align-items: center; gap: 12px;
+  background: #fff; border-bottom: 1px solid var(--border);
+  padding: 12px 16px; cursor: pointer;
+}
+.doc-row:first-of-type { border-radius: 13px 13px 0 0; }
+.doc-row:last-of-type  { border-radius: 0 0 13px 13px; border-bottom: none; }
+.doc-row:only-of-type  { border-radius: 13px; border-bottom: none; }
+.doc-icon {
+  width: 42px; height: 42px; border-radius: 11px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; flex-shrink: 0;
+  /* ★ transparent icon background */
+  background: transparent;
+}
+.doc-body { flex: 1; min-width: 0; }
+.doc-name { font-size: 14px; font-weight: 600; color: var(--text); }
+.doc-meta { font-size: 11px; color: var(--text2); margin-top: 2px; }
+.doc-arr  { color: #cbd5e1; font-size: 16px; }
+
+/* ── Profile ─────────────────────────────────────────────────── */
+.profile-hero { text-align: center; padding: 24px 20px 16px; }
+.p-avatar {
+  width: 76px; height: 76px; border-radius: 50%;
+  background: linear-gradient(140deg, var(--blue), var(--blue-dk));
+  color: #fff; font-size: 30px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 12px;
+  box-shadow: 0 8px 24px rgba(37,99,235,.3);
+}
+.p-name { font-size: 20px; font-weight: 800; color: var(--text); }
+.p-role { font-size: 13px; color: var(--text2); margin-top: 3px; }
+
+.menu-group { margin: 0 16px 8px; background: #fff; border-radius: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.06), 0 0 0 1px var(--border); overflow: hidden; }
+.menu-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px 14px; border-bottom: 1px solid var(--border);
+  cursor: pointer; border: none; background: none; width: 100%; text-align: left;
+}
+.menu-row:last-child { border-bottom: none; }
+.menu-row:active { background: var(--gray-lt); }
+.m-icon {
+  font-size: 22px; width: 32px; text-align: center; flex-shrink: 0;
+  /* ★ No background box — transparent */
+}
+.m-label { flex: 1; font-size: 15px; font-weight: 600; color: var(--text); }
+.m-value { font-size: 12px; font-weight: 700; color: var(--blue); margin-right: 4px; }
+.m-badge {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--amber); color: #fff;
+  font-size: 11px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  margin-right: 4px;
+}
+.m-arr { color: #cbd5e1; font-size: 16px; }
+.menu-row.danger .m-label { color: var(--red); }
+
+/* ── Absence shortcut ───────────────────────────────────────── */
+.abs-card {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--amber-lt); border: 1px solid #fde68a;
+  border-radius: 16px; margin: 0 16px 12px; padding: 13px 14px;
+}
+.abs-icon { font-size: 24px; }
+.abs-body { flex: 1; }
+.abs-title { font-size: 13px; font-weight: 700; color: #92400e; }
+.abs-sub   { font-size: 11px; color: #92400e; opacity: .8; margin-top: 1px; }
+.abs-btn   { background: var(--amber); color: #fff; border: none; border-radius: 9px; padding: 7px 12px; font-size: 12px; font-weight: 700; cursor: pointer; flex-shrink: 0; }
+
+/* ── Week summary bar ────────────────────────────────────────── */
+.week-bar { padding: 4px 0; }
+.week-bar-track { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; margin-top: 10px; }
+.week-bar-fill  { height: 100%; border-radius: 3px; background: var(--blue); }
+.week-nums { display: flex; justify-content: space-between; align-items: baseline; }
+.week-big  { font-size: 34px; font-weight: 800; color: var(--text); }
+.week-of   { font-size: 13px; color: var(--text2); }
+
+/* ── Desktop hint ─────────────────────────────────────────────── */
+.hint { display: none; }
+@media (min-width: 421px) {
+  .hint {
+    display: block; text-align: center;
+    font-size: 12px; color: #64748b;
+    padding: 10px 0 24px;
     font-family: sans-serif;
+  }
+  /* On desktop: constrain fixed elements inside .phone */
+  .hdr, .bottom-nav, .notch {
+    max-width: 390px;
+    /* Horizontally centered */
+    left: 50%;
+    transform: translateX(-50%);
   }
 }
 </style>
@@ -234,384 +321,306 @@ html, body { height: 100%; background: #e5e7eb; font-family: -apple-system, Blin
 <body>
 
 <div class="phone-wrap">
-<div class="phone">
+<div class="phone" id="phone">
 
-  <!-- Notch / status bar -->
+  <!-- Status bar -->
   <div class="notch">
     <span class="notch-time">9:41</span>
-    <span class="notch-icons">▲▲▲ WiFi 🔋</span>
+    <span class="notch-icons">●●● WiFi 🔋</span>
   </div>
 
-  <!-- ═══════════ SCREEN 1: DANAS (HOME) ═══════════ -->
+  <!-- ════════════════════════════════════════
+       SCREEN 1 — DANAS
+  ════════════════════════════════════════ -->
   <div class="screen active" id="s-home">
-    <div class="hdr">
-      <div class="hdr-row">
+
+    <!-- Sticky header -->
+    <div class="hdr" id="hdr-home">
+      <div class="hdr-inner">
         <div>
-          <div class="hdr-title">Danas</div>
+          <div class="hdr-title">Danas 👋</div>
           <div class="hdr-sub">Petak, 30. maj 2026</div>
         </div>
-        <button class="hdr-bell" aria-label="Obavještenja">🔔</button>
+        <button class="hdr-bell">🔔</button>
       </div>
     </div>
-    <div class="scroll">
 
-      <!-- Active shift hero -->
-      <div class="hero-card">
-        <div class="hero-label">Moja smjena</div>
-        <div class="hero-shift">07:00 – 15:00</div>
-        <div class="hero-status">U toku</div>
-        <div class="hero-grid">
-          <div class="hero-stat">
-            <div class="hero-stat-val">02:15</div>
-            <div class="hero-stat-lbl">Sati danas</div>
-          </div>
-          <div class="hero-stat">
-            <div class="hero-stat-val">3 / 5</div>
-            <div class="hero-stat-lbl">Zadataka</div>
-          </div>
+    <!-- Scrollable content (starts after hdr via padding-top on .screen) -->
+
+    <!-- Hero active shift -->
+    <div class="hero">
+      <div class="hero-lbl">Moja smjena</div>
+      <div class="hero-shift">07:00 – 15:00</div>
+      <div class="hero-pill">U toku</div>
+      <div class="hero-grid">
+        <div class="hero-stat"><div class="hero-val">02:15</div><div class="hero-sub">Sati danas</div></div>
+        <div class="hero-stat"><div class="hero-val">3 / 5</div><div class="hero-sub">Zadataka</div></div>
+      </div>
+    </div>
+
+    <!-- Absence shortcut -->
+    <div class="abs-card">
+      <div class="abs-icon">🌴</div>
+      <div class="abs-body">
+        <div class="abs-title">Odmor / Odsustvo</div>
+        <div class="abs-sub">Pošalji zahtjev za slobodan dan</div>
+      </div>
+      <button class="abs-btn">Pošalji</button>
+    </div>
+
+    <!-- Today's shifts -->
+    <div class="sec-hdr">Današnje smjene</div>
+    <div class="card">
+      <div class="shift-row">
+        <div class="s-time">07:30</div>
+        <div class="s-dot done"></div>
+        <div class="s-body">
+          <div class="s-name">Marie Dupont</div>
+          <div class="s-addr">12 Rue de la Gare, Luxembourg</div>
+          <span class="badge badge-done">✓ Završeno</span>
         </div>
       </div>
-
-      <!-- Leave request shortcut -->
-      <div class="absence-card">
-        <div class="absence-card-icon">🌴</div>
-        <div class="absence-card-text">
-          <div class="absence-card-title">Odmor / Odsustvo</div>
-          <div class="absence-card-sub">Pošalji zahtjev za slobodan dan</div>
-        </div>
-        <button class="absence-btn">Pošalji</button>
-      </div>
-
-      <!-- Today's shifts -->
-      <div class="section-hdr">Današnje smjene</div>
-      <div class="card">
-
-        <div class="shift-item">
-          <div class="shift-time-col">
-            <div class="shift-time">07:30</div>
-          </div>
-          <div class="shift-dot done"></div>
-          <div class="shift-info">
-            <div class="shift-client">Marie Dupont</div>
-            <div class="shift-addr">12 Rue de la Gare, Luxembourg</div>
-            <span class="shift-badge badge-done">✓ Završeno</span>
-          </div>
-        </div>
-
-        <div class="shift-item">
-          <div class="shift-time-col">
-            <div class="shift-time">09:30</div>
-          </div>
-          <div class="shift-dot current"></div>
-          <div class="shift-info">
-            <div class="shift-client">Jean Martin</div>
-            <div class="shift-addr">45 Avenue de la Liberté, Luxembourg</div>
-            <span class="shift-badge badge-current">● Na lokaciji</span>
-          </div>
-        </div>
-
-        <div class="shift-item">
-          <div class="shift-time-col">
-            <div class="shift-time">11:30</div>
-          </div>
-          <div class="shift-dot next"></div>
-          <div class="shift-info">
-            <div class="shift-client">Sophie Bernard</div>
-            <div class="shift-addr">3 Rue des Romains, Luxembourg</div>
-            <span class="shift-badge badge-next">○ Naredno</span>
-          </div>
-        </div>
-
-      </div><!-- /card -->
-
-      <!-- Weekly hours summary -->
-      <div class="section-hdr">Ova sedmica</div>
-      <div class="card">
-        <div class="card-title">Sedmični sati</div>
-        <div style="display:flex;justify-content:space-between;align-items:baseline;">
-          <span style="font-size:32px;font-weight:800;color:var(--text)">28.50</span>
-          <span style="font-size:13px;color:var(--text2)">/ ~40 h</span>
-        </div>
-        <div style="margin-top:10px;height:6px;border-radius:3px;background:var(--border);">
-          <div style="width:71%;height:100%;border-radius:3px;background:var(--blue);"></div>
+      <div class="shift-row">
+        <div class="s-time">09:30</div>
+        <div class="s-dot now"></div>
+        <div class="s-body">
+          <div class="s-name">Jean Martin</div>
+          <div class="s-addr">45 Avenue de la Liberté, Luxembourg</div>
+          <span class="badge badge-now">● Na lokaciji</span>
         </div>
       </div>
+      <div class="shift-row">
+        <div class="s-time">11:30</div>
+        <div class="s-dot next"></div>
+        <div class="s-body">
+          <div class="s-name">Sophie Bernard</div>
+          <div class="s-addr">3 Rue des Romains, Luxembourg</div>
+          <span class="badge badge-next">○ Naredno</span>
+        </div>
+      </div>
+    </div>
 
-    </div><!-- /scroll -->
-  </div><!-- /s-home -->
+    <!-- Weekly summary -->
+    <div class="sec-hdr">Ova sedmica</div>
+    <div class="card">
+      <div class="card-lbl">Sedmični sati</div>
+      <div class="week-bar">
+        <div class="week-nums">
+          <span class="week-big">28.50</span>
+          <span class="week-of">/ ~40 h</span>
+        </div>
+        <div class="week-bar-track">
+          <div class="week-bar-fill" style="width:71%;"></div>
+        </div>
+      </div>
+    </div>
 
-  <!-- ═══════════ SCREEN 2: SEDMICA ═══════════ -->
+    <!-- Spacer so last card clears blur nav -->
+    <div style="height:8px;"></div>
+  </div>
+
+  <!-- ════════════════════════════════════════
+       SCREEN 2 — SEDMICA
+  ════════════════════════════════════════ -->
   <div class="screen" id="s-week">
-    <div class="hdr">
-      <div class="hdr-row">
-        <div>
-          <div class="hdr-title">Sedmica</div>
-          <div class="hdr-sub">26 maj – 1 jun 2026</div>
-        </div>
+
+    <div class="hdr" id="hdr-week">
+      <div class="hdr-inner">
+        <div class="hdr-title">Sedmica</div>
         <div style="display:flex;gap:6px;">
-          <button class="hdr-bell" style="font-size:20px;">‹</button>
-          <button class="hdr-bell" style="font-size:20px;">›</button>
+          <button class="hdr-bell" style="font-size:20px;font-weight:700;">‹</button>
+          <button class="hdr-bell" style="font-size:20px;font-weight:700;">›</button>
         </div>
       </div>
     </div>
-    <div class="scroll">
 
-      <!-- Monday -->
-      <div class="week-day">
-        <div class="week-day-hdr">Pon, 26. maj</div>
-        <div class="week-shift">
-          <div class="week-shift-accent green"></div>
-          <div class="week-shift-body">
-            <div class="week-shift-client">Marie Dupont</div>
-            <div class="week-shift-meta">12 Rue de la Gare · Završeno</div>
-          </div>
-          <div class="week-shift-time">07:30</div>
-        </div>
-        <div class="week-shift" style="margin-top:2px;">
-          <div class="week-shift-accent green"></div>
-          <div class="week-shift-body">
-            <div class="week-shift-client">Sophie Bernard</div>
-            <div class="week-shift-meta">3 Rue des Romains · Završeno</div>
-          </div>
-          <div class="week-shift-time">10:00</div>
-        </div>
-      </div>
+    <div class="day-hdr">Pon, 26. maj</div>
+    <div class="wshift"><div class="w-accent green"></div><div class="w-body"><div class="w-client">Marie Dupont</div><div class="w-meta">12 Rue de la Gare · Završeno</div></div><div class="w-time">07:30</div></div>
+    <div class="wshift" style="margin-top:2px;"><div class="w-accent green"></div><div class="w-body"><div class="w-client">Sophie Bernard</div><div class="w-meta">3 Rue des Romains · Završeno</div></div><div class="w-time">10:00</div></div>
 
-      <!-- Tuesday -->
-      <div class="week-day">
-        <div class="week-day-hdr">Uto, 27. maj</div>
-        <div class="week-shift">
-          <div class="week-shift-accent green"></div>
-          <div class="week-shift-body">
-            <div class="week-shift-client">Jean Martin</div>
-            <div class="week-shift-meta">45 Av. de la Liberté · Završeno</div>
-          </div>
-          <div class="week-shift-time">08:00</div>
-        </div>
-      </div>
+    <div class="day-hdr" style="margin-top:4px;">Uto, 27. maj</div>
+    <div class="wshift"><div class="w-accent green"></div><div class="w-body"><div class="w-client">Jean Martin</div><div class="w-meta">45 Av. de la Liberté · Završeno</div></div><div class="w-time">08:00</div></div>
 
-      <!-- Wednesday empty -->
-      <div class="week-day">
-        <div class="week-day-hdr" style="color:var(--border);">Sri, 28. maj — slobodan dan</div>
-      </div>
+    <div class="day-hdr" style="margin-top:4px;color:#cbd5e1;">Sri, 28. maj — slobodan dan</div>
 
-      <!-- Thursday -->
-      <div class="week-day">
-        <div class="week-day-hdr">Čet, 29. maj</div>
-        <div class="week-shift">
-          <div class="week-shift-accent green"></div>
-          <div class="week-shift-body">
-            <div class="week-shift-client">Pierre Durand</div>
-            <div class="week-shift-meta">8 Rue du Fort Wallis · Završeno</div>
-          </div>
-          <div class="week-shift-time">09:00</div>
-        </div>
-      </div>
+    <div class="day-hdr" style="margin-top:4px;">Čet, 29. maj</div>
+    <div class="wshift"><div class="w-accent green"></div><div class="w-body"><div class="w-client">Pierre Durand</div><div class="w-meta">8 Rue du Fort Wallis · Završeno</div></div><div class="w-time">09:00</div></div>
 
-      <!-- Friday — TODAY -->
-      <div class="week-day">
-        <div class="week-day-hdr today-hdr">Pet, 30. maj — DANAS</div>
-        <div class="week-shift today-shift">
-          <div class="week-shift-accent"></div>
-          <div class="week-shift-body">
-            <div class="week-shift-client">Marie Dupont</div>
-            <div class="week-shift-meta">12 Rue de la Gare · Završeno</div>
-          </div>
-          <div class="week-shift-time">07:30</div>
-        </div>
-        <div class="week-shift today-shift" style="margin-top:2px;">
-          <div class="week-shift-accent"></div>
-          <div class="week-shift-body">
-            <div class="week-shift-client">Jean Martin</div>
-            <div class="week-shift-meta">45 Av. de la Liberté · Na lokaciji</div>
-          </div>
-          <div class="week-shift-time">09:30</div>
-        </div>
-        <div class="week-shift today-shift" style="margin-top:2px;">
-          <div class="week-shift-accent gray"></div>
-          <div class="week-shift-body">
-            <div class="week-shift-client">Sophie Bernard</div>
-            <div class="week-shift-meta">3 Rue des Romains · Naredno</div>
-          </div>
-          <div class="week-shift-time">11:30</div>
-        </div>
-      </div>
+    <div class="day-hdr today" style="margin-top:4px;">Pet, 30. maj — DANAS</div>
+    <div class="wshift today"><div class="w-accent"></div><div class="w-body"><div class="w-client">Marie Dupont</div><div class="w-meta">12 Rue de la Gare · Završeno</div></div><div class="w-time">07:30</div></div>
+    <div class="wshift today" style="margin-top:2px;"><div class="w-accent"></div><div class="w-body"><div class="w-client">Jean Martin</div><div class="w-meta">45 Av. de la Liberté · Na lokaciji</div></div><div class="w-time">09:30</div></div>
+    <div class="wshift today" style="margin-top:2px;"><div class="w-accent gray"></div><div class="w-body"><div class="w-client">Sophie Bernard</div><div class="w-meta">3 Rue des Romains · Naredno</div></div><div class="w-time">11:30</div></div>
 
-      <!-- Weekend -->
-      <div class="week-day">
-        <div class="week-day-hdr" style="color:var(--border);">Sub–Ned — vikend</div>
-      </div>
+    <div class="day-hdr" style="margin-top:4px;color:#cbd5e1;">Sub – Ned — vikend</div>
+    <div style="height:8px;"></div>
+  </div>
 
-    </div><!-- /scroll -->
-  </div><!-- /s-week -->
-
-  <!-- ═══════════ SCREEN 3: DOKUMENTI ═══════════ -->
+  <!-- ════════════════════════════════════════
+       SCREEN 3 — DOKUMENTI
+  ════════════════════════════════════════ -->
   <div class="screen" id="s-docs">
-    <div class="hdr">
-      <div class="hdr-row">
+
+    <div class="hdr" id="hdr-docs">
+      <div class="hdr-inner">
         <div class="hdr-title">Dokumenti</div>
       </div>
     </div>
-    <div class="scroll">
 
-      <div class="doc-cat">Moji fajlovi</div>
-
-      <div class="doc-item">
-        <div class="doc-icon pdf">📄</div>
-        <div>
-          <div class="doc-name">Ugovor_Radnik.pdf</div>
-          <div class="doc-meta">Ugovori · 12. feb 2026 · 245 KB</div>
-        </div>
-        <span class="doc-arrow">›</span>
+    <div class="doc-cat">Moji fajlovi</div>
+    <div style="margin:0 16px 12px;border-radius:16px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.07),0 0 0 1px var(--border);">
+      <div class="doc-row">
+        <div class="doc-icon">📄</div>
+        <div class="doc-body"><div class="doc-name">Ugovor_Radnik.pdf</div><div class="doc-meta">Ugovori · 12. feb 2026 · 245 KB</div></div>
+        <span class="doc-arr">›</span>
       </div>
-
-      <div class="doc-item">
-        <div class="doc-icon word">📘</div>
-        <div>
-          <div class="doc-name">Pravila_kompanije.docx</div>
-          <div class="doc-meta">Ostalo · 03. jan 2026 · 88 KB</div>
-        </div>
-        <span class="doc-arrow">›</span>
+      <div class="doc-row">
+        <div class="doc-icon">📘</div>
+        <div class="doc-body"><div class="doc-name">Pravila_kompanije.docx</div><div class="doc-meta">Ostalo · 03. jan 2026 · 88 KB</div></div>
+        <span class="doc-arr">›</span>
       </div>
-
-      <div class="doc-cat" style="margin-top:8px;">Zajednički fajlovi</div>
-
-      <div class="doc-item">
-        <div class="doc-icon pdf">📄</div>
-        <div>
-          <div class="doc-name">Protokol_cistenja.pdf</div>
-          <div class="doc-meta">Ostalo · 15. mar 2026 · 512 KB</div>
-        </div>
-        <span class="doc-arrow">›</span>
-      </div>
-
-      <div class="doc-item">
-        <div class="doc-icon img">🖼️</div>
-        <div>
-          <div class="doc-name">Mapa_lokacija.jpg</div>
-          <div class="doc-meta">Klijenti · 20. apr 2026 · 1.2 MB</div>
-        </div>
-        <span class="doc-arrow">›</span>
-      </div>
-
-      <div class="doc-item">
-        <div class="doc-icon pdf">📄</div>
-        <div>
-          <div class="doc-name">Bezbjednost_na_radu.pdf</div>
-          <div class="doc-meta">Ostalo · 01. jan 2026 · 320 KB</div>
-        </div>
-        <span class="doc-arrow">›</span>
-      </div>
-
-    </div><!-- /scroll -->
-  </div><!-- /s-docs -->
-
-  <!-- ═══════════ SCREEN 4: PROFIL ═══════════ -->
-  <div class="screen" id="s-profile">
-    <div class="hdr">
-      <div class="hdr-title">Profil</div>
     </div>
-    <div class="scroll">
 
-      <!-- Avatar -->
-      <div class="profile-header">
-        <div class="profile-avatar">M</div>
-        <div class="profile-name">Marko Petrović</div>
-        <div class="profile-role">Radnik · Luxmann Services</div>
+    <div class="doc-cat">Zajednički fajlovi</div>
+    <div style="margin:0 16px 12px;border-radius:16px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.07),0 0 0 1px var(--border);">
+      <div class="doc-row">
+        <div class="doc-icon">📄</div>
+        <div class="doc-body"><div class="doc-name">Protokol_cistenja.pdf</div><div class="doc-meta">Ostalo · 15. mar 2026 · 512 KB</div></div>
+        <span class="doc-arr">›</span>
       </div>
-
-      <!-- Account section -->
-      <div class="doc-cat">Nalog</div>
-      <div class="menu-section">
-        <button class="menu-item">
-          <div class="menu-icon" style="background:#eff6ff;">🔐</div>
-          <span class="menu-label">Promijeni lozinku</span>
-          <span class="menu-arrow">›</span>
-        </button>
+      <div class="doc-row">
+        <div class="doc-icon">🖼️</div>
+        <div class="doc-body"><div class="doc-name">Mapa_lokacija.jpg</div><div class="doc-meta">Klijenti · 20. apr 2026 · 1.2 MB</div></div>
+        <span class="doc-arr">›</span>
       </div>
-
-      <!-- Preferences -->
-      <div class="doc-cat" style="margin-top:8px;">Podešavanja</div>
-      <div class="menu-section">
-        <button class="menu-item">
-          <div class="menu-icon" style="background:#f0fdf4;">🌐</div>
-          <span class="menu-label">Jezik aplikacije</span>
-          <div style="font-size:12px;color:var(--blue);font-weight:700;margin-right:4px;">FR</div>
-          <span class="menu-arrow">›</span>
-        </button>
-        <button class="menu-item">
-          <div class="menu-icon" style="background:#fefce8;">🎨</div>
-          <span class="menu-label">Tema prikaza</span>
-          <div style="font-size:12px;color:var(--text2);font-weight:600;margin-right:4px;">Svjetla</div>
-          <span class="menu-arrow">›</span>
-        </button>
+      <div class="doc-row">
+        <div class="doc-icon">📄</div>
+        <div class="doc-body"><div class="doc-name">Bezbjednost_na_radu.pdf</div><div class="doc-meta">Ostalo · 01. jan 2026 · 320 KB</div></div>
+        <span class="doc-arr">›</span>
       </div>
+    </div>
+    <div style="height:8px;"></div>
+  </div>
 
-      <!-- Absence request -->
-      <div class="doc-cat" style="margin-top:8px;">Odsustvo</div>
-      <div class="menu-section">
-        <button class="menu-item">
-          <div class="menu-icon" style="background:#fef3c7;">🌴</div>
-          <span class="menu-label">Zahtjev za odmor / bolovanje</span>
-          <span class="menu-arrow">›</span>
-        </button>
-        <button class="menu-item">
-          <div class="menu-icon" style="background:#f0fdf4;">📋</div>
-          <span class="menu-label">Moji zahtjevi</span>
-          <div style="width:20px;height:20px;border-radius:50%;background:var(--amber);color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-right:4px;">1</div>
-          <span class="menu-arrow">›</span>
-        </button>
+  <!-- ════════════════════════════════════════
+       SCREEN 4 — PROFIL
+  ════════════════════════════════════════ -->
+  <div class="screen" id="s-profile">
+
+    <div class="hdr" id="hdr-profile">
+      <div class="hdr-inner">
+        <div class="hdr-title">Profil</div>
       </div>
+    </div>
 
-      <!-- Logout -->
-      <div class="doc-cat" style="margin-top:8px;"></div>
-      <div class="menu-section">
-        <button class="menu-item danger">
-          <div class="menu-icon">🚪</div>
-          <span class="menu-label">Odjava</span>
-        </button>
-      </div>
+    <div class="profile-hero">
+      <div class="p-avatar">M</div>
+      <div class="p-name">Marko Petrović</div>
+      <div class="p-role">Radnik · Luxmann Services</div>
+    </div>
 
-      <div style="height:8px;"></div>
-    </div><!-- /scroll -->
-  </div><!-- /s-profile -->
+    <div class="doc-cat">Nalog</div>
+    <div class="menu-group">
+      <button class="menu-row">
+        <span class="m-icon">🔐</span>
+        <span class="m-label">Promijeni lozinku</span>
+        <span class="m-arr">›</span>
+      </button>
+    </div>
 
-  <!-- Bottom nav -->
-  <nav class="bottom-nav">
-    <button class="nav-btn active" id="nb-home" onclick="goScreen('home')">
-      <span class="nav-icon">🏠</span>
-      <span class="nav-label">Početno</span>
+    <div class="doc-cat" style="margin-top:4px;">Podešavanja</div>
+    <div class="menu-group">
+      <button class="menu-row">
+        <span class="m-icon">🌐</span>
+        <span class="m-label">Jezik aplikacije</span>
+        <span class="m-value">FR</span>
+        <span class="m-arr">›</span>
+      </button>
+      <button class="menu-row">
+        <span class="m-icon">🎨</span>
+        <span class="m-label">Tema prikaza</span>
+        <span class="m-value" style="color:var(--gray);">Svjetla</span>
+        <span class="m-arr">›</span>
+      </button>
+    </div>
+
+    <div class="doc-cat" style="margin-top:4px;">Odsustvo</div>
+    <div class="menu-group">
+      <button class="menu-row">
+        <span class="m-icon">🌴</span>
+        <span class="m-label">Zahtjev za odmor / bolovanje</span>
+        <span class="m-arr">›</span>
+      </button>
+      <button class="menu-row">
+        <span class="m-icon">📋</span>
+        <span class="m-label">Moji zahtjevi</span>
+        <div class="m-badge">1</div>
+        <span class="m-arr">›</span>
+      </button>
+    </div>
+
+    <div style="height:12px;"></div>
+    <div class="menu-group">
+      <button class="menu-row danger">
+        <span class="m-icon">🚪</span>
+        <span class="m-label">Odjava</span>
+      </button>
+    </div>
+    <div style="height:8px;"></div>
+  </div>
+
+  <!-- ════ BOTTOM NAV (frosted glass, transparent icons) ══════ -->
+  <nav class="bottom-nav" id="bnav">
+    <button class="nav-btn active" id="nb-home"    onclick="go('home')">
+      <span class="nav-icon">🏠</span><span class="nav-label">Početno</span>
     </button>
-    <button class="nav-btn" id="nb-week" onclick="goScreen('week')">
-      <span class="nav-icon">📅</span>
-      <span class="nav-label">Sedmica</span>
+    <button class="nav-btn"        id="nb-week"    onclick="go('week')">
+      <span class="nav-icon">📅</span><span class="nav-label">Sedmica</span>
     </button>
-    <button class="nav-btn" id="nb-docs" onclick="goScreen('docs')">
-      <span class="nav-icon">📄</span>
-      <span class="nav-label">Dokumenti</span>
+    <button class="nav-btn"        id="nb-docs"    onclick="go('docs')">
+      <span class="nav-icon">📄</span><span class="nav-label">Dokumenti</span>
     </button>
-    <button class="nav-btn" id="nb-profile" onclick="goScreen('profile')">
-      <span class="nav-icon">👤</span>
-      <span class="nav-label">Profil</span>
+    <button class="nav-btn"        id="nb-profile" onclick="go('profile')">
+      <span class="nav-icon">👤</span><span class="nav-label">Profil</span>
     </button>
   </nav>
 
 </div><!-- /phone -->
 </div><!-- /phone-wrap -->
 
-<div class="desktop-hint">
-  Mockup — klikni na ikone dole da vidiš svaki ekran &nbsp;·&nbsp;
-  Otvori na telefonu za pravo iskustvo
-</div>
+<div class="hint">Klikni na ikone za pregled svakog ekrana &nbsp;·&nbsp; Otvori na telefonu za pravo iskustvo scrollanja</div>
 
 <script>
-function goScreen(name) {
+/* Screen switching */
+function go(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('s-' + name).classList.add('active');
   document.getElementById('nb-' + name).classList.add('active');
 }
-</script>
 
+/* Desktop: pin fixed elements to the phone frame */
+function pinToPhone() {
+  var ph = document.getElementById('phone');
+  var r  = ph.getBoundingClientRect();
+  var w  = r.width + 'px';
+  var l  = r.left + 'px';
+  [document.getElementById('bnav'),
+   ...document.querySelectorAll('.hdr'),
+   document.querySelector('.notch')
+  ].forEach(function(el){
+    if (!el) return;
+    el.style.left  = l;
+    el.style.width = w;
+    el.style.transform = 'none';
+    el.style.maxWidth  = 'none';
+  });
+}
+
+if (window.innerWidth > 420) {
+  pinToPhone();
+  window.addEventListener('resize', pinToPhone);
+  window.addEventListener('scroll', pinToPhone);
+}
+</script>
 </body>
 </html>
