@@ -3449,6 +3449,23 @@ BASE_STYLE = """
     .wapp-menu-panel a:hover { background:{{ '#1e1e20' if dark else '#f1f5f9' }}; }
     .wapp-menu-panel span { width:34px; flex-shrink:0; text-align:center; font-size:13px; font-weight:900; }
     .wapp-menu-panel small { display:block; margin-top:2px; font-size:11px; font-weight:700; color:{{ '#94a3b8' if dark else '#64748b' }}; }
+    .wapp-leave-sheet {
+        display:none; position:fixed; inset:0; z-index:520;
+        background:rgba(0,0,0,.42);
+        align-items:flex-end;
+    }
+    .wapp-leave-sheet.open { display:flex; }
+    .wapp-leave-inner {
+        width:100%; max-height:86vh; overflow-y:auto;
+        border-radius:26px 26px 0 0;
+        padding:18px 18px calc(22px + env(safe-area-inset-bottom,0px));
+        background:{{ '#161618' if dark else 'rgba(255,255,255,.96)' }};
+        border-top:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};
+        box-shadow:0 -18px 50px rgba(0,0,0,.22);
+    }
+    .wapp-leave-inner h3 { margin:0 0 14px; }
+    .wapp-leave-close { float:right; width:36px; height:36px; border-radius:50%; border:none; background:{{ '#1e1e20' if dark else '#f1f5f9' }}; color:inherit; font-weight:900; }
+    .wapp-leave-inner input, .wapp-leave-inner select { width:100%; }
 
     /* ── Worker bottom nav — transparent, frosted bubbles ────── */
     .wapp-nav {
@@ -3511,17 +3528,6 @@ BASE_STYLE = """
     .wapp-hero-stat { border-radius:16px; padding:12px; background:rgba(255,255,255,.14); min-width:0; }
     .wapp-hero-val { font-size:23px; font-weight:900; line-height:1.1; }
     .wapp-hero-sub { font-size:11px; opacity:.78; margin-top:4px; }
-    .wapp-callout {
-        display:flex; align-items:center; justify-content:space-between; gap:12px;
-        border-radius:18px; padding:14px 16px;
-        background:{{ '#332b17' if dark else '#fff5cc' }};
-        border:1px solid {{ '#6b5520' if dark else '#fde68a' }};
-        color:{{ '#fde68a' if dark else '#92400e' }};
-        text-decoration:none;
-    }
-    .wapp-callout strong { color:{{ '#fde68a' if dark else '#92400e' }}; }
-    .wapp-callout small { display:block; margin-top:2px; opacity:.78; }
-    .wapp-callout .send { background:#d97706; color:white; border-radius:999px; padding:8px 13px; font-weight:800; font-size:12px; white-space:nowrap; }
     .wapp-sec { font-size:11px; font-weight:900; text-transform:uppercase; letter-spacing:.08em; color:{{ '#94a3b8' if dark else '#64748b' }}; margin:16px 0 4px; }
     .wapp-list-card {
         border-radius:20px;
@@ -3549,6 +3555,50 @@ BASE_STYLE = """
     .wapp-mini-card span { font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; font-weight:700; }
     .wapp-form-card { border-radius:20px; padding:16px; background:{{ '#161618' if dark else 'white' }}; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; box-shadow:0 4px 14px rgba(0,0,0,.07); }
     .wapp-form-card h3 { margin-top:0; }
+    .wapp-week-shell { display:flex; flex-direction:column; gap:14px; }
+    .wapp-date-strip {
+        display:flex; gap:10px; overflow-x:auto; overflow-y:hidden;
+        padding:2px 2px 10px; margin:0 -2px;
+        -webkit-overflow-scrolling:touch; scrollbar-width:none;
+        scroll-snap-type:x proximity;
+    }
+    .wapp-date-strip::-webkit-scrollbar,
+    .wapp-day-panel:not(.active) { display:none; }
+    .wapp-date-bubble {
+        flex:0 0 auto; width:58px; height:58px; border-radius:22px;
+        border:1px solid {{ 'rgba(255,255,255,.22)' if dark else 'rgba(255,255,255,.78)' }};
+        background:{{ 'rgba(255,255,255,.10)' if dark else 'rgba(255,255,255,.50)' }};
+        backdrop-filter:blur(16px) saturate(170%);
+        -webkit-backdrop-filter:blur(16px) saturate(170%);
+        color:{{ '#e5e7eb' if dark else '#1e293b' }};
+        box-shadow:0 8px 24px rgba(0,0,0,.10), inset 0 1px 0 rgba(255,255,255,.24);
+        font-size:21px; font-weight:900; cursor:pointer;
+        scroll-snap-align:center;
+    }
+    .wapp-date-bubble.active {
+        background:rgba(37,99,235,.22);
+        border-color:rgba(37,99,235,.42);
+        color:{{ '#bfdbfe' if dark else '#1d4ed8' }};
+    }
+    .wapp-week-shifts {
+        display:flex; gap:12px; overflow-x:auto; overflow-y:hidden;
+        padding:2px 2px 12px; margin:0 -2px;
+        -webkit-overflow-scrolling:touch; scrollbar-width:none;
+        scroll-snap-type:x mandatory;
+    }
+    .wapp-week-shifts::-webkit-scrollbar { display:none; }
+    .wapp-week-card {
+        flex:0 0 min(84vw, 360px);
+        scroll-snap-align:start;
+        border-radius:22px; padding:16px;
+        background:{{ '#161618' if dark else 'white' }};
+        border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};
+        box-shadow:0 6px 18px rgba(0,0,0,.08);
+    }
+    .wapp-week-time { font-size:24px; font-weight:900; color:{{ '#e5e7eb' if dark else '#1e293b' }}; }
+    .wapp-week-client { margin-top:10px; font-size:17px; font-weight:900; color:{{ '#e5e7eb' if dark else '#1e293b' }}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .wapp-week-worker { margin-top:6px; font-size:12px; color:{{ '#94a3b8' if dark else '#64748b' }}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .wapp-empty-day { border-radius:22px; padding:22px; text-align:center; background:{{ '#161618' if dark else 'white' }}; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; color:{{ '#94a3b8' if dark else '#64748b' }}; font-weight:800; }
     body.wapp input, body.wapp select, body.wapp button,
     body.wapp .settings-sheet input, body.wapp .settings-sheet select,
     body.wapp .settings-sheet button, body.wapp .settings-pill,
@@ -3777,7 +3827,7 @@ def header_html():
           {% else %}{{ tr.get("today_shifts","Danas") }}{% endif %}
         </div>
         <div class="wapp-page-sub">
-          {% if request.path == '/week' %}{{ tr.get("week_calendar","Sedmicni kalendar") }}
+          {% if request.path == '/week' %}{{ session.get('user') }}
           {% elif request.path == '/route_optimizer' %}Google Maps
           {% else %}{{ tr.get("logged_as","Prijavljen") }}: {{ session.get('user') }}{% endif %}
         </div>
@@ -3785,7 +3835,7 @@ def header_html():
       <div class="wapp-menu-wrap">
         <button class="wapp-menu-btn" type="button" onclick="toggleWorkerMenu(event)" aria-expanded="false" aria-controls="wappMenu" aria-label="{{ tr.get('nav_tools','Alati') }}">☰</button>
         <div class="wapp-menu-panel" id="wappMenu">
-          <a href="/#wapp-leave" onclick="closeWorkerMenu()"><span>☀</span><div>{{ tr.get("leave_request","Zahtjev za odsustvo") }}<small>{{ tr.get("leave_send","Posalji zahtjev") }}</small></div></a>
+          <a href="javascript:void(0)" onclick="closeWorkerMenu();openWorkerLeaveSheet();"><span>☀</span><div>{{ tr.get("leave_request","Zahtjev za odsustvo") }}<small>{{ tr.get("leave_send","Posalji zahtjev") }}</small></div></a>
           <a href="/week_pdf" target="_blank" rel="noopener" onclick="closeWorkerMenu()"><span>PDF</span><div>{{ tr.get("week_calendar","Sedmicni kalendar") }}<small>{{ tr.get("download","Preuzmi") }}</small></div></a>
           <a href="/month_pdf" target="_blank" rel="noopener" onclick="closeWorkerMenu()"><span>PDF</span><div>{{ tr.get("month_calendar","Mjesecni kalendar") }}<small>{{ tr.get("download","Preuzmi") }}</small></div></a>
         </div>
@@ -3805,6 +3855,25 @@ def header_html():
         <span class="wapp-bubble"><span class="wb-icon">👤</span><span class="wb-label">{{ tr.get("nav_settings","Postavke") }}</span></span>
       </button>
     </nav>
+    <div class="wapp-leave-sheet" id="wappLeaveSheet" onclick="if(event.target===this)closeWorkerLeaveSheet();">
+      <div class="wapp-leave-inner">
+        <button class="wapp-leave-close" type="button" onclick="closeWorkerLeaveSheet()">×</button>
+        <h3>{{ tr.get("leave_request","Zahtjev za odsustvo") }}</h3>
+        <form method="post" action="/leave_request">
+          <select name="type">
+            <option value="vacation">{{ tr["leave_type_vacation"] }}</option>
+            <option value="sick">{{ tr["leave_type_sick"] }}</option>
+            <option value="other">{{ tr["leave_type_other"] }}</option>
+          </select>
+          <label>{{ tr["leave_date_from"] }}</label>
+          <input type="date" name="date_from" required>
+          <label>{{ tr["leave_date_to"] }}</label>
+          <input type="date" name="date_to" required>
+          <input type="text" name="note" placeholder="{{ tr['leave_note'] }}">
+          <button>{{ tr["leave_send"] }}</button>
+        </form>
+      </div>
+    </div>
     <script>
     function toggleWorkerMenu(ev){
       if(ev) ev.stopPropagation();
@@ -3821,12 +3890,20 @@ def header_html():
       if(menu) menu.classList.remove('open');
       if(btn) btn.setAttribute('aria-expanded', 'false');
     }
+    function openWorkerLeaveSheet(){
+      var sheet = document.getElementById('wappLeaveSheet');
+      if(sheet) sheet.classList.add('open');
+    }
+    function closeWorkerLeaveSheet(){
+      var sheet = document.getElementById('wappLeaveSheet');
+      if(sheet) sheet.classList.remove('open');
+    }
     document.addEventListener('click', function(ev){
       var wrap = document.querySelector('.wapp-menu-wrap');
       if(wrap && !wrap.contains(ev.target)) closeWorkerMenu();
     });
     document.addEventListener('keydown', function(ev){
-      if(ev.key === 'Escape') closeWorkerMenu();
+      if(ev.key === 'Escape'){ closeWorkerMenu(); closeWorkerLeaveSheet(); }
     });
     </script>
     {% endif %}
@@ -4388,11 +4465,6 @@ def index():
                     </div>
                 </section>
 
-                <a class="wapp-callout" href="#wapp-leave">
-                    <span style="flex:1;"><strong>{{ tr.get("leave_request","Zahtjev za odsustvo") }}</strong><small>{{ tr.get("leave_send","Pošalji zahtjev") }}</small></span>
-                    <span class="send">{{ tr.get("leave_send","Pošalji") }}</span>
-                </a>
-
                 <div class="wapp-sec">{{ tr.get("today_shifts","Današnje smjene") }}</div>
                 <section class="wapp-list-card">
                     {% if worker_today_shifts %}
@@ -4442,31 +4514,6 @@ def index():
                     {% endif %}
                 </section>
 
-                <section class="wapp-form-card" id="wapp-leave">
-                    <h3>{{ tr.get("leave_request","Zahtjev za odsustvo") }}</h3>
-                    <form method="post" action="/leave_request">
-                        <select name="type">
-                            <option value="vacation">{{ tr["leave_type_vacation"] }}</option>
-                            <option value="sick">{{ tr["leave_type_sick"] }}</option>
-                            <option value="other">{{ tr["leave_type_other"] }}</option>
-                        </select>
-                        <label>{{ tr["leave_date_from"] }}</label>
-                        <input type="date" name="date_from" required>
-                        <label>{{ tr["leave_date_to"] }}</label>
-                        <input type="date" name="date_to" required>
-                        <input type="text" name="note" placeholder="{{ tr['leave_note'] }}">
-                        <button>{{ tr["leave_send"] }}</button>
-                    </form>
-                    {% if my_leave_requests %}
-                    <div class="wapp-sec" style="margin-top:14px;">{{ tr["leave_my_requests"] }}</div>
-                    {% for r in my_leave_requests[:3] %}
-                    <div class="wapp-address" style="padding:8px 0;border-top:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};">
-                        <b>{{ tr.get('leave_type_' + r[2], r[2]) }}</b> · {{ format_date(r[3]) }} → {{ format_date(r[4]) }}
-                        <span style="float:right;font-weight:800;">{% if r[6]=='approved' %}{{ tr["leave_approved"] }}{% elif r[6]=='rejected' %}{{ tr["leave_rejected"] }}{% else %}{{ tr["leave_pending"] }}{% endif %}</span>
-                    </div>
-                    {% endfor %}
-                    {% endif %}
-                </section>
             </div>
             {% else %}
             {% if is_admin %}<div class="hero">
@@ -4839,8 +4886,67 @@ def week_view():
     workers = c.execute("SELECT name FROM workers ORDER BY name").fetchall()
     conn.close()
     day_names = [tr["monday"], tr["tuesday"], tr["wednesday"], tr["thursday"], tr["friday"], tr["saturday"], tr["sunday"]]
+    today_iso = datetime.today().strftime("%Y-%m-%d")
+    selected_week_day = request.args.get("day", "").strip()
+    if selected_week_day not in week_days:
+        selected_week_day = today_iso if today_iso in week_days else week_days[0]
+    day_shift_counts = {day: len([s for s in shifts if s[3] == day]) for day in week_days}
 
     return render_template_string(BASE_STYLE + header_html() + """
+    {% if not is_admin %}
+    <div class="page-content">
+      <div class="wapp-week-shell">
+        <div class="wapp-date-strip" id="wappDateStrip" aria-label="{{ tr.get('week_calendar','Sedmicni kalendar') }}">
+          {% for day in week_days %}
+          <button type="button" class="wapp-date-bubble {% if day == selected_week_day %}active{% endif %}" data-day="{{ day }}" onclick="selectWappDay('{{ day }}', this)" aria-label="{{ format_date(day) }}">
+            {{ day[8:10] }}
+          </button>
+          {% endfor %}
+        </div>
+        <div class="wapp-day-panels">
+          {% for day in week_days %}
+          <section class="wapp-day-panel {% if day == selected_week_day %}active{% endif %}" id="wappDay{{ day|replace('-', '') }}">
+            {% if day_shift_counts.get(day, 0) > 0 %}
+            <div class="wapp-week-shifts">
+              {% for s in shifts %}
+                {% if s[3] == day %}
+                {% set auto_status = get_auto_status(s[3], s[4]) %}
+                <article class="wapp-week-card">
+                  <div class="wapp-week-time">{{ s[4] }}</div>
+                  <div class="wapp-week-client">{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}</div>
+                  <div class="wapp-week-worker">{{ s[1] }}</div>
+                  <span class="wapp-status-badge">{{ get_status_label(auto_status, tr) }}</span>
+                </article>
+                {% endif %}
+              {% endfor %}
+            </div>
+            {% else %}
+            <div class="wapp-empty-day">{{ tr["no_shifts"] }}</div>
+            {% endif %}
+          </section>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    <script>
+    function selectWappDay(day, btn){
+      document.querySelectorAll('.wapp-date-bubble').forEach(function(b){ b.classList.remove('active'); });
+      if(btn) btn.classList.add('active');
+      document.querySelectorAll('.wapp-day-panel').forEach(function(p){ p.classList.remove('active'); });
+      var panel = document.getElementById('wappDay' + day.split('-').join(''));
+      if(panel){
+        panel.classList.add('active');
+        var scroller = panel.querySelector('.wapp-week-shifts');
+        if(scroller) scroller.scrollTo({left:0, behavior:'smooth'});
+      }
+      if(btn) btn.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'});
+    }
+    document.addEventListener('DOMContentLoaded', function(){
+      var active = document.querySelector('.wapp-date-bubble.active');
+      if(active) active.scrollIntoView({inline:'center', block:'nearest'});
+    });
+    </script>
+    {% else %}
     <h1>{{ tr["week_calendar"] }}</h1>
     <div>
         <a class="back-button" href="/">{{ tr["back"] }}</a>
@@ -4950,7 +5056,8 @@ def week_view():
       }
     });
     </script>
-    """, tr=tr, dark=dark, week_days=week_days, shifts=shifts, worker_colors=worker_colors, client_cities=client_cities, format_date=format_date, holidays_map=holidays_map, day_names=day_names, status_colors=STATUS_COLORS, get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers, is_weekend=is_weekend, is_admin=is_admin, prev_week=prev_week, next_week=next_week, current_week=current_week, start_year=start_week.year, start_month=start_week.month, workers=workers, clients=clients, time_hours=time_hours())
+    {% endif %}
+    """, tr=tr, dark=dark, week_days=week_days, shifts=shifts, worker_colors=worker_colors, client_cities=client_cities, format_date=format_date, holidays_map=holidays_map, day_names=day_names, status_colors=STATUS_COLORS, get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers, is_weekend=is_weekend, is_admin=is_admin, prev_week=prev_week, next_week=next_week, current_week=current_week, start_year=start_week.year, start_month=start_week.month, workers=workers, clients=clients, time_hours=time_hours(), selected_week_day=selected_week_day, day_shift_counts=day_shift_counts)
 
 
 @app.route("/month")

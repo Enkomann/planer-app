@@ -239,20 +239,22 @@ html, body {
 .marr   { color:#cbd5e1; font-size:16px; }
 .mrow.danger .mlbl { color:var(--red); }
 
-/* Absence shortcut */
-.abscard { display:flex; align-items:center; gap:12px; background:var(--amber-lt); border:1px solid #fde68a; border-radius:16px; margin:0 16px 12px; padding:13px 14px; }
-.absico  { font-size:24px; }
-.absbody { flex:1; }
-.abstit  { font-size:13px; font-weight:700; color:#92400e; }
-.abssub  { font-size:11px; color:#92400e; opacity:.8; margin-top:1px; }
-.absbtn  { background:var(--amber); color:#fff; border:none; border-radius:9px; padding:7px 12px; font-size:12px; font-weight:700; cursor:pointer; flex-shrink:0; }
-
 /* Weekly bar */
 .wbar-nums { display:flex; justify-content:space-between; align-items:baseline; }
 .wbar-big  { font-size:34px; font-weight:800; color:var(--text); }
 .wbar-of   { font-size:13px; color:var(--text2); }
 .wbar-track { height:6px; border-radius:3px; background:var(--border); overflow:hidden; margin-top:10px; }
 .wbar-fill  { height:100%; border-radius:3px; background:var(--blue); }
+.date-strip { display:flex; gap:10px; overflow-x:auto; padding:2px 16px 12px; scrollbar-width:none; }
+.date-strip::-webkit-scrollbar, .day-panel:not(.active) { display:none; }
+.date-bubble { flex:0 0 auto; width:58px; height:58px; border-radius:22px; border:1px solid var(--glass-border); background:var(--glass-bg); backdrop-filter:blur(16px) saturate(170%); -webkit-backdrop-filter:blur(16px) saturate(170%); color:var(--text); font-size:21px; font-weight:900; box-shadow:0 8px 24px rgba(0,0,0,.10), inset 0 1px 0 rgba(255,255,255,.24); }
+.date-bubble.active { background:rgba(37,99,235,.22); color:var(--blue-dk); }
+.week-shifts { display:flex; gap:12px; overflow-x:auto; padding:2px 16px 12px; scroll-snap-type:x mandatory; scrollbar-width:none; }
+.week-shifts::-webkit-scrollbar { display:none; }
+.week-card { flex:0 0 84%; scroll-snap-align:start; border-radius:22px; padding:16px; background:white; border:1px solid var(--border); box-shadow:0 6px 18px rgba(0,0,0,.08); }
+.week-time { font-size:24px; font-weight:900; color:var(--text); }
+.week-client { margin-top:10px; font-size:17px; font-weight:900; color:var(--text); }
+.week-worker { margin-top:6px; font-size:12px; color:var(--text2); }
 
 /* Desktop hint */
 .hint { display:none; }
@@ -295,11 +297,6 @@ html, body {
       </div>
     </div>
 
-    <div class="abscard">
-      <div class="absbody"><div class="abstit">Odmor / Odsustvo</div><div class="abssub">Pošalji zahtjev za slobodan dan</div></div>
-      <button class="absbtn">Pošalji</button>
-    </div>
-
     <div class="sec">Današnje smjene</div>
     <div class="card">
       <div class="srow">
@@ -329,24 +326,16 @@ html, body {
        SCREEN: SEDMICA
   ════════════════════════ -->
   <div class="screen" id="s-week">
-    <div class="dhdr">Pon, 26. maj</div>
-    <div class="ws"><div class="wa g"></div><div class="wbody"><div class="wcl">Marie Dupont</div><div class="wme">12 Rue de la Gare · Završeno</div></div><div class="wt">07:30</div></div>
-    <div class="ws" style="margin-top:2px;"><div class="wa g"></div><div class="wbody"><div class="wcl">Sophie Bernard</div><div class="wme">3 Rue des Romains · Završeno</div></div><div class="wt">10:00</div></div>
-
-    <div class="dhdr" style="margin-top:4px;">Uto, 27. maj</div>
-    <div class="ws"><div class="wa g"></div><div class="wbody"><div class="wcl">Jean Martin</div><div class="wme">45 Av. de la Liberté · Završeno</div></div><div class="wt">08:00</div></div>
-
-    <div class="dhdr" style="margin-top:4px;color:#cbd5e1;">Sri, 28. maj — slobodan dan</div>
-
-    <div class="dhdr" style="margin-top:4px;">Čet, 29. maj</div>
-    <div class="ws"><div class="wa g"></div><div class="wbody"><div class="wcl">Pierre Durand</div><div class="wme">8 Rue du Fort Wallis · Završeno</div></div><div class="wt">09:00</div></div>
-
-    <div class="dhdr today" style="margin-top:4px;">Pet, 30. maj — DANAS</div>
-    <div class="ws today"><div class="wa"></div><div class="wbody"><div class="wcl">Marie Dupont</div><div class="wme">12 Rue de la Gare · Završeno</div></div><div class="wt">07:30</div></div>
-    <div class="ws today" style="margin-top:2px;"><div class="wa"></div><div class="wbody"><div class="wcl">Jean Martin</div><div class="wme">45 Av. de la Liberté · Na lokaciji</div></div><div class="wt">09:30</div></div>
-    <div class="ws today" style="margin-top:2px;"><div class="wa x"></div><div class="wbody"><div class="wcl">Sophie Bernard</div><div class="wme">3 Rue des Romains · Naredno</div></div><div class="wt">11:30</div></div>
-
-    <div class="dhdr" style="margin-top:4px;color:#cbd5e1;">Sub – Ned — vikend</div>
+    <div class="date-strip">
+      <button class="date-bubble">26</button><button class="date-bubble">27</button><button class="date-bubble">28</button><button class="date-bubble">29</button><button class="date-bubble active">30</button><button class="date-bubble">31</button><button class="date-bubble">01</button>
+    </div>
+    <div class="day-panel active">
+      <div class="week-shifts">
+        <article class="week-card"><div class="week-time">07:30 - 09:00</div><div class="week-client">Marie Dupont</div><div class="week-worker">Marko Petrovic · Zavrseno</div></article>
+        <article class="week-card"><div class="week-time">09:30 - 11:00</div><div class="week-client">Jean Martin</div><div class="week-worker">Marko Petrovic · Na lokaciji</div></article>
+        <article class="week-card"><div class="week-time">11:30 - 13:00</div><div class="week-client">Sophie Bernard</div><div class="week-worker">Marko Petrovic · Naredno</div></article>
+      </div>
+    </div>
     <div style="height:6px;"></div>
   </div>
 
