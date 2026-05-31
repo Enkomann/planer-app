@@ -245,6 +245,7 @@ html, body {
 .wbar-of   { font-size:13px; color:var(--text2); }
 .wbar-track { height:6px; border-radius:3px; background:var(--border); overflow:hidden; margin-top:10px; }
 .wbar-fill  { height:100%; border-radius:3px; background:var(--blue); }
+.month-label { display:inline-flex; margin:0 16px; padding:6px 12px; border-radius:999px; background:rgba(255,255,255,.55); border:1px solid rgba(255,255,255,.75); color:var(--text2); box-shadow:0 6px 18px rgba(0,0,0,.08), inset 0 1px 0 rgba(255,255,255,.22); font-size:12px; font-weight:900; }
 .date-strip { display:flex; gap:10px; overflow-x:auto; padding:2px 16px 12px; scrollbar-width:none; }
 .date-strip::-webkit-scrollbar, .day-panel:not(.active) { display:none; }
 .date-bubble { flex:0 0 auto; width:58px; height:58px; border-radius:22px; border:1px solid var(--glass-border); background:var(--glass-bg); backdrop-filter:blur(16px) saturate(170%); -webkit-backdrop-filter:blur(16px) saturate(170%); color:var(--text); font-size:21px; font-weight:900; box-shadow:0 8px 24px rgba(0,0,0,.10), inset 0 1px 0 rgba(255,255,255,.24); }
@@ -326,8 +327,9 @@ html, body {
        SCREEN: SEDMICA
   ════════════════════════ -->
   <div class="screen" id="s-week">
+    <div class="month-label" id="mockMonthLabel">Maj 2026</div>
     <div class="date-strip">
-      <button class="date-bubble">26</button><button class="date-bubble">27</button><button class="date-bubble">28</button><button class="date-bubble">29</button><button class="date-bubble active">30</button><button class="date-bubble">31</button><button class="date-bubble">01</button>
+      <button class="date-bubble">19</button><button class="date-bubble">20</button><button class="date-bubble">21</button><button class="date-bubble">22</button><button class="date-bubble">23</button><button class="date-bubble">24</button><button class="date-bubble">25</button><button class="date-bubble">26</button><button class="date-bubble">27</button><button class="date-bubble">28</button><button class="date-bubble">29</button><button class="date-bubble active">30</button><button class="date-bubble">31</button><button class="date-bubble">01</button><button class="date-bubble">02</button><button class="date-bubble">03</button><button class="date-bubble">04</button><button class="date-bubble">05</button><button class="date-bubble">06</button><button class="date-bubble">07</button><button class="date-bubble">08</button>
     </div>
     <div class="day-panel active">
       <div class="week-shifts">

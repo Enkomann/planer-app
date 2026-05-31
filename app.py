@@ -3556,6 +3556,15 @@ BASE_STYLE = """
     .wapp-form-card { border-radius:20px; padding:16px; background:{{ '#161618' if dark else 'white' }}; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; box-shadow:0 4px 14px rgba(0,0,0,.07); }
     .wapp-form-card h3 { margin-top:0; }
     .wapp-week-shell { display:flex; flex-direction:column; gap:14px; }
+    .wapp-month-label {
+        display:inline-flex; align-self:flex-start;
+        padding:6px 12px; border-radius:999px;
+        background:{{ 'rgba(255,255,255,.08)' if dark else 'rgba(255,255,255,.55)' }};
+        border:1px solid {{ 'rgba(255,255,255,.16)' if dark else 'rgba(255,255,255,.75)' }};
+        color:{{ '#94a3b8' if dark else '#64748b' }};
+        box-shadow:0 6px 18px rgba(0,0,0,.08), inset 0 1px 0 rgba(255,255,255,.22);
+        font-size:12px; font-weight:900;
+    }
     .wapp-date-strip {
         display:flex; gap:10px; overflow-x:auto; overflow-y:hidden;
         padding:2px 2px 10px; margin:0 -2px;
@@ -4876,10 +4885,14 @@ def week_view():
     c = conn.cursor()
     worker_colors = get_worker_colors(conn)
     week_days = [(start_week + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
-    shifts = c.execute("SELECT * FROM shifts WHERE date >= ? AND date <= ? ORDER BY date, time, id", (week_days[0], week_days[-1])).fetchall()
+    worker_days_dt = [start_week - timedelta(days=7) + timedelta(days=i) for i in range(21)]
+    worker_days = [d.strftime("%Y-%m-%d") for d in worker_days_dt]
+    query_start, query_end = (worker_days[0], worker_days[-1]) if not is_admin else (week_days[0], week_days[-1])
+    shifts = c.execute("SELECT * FROM shifts WHERE date >= ? AND date <= ? ORDER BY date, time, id", (query_start, query_end)).fetchall()
     if not is_admin:
         shifts = [s for s in shifts if worker_in_shift(current_user, s[1])]
-    holidays_map = get_all_holidays(conn, {start_week.year, week_end.year})
+    holiday_years = {d.year for d in worker_days_dt} | {start_week.year, week_end.year}
+    holidays_map = get_all_holidays(conn, holiday_years)
     clients_raw = c.execute("SELECT name, address FROM clients ORDER BY name").fetchall()
     client_cities = client_city_map(clients_raw)
     clients = clients_raw
@@ -4888,23 +4901,25 @@ def week_view():
     day_names = [tr["monday"], tr["tuesday"], tr["wednesday"], tr["thursday"], tr["friday"], tr["saturday"], tr["sunday"]]
     today_iso = datetime.today().strftime("%Y-%m-%d")
     selected_week_day = request.args.get("day", "").strip()
-    if selected_week_day not in week_days:
-        selected_week_day = today_iso if today_iso in week_days else week_days[0]
-    day_shift_counts = {day: len([s for s in shifts if s[3] == day]) for day in week_days}
+    if selected_week_day not in worker_days:
+        selected_week_day = today_iso if today_iso in worker_days else week_days[0]
+    day_shift_counts = {day: len([s for s in shifts if s[3] == day]) for day in worker_days}
+    day_month_labels = {d.strftime("%Y-%m-%d"): format_month_year(d.year, d.month) for d in worker_days_dt}
 
     return render_template_string(BASE_STYLE + header_html() + """
     {% if not is_admin %}
     <div class="page-content">
       <div class="wapp-week-shell">
+        <div class="wapp-month-label" id="wappMonthLabel">{{ day_month_labels.get(selected_week_day, "") }}</div>
         <div class="wapp-date-strip" id="wappDateStrip" aria-label="{{ tr.get('week_calendar','Sedmicni kalendar') }}">
-          {% for day in week_days %}
-          <button type="button" class="wapp-date-bubble {% if day == selected_week_day %}active{% endif %}" data-day="{{ day }}" onclick="selectWappDay('{{ day }}', this)" aria-label="{{ format_date(day) }}">
+          {% for day in worker_days %}
+          <button type="button" class="wapp-date-bubble {% if day == selected_week_day %}active{% endif %}" data-day="{{ day }}" data-month="{{ day_month_labels.get(day, '') }}" onclick="selectWappDay('{{ day }}', this)" aria-label="{{ format_date(day) }}">
             {{ day[8:10] }}
           </button>
           {% endfor %}
         </div>
         <div class="wapp-day-panels">
-          {% for day in week_days %}
+          {% for day in worker_days %}
           <section class="wapp-day-panel {% if day == selected_week_day %}active{% endif %}" id="wappDay{{ day|replace('-', '') }}">
             {% if day_shift_counts.get(day, 0) > 0 %}
             <div class="wapp-week-shifts">
@@ -4932,6 +4947,8 @@ def week_view():
     function selectWappDay(day, btn){
       document.querySelectorAll('.wapp-date-bubble').forEach(function(b){ b.classList.remove('active'); });
       if(btn) btn.classList.add('active');
+      var monthLabel = document.getElementById('wappMonthLabel');
+      if(monthLabel && btn && btn.dataset.month) monthLabel.textContent = btn.dataset.month;
       document.querySelectorAll('.wapp-day-panel').forEach(function(p){ p.classList.remove('active'); });
       var panel = document.getElementById('wappDay' + day.split('-').join(''));
       if(panel){
@@ -4944,6 +4961,29 @@ def week_view():
     document.addEventListener('DOMContentLoaded', function(){
       var active = document.querySelector('.wapp-date-bubble.active');
       if(active) active.scrollIntoView({inline:'center', block:'nearest'});
+      var strip = document.getElementById('wappDateStrip');
+      var monthLabel = document.getElementById('wappMonthLabel');
+      var ticking = false;
+      function updateMonthFromScroll(){
+        if(!strip || !monthLabel) return;
+        var buttons = Array.prototype.slice.call(strip.querySelectorAll('.wapp-date-bubble'));
+        if(!buttons.length) return;
+        var center = strip.getBoundingClientRect().left + strip.clientWidth / 2;
+        var closest = buttons.reduce(function(best, btn){
+          var rect = btn.getBoundingClientRect();
+          var dist = Math.abs((rect.left + rect.width / 2) - center);
+          return (!best || dist < best.dist) ? {btn:btn, dist:dist} : best;
+        }, null);
+        if(closest && closest.btn.dataset.month) monthLabel.textContent = closest.btn.dataset.month;
+      }
+      if(strip){
+        strip.addEventListener('scroll', function(){
+          if(ticking) return;
+          ticking = true;
+          window.requestAnimationFrame(function(){ updateMonthFromScroll(); ticking = false; });
+        }, {passive:true});
+        updateMonthFromScroll();
+      }
     });
     </script>
     {% else %}
@@ -5057,7 +5097,7 @@ def week_view():
     });
     </script>
     {% endif %}
-    """, tr=tr, dark=dark, week_days=week_days, shifts=shifts, worker_colors=worker_colors, client_cities=client_cities, format_date=format_date, holidays_map=holidays_map, day_names=day_names, status_colors=STATUS_COLORS, get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers, is_weekend=is_weekend, is_admin=is_admin, prev_week=prev_week, next_week=next_week, current_week=current_week, start_year=start_week.year, start_month=start_week.month, workers=workers, clients=clients, time_hours=time_hours(), selected_week_day=selected_week_day, day_shift_counts=day_shift_counts)
+    """, tr=tr, dark=dark, week_days=week_days, worker_days=worker_days, shifts=shifts, worker_colors=worker_colors, client_cities=client_cities, format_date=format_date, holidays_map=holidays_map, day_names=day_names, status_colors=STATUS_COLORS, get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers, is_weekend=is_weekend, is_admin=is_admin, prev_week=prev_week, next_week=next_week, current_week=current_week, start_year=start_week.year, start_month=start_week.month, workers=workers, clients=clients, time_hours=time_hours(), selected_week_day=selected_week_day, day_shift_counts=day_shift_counts, day_month_labels=day_month_labels)
 
 
 @app.route("/month")
