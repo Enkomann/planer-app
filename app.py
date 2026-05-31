@@ -4449,7 +4449,7 @@ def week_view():
     <h1>{{ tr["week_calendar"] }}</h1>
     <div>
         <a class="back-button" href="/">{{ tr["back"] }}</a>
-        <a href="/month?year={{ start_year }}&month={{ start_month }}">{{ tr["month_calendar"] }}</a>
+        {% if session.get('role') == 'admin' %}<a href="/month?year={{ start_year }}&month={{ start_month }}">{{ tr["month_calendar"] }}</a>{% endif %}
         <a class="pdf-link" href="/week_pdf?start={{ week_days[0] }}" target="_blank">PDF {{ tr["week_calendar"] }}</a>
     </div>
     <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin:16px 0; flex-wrap:wrap;">
@@ -4562,6 +4562,8 @@ def week_view():
 def month_view():
     if "user" not in session:
         return redirect("/login")
+    if session.get("role") != "admin":
+        return redirect("/")
     tr = t(); dark = get_theme() == "dark"; is_admin = session.get("role") == "admin"; current_user = session.get("user"); copied_shift_id = session.get("copied_shift_id")
     year = request.args.get("year", type=int) or datetime.today().year
     month = request.args.get("month", type=int) or datetime.today().month
