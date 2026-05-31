@@ -2929,7 +2929,7 @@ init_db()
 
 
 BASE_STYLE = """
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Luxmann">
@@ -2938,7 +2938,8 @@ BASE_STYLE = """
 <link rel="manifest" href="/manifest.json">
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(function(){});}</script>
 <style>
-    body { font-family: Arial, sans-serif; margin:24px; background: {{ '#111113' if dark else '#f4f6f8' }}; color: {{ '#e5e7eb' if dark else '#1f2937' }}; }
+    html { -webkit-text-size-adjust:100%; text-size-adjust:100%; }
+    body { font-family: Arial, sans-serif; margin:24px; background: {{ '#111113' if dark else '#f4f6f8' }}; color: {{ '#e5e7eb' if dark else '#1f2937' }}; touch-action:pan-y; overflow-x:hidden; }
     h1 { color: {{ '#93c5fd' if dark else '#1f4f82' }}; }
     h2, h3, h4 { color: {{ '#e5e7eb' if dark else '#111827' }}; }
     .brandbar, .card { background: {{ '#161618' if dark else 'white' }}; border-radius:12px; box-shadow:0 4px 14px rgba(0,0,0,0.06); }
@@ -3364,6 +3365,177 @@ BASE_STYLE = """
         .month-grid { gap:1px !important; }
         .month-grid .calendar-day-card { min-height:36px !important; padding:2px !important; }
     }
+
+    /* ══════════════════════════════════════════════════════════
+       WORKER APP MODE  (body.wapp — applied via JS for non-admin)
+    ══════════════════════════════════════════════════════════ */
+    body.wapp {
+        margin: 0 !important;
+        padding-top: 90px !important;
+        padding-bottom: 86px !important;
+        background: {{ '#111113' if dark else '#f1f5f9' }} !important;
+    }
+    /* Hide all standard admin chrome */
+    body.wapp .brandbar,
+    body.wapp .topbar,
+    body.wapp .sidebar,
+    body.wapp .bottom-nav { display:none !important; }
+    /* Content layout tweaks for workers */
+    body.wapp h1 { font-size:20px; }
+    body.wapp .hero { padding:16px; border-radius:18px; margin:0 0 12px; }
+    body.wapp .card { border-radius:16px; margin-bottom:12px; }
+    body.wapp .grid  { grid-template-columns:1fr !important; gap:12px; }
+    body.wapp .stats-grid { grid-template-columns:repeat(2,1fr) !important; }
+    body.wapp .back-button { display:none !important; }  /* workers use nav tabs */
+    body.wapp .week-link, body.wapp .pdf-link { display:none !important; }
+
+    /* ── Worker status bar (frosted, top of screen) ─────────── */
+    html.wapp-root { overscroll-behavior-x:none; }
+    .wapp-status {
+        display:none; position:fixed; top:0; left:0; right:0; height:44px;
+        z-index:200;
+        background:transparent;
+        align-items:center; justify-content:space-between;
+        padding: 10px 22px 0;
+    }
+    body.wapp .wapp-status { display:flex; }
+    .wapp-status-time  { font-size:15px; font-weight:700; color:{{ '#e2e8f0' if dark else '#0f172a' }}; }
+    .wapp-status-icons { font-size:12px; color:{{ '#e2e8f0' if dark else '#0f172a' }}; }
+
+    /* ── Worker floating header — transparent bar ───────────── */
+    .wapp-hdr {
+        display:none; position:fixed; top:44px; left:0; right:0; height:46px;
+        z-index:199;
+        background:transparent;
+        align-items:center; justify-content:space-between;
+        padding:0 14px;
+    }
+    body.wapp .wapp-hdr { display:flex; }
+    /* Frosted pill ONLY behind title */
+    .wapp-pill {
+        display:flex; flex-direction:column; justify-content:center;
+        padding:5px 14px; border-radius:22px;
+        background:{{ 'rgba(28,28,30,0.84)' if dark else 'rgba(241,245,249,0.84)' }};
+        backdrop-filter: blur(22px) saturate(190%);
+        -webkit-backdrop-filter: blur(22px) saturate(190%);
+        border:1px solid {{ 'rgba(255,255,255,0.12)' if dark else 'rgba(255,255,255,0.7)' }};
+        box-shadow:0 2px 12px rgba(0,0,0,.10);
+    }
+    .wapp-page-title { font-size:17px; font-weight:800; color:{{ '#e2e8f0' if dark else '#1e293b' }}; line-height:1.1; }
+    .wapp-page-sub   { font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; margin-top:1px; }
+    /* Frosted circle ONLY around bell */
+    .wapp-bell {
+        width:38px; height:38px; border-radius:50%; flex-shrink:0;
+        background:{{ 'rgba(28,28,30,0.84)' if dark else 'rgba(241,245,249,0.84)' }};
+        backdrop-filter: blur(22px) saturate(190%);
+        -webkit-backdrop-filter: blur(22px) saturate(190%);
+        border:1px solid {{ 'rgba(255,255,255,0.12)' if dark else 'rgba(255,255,255,0.7)' }};
+        box-shadow:0 2px 12px rgba(0,0,0,.10);
+        display:flex; align-items:center; justify-content:center;
+        font-size:19px; cursor:pointer;
+        text-decoration:none;
+    }
+
+    /* ── Worker bottom nav — transparent, frosted bubbles ────── */
+    .wapp-nav {
+        display:none; position:fixed; bottom:0; left:0; right:0;
+        height:calc(74px + env(safe-area-inset-bottom,0px));
+        z-index:199;
+        background:transparent;
+        align-items:flex-start; justify-content:space-around;
+        padding:8px 8px env(safe-area-inset-bottom,0px);
+    }
+    body.wapp .wapp-nav { display:flex; }
+    .wapp-btn {
+        display:flex; flex-direction:column; align-items:center;
+        text-decoration:none; color:{{ '#94a3b8' if dark else '#64748b' }}; flex:1;
+        border:none; background:transparent; cursor:pointer; padding:0;
+    }
+    /* Frosted bubble ONLY around icon + label */
+    .wapp-bubble {
+        display:flex; flex-direction:column; align-items:center;
+        gap:3px; padding:7px 14px 6px; border-radius:18px; min-width:54px;
+        background:{{ 'rgba(28,28,30,0.84)' if dark else 'rgba(241,245,249,0.84)' }};
+        backdrop-filter: blur(22px) saturate(190%);
+        -webkit-backdrop-filter: blur(22px) saturate(190%);
+        border:1px solid {{ 'rgba(255,255,255,0.12)' if dark else 'rgba(255,255,255,0.7)' }};
+        box-shadow:0 2px 14px rgba(0,0,0,.09);
+        transition:background .15s, border-color .15s;
+    }
+    .wapp-btn.wactive .wapp-bubble {
+        background:rgba(37,99,235,0.18);
+        border-color:rgba(37,99,235,0.32);
+        box-shadow:0 2px 14px rgba(37,99,235,.20);
+    }
+    .wapp-btn.wactive { color:#2563eb; }
+    .wapp-bubble .wb-icon  { font-size:22px; line-height:1; display:block; }
+    .wapp-bubble .wb-label { font-size:10px; font-weight:600; white-space:nowrap; }
+    body.wapp .page-content {
+        max-width:520px;
+        margin:0 auto;
+        padding:0 16px;
+    }
+    .wapp-home { display:flex; flex-direction:column; gap:12px; }
+    .wapp-shift-hero {
+        border-radius:24px;
+        padding:22px 20px;
+        color:white;
+        background:linear-gradient(140deg,#2563eb 0%,#1d4ed8 100%);
+        box-shadow:0 12px 32px rgba(37,99,235,.34);
+        overflow:hidden;
+    }
+    .wapp-kicker { font-size:11px; font-weight:800; opacity:.78; text-transform:uppercase; letter-spacing:.08em; }
+    .wapp-shift-time { font-size:30px; font-weight:900; margin:6px 0 8px; line-height:1.05; }
+    .wapp-chip { display:inline-flex; align-items:center; gap:6px; padding:4px 11px; border-radius:999px; background:rgba(255,255,255,.18); font-size:12px; font-weight:800; }
+    .wapp-chip::before { content:''; width:7px; height:7px; border-radius:50%; background:#4ade80; }
+    .wapp-hero-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px; }
+    .wapp-hero-stat { border-radius:16px; padding:12px; background:rgba(255,255,255,.14); min-width:0; }
+    .wapp-hero-val { font-size:23px; font-weight:900; line-height:1.1; }
+    .wapp-hero-sub { font-size:11px; opacity:.78; margin-top:4px; }
+    .wapp-callout {
+        display:flex; align-items:center; justify-content:space-between; gap:12px;
+        border-radius:18px; padding:14px 16px;
+        background:{{ '#332b17' if dark else '#fff5cc' }};
+        border:1px solid {{ '#6b5520' if dark else '#fde68a' }};
+        color:{{ '#fde68a' if dark else '#92400e' }};
+        text-decoration:none;
+    }
+    .wapp-callout strong { color:{{ '#fde68a' if dark else '#92400e' }}; }
+    .wapp-callout small { display:block; margin-top:2px; opacity:.78; }
+    .wapp-callout .send { background:#d97706; color:white; border-radius:999px; padding:8px 13px; font-weight:800; font-size:12px; white-space:nowrap; }
+    .wapp-sec { font-size:11px; font-weight:900; text-transform:uppercase; letter-spacing:.08em; color:{{ '#94a3b8' if dark else '#64748b' }}; margin:16px 0 4px; }
+    .wapp-list-card {
+        border-radius:20px;
+        background:{{ '#161618' if dark else 'white' }};
+        border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};
+        box-shadow:0 4px 14px rgba(0,0,0,.07);
+        overflow:hidden;
+    }
+    .wapp-shift-row { display:grid; grid-template-columns:48px 1fr auto; gap:10px; padding:14px 16px; border-bottom:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; align-items:start; }
+    .wapp-shift-row:last-child { border-bottom:none; }
+    .wapp-time { text-align:right; font-weight:900; font-size:13px; padding-top:2px; color:{{ '#e2e8f0' if dark else '#1e293b' }}; }
+    .wapp-client { font-weight:850; color:{{ '#e5e7eb' if dark else '#1e293b' }}; }
+    .wapp-address { font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; margin-top:3px; line-height:1.35; }
+    .wapp-status-badge { display:inline-flex; margin-top:7px; padding:3px 9px; border-radius:999px; background:{{ '#1e1e20' if dark else '#f1f5f9' }}; color:{{ '#94a3b8' if dark else '#64748b' }}; font-size:10px; font-weight:800; }
+    .wapp-map {
+        display:inline-flex; align-items:center; justify-content:center;
+        min-width:40px; min-height:36px; border-radius:14px;
+        background:#16a34a; color:white !important; text-decoration:none; font-weight:900;
+        box-shadow:0 4px 12px rgba(22,163,74,.24);
+    }
+    .wapp-mini-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .wapp-mini-card { border-radius:18px; padding:15px; background:{{ '#161618' if dark else 'white' }}; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; box-shadow:0 3px 12px rgba(0,0,0,.06); }
+    .wapp-mini-card b { font-size:24px; display:block; color:{{ '#e5e7eb' if dark else '#1e293b' }}; }
+    .wapp-mini-card span { font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; font-weight:700; }
+    .wapp-form-card { border-radius:20px; padding:16px; background:{{ '#161618' if dark else 'white' }}; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; box-shadow:0 4px 14px rgba(0,0,0,.07); }
+    .wapp-form-card h3 { margin-top:0; }
+    body.wapp input, body.wapp select, body.wapp button { font-size:16px; }
+    @media (max-width:420px) {
+        body.wapp .page-content { padding:0 16px; }
+        .wapp-shift-time { font-size:28px; }
+        .wapp-shift-row { grid-template-columns:44px 1fr auto; padding:13px 14px; }
+        .wapp-bubble { padding-left:11px; padding-right:11px; min-width:50px; }
+    }
 </style>
 <script>
 (function(){
@@ -3554,6 +3726,62 @@ def header_html():
         </a>
       </div>
     </aside>
+    {% endif %}
+
+    {% if session.get('user') and session.get('role') != 'admin' %}
+    <script>
+    (function(){
+      function applyWorkerApp(){ if(document.body){ document.body.classList.add('wapp'); } }
+      document.documentElement.classList.add('wapp-root');
+      applyWorkerApp();
+      if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', applyWorkerApp); }
+    })();
+    </script>
+    <div class="wapp-status" aria-hidden="true">
+      <span class="wapp-status-time" id="wappClock">--:--</span>
+      <span class="wapp-status-icons">••• WiFi 🔋</span>
+    </div>
+    <header class="wapp-hdr">
+      <div class="wapp-pill">
+        <div class="wapp-page-title">
+          {% if request.path == '/week' %}{{ tr.get("nav_week","Sedmica") }}
+          {% elif request.path == '/route_optimizer' %}{{ tr.get("nav_route","Ruta") }}
+          {% else %}{{ tr.get("today_shifts","Danas") }} 👋{% endif %}
+        </div>
+        <div class="wapp-page-sub">
+          {% if request.path == '/week' %}{{ tr.get("week_calendar","Sedmicni kalendar") }}
+          {% elif request.path == '/route_optimizer' %}Google Maps
+          {% else %}{{ tr.get("logged_as","Prijavljen") }}: {{ session.get('user') }}{% endif %}
+        </div>
+      </div>
+      <a class="wapp-bell" href="/#wapp-leave" title="{{ tr.get('leave_request','Zahtjev za odsustvo') }}">🔔</a>
+    </header>
+    <nav class="wapp-nav" aria-label="{{ tr.get('nav_navigation','Navigacija') }}">
+      <a href="/" class="wapp-btn {% if request.path == '/' %}wactive{% endif %}">
+        <span class="wapp-bubble"><span class="wb-icon">🏠</span><span class="wb-label">{{ tr.get("nav_plan","Plan") }}</span></span>
+      </a>
+      <a href="/week" class="wapp-btn {% if request.path == '/week' %}wactive{% endif %}">
+        <span class="wapp-bubble"><span class="wb-icon">📅</span><span class="wb-label">{{ tr.get("nav_week","Sedmica") }}</span></span>
+      </a>
+      <a href="/route_optimizer" class="wapp-btn {% if request.path == '/route_optimizer' %}wactive{% endif %}">
+        <span class="wapp-bubble"><span class="wb-icon">🗺️</span><span class="wb-label">{{ tr.get("nav_route","Ruta") }}</span></span>
+      </a>
+      <button class="wapp-btn" type="button" onclick="openSettingsSheet()" aria-label="{{ tr.get('nav_settings','Postavke') }}">
+        <span class="wapp-bubble"><span class="wb-icon">👤</span><span class="wb-label">{{ tr.get("nav_settings","Postavke") }}</span></span>
+      </button>
+    </nav>
+    <script>
+    (function(){
+      function tick(){
+        var el = document.getElementById('wappClock');
+        if(!el) return;
+        var d = new Date();
+        el.textContent = String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+      }
+      tick();
+      window.setInterval(tick, 30000);
+    })();
+    </script>
     {% endif %}
 
     <!-- ═══ Desktop topbar action icons ═══ -->
@@ -4045,10 +4273,18 @@ def load_index_data():
     my_leave_requests = [] if is_admin else c.execute("SELECT id, worker, type, date_from, date_to, note, status, created_at FROM leave_requests WHERE worker = ? ORDER BY created_at DESC LIMIT 10", (current_user,)).fetchall()
 
     client_cities = client_city_map(clients)
+    client_addresses = {c[0]: (c[1] or "") for c in clients}
+    today_iso = today.strftime("%Y-%m-%d")
+    worker_scope_shifts = sorted(all_shifts_for_hours, key=lambda s: (s[3], s[4], s[0]))
+    worker_today_shifts = [s for s in worker_scope_shifts if s[3] == today_iso]
+    worker_upcoming_shifts = [s for s in worker_scope_shifts if s[3] >= today_iso][:8]
+    worker_today_hours = sum(parse_shift_hours(s[4]) for s in worker_today_shifts)
+    worker_week_hours = sum(calculate_hours_for_user(week_shifts, None if is_admin else current_user).values())
+    worker_month_hours = sum(calculate_hours_for_user(month_shifts, None if is_admin else current_user).values())
     conn.close()
     return {
         "is_admin": is_admin, "current_user": current_user, "workers": workers, "clients": clients,
-        "client_cities": client_cities, "db_users": db_users, "worker_colors": worker_colors, "shifts": shifts,
+        "client_cities": client_cities, "client_addresses": client_addresses, "db_users": db_users, "worker_colors": worker_colors, "shifts": shifts,
         "selected_date": selected_date, "worker_filter": worker_filter, "client_filter": client_filter,
         "weekly_hours": calculate_hours_for_user(week_shifts, None if is_admin else current_user),
         "monthly_hours": calculate_hours_for_user(month_shifts, None if is_admin else current_user),
@@ -4062,6 +4298,13 @@ def load_index_data():
         "contract_reminders": contract_reminders(workers) if is_admin else [],
         "pending_leave": pending_leave,
         "my_leave_requests": my_leave_requests,
+        "today_iso": today_iso,
+        "today_label": format_date(today_iso),
+        "worker_today_shifts": worker_today_shifts,
+        "worker_upcoming_shifts": worker_upcoming_shifts,
+        "worker_today_hours": worker_today_hours,
+        "worker_week_hours": worker_week_hours,
+        "worker_month_hours": worker_month_hours,
     }
 
 
@@ -4075,6 +4318,111 @@ def index():
 
     return render_template_string(BASE_STYLE + header_html() + """
     <div class="page-content">
+            {% if not is_admin %}
+            <div class="wapp-home">
+                <section class="wapp-shift-hero">
+                    <div class="wapp-kicker">{{ tr.get("today_shifts","Današnje smjene") }}</div>
+                    {% if worker_today_shifts %}
+                        <div class="wapp-shift-time">{{ worker_today_shifts[0][4] }}</div>
+                        <span class="wapp-chip">{{ get_status_label(get_auto_status(worker_today_shifts[0][3], worker_today_shifts[0][4]), tr) }}</span>
+                    {% else %}
+                        <div class="wapp-shift-time">{{ tr.get("no_shifts","Nema smjena") }}</div>
+                        <span class="wapp-chip">{{ today_label }}</span>
+                    {% endif %}
+                    <div class="wapp-hero-grid">
+                        <div class="wapp-hero-stat">
+                            <div class="wapp-hero-val">{{ "%.2f"|format(worker_today_hours) }}</div>
+                            <div class="wapp-hero-sub">{{ tr.get("hours","sati") }} {{ tr.get("today_shifts","danas")|lower }}</div>
+                        </div>
+                        <div class="wapp-hero-stat">
+                            <div class="wapp-hero-val">{{ worker_today_shifts|length }}</div>
+                            <div class="wapp-hero-sub">{{ tr.get("today_shifts","Današnje smjene") }}</div>
+                        </div>
+                    </div>
+                </section>
+
+                <a class="wapp-callout" href="#wapp-leave">
+                    <span style="font-size:28px;">🌴</span>
+                    <span style="flex:1;"><strong>{{ tr.get("leave_request","Zahtjev za odsustvo") }}</strong><small>{{ tr.get("leave_send","Pošalji zahtjev") }}</small></span>
+                    <span class="send">{{ tr.get("leave_send","Pošalji") }}</span>
+                </a>
+
+                <div class="wapp-sec">{{ tr.get("today_shifts","Današnje smjene") }}</div>
+                <section class="wapp-list-card">
+                    {% if worker_today_shifts %}
+                        {% for s in worker_today_shifts %}
+                        {% set addr = client_addresses.get(s[2], s[2]) %}
+                        <div class="wapp-shift-row">
+                            <div class="wapp-time">{{ s[4].split('-')[0].strip() }}</div>
+                            <div>
+                                <div class="wapp-client">{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}</div>
+                                <div class="wapp-address">{{ addr }}</div>
+                                <span class="wapp-status-badge">{{ get_status_label(get_auto_status(s[3], s[4]), tr) }}</span>
+                            </div>
+                            <a class="wapp-map" href="https://www.google.com/maps/search/?api=1&query={{ addr|urlencode }}" target="_blank" rel="noopener" title="Google Maps">➜</a>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="wapp-shift-row" style="grid-template-columns:1fr;">
+                            <div class="wapp-address">{{ tr.get("no_shifts","Nema smjena") }}</div>
+                        </div>
+                    {% endif %}
+                </section>
+
+                <div class="wapp-sec">{{ tr.get("week_calendar","Sedmicni kalendar") }}</div>
+                <div class="wapp-mini-grid">
+                    <div class="wapp-mini-card"><b>{{ "%.1f"|format(worker_week_hours) }}</b><span>{{ tr.get("weekly_hours","Sedmicni sati") }}</span></div>
+                    <div class="wapp-mini-card"><b>{{ "%.1f"|format(worker_month_hours) }}</b><span>{{ tr.get("monthly_hours","Mjesecni sati") }}</span></div>
+                </div>
+
+                <div class="wapp-sec">{{ tr.get("route_optimizer","Optimizacija rute") }}</div>
+                <section class="wapp-list-card">
+                    {% if worker_upcoming_shifts %}
+                        {% for s in worker_upcoming_shifts[:4] %}
+                        {% set addr = client_addresses.get(s[2], s[2]) %}
+                        <div class="wapp-shift-row">
+                            <div class="wapp-time">{{ format_date(s[3]) }}</div>
+                            <div>
+                                <div class="wapp-client">{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}</div>
+                                <div class="wapp-address">{{ s[4] }} · {{ addr }}</div>
+                            </div>
+                            <a class="wapp-map" href="https://www.google.com/maps/search/?api=1&query={{ addr|urlencode }}" target="_blank" rel="noopener" title="Google Maps">➜</a>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="wapp-shift-row" style="grid-template-columns:1fr;">
+                            <div class="wapp-address">{{ tr.get("no_shifts","Nema smjena") }}</div>
+                        </div>
+                    {% endif %}
+                </section>
+
+                <section class="wapp-form-card" id="wapp-leave">
+                    <h3>🌴 {{ tr.get("leave_request","Zahtjev za odsustvo") }}</h3>
+                    <form method="post" action="/leave_request">
+                        <select name="type">
+                            <option value="vacation">{{ tr["leave_type_vacation"] }}</option>
+                            <option value="sick">{{ tr["leave_type_sick"] }}</option>
+                            <option value="other">{{ tr["leave_type_other"] }}</option>
+                        </select>
+                        <label>{{ tr["leave_date_from"] }}</label>
+                        <input type="date" name="date_from" required>
+                        <label>{{ tr["leave_date_to"] }}</label>
+                        <input type="date" name="date_to" required>
+                        <input type="text" name="note" placeholder="{{ tr['leave_note'] }}">
+                        <button>{{ tr["leave_send"] }}</button>
+                    </form>
+                    {% if my_leave_requests %}
+                    <div class="wapp-sec" style="margin-top:14px;">{{ tr["leave_my_requests"] }}</div>
+                    {% for r in my_leave_requests[:3] %}
+                    <div class="wapp-address" style="padding:8px 0;border-top:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};">
+                        <b>{{ tr.get('leave_type_' + r[2], r[2]) }}</b> · {{ format_date(r[3]) }} → {{ format_date(r[4]) }}
+                        <span style="float:right;font-weight:800;">{% if r[6]=='approved' %}{{ tr["leave_approved"] }}{% elif r[6]=='rejected' %}{{ tr["leave_rejected"] }}{% else %}{{ tr["leave_pending"] }}{% endif %}</span>
+                    </div>
+                    {% endfor %}
+                    {% endif %}
+                </section>
+            </div>
+            {% else %}
             {% if is_admin %}<div class="hero">
                 <h1>{{ tr["dashboard"] }}</h1>
                 <div class="muted">Luxmann Planner · {{ tr["overview"] }}</div>
@@ -4214,6 +4562,7 @@ def index():
         </div>
         <a class="week-link" href="/week">{{ tr["week_calendar"] }}</a>{% if session.get('role') == 'admin' %}<a class="week-link" href="/month">{{ tr["month_calendar"] }}</a>{% endif %}<a class="week-link" href="/route_optimizer">{{ tr["route_optimizer"] }}</a><a class="pdf-link" href="/export_pdf{% if request.args.get('date') %}?date={{ request.args.get('date') }}{% endif %}" target="_blank">{{ tr["pdf"] }}</a>
     </div>
+    {% endif %}
     </div>
 
   <script>
