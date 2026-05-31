@@ -3501,9 +3501,11 @@ def header_html():
         <a href="/week" class="sidebar-link {% if request.path == '/week' %}active{% endif %}" title="{{ tr.get('nav_week','Sedmica') }}">
           <span class="sl-icon">📅</span><span>{{ tr.get("nav_week","Sedmica") }}</span>
         </a>
+        {% if session.get('role') == 'admin' %}
         <a href="/month" class="sidebar-link {% if request.path == '/month' %}active{% endif %}" title="{{ tr.get('nav_month','Mjesec') }}">
           <span class="sl-icon">🗓️</span><span>{{ tr.get("nav_month","Mjesec") }}</span>
         </a>
+        {% endif %}
         <a href="/documents" class="sidebar-link {% if request.path.startswith('/documents') %}active{% endif %}" title="{{ tr.get('documents','Dokumenti') }}">
           <span class="sl-icon">📁</span><span>{{ tr.get("documents","Dokumenti") }}</span>
         </a>
@@ -3767,9 +3769,11 @@ def header_html():
         <a href="/week" class="bottom-nav-item {% if request.path == '/week' %}active{% endif %}">
             <span>📅</span><small>{{ tr.get("nav_week","Sedmica") }}</small>
         </a>
+        {% if session.get('role') == 'admin' %}
         <a href="/month" class="bottom-nav-item {% if request.path == '/month' %}active{% endif %}">
             <span>🗓️</span><small>{{ tr.get("nav_month","Mjesec") }}</small>
         </a>
+        {% endif %}
         {% if session.get('role') == 'admin' %}
         <a href="/workers" class="bottom-nav-item {% if request.path == '/workers' %}active{% endif %}">
             <span>👥</span><small>{{ tr.get("workers","Radnici") }}</small>
@@ -4208,7 +4212,7 @@ def index():
 </a><a class="action-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>{% endif %}</div>{% endfor %}</div>
         {% endfor %}
         </div>
-        <a class="week-link" href="/week">{{ tr["week_calendar"] }}</a><a class="week-link" href="/month">{{ tr["month_calendar"] }}</a><a class="week-link" href="/route_optimizer">{{ tr["route_optimizer"] }}</a><a class="pdf-link" href="/export_pdf{% if request.args.get('date') %}?date={{ request.args.get('date') }}{% endif %}" target="_blank">{{ tr["pdf"] }}</a>
+        <a class="week-link" href="/week">{{ tr["week_calendar"] }}</a>{% if session.get('role') == 'admin' %}<a class="week-link" href="/month">{{ tr["month_calendar"] }}</a>{% endif %}<a class="week-link" href="/route_optimizer">{{ tr["route_optimizer"] }}</a><a class="pdf-link" href="/export_pdf{% if request.args.get('date') %}?date={{ request.args.get('date') }}{% endif %}" target="_blank">{{ tr["pdf"] }}</a>
     </div>
     </div>
 
