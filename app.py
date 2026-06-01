@@ -3486,26 +3486,47 @@ BASE_STYLE = """
         font-family:inherit; line-height:1; appearance:none; -webkit-appearance:none;
         touch-action:manipulation;
     }
-    /* Clear glass bubble ONLY around icon + label */
+    /* Thick curved lens bubble ONLY around icon + label */
     .wapp-bubble {
+        position:relative; overflow:hidden;
         display:flex; flex-direction:column; align-items:center; justify-content:center;
-        gap:3px; padding:7px 9px 6px; border-radius:18px; width:66px; max-width:100%;
-        min-height:52px; box-sizing:border-box;
-        background:{{ 'rgba(255,255,255,0.10)' if dark else 'rgba(255,255,255,0.48)' }};
-        backdrop-filter:none;
-        -webkit-backdrop-filter:none;
-        border:1px solid {{ 'rgba(255,255,255,0.22)' if dark else 'rgba(255,255,255,0.78)' }};
-        box-shadow:0 8px 24px rgba(0,0,0,.11), inset 0 1px 0 rgba(255,255,255,.28);
-        transition:background .15s, border-color .15s;
+        gap:3px; padding:8px 9px 7px; border-radius:24px; width:70px; max-width:100%;
+        min-height:56px; box-sizing:border-box;
+        background:{{ 'linear-gradient(145deg,rgba(255,255,255,.18),rgba(255,255,255,.07))' if dark else 'linear-gradient(145deg,rgba(255,255,255,.82),rgba(255,255,255,.46))' }};
+        backdrop-filter:saturate(185%) contrast(1.12) brightness(1.06) blur(.8px);
+        -webkit-backdrop-filter:saturate(185%) contrast(1.12) brightness(1.06) blur(.8px);
+        border:2px solid {{ 'rgba(255,255,255,0.25)' if dark else 'rgba(255,255,255,0.86)' }};
+        box-shadow:
+            0 14px 34px rgba(0,0,0,.16),
+            inset 0 1px 0 rgba(255,255,255,.62),
+            inset 0 -14px 22px {{ 'rgba(0,0,0,.22)' if dark else 'rgba(148,163,184,.22)' }},
+            inset 10px 0 24px rgba(255,255,255,.12);
+        transition:background .15s, border-color .15s, box-shadow .15s, transform .15s;
+    }
+    .wapp-bubble::before {
+        content:""; position:absolute; inset:2px 3px auto 3px; height:52%;
+        border-radius:22px 22px 18px 18px;
+        background:linear-gradient(160deg,rgba(255,255,255,.58),rgba(255,255,255,.10) 58%,transparent);
+        pointer-events:none;
+    }
+    .wapp-bubble::after {
+        content:""; position:absolute; left:12%; right:12%; bottom:5px; height:12px;
+        border-radius:999px;
+        background:radial-gradient(ellipse at center,rgba(255,255,255,.30),transparent 70%);
+        pointer-events:none;
     }
     .wapp-btn.wactive .wapp-bubble {
-        background:rgba(37,99,235,0.18);
-        border-color:rgba(37,99,235,0.32);
-        box-shadow:0 2px 14px rgba(37,99,235,.20);
+        background:{{ 'linear-gradient(145deg,rgba(37,99,235,.35),rgba(37,99,235,.16))' if dark else 'linear-gradient(145deg,rgba(219,234,254,.90),rgba(191,219,254,.58))' }};
+        border-color:rgba(37,99,235,0.54);
+        box-shadow:
+            0 16px 38px rgba(37,99,235,.28),
+            inset 0 1px 0 rgba(255,255,255,.70),
+            inset 0 -14px 24px rgba(37,99,235,.18);
+        transform:translateY(-2px) scale(1.03);
     }
     .wapp-btn.wactive { color:#2563eb; }
-    .wapp-bubble .wb-icon  { font-size:22px; line-height:1; display:block; }
-    .wapp-bubble .wb-label { font-size:9.5px; font-weight:700; white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis; }
+    .wapp-bubble .wb-icon  { position:relative; z-index:1; font-size:22px; line-height:1; display:block; }
+    .wapp-bubble .wb-label { position:relative; z-index:1; font-size:9.5px; font-weight:800; white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis; }
     body.wapp .page-content {
         max-width:520px;
         margin:0 auto;
@@ -3523,7 +3544,7 @@ BASE_STYLE = """
     .wapp-kicker { font-size:11px; font-weight:800; opacity:.78; text-transform:uppercase; letter-spacing:.08em; }
     .wapp-shift-time { font-size:30px; font-weight:900; margin:6px 0 8px; line-height:1.05; }
     .wapp-chip { display:inline-flex; align-items:center; gap:6px; padding:4px 11px; border-radius:999px; background:rgba(255,255,255,.18); font-size:12px; font-weight:800; }
-    .wapp-chip::before { content:''; width:7px; height:7px; border-radius:50%; background:#4ade80; }
+    .wapp-chip::before { content:''; width:7px; height:7px; border-radius:50%; background:var(--chip-dot,#4ade80); }
     .wapp-hero-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px; }
     .wapp-hero-stat { border-radius:16px; padding:12px; background:rgba(255,255,255,.14); min-width:0; }
     .wapp-hero-val { font-size:23px; font-weight:900; line-height:1.1; }
@@ -3542,7 +3563,7 @@ BASE_STYLE = """
     .wapp-time { text-align:right; font-weight:900; font-size:13px; padding-top:2px; color:{{ '#e2e8f0' if dark else '#1e293b' }}; white-space:nowrap; }
     .wapp-client { font-weight:850; color:{{ '#e5e7eb' if dark else '#1e293b' }}; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .wapp-address { font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; margin-top:3px; line-height:1.35; min-width:0; overflow:hidden; text-overflow:ellipsis; }
-    .wapp-status-badge { display:inline-flex; margin-top:7px; padding:3px 9px; border-radius:999px; background:{{ '#1e1e20' if dark else '#f1f5f9' }}; color:{{ '#94a3b8' if dark else '#64748b' }}; font-size:10px; font-weight:800; }
+    .wapp-status-badge { display:inline-flex; margin-top:7px; padding:3px 9px; border-radius:999px; background:{{ '#1e1e20' if dark else '#f1f5f9' }}; color:{{ '#94a3b8' if dark else '#64748b' }}; font-size:10px; font-weight:900; box-shadow:0 4px 10px rgba(0,0,0,.10); }
     .wapp-map {
         display:inline-flex; align-items:center; justify-content:center;
         min-width:40px; min-height:36px; border-radius:14px;
@@ -4452,8 +4473,9 @@ def index():
                 <section class="wapp-shift-hero">
                     <div class="wapp-kicker">{{ tr.get("today_shifts","Današnje smjene") }}</div>
                     {% if worker_today_shifts %}
+                        {% set hero_status = get_auto_status(worker_today_shifts[0][3], worker_today_shifts[0][4]) %}
                         <div class="wapp-shift-time">{{ worker_today_shifts[0][4] }}</div>
-                        <span class="wapp-chip">{{ get_status_label(get_auto_status(worker_today_shifts[0][3], worker_today_shifts[0][4]), tr) }}</span>
+                        <span class="wapp-chip" style="background:{{ status_colors.get(hero_status, '#6b7280') }};color:white;--chip-dot:rgba(255,255,255,.88);">{{ get_status_label(hero_status, tr) }}</span>
                     {% else %}
                         <div class="wapp-shift-time">{{ tr.get("no_shifts","Nema smjena") }}</div>
                         <span class="wapp-chip">{{ today_label }}</span>
@@ -4475,12 +4497,13 @@ def index():
                     {% if worker_today_shifts %}
                         {% for s in worker_today_shifts %}
                         {% set addr = client_addresses.get(s[2], s[2]) %}
+                        {% set auto_status = get_auto_status(s[3], s[4]) %}
                         <div class="wapp-shift-row">
                             <div class="wapp-time">{{ s[4].split('-')[0].strip() }}</div>
                             <div>
                                 <div class="wapp-client">{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}</div>
                                 <div class="wapp-address">{{ addr }}</div>
-                                <span class="wapp-status-badge">{{ get_status_label(get_auto_status(s[3], s[4]), tr) }}</span>
+                                <span class="wapp-status-badge" style="background:{{ status_colors.get(auto_status, '#6b7280') }};color:white;">{{ get_status_label(auto_status, tr) }}</span>
                             </div>
                             <a class="wapp-map" href="https://www.google.com/maps/search/?api=1&query={{ addr|urlencode }}" target="_blank" rel="noopener" title="Google Maps">➜</a>
                         </div>
@@ -4929,7 +4952,7 @@ def week_view():
                   <div class="wapp-week-time">{{ s[4] }}</div>
                   <div class="wapp-week-client">{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}</div>
                   <div class="wapp-week-worker">{{ s[1] }}</div>
-                  <span class="wapp-status-badge">{{ get_status_label(auto_status, tr) }}</span>
+                  <span class="wapp-status-badge" style="background:{{ status_colors.get(auto_status, '#6b7280') }};color:white;">{{ get_status_label(auto_status, tr) }}</span>
                 </article>
                 {% endif %}
               {% endfor %}

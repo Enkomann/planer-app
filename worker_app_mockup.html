@@ -26,9 +26,9 @@
   --notch-h: 12px;
   --hdr-h:   78px;
   --nav-h:   80px;
-  /* Clear lens-glass values used on individual bubbles */
-  --glass-bg:     rgba(255,255,255,0.48);
-  --glass-blur:   none;
+  /* Thick lens-glass values used on individual bubbles */
+  --glass-bg:     linear-gradient(145deg,rgba(255,255,255,.82),rgba(255,255,255,.46));
+  --glass-blur:   saturate(185%) contrast(1.12) brightness(1.06) blur(.8px);
   --glass-border: rgba(255,255,255,0.78);
 }
 
@@ -129,25 +129,46 @@ html, body {
   appearance:none; -webkit-appearance:none;
 }
 
-/* ★ Frosted glass bubble — ONLY behind icon + label */
+/* Thick curved lens bubble — ONLY behind icon + label */
 .nav-bubble {
+  position:relative; overflow:hidden;
   display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:3px; padding:7px 9px 6px; border-radius:18px;
-  width:66px; min-height:52px;
+  gap:3px; padding:8px 9px 7px; border-radius:24px;
+  width:70px; min-height:56px;
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
-  border:1px solid var(--glass-border);
-  box-shadow: 0 2px 14px rgba(0,0,0,.09);
-  transition: background .15s, box-shadow .15s;
+  border:2px solid rgba(255,255,255,0.86);
+  box-shadow:
+    0 14px 34px rgba(0,0,0,.16),
+    inset 0 1px 0 rgba(255,255,255,.62),
+    inset 0 -14px 22px rgba(148,163,184,.22),
+    inset 10px 0 24px rgba(255,255,255,.12);
+  transition: background .15s, box-shadow .15s, transform .15s;
+}
+.nav-bubble::before {
+  content:""; position:absolute; inset:2px 3px auto 3px; height:52%;
+  border-radius:22px 22px 18px 18px;
+  background:linear-gradient(160deg,rgba(255,255,255,.58),rgba(255,255,255,.10) 58%,transparent);
+  pointer-events:none;
+}
+.nav-bubble::after {
+  content:""; position:absolute; left:12%; right:12%; bottom:5px; height:12px;
+  border-radius:999px;
+  background:radial-gradient(ellipse at center,rgba(255,255,255,.30),transparent 70%);
+  pointer-events:none;
 }
 .nav-btn.active .nav-bubble {
-  background: rgba(37,99,235,0.14);
-  border-color: rgba(37,99,235,0.25);
-  box-shadow: 0 2px 14px rgba(37,99,235,.18);
+  background: linear-gradient(145deg,rgba(219,234,254,.90),rgba(191,219,254,.58));
+  border-color: rgba(37,99,235,0.54);
+  box-shadow:
+    0 16px 38px rgba(37,99,235,.28),
+    inset 0 1px 0 rgba(255,255,255,.70),
+    inset 0 -14px 24px rgba(37,99,235,.18);
+  transform:translateY(-2px) scale(1.03);
 }
-.nav-icon  { font-size:22px; line-height:1; }
-.nav-label { font-size:9.5px; font-weight:700; color:var(--text2); white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis; }
+.nav-icon  { position:relative; z-index:1; font-size:22px; line-height:1; }
+.nav-label { position:relative; z-index:1; font-size:9.5px; font-weight:800; color:var(--text2); white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis; }
 .nav-btn.active .nav-label { color:var(--blue); }
 
 /* ── Shared UI components ────────────────────────────────────── */
@@ -255,6 +276,7 @@ html, body {
 .week-time { font-size:24px; font-weight:900; color:var(--text); }
 .week-client { margin-top:10px; font-size:17px; font-weight:900; color:var(--text); }
 .week-worker { margin-top:6px; font-size:12px; color:var(--text2); }
+.week-status { display:inline-flex; margin-top:8px; padding:3px 9px; border-radius:999px; color:#fff; font-size:10px; font-weight:900; box-shadow:0 4px 10px rgba(0,0,0,.10); }
 
 /* Desktop hint */
 .hint { display:none; }
@@ -332,7 +354,7 @@ html, body {
     </div>
     <div class="day-panel active">
       <div class="week-shifts">
-        <article class="week-card" style="--worker-color:#2563eb;"><div class="week-time">07:30 - 09:00</div><div class="week-client">Marie Dupont</div><div class="week-worker">Marko Petrovic · Zavrseno</div></article>
+        <article class="week-card" style="--worker-color:#2563eb;"><div class="week-time">07:30 - 09:00</div><div class="week-client">Marie Dupont</div><div class="week-worker">Marko Petrovic</div><span class="week-status" style="background:#ef4444;">Zavrseno</span></article>
         <article class="week-card" style="--worker-color:#16a34a;"><div class="week-time">09:30 - 11:00</div><div class="week-client">Jean Martin</div><div class="week-worker">Marko Petrovic · Na lokaciji</div></article>
         <article class="week-card" style="--worker-color:#d97706;"><div class="week-time">11:30 - 13:00</div><div class="week-client">Sophie Bernard</div><div class="week-worker">Marko Petrovic · Naredno</div></article>
       </div>
@@ -395,16 +417,16 @@ html, body {
   <!-- ═══ BOTTOM NAV — transparent bar, each icon has own bubble ═══ -->
   <nav class="bnav" id="bnav">
     <button class="nav-btn active" id="nb-home"    onclick="go('home','Danas','Petak, 30. maj 2026')">
-      <div class="nav-bubble"><span class="nav-icon">🏠</span><span class="nav-label">Početno</span></div>
+      <div class="nav-bubble"><span class="nav-icon">🏠</span><span class="nav-label">Plan</span></div>
     </button>
     <button class="nav-btn"        id="nb-week"    onclick="go('week','Sedmica','26 maj – 1 jun 2026')">
       <div class="nav-bubble"><span class="nav-icon">📅</span><span class="nav-label">Sedmica</span></div>
     </button>
     <button class="nav-btn"        id="nb-docs"    onclick="go('docs','Dokumenti','')">
-      <div class="nav-bubble"><span class="nav-icon">📄</span><span class="nav-label">Dokumenti</span></div>
+      <div class="nav-bubble"><span class="nav-icon">🗺️</span><span class="nav-label">Rute</span></div>
     </button>
     <button class="nav-btn"        id="nb-profile" onclick="go('profile','Profil','')">
-      <div class="nav-bubble"><span class="nav-icon">👤</span><span class="nav-label">Profil</span></div>
+      <div class="nav-bubble"><span class="nav-icon">👤</span><span class="nav-label">Postavke</span></div>
     </button>
   </nav>
 
