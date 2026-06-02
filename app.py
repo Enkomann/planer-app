@@ -2955,6 +2955,7 @@ def init_db():
     if "source" not in invoice_record_cols:
         c.execute("ALTER TABLE invoice_records ADD COLUMN source TEXT DEFAULT 'auto'")
     try:
+        c.execute("DROP INDEX IF EXISTS idx_invoice_client_period")
         c.execute("""
             CREATE UNIQUE INDEX IF NOT EXISTS idx_invoice_client_period
             ON invoice_records(client_name, date_from, date_to)
