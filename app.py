@@ -6933,20 +6933,25 @@ def invoices_generate():
             if existing:
                 skipped_exists += 1
                 continue
-            inv_num = next_invoice_number(conn)
-            try:
-                c.execute("""INSERT INTO invoice_records
-                    (invoice_number, client_name, date_from, date_to, invoice_date,
-                     amount, vat_amount, total, paid, sent, deleted, source)
-                    VALUES (?,?,?,?,?,?,?,?,0,0,0,'auto')
-                    ON CONFLICT(invoice_number) DO NOTHING""",
-                    (inv_num, row["client"], date_from, date_to, invoice_date,
-                     row["amount"], row["vat_amount"], row["total"]))
-                if c.rowcount == 1:
-                    generated += 1
-                else:
-                    skipped_exists += 1
-            except Exception:
+            inserted = False
+            for _attempt in range(3):
+                inv_num = next_invoice_number(conn)
+                try:
+                    c.execute("""INSERT INTO invoice_records
+                        (invoice_number, client_name, date_from, date_to, invoice_date,
+                         amount, vat_amount, total, paid, sent, deleted, source)
+                        VALUES (?,?,?,?,?,?,?,?,0,0,0,'auto')
+                        ON CONFLICT(invoice_number) DO NOTHING""",
+                        (inv_num, row["client"], date_from, date_to, invoice_date,
+                         row["amount"], row["vat_amount"], row["total"]))
+                    if c.rowcount == 1:
+                        inserted = True
+                        break
+                except Exception:
+                    break
+            if inserted:
+                generated += 1
+            else:
                 skipped_exists += 1
         conn.commit()
     except Exception as e:
