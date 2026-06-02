@@ -2929,7 +2929,7 @@ init_db()
 
 
 BASE_STYLE = """
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Luxmann">
@@ -2938,7 +2938,8 @@ BASE_STYLE = """
 <link rel="manifest" href="/manifest.json">
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(function(){});}</script>
 <style>
-    body { font-family: Arial, sans-serif; margin:24px; background: {{ '#111113' if dark else '#f4f6f8' }}; color: {{ '#e5e7eb' if dark else '#1f2937' }}; }
+    html { -webkit-text-size-adjust:100%; text-size-adjust:100%; }
+    body { font-family: Arial, sans-serif; margin:24px; background: {{ '#111113' if dark else '#f4f6f8' }}; color: {{ '#e5e7eb' if dark else '#1f2937' }}; touch-action:pan-y; overflow-x:hidden; }
     h1 { color: {{ '#93c5fd' if dark else '#1f4f82' }}; }
     h2, h3, h4 { color: {{ '#e5e7eb' if dark else '#111827' }}; }
     .brandbar, .card { background: {{ '#161618' if dark else 'white' }}; border-radius:12px; box-shadow:0 4px 14px rgba(0,0,0,0.06); }
@@ -3364,6 +3365,316 @@ BASE_STYLE = """
         .month-grid { gap:1px !important; }
         .month-grid .calendar-day-card { min-height:36px !important; padding:2px !important; }
     }
+
+    /* ══════════════════════════════════════════════════════════
+       WORKER APP MODE  (body.wapp — applied via JS for non-admin)
+    ══════════════════════════════════════════════════════════ */
+    body.wapp {
+        margin: 0 !important;
+        padding-top: 78px !important;
+        padding-bottom: 86px !important;
+        background: {{ '#111113' if dark else '#f1f5f9' }} !important;
+    }
+    /* Hide all standard admin chrome */
+    body.wapp .brandbar,
+    body.wapp .topbar,
+    body.wapp .sidebar,
+    body.wapp .bottom-nav { display:none !important; }
+    /* Content layout tweaks for workers */
+    body.wapp h1 { font-size:20px; }
+    body.wapp .hero { padding:16px; border-radius:18px; margin:0 0 12px; }
+    body.wapp .card { border-radius:16px; margin-bottom:12px; }
+    body.wapp .grid  { grid-template-columns:1fr !important; gap:12px; }
+    body.wapp .stats-grid { grid-template-columns:repeat(2,1fr) !important; }
+    body.wapp .back-button { display:none !important; }  /* workers use nav tabs */
+    body.wapp .week-link, body.wapp .pdf-link { display:none !important; }
+
+    html.wapp-root { overscroll-behavior-x:none; }
+
+    /* ── Worker floating header — transparent bar ───────────── */
+    .wapp-hdr {
+        display:none; position:fixed; top:12px; left:0; right:0; min-height:52px;
+        z-index:199;
+        background:transparent;
+        align-items:flex-start; justify-content:space-between;
+        padding:0 14px;
+        pointer-events:none;
+    }
+    body.wapp .wapp-hdr { display:flex; }
+    body.wapp .wapp-hdr > * { pointer-events:auto; }
+    /* Clear glass pill ONLY behind title */
+    .wapp-pill {
+        display:flex; flex-direction:column; justify-content:center;
+        min-height:42px;
+        padding:6px 14px; border-radius:22px;
+        background:{{ 'rgba(255,255,255,0.10)' if dark else 'rgba(255,255,255,0.48)' }};
+        backdrop-filter:none;
+        -webkit-backdrop-filter:none;
+        border:1px solid {{ 'rgba(255,255,255,0.22)' if dark else 'rgba(255,255,255,0.78)' }};
+        box-shadow:0 8px 24px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,.28);
+    }
+    .wapp-page-title { font-size:17px; font-weight:800; color:{{ '#e2e8f0' if dark else '#1e293b' }}; line-height:1.1; }
+    .wapp-page-sub   { font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; margin-top:1px; }
+    .wapp-menu-wrap { position:relative; }
+    /* Clear glass circle ONLY around menu */
+    .wapp-menu-btn {
+        width:42px; height:42px; border-radius:50%; flex-shrink:0;
+        background:{{ 'rgba(255,255,255,0.10)' if dark else 'rgba(255,255,255,0.48)' }};
+        backdrop-filter:none;
+        -webkit-backdrop-filter:none;
+        border:1px solid {{ 'rgba(255,255,255,0.22)' if dark else 'rgba(255,255,255,0.78)' }};
+        box-shadow:0 8px 24px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,.28);
+        color:{{ '#e2e8f0' if dark else '#1e293b' }};
+        display:flex; align-items:center; justify-content:center;
+        font-size:21px; cursor:pointer;
+        text-decoration:none; padding:0;
+        touch-action:manipulation;
+    }
+    .wapp-menu-panel {
+        display:none; position:absolute; right:0; top:50px;
+        width:min(286px, calc(100vw - 28px));
+        padding:8px;
+        border-radius:22px;
+        background:{{ 'rgba(22,22,24,0.92)' if dark else 'rgba(255,255,255,0.92)' }};
+        border:1px solid {{ 'rgba(255,255,255,0.14)' if dark else 'rgba(226,232,240,0.95)' }};
+        box-shadow:0 18px 46px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.22);
+    }
+    .wapp-menu-panel.open { display:block; }
+    .wapp-menu-panel a {
+        display:flex; align-items:center; gap:11px;
+        padding:13px 12px; border-radius:16px;
+        color:{{ '#e5e7eb' if dark else '#1e293b' }};
+        text-decoration:none; font-size:16px; font-weight:800;
+    }
+    .wapp-menu-panel a:hover { background:{{ '#1e1e20' if dark else '#f1f5f9' }}; }
+    .wapp-menu-panel span { width:34px; flex-shrink:0; text-align:center; font-size:13px; font-weight:900; }
+    .wapp-menu-panel small { display:block; margin-top:2px; font-size:11px; font-weight:700; color:{{ '#94a3b8' if dark else '#64748b' }}; }
+    .wapp-leave-sheet {
+        display:none; position:fixed; inset:0; z-index:520;
+        background:rgba(0,0,0,.42);
+        align-items:flex-end;
+    }
+    .wapp-leave-sheet.open { display:flex; }
+    .wapp-leave-inner {
+        width:100%; max-height:86vh; overflow-y:auto;
+        border-radius:26px 26px 0 0;
+        padding:18px 18px calc(22px + env(safe-area-inset-bottom,0px));
+        background:{{ '#161618' if dark else 'rgba(255,255,255,.96)' }};
+        border-top:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};
+        box-shadow:0 -18px 50px rgba(0,0,0,.22);
+    }
+    .wapp-leave-inner h3 { margin:0 0 14px; }
+    .wapp-leave-close { float:right; width:36px; height:36px; border-radius:50%; border:none; background:{{ '#1e1e20' if dark else '#f1f5f9' }}; color:inherit; font-weight:900; }
+    .wapp-leave-inner input, .wapp-leave-inner select { width:100%; }
+
+    /* ── Worker bottom nav — transparent, frosted bubbles ────── */
+    .wapp-nav {
+        display:none; position:fixed; bottom:0; left:0; right:0;
+        height:calc(74px + env(safe-area-inset-bottom,0px));
+        z-index:199;
+        background:transparent;
+        align-items:flex-start; justify-content:space-between;
+        gap:6px;
+        padding:8px 10px env(safe-area-inset-bottom,0px);
+    }
+    body.wapp .wapp-nav { display:flex; }
+    .wapp-btn {
+        display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+        text-decoration:none; color:{{ '#94a3b8' if dark else '#64748b' }};
+        flex:1 1 0; min-width:0; height:58px;
+        border:none; background:transparent; cursor:pointer; padding:0; margin:0;
+        font-family:inherit; line-height:1; appearance:none; -webkit-appearance:none;
+        touch-action:manipulation;
+    }
+    /* Thick curved lens bubble ONLY around icon + label */
+    .wapp-bubble {
+        position:relative; overflow:hidden;
+        display:flex; flex-direction:column; align-items:center; justify-content:center;
+        gap:3px; padding:8px 9px 7px; border-radius:24px; width:70px; max-width:100%;
+        min-height:56px; box-sizing:border-box;
+        background:{{ 'linear-gradient(145deg,rgba(255,255,255,.18),rgba(255,255,255,.07))' if dark else 'linear-gradient(145deg,rgba(255,255,255,.82),rgba(255,255,255,.46))' }};
+        backdrop-filter:saturate(185%) contrast(1.12) brightness(1.06) blur(.8px);
+        -webkit-backdrop-filter:saturate(185%) contrast(1.12) brightness(1.06) blur(.8px);
+        border:2px solid {{ 'rgba(255,255,255,0.25)' if dark else 'rgba(255,255,255,0.86)' }};
+        box-shadow:
+            0 14px 34px rgba(0,0,0,.16),
+            inset 0 1px 0 rgba(255,255,255,.62),
+            inset 0 -14px 22px {{ 'rgba(0,0,0,.22)' if dark else 'rgba(148,163,184,.22)' }},
+            inset 10px 0 24px rgba(255,255,255,.12);
+        transition:background .15s, border-color .15s, box-shadow .15s, transform .15s;
+    }
+    .wapp-bubble::before {
+        content:""; position:absolute; inset:2px 3px auto 3px; height:52%;
+        border-radius:22px 22px 18px 18px;
+        background:linear-gradient(160deg,rgba(255,255,255,.58),rgba(255,255,255,.10) 58%,transparent);
+        pointer-events:none;
+    }
+    .wapp-bubble::after {
+        content:""; position:absolute; left:12%; right:12%; bottom:5px; height:12px;
+        border-radius:999px;
+        background:radial-gradient(ellipse at center,rgba(255,255,255,.30),transparent 70%);
+        pointer-events:none;
+    }
+    .wapp-btn.wactive .wapp-bubble {
+        background:{{ 'linear-gradient(145deg,rgba(37,99,235,.35),rgba(37,99,235,.16))' if dark else 'linear-gradient(145deg,rgba(219,234,254,.90),rgba(191,219,254,.58))' }};
+        border-color:rgba(37,99,235,0.54);
+        box-shadow:
+            0 16px 38px rgba(37,99,235,.28),
+            inset 0 1px 0 rgba(255,255,255,.70),
+            inset 0 -14px 24px rgba(37,99,235,.18);
+        transform:translateY(-2px) scale(1.03);
+    }
+    .wapp-btn.wactive { color:#2563eb; }
+    .wapp-bubble .wb-icon  { position:relative; z-index:1; font-size:22px; line-height:1; display:block; }
+    .wapp-bubble .wb-label { position:relative; z-index:1; font-size:9.5px; font-weight:800; white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis; }
+    body.wapp .page-content {
+        max-width:520px;
+        margin:0 auto;
+        padding:0 16px;
+    }
+    .wapp-home { display:flex; flex-direction:column; gap:12px; }
+    .wapp-shift-hero {
+        border-radius:24px;
+        padding:22px 20px;
+        color:white;
+        background:linear-gradient(140deg,#2563eb 0%,#1d4ed8 100%);
+        box-shadow:0 12px 32px rgba(37,99,235,.34);
+        overflow:hidden;
+    }
+    .wapp-kicker { font-size:11px; font-weight:800; opacity:.78; text-transform:uppercase; letter-spacing:.08em; }
+    .wapp-shift-time { font-size:30px; font-weight:900; margin:6px 0 8px; line-height:1.05; }
+    .wapp-chip { display:inline-flex; align-items:center; gap:6px; padding:4px 11px; border-radius:999px; background:rgba(255,255,255,.18); font-size:12px; font-weight:800; }
+    .wapp-chip::before { content:''; width:7px; height:7px; border-radius:50%; background:var(--chip-dot,#4ade80); }
+    .wapp-hero-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px; }
+    .wapp-hero-stat { border-radius:16px; padding:12px; background:rgba(255,255,255,.14); min-width:0; }
+    .wapp-hero-val { font-size:23px; font-weight:900; line-height:1.1; }
+    .wapp-hero-sub { font-size:11px; opacity:.78; margin-top:4px; }
+    .wapp-sec { font-size:11px; font-weight:900; text-transform:uppercase; letter-spacing:.08em; color:{{ '#94a3b8' if dark else '#64748b' }}; margin:16px 0 4px; }
+    .wapp-list-card {
+        border-radius:20px;
+        background:{{ '#161618' if dark else 'white' }};
+        border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};
+        box-shadow:0 4px 14px rgba(0,0,0,.07);
+        overflow:hidden;
+    }
+    .wapp-shift-row { display:grid; grid-template-columns:48px minmax(0, 1fr) auto; gap:10px; padding:14px 16px; border-bottom:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; align-items:start; }
+    .wapp-shift-row.wroute { grid-template-columns:84px minmax(0, 1fr) 40px; }
+    .wapp-shift-row:last-child { border-bottom:none; }
+    .wapp-time { text-align:right; font-weight:900; font-size:13px; padding-top:2px; color:{{ '#e2e8f0' if dark else '#1e293b' }}; white-space:nowrap; }
+    .wapp-client { font-weight:850; color:{{ '#e5e7eb' if dark else '#1e293b' }}; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .wapp-address { font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; margin-top:3px; line-height:1.35; min-width:0; overflow:hidden; text-overflow:ellipsis; }
+    .wapp-status-badge { display:inline-flex; margin-top:7px; padding:3px 9px; border-radius:999px; background:{{ '#1e1e20' if dark else '#f1f5f9' }}; color:{{ '#94a3b8' if dark else '#64748b' }}; font-size:10px; font-weight:900; box-shadow:0 4px 10px rgba(0,0,0,.10); }
+    .wapp-map {
+        display:inline-flex; align-items:center; justify-content:center;
+        min-width:40px; min-height:36px; border-radius:14px;
+        background:#16a34a; color:white !important; text-decoration:none; font-weight:900;
+        box-shadow:0 4px 12px rgba(22,163,74,.24);
+    }
+    .wapp-mini-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .wapp-mini-card { border-radius:18px; padding:15px; background:{{ '#161618' if dark else 'white' }}; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; box-shadow:0 3px 12px rgba(0,0,0,.06); }
+    .wapp-mini-card b { font-size:24px; display:block; color:{{ '#e5e7eb' if dark else '#1e293b' }}; }
+    .wapp-mini-card span { font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; font-weight:700; }
+    .wapp-form-card { border-radius:20px; padding:16px; background:{{ '#161618' if dark else 'white' }}; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; box-shadow:0 4px 14px rgba(0,0,0,.07); }
+    .wapp-form-card h3 { margin-top:0; }
+    .wapp-week-shell { display:flex; flex-direction:column; gap:14px; }
+    .wapp-month-label {
+        display:inline-flex; align-self:flex-start;
+        padding:6px 12px; border-radius:999px;
+        background:{{ 'rgba(255,255,255,.08)' if dark else 'rgba(255,255,255,.55)' }};
+        border:1px solid {{ 'rgba(255,255,255,.16)' if dark else 'rgba(255,255,255,.75)' }};
+        color:{{ '#94a3b8' if dark else '#64748b' }};
+        box-shadow:0 6px 18px rgba(0,0,0,.08), inset 0 1px 0 rgba(255,255,255,.22);
+        font-size:12px; font-weight:900;
+    }
+    .wapp-date-strip {
+        display:flex; gap:10px; overflow-x:auto; overflow-y:hidden;
+        padding:2px 2px 10px; margin:0 -2px;
+        -webkit-overflow-scrolling:touch; scrollbar-width:none;
+        scroll-snap-type:x proximity;
+    }
+    .wapp-date-strip::-webkit-scrollbar,
+    .wapp-day-panel:not(.active) { display:none; }
+    .wapp-date-bubble {
+        flex:0 0 auto; width:58px; height:58px; border-radius:22px;
+        border:1px solid {{ 'rgba(255,255,255,.22)' if dark else 'rgba(255,255,255,.78)' }};
+        background:{{ 'rgba(255,255,255,.10)' if dark else 'rgba(255,255,255,.50)' }};
+        backdrop-filter:blur(16px) saturate(170%);
+        -webkit-backdrop-filter:blur(16px) saturate(170%);
+        color:{{ '#e5e7eb' if dark else '#1e293b' }};
+        box-shadow:0 8px 24px rgba(0,0,0,.10), inset 0 1px 0 rgba(255,255,255,.24);
+        font-size:21px; font-weight:900; cursor:pointer;
+        scroll-snap-align:center;
+    }
+    .wapp-date-bubble.active {
+        background:rgba(37,99,235,.22);
+        border-color:rgba(37,99,235,.42);
+        color:{{ '#bfdbfe' if dark else '#1d4ed8' }};
+    }
+    .wapp-week-shifts {
+        display:flex; flex-direction:column; gap:12px;
+        padding:2px 0 12px;
+    }
+    .wapp-week-card {
+        border-radius:22px; padding:16px;
+        background:{{ '#161618' if dark else 'white' }};
+        border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};
+        border-left:7px solid var(--worker-color, #2563eb);
+        box-shadow:0 6px 18px rgba(0,0,0,.08);
+    }
+    .wapp-week-time { font-size:24px; font-weight:900; color:{{ '#e5e7eb' if dark else '#1e293b' }}; }
+    .wapp-week-client { margin-top:10px; font-size:17px; font-weight:900; color:{{ '#e5e7eb' if dark else '#1e293b' }}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .wapp-week-worker { margin-top:6px; font-size:12px; color:{{ '#94a3b8' if dark else '#64748b' }}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .wapp-empty-day { border-radius:22px; padding:22px; text-align:center; background:{{ '#161618' if dark else 'white' }}; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; color:{{ '#94a3b8' if dark else '#64748b' }}; font-weight:800; }
+    body.wapp input, body.wapp select, body.wapp button,
+    body.wapp .settings-sheet input, body.wapp .settings-sheet select,
+    body.wapp .settings-sheet button, body.wapp .settings-pill,
+    body.wapp .settings-navlink { font-size:16px; }
+    @media (max-width:420px) {
+        body.wapp .page-content { padding:0 16px; }
+        .wapp-shift-time { font-size:28px; }
+        .wapp-shift-row { grid-template-columns:44px 1fr auto; padding:13px 14px; }
+        .wapp-shift-row.wroute { grid-template-columns:78px minmax(0, 1fr) 38px; }
+        .wapp-bubble { width:60px; padding-left:7px; padding-right:7px; }
+        .wapp-bubble .wb-label { font-size:9px; }
+    }
+
+    /* ── Worker archive ──────────────────────────────────────── */
+    .wapp-archive-year {
+        font-size:13px; font-weight:900; color:{{ '#64748b' if dark else '#94a3b8' }};
+        margin:8px 0 4px; padding:0 4px;
+    }
+    .wapp-archive-card {
+        border-radius:20px;
+        background:{{ '#161618' if dark else 'white' }};
+        border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};
+        box-shadow:0 4px 14px rgba(0,0,0,.07);
+        overflow:hidden;
+        margin-bottom:10px;
+    }
+    .wapp-archive-card summary {
+        display:flex; align-items:center; justify-content:space-between;
+        padding:14px 16px; cursor:pointer; list-style:none; user-select:none;
+        font-weight:800; font-size:15px;
+        color:{{ '#e5e7eb' if dark else '#1e293b' }};
+        gap:8px;
+    }
+    .wapp-archive-card summary::-webkit-details-marker { display:none; }
+    .wapp-archive-card summary::after {
+        content:"›"; font-size:20px; font-weight:900;
+        color:{{ '#64748b' if dark else '#94a3b8' }};
+        transition:transform .2s; flex-shrink:0;
+    }
+    .wapp-archive-card[open] summary::after { transform:rotate(90deg); }
+    .wapp-archive-summary-right { display:flex; align-items:center; gap:10px; }
+    .wapp-archive-count { font-size:12px; font-weight:700; color:{{ '#94a3b8' if dark else '#64748b' }}; }
+    .wapp-archive-pdf {
+        font-size:11px; font-weight:900; padding:4px 10px; border-radius:999px;
+        background:{{ '#1e1e20' if dark else '#f1f5f9' }};
+        color:{{ '#93c5fd' if dark else '#2563eb' }};
+        text-decoration:none; white-space:nowrap;
+        border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};
+    }
+    .wapp-archive-body { border-top:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; }
 </style>
 <script>
 (function(){
@@ -3554,6 +3865,111 @@ def header_html():
         </a>
       </div>
     </aside>
+    {% endif %}
+
+    {% if session.get('user') and session.get('role') != 'admin' %}
+    <script>
+    (function(){
+      function applyWorkerApp(){ if(document.body){ document.body.classList.add('wapp'); } }
+      document.documentElement.classList.add('wapp-root');
+      applyWorkerApp();
+      if(document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', applyWorkerApp); }
+      var lastTouchEnd = 0;
+      document.addEventListener('touchend', function(ev){
+        var now = Date.now();
+        if(now - lastTouchEnd <= 300){ ev.preventDefault(); }
+        lastTouchEnd = now;
+      }, {passive:false});
+      document.addEventListener('gesturestart', function(ev){ ev.preventDefault(); }, {passive:false});
+    })();
+    </script>
+    <header class="wapp-hdr">
+      <div class="wapp-pill">
+        <div class="wapp-page-title">
+          {% if request.path == '/week' %}{{ tr.get("nav_week","Sedmica") }}
+          {% elif request.path == '/route_optimizer' %}{{ tr.get("nav_route","Ruta") }}
+          {% else %}{{ tr.get("today_shifts","Danas") }}{% endif %}
+        </div>
+        <div class="wapp-page-sub">
+          {% if request.path == '/week' %}{{ session.get('user') }}
+          {% elif request.path == '/route_optimizer' %}Google Maps
+          {% else %}{{ tr.get("logged_as","Prijavljen") }}: {{ session.get('user') }}{% endif %}
+        </div>
+      </div>
+      <div class="wapp-menu-wrap">
+        <button class="wapp-menu-btn" type="button" onclick="toggleWorkerMenu(event)" aria-expanded="false" aria-controls="wappMenu" aria-label="{{ tr.get('nav_tools','Alati') }}">☰</button>
+        <div class="wapp-menu-panel" id="wappMenu">
+          <a href="javascript:void(0)" onclick="closeWorkerMenu();openWorkerLeaveSheet();"><span>☀</span><div>{{ tr.get("leave_request","Zahtjev za odsustvo") }}<small>{{ tr.get("leave_send","Posalji zahtjev") }}</small></div></a>
+          <a href="/week_pdf" target="_blank" rel="noopener" onclick="closeWorkerMenu()"><span>PDF</span><div>{{ tr.get("week_calendar","Sedmicni kalendar") }}<small>{{ tr.get("download","Preuzmi") }}</small></div></a>
+          <a href="/month_pdf" target="_blank" rel="noopener" onclick="closeWorkerMenu()"><span>PDF</span><div>{{ tr.get("month_calendar","Mjesecni kalendar") }}<small>{{ tr.get("download","Preuzmi") }}</small></div></a>
+        </div>
+      </div>
+    </header>
+    <nav class="wapp-nav" aria-label="{{ tr.get('nav_navigation','Navigacija') }}">
+      <a href="/" class="wapp-btn {% if request.path == '/' %}wactive{% endif %}">
+        <span class="wapp-bubble"><span class="wb-icon">🏠</span><span class="wb-label">{{ tr.get("nav_plan","Plan") }}</span></span>
+      </a>
+      <a href="/week" class="wapp-btn {% if request.path == '/week' %}wactive{% endif %}">
+        <span class="wapp-bubble"><span class="wb-icon">📅</span><span class="wb-label">{{ tr.get("nav_week","Sedmica") }}</span></span>
+      </a>
+      <a href="/route_optimizer" class="wapp-btn {% if request.path == '/route_optimizer' %}wactive{% endif %}">
+        <span class="wapp-bubble"><span class="wb-icon">🗺️</span><span class="wb-label">{{ tr.get("nav_route","Ruta") }}</span></span>
+      </a>
+      <button class="wapp-btn" type="button" onclick="openSettingsSheet()" aria-label="{{ tr.get('nav_settings','Postavke') }}">
+        <span class="wapp-bubble"><span class="wb-icon">👤</span><span class="wb-label">{{ tr.get("nav_settings","Postavke") }}</span></span>
+      </button>
+    </nav>
+    <div class="wapp-leave-sheet" id="wappLeaveSheet" onclick="if(event.target===this)closeWorkerLeaveSheet();">
+      <div class="wapp-leave-inner">
+        <button class="wapp-leave-close" type="button" onclick="closeWorkerLeaveSheet()">×</button>
+        <h3>{{ tr.get("leave_request","Zahtjev za odsustvo") }}</h3>
+        <form method="post" action="/leave_request">
+          <select name="type">
+            <option value="vacation">{{ tr["leave_type_vacation"] }}</option>
+            <option value="sick">{{ tr["leave_type_sick"] }}</option>
+            <option value="other">{{ tr["leave_type_other"] }}</option>
+          </select>
+          <label>{{ tr["leave_date_from"] }}</label>
+          <input type="date" name="date_from" required>
+          <label>{{ tr["leave_date_to"] }}</label>
+          <input type="date" name="date_to" required>
+          <input type="text" name="note" placeholder="{{ tr['leave_note'] }}">
+          <button>{{ tr["leave_send"] }}</button>
+        </form>
+      </div>
+    </div>
+    <script>
+    function toggleWorkerMenu(ev){
+      if(ev) ev.stopPropagation();
+      var menu = document.getElementById('wappMenu');
+      var btn = document.querySelector('.wapp-menu-btn');
+      if(!menu) return;
+      var open = !menu.classList.contains('open');
+      menu.classList.toggle('open', open);
+      if(btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    function closeWorkerMenu(){
+      var menu = document.getElementById('wappMenu');
+      var btn = document.querySelector('.wapp-menu-btn');
+      if(menu) menu.classList.remove('open');
+      if(btn) btn.setAttribute('aria-expanded', 'false');
+    }
+    function openWorkerLeaveSheet(){
+      var sheet = document.getElementById('wappLeaveSheet');
+      if(sheet) sheet.classList.add('open');
+    }
+    function closeWorkerLeaveSheet(){
+      var sheet = document.getElementById('wappLeaveSheet');
+      if(sheet) sheet.classList.remove('open');
+    }
+    document.addEventListener('click', function(ev){
+      var wrap = document.querySelector('.wapp-menu-wrap');
+      if(wrap && !wrap.contains(ev.target)) closeWorkerMenu();
+    });
+    document.addEventListener('keydown', function(ev){
+      if(ev.key === 'Escape'){ closeWorkerMenu(); closeWorkerLeaveSheet(); }
+    });
+    </script>
     {% endif %}
 
     <!-- ═══ Desktop topbar action icons ═══ -->
@@ -4045,10 +4461,27 @@ def load_index_data():
     my_leave_requests = [] if is_admin else c.execute("SELECT id, worker, type, date_from, date_to, note, status, created_at FROM leave_requests WHERE worker = ? ORDER BY created_at DESC LIMIT 10", (current_user,)).fetchall()
 
     client_cities = client_city_map(clients)
+    client_addresses = {c[0]: (c[1] or "") for c in clients}
+    today_iso = today.strftime("%Y-%m-%d")
+    worker_scope_shifts = sorted(all_shifts_for_hours, key=lambda s: (s[3], s[4], s[0]))
+    worker_today_shifts = [s for s in worker_scope_shifts if s[3] == today_iso]
+    worker_upcoming_shifts = [s for s in worker_scope_shifts if s[3] >= today_iso][:8]
+    worker_today_hours = sum(parse_shift_hours(s[4]) for s in worker_today_shifts)
+    worker_week_hours = sum(calculate_hours_for_user(week_shifts, None if is_admin else current_user).values())
+    worker_month_hours = sum(calculate_hours_for_user(month_shifts, None if is_admin else current_user).values())
+    first_of_this_month = datetime(today.year, today.month, 1).strftime("%Y-%m-%d")
+    archive_dict = {}
+    for s in worker_scope_shifts:
+        if s[3] < first_of_this_month:
+            ym = s[3][:7]
+            if ym not in archive_dict:
+                archive_dict[ym] = []
+            archive_dict[ym].append(s)
+    worker_archive_months = sorted(archive_dict.items(), key=lambda x: x[0], reverse=True)
     conn.close()
     return {
         "is_admin": is_admin, "current_user": current_user, "workers": workers, "clients": clients,
-        "client_cities": client_cities, "db_users": db_users, "worker_colors": worker_colors, "shifts": shifts,
+        "client_cities": client_cities, "client_addresses": client_addresses, "db_users": db_users, "worker_colors": worker_colors, "shifts": shifts,
         "selected_date": selected_date, "worker_filter": worker_filter, "client_filter": client_filter,
         "weekly_hours": calculate_hours_for_user(week_shifts, None if is_admin else current_user),
         "monthly_hours": calculate_hours_for_user(month_shifts, None if is_admin else current_user),
@@ -4062,6 +4495,14 @@ def load_index_data():
         "contract_reminders": contract_reminders(workers) if is_admin else [],
         "pending_leave": pending_leave,
         "my_leave_requests": my_leave_requests,
+        "today_iso": today_iso,
+        "today_label": format_date(today_iso),
+        "worker_today_shifts": worker_today_shifts,
+        "worker_upcoming_shifts": worker_upcoming_shifts,
+        "worker_today_hours": worker_today_hours,
+        "worker_week_hours": worker_week_hours,
+        "worker_month_hours": worker_month_hours,
+        "worker_archive_months": worker_archive_months,
     }
 
 
@@ -4075,6 +4516,119 @@ def index():
 
     return render_template_string(BASE_STYLE + header_html() + """
     <div class="page-content">
+            {% if not is_admin %}
+            <div class="wapp-home">
+                <section class="wapp-shift-hero">
+                    <div class="wapp-kicker">{{ tr.get("today_shifts","Današnje smjene") }}</div>
+                    {% if worker_today_shifts %}
+                        {% set hero_status = get_auto_status(worker_today_shifts[0][3], worker_today_shifts[0][4]) %}
+                        <div class="wapp-shift-time">{{ worker_today_shifts[0][4] }}</div>
+                        <span class="wapp-chip" style="background:{{ status_colors.get(hero_status, '#6b7280') }};color:white;--chip-dot:rgba(255,255,255,.88);">{{ get_status_label(hero_status, tr) }}</span>
+                    {% else %}
+                        <div class="wapp-shift-time">{{ tr.get("no_shifts","Nema smjena") }}</div>
+                        <span class="wapp-chip">{{ today_label }}</span>
+                    {% endif %}
+                    <div class="wapp-hero-grid">
+                        <div class="wapp-hero-stat">
+                            <div class="wapp-hero-val">{{ "%.2f"|format(worker_today_hours) }}</div>
+                            <div class="wapp-hero-sub">{{ tr.get("hours","sati") }} {{ tr.get("today_shifts","danas")|lower }}</div>
+                        </div>
+                        <div class="wapp-hero-stat">
+                            <div class="wapp-hero-val">{{ worker_today_shifts|length }}</div>
+                            <div class="wapp-hero-sub">{{ tr.get("today_shifts","Današnje smjene") }}</div>
+                        </div>
+                    </div>
+                </section>
+
+                <div class="wapp-sec">{{ tr.get("today_shifts","Današnje smjene") }}</div>
+                <section class="wapp-list-card">
+                    {% if worker_today_shifts %}
+                        {% for s in worker_today_shifts %}
+                        {% set addr = client_addresses.get(s[2], s[2]) %}
+                        {% set auto_status = get_auto_status(s[3], s[4]) %}
+                        <div class="wapp-shift-row">
+                            <div class="wapp-time">{{ s[4].split('-')[0].strip() }}</div>
+                            <div>
+                                <div class="wapp-client">{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}</div>
+                                <div class="wapp-address">{{ addr }}</div>
+                                <span class="wapp-status-badge" style="background:{{ status_colors.get(auto_status, '#6b7280') }};color:white;">{{ get_status_label(auto_status, tr) }}</span>
+                            </div>
+                            <a class="wapp-map" href="https://www.google.com/maps/search/?api=1&query={{ addr|urlencode }}" target="_blank" rel="noopener" title="Google Maps">➜</a>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="wapp-shift-row" style="grid-template-columns:1fr;">
+                            <div class="wapp-address">{{ tr.get("no_shifts","Nema smjena") }}</div>
+                        </div>
+                    {% endif %}
+                </section>
+
+                <div class="wapp-sec">{{ tr.get("week_calendar","Sedmicni kalendar") }}</div>
+                <div class="wapp-mini-grid">
+                    <div class="wapp-mini-card"><b>{{ "%.1f"|format(worker_week_hours) }}</b><span>{{ tr.get("weekly_hours","Sedmicni sati") }}</span></div>
+                    <div class="wapp-mini-card"><b>{{ "%.1f"|format(worker_month_hours) }}</b><span>{{ tr.get("monthly_hours","Mjesecni sati") }}</span></div>
+                </div>
+
+                <div class="wapp-sec">{{ tr.get("route_optimizer","Optimizacija rute") }}</div>
+                <section class="wapp-list-card">
+                    {% if worker_upcoming_shifts %}
+                        {% for s in worker_upcoming_shifts[:4] %}
+                        {% set addr = client_addresses.get(s[2], s[2]) %}
+                        <div class="wapp-shift-row wroute">
+                            <div class="wapp-time">{{ format_date(s[3]) }}</div>
+                            <div>
+                                <div class="wapp-client">{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}</div>
+                                <div class="wapp-address">{{ s[4] }} · {{ addr }}</div>
+                            </div>
+                            <a class="wapp-map" href="https://www.google.com/maps/search/?api=1&query={{ addr|urlencode }}" target="_blank" rel="noopener" title="Google Maps">➜</a>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="wapp-shift-row" style="grid-template-columns:1fr;">
+                            <div class="wapp-address">{{ tr.get("no_shifts","Nema smjena") }}</div>
+                        </div>
+                    {% endif %}
+                </section>
+
+                {% if worker_archive_months %}
+                <div class="wapp-sec">{{ tr.get("archive","Arhiva") }}</div>
+                {% set ns = namespace(prev_year='') %}
+                {% for ym, arc_shifts in worker_archive_months %}
+                {% set yr = ym[:4] %}
+                {% set mo = ym[5:]|int %}
+                {% if yr != ns.prev_year %}
+                {% set ns.prev_year = yr %}
+                <div class="wapp-archive-year">{{ yr }}</div>
+                {% endif %}
+                <details class="wapp-archive-card">
+                  <summary>
+                    <span>{{ format_month_year(yr|int, mo) }}</span>
+                    <span class="wapp-archive-summary-right">
+                      <span class="wapp-archive-count">{{ arc_shifts|length }} {{ tr.get("shifts","smjena") }}</span>
+                      <a class="wapp-archive-pdf" href="/month_pdf?year={{ yr }}&month={{ '%02d'|format(mo) }}" target="_blank" rel="noopener" onclick="event.stopPropagation()">PDF</a>
+                    </span>
+                  </summary>
+                  <div class="wapp-archive-body">
+                    {% for s in arc_shifts %}
+                    {% set addr = client_addresses.get(s[2], s[2]) %}
+                    {% set auto_status = get_auto_status(s[3], s[4]) %}
+                    <div class="wapp-shift-row">
+                      <div class="wapp-time">{{ format_date(s[3]) }}</div>
+                      <div>
+                        <div class="wapp-client">{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}</div>
+                        <div class="wapp-address">{{ s[4] }}</div>
+                        <span class="wapp-status-badge" style="background:{{ status_colors.get(auto_status,'#6b7280') }};color:white;">{{ get_status_label(auto_status, tr) }}</span>
+                      </div>
+                      <a class="wapp-map" href="https://www.google.com/maps/search/?api=1&query={{ addr|urlencode }}" target="_blank" rel="noopener" title="Google Maps">➜</a>
+                    </div>
+                    {% endfor %}
+                  </div>
+                </details>
+                {% endfor %}
+                {% endif %}
+
+            </div>
+            {% else %}
             {% if is_admin %}<div class="hero">
                 <h1>{{ tr["dashboard"] }}</h1>
                 <div class="muted">Luxmann Planner · {{ tr["overview"] }}</div>
@@ -4214,6 +4768,7 @@ def index():
         </div>
         <a class="week-link" href="/week">{{ tr["week_calendar"] }}</a>{% if session.get('role') == 'admin' %}<a class="week-link" href="/month">{{ tr["month_calendar"] }}</a>{% endif %}<a class="week-link" href="/route_optimizer">{{ tr["route_optimizer"] }}</a><a class="pdf-link" href="/export_pdf{% if request.args.get('date') %}?date={{ request.args.get('date') }}{% endif %}" target="_blank">{{ tr["pdf"] }}</a>
     </div>
+    {% endif %}
     </div>
 
   <script>
@@ -4260,6 +4815,7 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 </script>
     """, tr=tr, dark=dark, datetime=datetime, timedelta=timedelta, format_date=format_date,
+       format_month_year=format_month_year,
        time_hours=time_hours(), time_minutes=time_minutes(), status_colors=STATUS_COLORS,
        get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers, **data)
 
@@ -4434,18 +4990,112 @@ def week_view():
     c = conn.cursor()
     worker_colors = get_worker_colors(conn)
     week_days = [(start_week + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
-    shifts = c.execute("SELECT * FROM shifts WHERE date >= ? AND date <= ? ORDER BY date, time, id", (week_days[0], week_days[-1])).fetchall()
+    today_dt = datetime.today()
+    worker_start = datetime(today_dt.year, today_dt.month, 1)
+    worker_year_end = datetime(today_dt.year, 12, 31)
+    worker_day_count = max(1, (worker_year_end.date() - worker_start.date()).days + 1)
+    worker_days_dt = [worker_start + timedelta(days=i) for i in range(worker_day_count)]
+    worker_days = [d.strftime("%Y-%m-%d") for d in worker_days_dt]
+    query_start, query_end = (worker_days[0], worker_days[-1]) if not is_admin else (week_days[0], week_days[-1])
+    shifts = c.execute("SELECT * FROM shifts WHERE date >= ? AND date <= ? ORDER BY date, time, id", (query_start, query_end)).fetchall()
     if not is_admin:
         shifts = [s for s in shifts if worker_in_shift(current_user, s[1])]
-    holidays_map = get_all_holidays(conn, {start_week.year, week_end.year})
+    holiday_years = {d.year for d in worker_days_dt} | {start_week.year, week_end.year}
+    holidays_map = get_all_holidays(conn, holiday_years)
     clients_raw = c.execute("SELECT name, address FROM clients ORDER BY name").fetchall()
     client_cities = client_city_map(clients_raw)
     clients = clients_raw
     workers = c.execute("SELECT name FROM workers ORDER BY name").fetchall()
     conn.close()
     day_names = [tr["monday"], tr["tuesday"], tr["wednesday"], tr["thursday"], tr["friday"], tr["saturday"], tr["sunday"]]
+    today_iso = datetime.today().strftime("%Y-%m-%d")
+    selected_week_day = request.args.get("day", "").strip()
+    if selected_week_day not in worker_days:
+        selected_week_day = today_iso if today_iso in worker_days else week_days[0]
+    day_shift_counts = {day: len([s for s in shifts if s[3] == day]) for day in worker_days}
+    day_month_labels = {d.strftime("%Y-%m-%d"): format_month_year(d.year, d.month) for d in worker_days_dt}
 
     return render_template_string(BASE_STYLE + header_html() + """
+    {% if not is_admin %}
+    <div class="page-content">
+      <div class="wapp-week-shell">
+        <div class="wapp-month-label" id="wappMonthLabel">{{ day_month_labels.get(selected_week_day, "") }}</div>
+        <div class="wapp-date-strip" id="wappDateStrip" aria-label="{{ tr.get('week_calendar','Sedmicni kalendar') }}">
+          {% for day in worker_days %}
+          <button type="button" class="wapp-date-bubble {% if day == selected_week_day %}active{% endif %}" data-day="{{ day }}" data-month="{{ day_month_labels.get(day, '') }}" onclick="selectWappDay('{{ day }}', this)" aria-label="{{ format_date(day) }}">
+            {{ day[8:10] }}
+          </button>
+          {% endfor %}
+        </div>
+        <div class="wapp-day-panels">
+          {% for day in worker_days %}
+          <section class="wapp-day-panel {% if day == selected_week_day %}active{% endif %}" id="wappDay{{ day|replace('-', '') }}">
+            {% if day_shift_counts.get(day, 0) > 0 %}
+            <div class="wapp-week-shifts">
+              {% for s in shifts %}
+                {% if s[3] == day %}
+                {% set auto_status = get_auto_status(s[3], s[4]) %}
+                <article class="wapp-week-card" style="--worker-color:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#2563eb') }};">
+                  <div class="wapp-week-time">{{ s[4] }}</div>
+                  <div class="wapp-week-client">{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}</div>
+                  <div class="wapp-week-worker">{{ s[1] }}</div>
+                  <span class="wapp-status-badge" style="background:{{ status_colors.get(auto_status, '#6b7280') }};color:white;">{{ get_status_label(auto_status, tr) }}</span>
+                </article>
+                {% endif %}
+              {% endfor %}
+            </div>
+            {% else %}
+            <div class="wapp-empty-day">{{ tr["no_shifts"] }}</div>
+            {% endif %}
+          </section>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    <script>
+    function selectWappDay(day, btn){
+      document.querySelectorAll('.wapp-date-bubble').forEach(function(b){ b.classList.remove('active'); });
+      if(btn) btn.classList.add('active');
+      var monthLabel = document.getElementById('wappMonthLabel');
+      if(monthLabel && btn && btn.dataset.month) monthLabel.textContent = btn.dataset.month;
+      document.querySelectorAll('.wapp-day-panel').forEach(function(p){ p.classList.remove('active'); });
+      var panel = document.getElementById('wappDay' + day.split('-').join(''));
+      if(panel){
+        panel.classList.add('active');
+        var scroller = panel.querySelector('.wapp-week-shifts');
+        if(scroller) scroller.scrollTo({left:0, behavior:'smooth'});
+      }
+      if(btn) btn.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'});
+    }
+    document.addEventListener('DOMContentLoaded', function(){
+      var active = document.querySelector('.wapp-date-bubble.active');
+      if(active) active.scrollIntoView({inline:'center', block:'nearest'});
+      var strip = document.getElementById('wappDateStrip');
+      var monthLabel = document.getElementById('wappMonthLabel');
+      var ticking = false;
+      function updateMonthFromScroll(){
+        if(!strip || !monthLabel) return;
+        var buttons = Array.prototype.slice.call(strip.querySelectorAll('.wapp-date-bubble'));
+        if(!buttons.length) return;
+        var center = strip.getBoundingClientRect().left + strip.clientWidth / 2;
+        var closest = buttons.reduce(function(best, btn){
+          var rect = btn.getBoundingClientRect();
+          var dist = Math.abs((rect.left + rect.width / 2) - center);
+          return (!best || dist < best.dist) ? {btn:btn, dist:dist} : best;
+        }, null);
+        if(closest && closest.btn.dataset.month) monthLabel.textContent = closest.btn.dataset.month;
+      }
+      if(strip){
+        strip.addEventListener('scroll', function(){
+          if(ticking) return;
+          ticking = true;
+          window.requestAnimationFrame(function(){ updateMonthFromScroll(); ticking = false; });
+        }, {passive:true});
+        updateMonthFromScroll();
+      }
+    });
+    </script>
+    {% else %}
     <h1>{{ tr["week_calendar"] }}</h1>
     <div>
         <a class="back-button" href="/">{{ tr["back"] }}</a>
@@ -4555,7 +5205,8 @@ def week_view():
       }
     });
     </script>
-    """, tr=tr, dark=dark, week_days=week_days, shifts=shifts, worker_colors=worker_colors, client_cities=client_cities, format_date=format_date, holidays_map=holidays_map, day_names=day_names, status_colors=STATUS_COLORS, get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers, is_weekend=is_weekend, is_admin=is_admin, prev_week=prev_week, next_week=next_week, current_week=current_week, start_year=start_week.year, start_month=start_week.month, workers=workers, clients=clients, time_hours=time_hours())
+    {% endif %}
+    """, tr=tr, dark=dark, week_days=week_days, worker_days=worker_days, shifts=shifts, worker_colors=worker_colors, client_cities=client_cities, format_date=format_date, holidays_map=holidays_map, day_names=day_names, status_colors=STATUS_COLORS, get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers, is_weekend=is_weekend, is_admin=is_admin, prev_week=prev_week, next_week=next_week, current_week=current_week, start_year=start_week.year, start_month=start_week.month, workers=workers, clients=clients, time_hours=time_hours(), selected_week_day=selected_week_day, day_shift_counts=day_shift_counts, day_month_labels=day_month_labels)
 
 
 @app.route("/month")
@@ -7132,7 +7783,6 @@ def week_pdf():
 @app.route("/month_pdf")
 def month_pdf():
     if "user" not in session: return redirect("/login")
-    if session.get("role") != "admin": return redirect("/")
     tr = t(); is_admin = session.get("role") == "admin"; current_user = session.get("user")
     year = request.args.get("year", type=int) or datetime.today().year; month = request.args.get("month", type=int) or datetime.today().month
     start_date = f"{year:04d}-{month:02d}-01"; end_date = f"{year:04d}-{month:02d}-{calendar.monthrange(year, month)[1]:02d}"

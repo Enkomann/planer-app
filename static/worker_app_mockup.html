@@ -23,17 +23,18 @@
   --text:    #1e293b;
   --text2:   #64748b;
   --safe-b:  env(safe-area-inset-bottom, 0px);
-  --notch-h: 44px;
-  --hdr-h:   90px;   /* notch + header inner */
+  --notch-h: 12px;
+  --hdr-h:   78px;
   --nav-h:   80px;
-  /* Frosted glass values used on individual bubbles */
-  --glass-bg:     rgba(248,250,252,0.82);
-  --glass-blur:   blur(22px) saturate(190%);
-  --glass-border: rgba(255,255,255,0.6);
+  /* Thick lens-glass values used on individual bubbles */
+  --glass-bg:     linear-gradient(145deg,rgba(255,255,255,.82),rgba(255,255,255,.46));
+  --glass-blur:   saturate(185%) contrast(1.12) brightness(1.06) blur(.8px);
+  --glass-border: rgba(255,255,255,0.78);
 }
 
 html, body {
   height: 100%;
+  overflow-x: hidden;
   background: #bfcfe8;
   background: radial-gradient(ellipse at 55% 15%, #ccddf5 0%, #b0c4da 100%);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif;
@@ -51,30 +52,17 @@ html, body {
               0 0 0 1px rgba(255,255,255,.14) inset,
               0 0 0 2.5px rgba(0,0,0,.09);
 }
-@media (max-width:420px) {
+@media (max-width:600px) {
   .wrap { padding:0; background:#f1f5f9; }
   .phone { border-radius:0; width:100%; height:100dvh; box-shadow:none; }
 }
-
-/* ── Status bar (minimal, just time + icons) ─────────────────── */
-.status {
-  position:absolute; top:0; left:0; right:0; height:var(--notch-h);
-  display:flex; align-items:center; justify-content:space-between;
-  padding:14px 24px 0; z-index:60;
-  /* Subtle frosted — barely noticeable, just readable */
-  background: rgba(241,245,249,0.55);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-.status-time  { font-size:15px; font-weight:700; color:#0f172a; }
-.status-icons { font-size:13px; color:#0f172a; }
 
 /* ── Header bar — TRANSPARENT, elements have own bubbles ─────── */
 .hdr {
   position:absolute;
   top:var(--notch-h); left:0; right:0;
-  height:46px;
-  display:flex; align-items:center; justify-content:space-between;
+  min-height:52px;
+  display:flex; align-items:flex-start; justify-content:space-between;
   padding:0 16px;
   z-index:50;
   background:transparent;   /* ★ NO full-width background */
@@ -94,24 +82,27 @@ html, body {
 .hdr-title { font-size:17px; font-weight:800; color:var(--text); line-height:1.1; }
 .hdr-sub   { font-size:11px; color:var(--text2); margin-top:1px; }
 
-/* Frosted circle for bell — already circular, adds bubble */
+/* Clear glass circle for menu */
 .hdr-bell {
-  width:38px; height:38px; border-radius:50%;
+  width:42px; height:42px; border-radius:50%;
   display:flex; align-items:center; justify-content:center;
-  font-size:19px; border:none; cursor:pointer;
-  /* ★ Frosted glass ONLY on this circle */
+  font-size:21px; border:none; cursor:pointer;
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   border:1px solid var(--glass-border);
   box-shadow:0 2px 12px rgba(0,0,0,.08);
 }
+.mock-menu { position:absolute; right:16px; top:50px; width:270px; display:none; padding:8px; border-radius:22px; background:rgba(255,255,255,.94); border:1px solid var(--border); box-shadow:0 18px 46px rgba(0,0,0,.24); z-index:70; }
+.mock-menu.open { display:block; }
+.mock-menu a { display:flex; gap:10px; padding:13px 12px; border-radius:16px; color:var(--text); text-decoration:none; font-size:16px; font-weight:800; }
+.mock-menu a:hover { background:#f1f5f9; }
 
 /* ── Screens — full phone, scrollable ───────────────────────── */
 .screen {
   display:none; position:absolute;
   top:0; left:0; right:0; bottom:0;
-  overflow-y:auto; overscroll-behavior:contain;
+  overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch;
   /* Padding so content isn't hidden under fixed header/nav */
   padding-top: calc(var(--notch-h) + 46px + 8px);
@@ -134,28 +125,50 @@ html, body {
 .nav-btn {
   display:flex; flex-direction:column; align-items:center;
   gap:0; border:none; background:transparent; cursor:pointer;
-  padding:0; flex:1;
+  padding:0; flex:1; min-width:0; height:58px; line-height:1;
+  appearance:none; -webkit-appearance:none;
 }
 
-/* ★ Frosted glass bubble — ONLY behind icon + label */
+/* Thick curved lens bubble — ONLY behind icon + label */
 .nav-bubble {
-  display:flex; flex-direction:column; align-items:center;
-  gap:3px; padding:7px 14px 6px; border-radius:18px;
-  min-width:58px;
+  position:relative; overflow:hidden;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:3px; padding:8px 9px 7px; border-radius:24px;
+  width:70px; min-height:56px;
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
-  border:1px solid var(--glass-border);
-  box-shadow: 0 2px 14px rgba(0,0,0,.09);
-  transition: background .15s, box-shadow .15s;
+  border:2px solid rgba(255,255,255,0.86);
+  box-shadow:
+    0 14px 34px rgba(0,0,0,.16),
+    inset 0 1px 0 rgba(255,255,255,.62),
+    inset 0 -14px 22px rgba(148,163,184,.22),
+    inset 10px 0 24px rgba(255,255,255,.12);
+  transition: background .15s, box-shadow .15s, transform .15s;
+}
+.nav-bubble::before {
+  content:""; position:absolute; inset:2px 3px auto 3px; height:52%;
+  border-radius:22px 22px 18px 18px;
+  background:linear-gradient(160deg,rgba(255,255,255,.58),rgba(255,255,255,.10) 58%,transparent);
+  pointer-events:none;
+}
+.nav-bubble::after {
+  content:""; position:absolute; left:12%; right:12%; bottom:5px; height:12px;
+  border-radius:999px;
+  background:radial-gradient(ellipse at center,rgba(255,255,255,.30),transparent 70%);
+  pointer-events:none;
 }
 .nav-btn.active .nav-bubble {
-  background: rgba(37,99,235,0.14);
-  border-color: rgba(37,99,235,0.25);
-  box-shadow: 0 2px 14px rgba(37,99,235,.18);
+  background: linear-gradient(145deg,rgba(219,234,254,.90),rgba(191,219,254,.58));
+  border-color: rgba(37,99,235,0.54);
+  box-shadow:
+    0 16px 38px rgba(37,99,235,.28),
+    inset 0 1px 0 rgba(255,255,255,.70),
+    inset 0 -14px 24px rgba(37,99,235,.18);
+  transform:translateY(-2px) scale(1.03);
 }
-.nav-icon  { font-size:22px; line-height:1; }
-.nav-label { font-size:10px; font-weight:600; color:var(--text2); white-space:nowrap; }
+.nav-icon  { position:relative; z-index:1; font-size:22px; line-height:1; }
+.nav-label { position:relative; z-index:1; font-size:9.5px; font-weight:800; color:var(--text2); white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis; }
 .nav-btn.active .nav-label { color:var(--blue); }
 
 /* ── Shared UI components ────────────────────────────────────── */
@@ -247,24 +260,27 @@ html, body {
 .marr   { color:#cbd5e1; font-size:16px; }
 .mrow.danger .mlbl { color:var(--red); }
 
-/* Absence shortcut */
-.abscard { display:flex; align-items:center; gap:12px; background:var(--amber-lt); border:1px solid #fde68a; border-radius:16px; margin:0 16px 12px; padding:13px 14px; }
-.absico  { font-size:24px; }
-.absbody { flex:1; }
-.abstit  { font-size:13px; font-weight:700; color:#92400e; }
-.abssub  { font-size:11px; color:#92400e; opacity:.8; margin-top:1px; }
-.absbtn  { background:var(--amber); color:#fff; border:none; border-radius:9px; padding:7px 12px; font-size:12px; font-weight:700; cursor:pointer; flex-shrink:0; }
-
 /* Weekly bar */
 .wbar-nums { display:flex; justify-content:space-between; align-items:baseline; }
 .wbar-big  { font-size:34px; font-weight:800; color:var(--text); }
 .wbar-of   { font-size:13px; color:var(--text2); }
 .wbar-track { height:6px; border-radius:3px; background:var(--border); overflow:hidden; margin-top:10px; }
 .wbar-fill  { height:100%; border-radius:3px; background:var(--blue); }
+.month-label { display:inline-flex; margin:0 16px; padding:6px 12px; border-radius:999px; background:rgba(255,255,255,.55); border:1px solid rgba(255,255,255,.75); color:var(--text2); box-shadow:0 6px 18px rgba(0,0,0,.08), inset 0 1px 0 rgba(255,255,255,.22); font-size:12px; font-weight:900; }
+.date-strip { display:flex; gap:10px; overflow-x:auto; padding:2px 16px 12px; scrollbar-width:none; }
+.date-strip::-webkit-scrollbar, .day-panel:not(.active) { display:none; }
+.date-bubble { flex:0 0 auto; width:58px; height:58px; border-radius:22px; border:1px solid var(--glass-border); background:var(--glass-bg); backdrop-filter:blur(16px) saturate(170%); -webkit-backdrop-filter:blur(16px) saturate(170%); color:var(--text); font-size:21px; font-weight:900; box-shadow:0 8px 24px rgba(0,0,0,.10), inset 0 1px 0 rgba(255,255,255,.24); }
+.date-bubble.active { background:rgba(37,99,235,.22); color:var(--blue-dk); }
+.week-shifts { display:flex; flex-direction:column; gap:12px; padding:2px 16px 12px; }
+.week-card { border-radius:22px; padding:16px; background:white; border:1px solid var(--border); border-left:7px solid var(--worker-color, var(--blue)); box-shadow:0 6px 18px rgba(0,0,0,.08); }
+.week-time { font-size:24px; font-weight:900; color:var(--text); }
+.week-client { margin-top:10px; font-size:17px; font-weight:900; color:var(--text); }
+.week-worker { margin-top:6px; font-size:12px; color:var(--text2); }
+.week-status { display:inline-flex; margin-top:8px; padding:3px 9px; border-radius:999px; color:#fff; font-size:10px; font-weight:900; box-shadow:0 4px 10px rgba(0,0,0,.10); }
 
 /* Desktop hint */
 .hint { display:none; }
-@media (min-width:421px) {
+@media (min-width:601px) {
   .hint { display:block; text-align:center; font-size:12px; color:#64748b; padding:10px 0 24px; font-family:sans-serif; }
 }
 </style>
@@ -274,21 +290,19 @@ html, body {
 <div class="wrap">
 <div class="phone" id="phone">
 
-  <!-- ═══ STATUS BAR ════════════════════════════════════════ -->
-  <div class="status">
-    <span class="status-time">9:41</span>
-    <span class="status-icons">●●● WiFi 🔋</span>
-  </div>
-
   <!-- ═══ HEADER — transparent bar, bubbles only on elements ═══ -->
   <div class="hdr" id="hdr">
     <!-- ★ Frosted pill ONLY behind title+subtitle -->
     <div class="hdr-title-bubble" id="htb">
-      <div class="hdr-title" id="hdr-title">Danas 👋</div>
+      <div class="hdr-title" id="hdr-title">Danas</div>
       <div class="hdr-sub"   id="hdr-sub">Petak, 30. maj 2026</div>
     </div>
-    <!-- ★ Frosted circle ONLY around bell icon -->
-    <button class="hdr-bell">🔔</button>
+    <button class="hdr-bell" onclick="toggleMockMenu(event)">☰</button>
+    <div class="mock-menu" id="mockMenu">
+      <a href="#s-profile"><span>☀</span><div>Zahtjev za odmor</div></a>
+      <a href="#"><span>PDF</span><div>Preuzmi sedmicni plan</div></a>
+      <a href="#"><span>PDF</span><div>Preuzmi mjesecni plan</div></a>
+    </div>
   </div>
 
   <!-- ════════════════════════
@@ -303,12 +317,6 @@ html, body {
         <div class="hero-stat"><div class="hero-val">02:15</div><div class="hero-sub">Sati danas</div></div>
         <div class="hero-stat"><div class="hero-val">3 / 5</div><div class="hero-sub">Zadataka</div></div>
       </div>
-    </div>
-
-    <div class="abscard">
-      <div class="absico">🌴</div>
-      <div class="absbody"><div class="abstit">Odmor / Odsustvo</div><div class="abssub">Pošalji zahtjev za slobodan dan</div></div>
-      <button class="absbtn">Pošalji</button>
     </div>
 
     <div class="sec">Današnje smjene</div>
@@ -340,24 +348,17 @@ html, body {
        SCREEN: SEDMICA
   ════════════════════════ -->
   <div class="screen" id="s-week">
-    <div class="dhdr">Pon, 26. maj</div>
-    <div class="ws"><div class="wa g"></div><div class="wbody"><div class="wcl">Marie Dupont</div><div class="wme">12 Rue de la Gare · Završeno</div></div><div class="wt">07:30</div></div>
-    <div class="ws" style="margin-top:2px;"><div class="wa g"></div><div class="wbody"><div class="wcl">Sophie Bernard</div><div class="wme">3 Rue des Romains · Završeno</div></div><div class="wt">10:00</div></div>
-
-    <div class="dhdr" style="margin-top:4px;">Uto, 27. maj</div>
-    <div class="ws"><div class="wa g"></div><div class="wbody"><div class="wcl">Jean Martin</div><div class="wme">45 Av. de la Liberté · Završeno</div></div><div class="wt">08:00</div></div>
-
-    <div class="dhdr" style="margin-top:4px;color:#cbd5e1;">Sri, 28. maj — slobodan dan</div>
-
-    <div class="dhdr" style="margin-top:4px;">Čet, 29. maj</div>
-    <div class="ws"><div class="wa g"></div><div class="wbody"><div class="wcl">Pierre Durand</div><div class="wme">8 Rue du Fort Wallis · Završeno</div></div><div class="wt">09:00</div></div>
-
-    <div class="dhdr today" style="margin-top:4px;">Pet, 30. maj — DANAS</div>
-    <div class="ws today"><div class="wa"></div><div class="wbody"><div class="wcl">Marie Dupont</div><div class="wme">12 Rue de la Gare · Završeno</div></div><div class="wt">07:30</div></div>
-    <div class="ws today" style="margin-top:2px;"><div class="wa"></div><div class="wbody"><div class="wcl">Jean Martin</div><div class="wme">45 Av. de la Liberté · Na lokaciji</div></div><div class="wt">09:30</div></div>
-    <div class="ws today" style="margin-top:2px;"><div class="wa x"></div><div class="wbody"><div class="wcl">Sophie Bernard</div><div class="wme">3 Rue des Romains · Naredno</div></div><div class="wt">11:30</div></div>
-
-    <div class="dhdr" style="margin-top:4px;color:#cbd5e1;">Sub – Ned — vikend</div>
+    <div class="month-label" id="mockMonthLabel">Maj 2026</div>
+    <div class="date-strip">
+      <button class="date-bubble">19</button><button class="date-bubble">20</button><button class="date-bubble">21</button><button class="date-bubble">22</button><button class="date-bubble">23</button><button class="date-bubble">24</button><button class="date-bubble">25</button><button class="date-bubble">26</button><button class="date-bubble">27</button><button class="date-bubble">28</button><button class="date-bubble">29</button><button class="date-bubble active">30</button><button class="date-bubble">31</button><button class="date-bubble">01</button><button class="date-bubble">02</button><button class="date-bubble">03</button><button class="date-bubble">04</button><button class="date-bubble">05</button><button class="date-bubble">06</button><button class="date-bubble">07</button><button class="date-bubble">08</button><button class="date-bubble">09</button><button class="date-bubble">10</button><button class="date-bubble">11</button><button class="date-bubble">12</button><button class="date-bubble">13</button><button class="date-bubble">14</button><button class="date-bubble">15</button><button class="date-bubble">...</button><button class="date-bubble">31</button>
+    </div>
+    <div class="day-panel active">
+      <div class="week-shifts">
+        <article class="week-card" style="--worker-color:#2563eb;"><div class="week-time">07:30 - 09:00</div><div class="week-client">Marie Dupont</div><div class="week-worker">Marko Petrovic</div><span class="week-status" style="background:#ef4444;">Zavrseno</span></article>
+        <article class="week-card" style="--worker-color:#16a34a;"><div class="week-time">09:30 - 11:00</div><div class="week-client">Jean Martin</div><div class="week-worker">Marko Petrovic · Na lokaciji</div></article>
+        <article class="week-card" style="--worker-color:#d97706;"><div class="week-time">11:30 - 13:00</div><div class="week-client">Sophie Bernard</div><div class="week-worker">Marko Petrovic · Naredno</div></article>
+      </div>
+    </div>
     <div style="height:6px;"></div>
   </div>
 
@@ -415,17 +416,17 @@ html, body {
 
   <!-- ═══ BOTTOM NAV — transparent bar, each icon has own bubble ═══ -->
   <nav class="bnav" id="bnav">
-    <button class="nav-btn active" id="nb-home"    onclick="go('home','Danas 👋','Petak, 30. maj 2026')">
-      <div class="nav-bubble"><span class="nav-icon">🏠</span><span class="nav-label">Početno</span></div>
+    <button class="nav-btn active" id="nb-home"    onclick="go('home','Danas','Petak, 30. maj 2026')">
+      <div class="nav-bubble"><span class="nav-icon">🏠</span><span class="nav-label">Plan</span></div>
     </button>
     <button class="nav-btn"        id="nb-week"    onclick="go('week','Sedmica','26 maj – 1 jun 2026')">
       <div class="nav-bubble"><span class="nav-icon">📅</span><span class="nav-label">Sedmica</span></div>
     </button>
     <button class="nav-btn"        id="nb-docs"    onclick="go('docs','Dokumenti','')">
-      <div class="nav-bubble"><span class="nav-icon">📄</span><span class="nav-label">Dokumenti</span></div>
+      <div class="nav-bubble"><span class="nav-icon">🗺️</span><span class="nav-label">Rute</span></div>
     </button>
     <button class="nav-btn"        id="nb-profile" onclick="go('profile','Profil','')">
-      <div class="nav-bubble"><span class="nav-icon">👤</span><span class="nav-label">Profil</span></div>
+      <div class="nav-bubble"><span class="nav-icon">👤</span><span class="nav-label">Postavke</span></div>
     </button>
   </nav>
 
@@ -446,31 +447,36 @@ function go(name, title, sub) {
     var sub_el = document.getElementById('hdr-sub');
     sub_el.textContent = sub;
     sub_el.style.display = sub ? '' : 'none';
-    // Show bell only on home screen
-    document.querySelector('.hdr-bell').style.display = (name === 'home') ? '' : 'none';
   }
 }
 
-/* Desktop: pin fixed header/nav to phone bounds */
+function toggleMockMenu(ev) {
+  if (ev) ev.stopPropagation();
+  document.getElementById('mockMenu').classList.toggle('open');
+}
+document.addEventListener('click', function(ev) {
+  var menu = document.getElementById('mockMenu');
+  var btn = document.querySelector('.hdr-bell');
+  if (menu && btn && !menu.contains(ev.target) && !btn.contains(ev.target)) {
+    menu.classList.remove('open');
+  }
+});
+
+/* Header/nav are positioned inside the phone shell. Keep desktop preview aligned. */
 function pin() {
-  if (window.innerWidth <= 420) return;
-  var r = document.getElementById('phone').getBoundingClientRect();
   var hdr  = document.getElementById('hdr');
   var bnav = document.getElementById('bnav');
-  var stat = document.querySelector('.status');
-  [hdr, bnav, stat].forEach(function(el) {
+  [hdr, bnav].forEach(function(el) {
     if (!el) return;
-    el.style.left      = r.left + 'px';
-    el.style.width     = r.width + 'px';
+    el.style.left = '0';
+    el.style.right = '0';
+    el.style.width = 'auto';
     el.style.transform = 'none';
-    el.style.maxWidth  = 'none';
+    el.style.maxWidth = 'none';
   });
 }
-if (window.innerWidth > 420) {
-  pin();
-  window.addEventListener('resize', pin);
-  window.addEventListener('scroll', pin);
-}
+pin();
+window.addEventListener('resize', pin);
 </script>
 </body>
 </html>
