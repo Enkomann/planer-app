@@ -6502,9 +6502,30 @@ def shared_folder_zip(token, sub_id=None):
         if added == 0:
             os.unlink(tmp_path)
             if errors:
-                diag = tr.get("zip_error", "ZIP error") + ":\n" + "\n".join(errors[:10])
-                return diag, 500
-            return tr.get("folder_empty", "Folder ne sadrži dokumente."), 404
+                return render_template_string("""<!doctype html>
+<html><head><meta charset="utf-8"><title>ZIP nedostupan</title>
+<style>body{font-family:sans-serif;max-width:520px;margin:80px auto;padding:20px;text-align:center;}
+.icon{font-size:48px;margin-bottom:16px;}
+h2{color:#1f4f82;margin-bottom:8px;}
+p{color:#64748b;line-height:1.6;}
+small{display:block;margin-top:24px;font-size:11px;color:#94a3b8;}</style>
+</head><body>
+<div class="icon">📂</div>
+<h2>Dokumenti privremeno nisu dostupni</h2>
+<p>Zatraženi fajlovi trenutno nisu dostupni za preuzimanje.<br>
+Molite administratora da vam pošalje fajlove direktno.</p>
+<small>Luxmann Planner</small>
+</body></html>"""), 503
+            return render_template_string("""<!doctype html>
+<html><head><meta charset="utf-8"><title>Folder prazan</title>
+<style>body{font-family:sans-serif;max-width:520px;margin:80px auto;padding:20px;text-align:center;}
+.icon{font-size:48px;margin-bottom:16px;}h2{color:#1f4f82;}p{color:#64748b;}</style>
+</head><body>
+<div class="icon">📁</div>
+<h2>Folder ne sadrži dokumente</h2>
+<p>Nema fajlova za preuzimanje u ovom folderu.</p>
+<small style="color:#94a3b8;font-size:11px;">Luxmann Planner</small>
+</body></html>"""), 404
         safe_name = re.sub(r'[\\/:*?"<>|]', "_", zip_folder_name) or "folder"
 
         from flask import after_this_request as _atr
