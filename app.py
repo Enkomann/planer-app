@@ -466,6 +466,7 @@ TRANSLATIONS["bos"].update({
     "archive": "Arhiva", "shifts": "smjena", "shift_singular": "smjena",
     "inv_gen_ok": "{n} faktura generisano", "inv_gen_exists": "{n} već postoji za ovaj period",
     "inv_gen_no_rate": "Bez postavljene cijene", "inv_gen_empty": "Nema smjena ili klijenata sa postavljenom cijenom.",
+    "inv_gen_failed": "Nije uspjelo upisivanje",
     "inv_convert_banner": "Uređuješ automatski generisanu fakturu br. {num} — sačuvaj da pretvoriš u ručnu fakturu.",
     "zip_unavail_title": "Dokumenti privremeno nisu dostupni",
     "zip_unavail_body": "Zatraženi fajlovi trenutno nisu dostupni. Molite administratora da vam pošalje fajlove direktno.",
@@ -489,6 +490,7 @@ TRANSLATIONS["en"].update({
     "archive": "Archive", "shifts": "shifts", "shift_singular": "shift",
     "inv_gen_ok": "{n} invoices generated", "inv_gen_exists": "{n} already exist for this period",
     "inv_gen_no_rate": "No rate set", "inv_gen_empty": "No shifts or clients with a rate in this period.",
+    "inv_gen_failed": "Could not save",
     "inv_convert_banner": "Editing auto-generated invoice #{num} — save to convert it to a manual invoice.",
     "zip_unavail_title": "Documents temporarily unavailable",
     "zip_unavail_body": "The requested files are currently unavailable. Please contact the administrator to send them directly.",
@@ -512,6 +514,7 @@ TRANSLATIONS["fr"].update({
     "archive": "Archives", "shifts": "interventions", "shift_singular": "intervention",
     "inv_gen_ok": "{n} factures generees", "inv_gen_exists": "{n} existent deja pour cette periode",
     "inv_gen_no_rate": "Tarif non defini", "inv_gen_empty": "Aucune prestation ou tarif client absent.",
+    "inv_gen_failed": "Enregistrement impossible",
     "inv_convert_banner": "Modification facture auto n°{num} — sauvegarder pour convertir en facture manuelle.",
     "zip_unavail_title": "Documents temporairement indisponibles",
     "zip_unavail_body": "Les fichiers demandés sont actuellement indisponibles. Veuillez contacter l'administrateur.",
@@ -535,6 +538,7 @@ TRANSLATIONS["de"].update({
     "archive": "Archiv", "shifts": "Schichten", "shift_singular": "Schicht",
     "inv_gen_ok": "{n} Rechnungen erstellt", "inv_gen_exists": "{n} bereits vorhanden fuer diesen Zeitraum",
     "inv_gen_no_rate": "Kein Tarif festgelegt", "inv_gen_empty": "Keine Schichten oder Tarife fuer diesen Zeitraum.",
+    "inv_gen_failed": "Speichern nicht moeglich",
     "inv_convert_banner": "Auto-Rechnung Nr. {num} bearbeiten — speichern zum Umwandeln in manuelle Rechnung.",
     "zip_unavail_title": "Dokumente vorübergehend nicht verfügbar",
     "zip_unavail_body": "Die angeforderten Dateien sind derzeit nicht verfügbar. Bitte wenden Sie sich an den Administrator.",
@@ -558,6 +562,7 @@ TRANSLATIONS["pt"].update({
     "archive": "Arquivo", "shifts": "turnos", "shift_singular": "turno",
     "inv_gen_ok": "{n} faturas geradas", "inv_gen_exists": "{n} ja existem para este periodo",
     "inv_gen_no_rate": "Tarifa nao definida", "inv_gen_empty": "Sem servicos ou tarifas definidas para este periodo.",
+    "inv_gen_failed": "Nao foi possivel guardar",
     "inv_convert_banner": "A editar fatura automatica n.°{num} — guarde para converter em fatura manual.",
     "zip_unavail_title": "Documentos temporariamente indisponíveis",
     "zip_unavail_body": "Os ficheiros solicitados estão indisponíveis. Por favor contacte o administrador.",
@@ -2387,7 +2392,7 @@ def fetch_invoice_records(conn, date_from=None, date_to=None, client=None, statu
     return [invoice_record_to_dict(row) for row in c.execute(query, params).fetchall()]
 
 
-def fetch_invoice_records_for_work_period(conn, date_from, date_to):
+def fetch_invoice_records_for_work_period(conn, date_from, date_to, invoice_date=None):
     c = conn.cursor()
     query = """
         SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date, COALESCE(sent, 0), COALESCE(sent_date, ''), COALESCE(source, 'auto')
@@ -2395,7 +2400,16 @@ def fetch_invoice_records_for_work_period(conn, date_from, date_to):
         WHERE COALESCE(deleted, 0) = 0 AND date_from = ? AND date_to = ?
         ORDER BY CAST(invoice_number AS INTEGER) DESC, invoice_date DESC
     """
-    return [invoice_record_to_dict(row) for row in c.execute(query, (date_from, date_to)).fetchall()]
+    rows = [invoice_record_to_dict(row) for row in c.execute(query, (date_from, date_to)).fetchall()]
+    if rows or not invoice_date:
+        return rows
+    fallback_query = """
+        SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date, COALESCE(sent, 0), COALESCE(sent_date, ''), COALESCE(source, 'auto')
+        FROM invoice_records
+        WHERE COALESCE(deleted, 0) = 0 AND invoice_date = ?
+        ORDER BY CAST(invoice_number AS INTEGER) DESC, invoice_date DESC
+    """
+    return [invoice_record_to_dict(row) for row in c.execute(fallback_query, (invoice_date,)).fetchall()]
 
 
 def invoice_number_from_index(settings, index):
@@ -6688,7 +6702,7 @@ def invoices():
     profiles = get_invoice_profiles(conn)
     if not request.args.get("q"):
         _generate_invoices(conn, date_from, date_to, invoice_date)
-    rows = fetch_invoice_records_for_work_period(conn, date_from, date_to)
+    rows = fetch_invoice_records_for_work_period(conn, date_from, date_to, invoice_date)
     conn.close()
     profiles_json = json.dumps(profiles)
     paid_rows = [r for r in rows if r.get("paid")]
@@ -6925,13 +6939,14 @@ def invoices():
 
 def _generate_invoices(conn, date_from, date_to, invoice_date):
     """Insert new invoice records for clients with shifts in the period.
-    Skips clients/periods that already have a record. Returns (generated, skipped_exists, no_rate_clients)."""
+    Skips clients/periods that already have a record. Returns (generated, skipped_exists, no_rate_clients, failed_clients)."""
     c = conn.cursor()
     settings = get_invoice_settings(conn)
     raw_rows = build_invoice_rows(conn, date_from, date_to, None, settings)
     generated = 0
     skipped_exists = 0
     no_rate_clients = []
+    failed_clients = []
     try:
         if not USE_POSTGRES:
             c.execute("BEGIN IMMEDIATE")
@@ -6947,6 +6962,7 @@ def _generate_invoices(conn, date_from, date_to, invoice_date):
                 skipped_exists += 1
                 continue
             inserted = False
+            period_conflict = False
             for _attempt in range(3):
                 inv_num = next_invoice_number(conn)
                 try:
@@ -6965,18 +6981,22 @@ def _generate_invoices(conn, date_from, date_to, invoice_date):
                         (row["client"], date_from, date_to)
                     ).fetchone()
                     if period_taken:
+                        period_conflict = True
                         break
-                except Exception:
+                except Exception as e:
+                    app.logger.warning("_generate_invoices insert failed for %s: %s", row["client"], e)
                     break
             if inserted:
                 generated += 1
-            else:
+            elif period_conflict:
                 skipped_exists += 1
+            else:
+                failed_clients.append(row["client"])
         conn.commit()
     except Exception as e:
         conn.rollback()
         app.logger.warning("_generate_invoices error: %s", e)
-    return generated, skipped_exists, no_rate_clients
+    return generated, skipped_exists, no_rate_clients, failed_clients
 
 
 @app.route("/invoices/generate", methods=["POST"])
@@ -6991,7 +7011,7 @@ def invoices_generate():
         flash(tr.get("generate_invoice", "Generiši fakturu") + ": datum nedostaje.", "error")
         return redirect("/invoices")
     conn = get_conn()
-    generated, skipped_exists, no_rate_clients = _generate_invoices(conn, date_from, date_to, invoice_date)
+    generated, skipped_exists, no_rate_clients, failed_clients = _generate_invoices(conn, date_from, date_to, invoice_date)
     conn.close()
     parts = []
     if generated:
@@ -7002,7 +7022,9 @@ def invoices_generate():
         parts.append(tr.get("inv_gen_empty", "Nema smjena u odabranom periodu."))
     if no_rate_clients:
         parts.append(tr.get("inv_gen_no_rate", "Bez postavljene cijene") + ": " + ", ".join(no_rate_clients))
-    flash("; ".join(parts), "error" if generated == 0 and not skipped_exists else "ok")
+    if failed_clients:
+        parts.append(tr.get("inv_gen_failed", "Nije uspjelo upisivanje") + ": " + ", ".join(failed_clients))
+    flash("; ".join(parts), "error" if generated == 0 and (failed_clients or not skipped_exists) else "ok")
     return redirect(f"/invoices?date_from={date_from}&date_to={date_to}&invoice_date={invoice_date}#invoice-list")
 
 
