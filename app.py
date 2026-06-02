@@ -6939,7 +6939,7 @@ def invoices():
 
 def _generate_invoices(conn, date_from, date_to, invoice_date):
     """Insert new invoice records for clients with shifts in the period.
-    Skips clients/periods that already have a record. Returns (generated, skipped_exists, no_rate_clients, failed_clients)."""
+    Skips clients/periods that already have a record. Returns (generated, skipped_exists, no_rate_clients, failed_clients, error_message)."""
     c = conn.cursor()
     settings = get_invoice_settings(conn)
     raw_rows = build_invoice_rows(conn, date_from, date_to, None, settings)
@@ -6947,13 +6947,17 @@ def _generate_invoices(conn, date_from, date_to, invoice_date):
     skipped_exists = 0
     no_rate_clients = []
     failed_clients = []
+    attempted_clients = []
     try:
         if not USE_POSTGRES:
             c.execute("BEGIN IMMEDIATE")
+        else:
+            c.execute("LOCK TABLE invoice_records IN EXCLUSIVE MODE")
         for row in raw_rows:
             if row.get("hourly_rate", 0) == 0:
                 no_rate_clients.append(row["client"])
                 continue
+            attempted_clients.append(row["client"])
             existing = c.execute(
                 "SELECT invoice_number FROM invoice_records WHERE client_name=? AND date_from=? AND date_to=? AND COALESCE(deleted,0)=0",
                 (row["client"], date_from, date_to)
@@ -6961,42 +6965,21 @@ def _generate_invoices(conn, date_from, date_to, invoice_date):
             if existing:
                 skipped_exists += 1
                 continue
-            inserted = False
-            period_conflict = False
-            for _attempt in range(3):
-                inv_num = next_invoice_number(conn)
-                try:
-                    c.execute("""INSERT INTO invoice_records
-                        (invoice_number, client_name, date_from, date_to, invoice_date,
-                         amount, vat_amount, total, paid, sent, deleted, source)
-                        VALUES (?,?,?,?,?,?,?,?,0,0,0,'auto')
-                        ON CONFLICT DO NOTHING""",
-                        (inv_num, row["client"], date_from, date_to, invoice_date,
-                         row["amount"], row["vat_amount"], row["total"]))
-                    if c.rowcount == 1:
-                        inserted = True
-                        break
-                    period_taken = c.execute(
-                        "SELECT 1 FROM invoice_records WHERE client_name=? AND date_from=? AND date_to=? AND COALESCE(deleted,0)=0",
-                        (row["client"], date_from, date_to)
-                    ).fetchone()
-                    if period_taken:
-                        period_conflict = True
-                        break
-                except Exception as e:
-                    app.logger.warning("_generate_invoices insert failed for %s: %s", row["client"], e)
-                    break
-            if inserted:
-                generated += 1
-            elif period_conflict:
-                skipped_exists += 1
-            else:
-                failed_clients.append(row["client"])
+            inv_num = next_invoice_number(conn)
+            c.execute("""INSERT INTO invoice_records
+                (invoice_number, client_name, date_from, date_to, invoice_date,
+                 amount, vat_amount, total, paid, sent, deleted, source)
+                VALUES (?,?,?,?,?,?,?,?,0,0,0,'auto')""",
+                (inv_num, row["client"], date_from, date_to, invoice_date,
+                 row["amount"], row["vat_amount"], row["total"]))
+            generated += 1
         conn.commit()
     except Exception as e:
         conn.rollback()
         app.logger.warning("_generate_invoices error: %s", e)
-    return generated, skipped_exists, no_rate_clients, failed_clients
+        failed_clients = [name for name in attempted_clients if name not in no_rate_clients]
+        return 0, 0, no_rate_clients, failed_clients, str(e)
+    return generated, skipped_exists, no_rate_clients, failed_clients, ""
 
 
 @app.route("/invoices/generate", methods=["POST"])
@@ -7011,7 +6994,7 @@ def invoices_generate():
         flash(tr.get("generate_invoice", "Generiši fakturu") + ": datum nedostaje.", "error")
         return redirect("/invoices")
     conn = get_conn()
-    generated, skipped_exists, no_rate_clients, failed_clients = _generate_invoices(conn, date_from, date_to, invoice_date)
+    generated, skipped_exists, no_rate_clients, failed_clients, error_message = _generate_invoices(conn, date_from, date_to, invoice_date)
     conn.close()
     parts = []
     if generated:
@@ -7024,6 +7007,8 @@ def invoices_generate():
         parts.append(tr.get("inv_gen_no_rate", "Bez postavljene cijene") + ": " + ", ".join(no_rate_clients))
     if failed_clients:
         parts.append(tr.get("inv_gen_failed", "Nije uspjelo upisivanje") + ": " + ", ".join(failed_clients))
+    if error_message:
+        parts.append("DB: " + error_message[:180])
     flash("; ".join(parts), "error" if generated == 0 and (failed_clients or not skipped_exists) else "ok")
     return redirect(f"/invoices?date_from={date_from}&date_to={date_to}&invoice_date={invoice_date}#invoice-list")
 
