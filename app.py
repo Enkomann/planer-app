@@ -6920,7 +6920,8 @@ def invoices_generate():
     skipped_exists = 0
     skipped_no_rate = []
     try:
-        c.execute("BEGIN IMMEDIATE")
+        if not USE_POSTGRES:
+            c.execute("BEGIN IMMEDIATE")
         for row in raw_rows:
             if row.get("hourly_rate", 0) == 0 and row.get("amount", 0) == 0:
                 skipped_no_rate.append(row["client"])
@@ -6934,10 +6935,11 @@ def invoices_generate():
                 continue
             inv_num = next_invoice_number(conn)
             try:
-                c.execute("""INSERT OR IGNORE INTO invoice_records
+                c.execute("""INSERT INTO invoice_records
                     (invoice_number, client_name, date_from, date_to, invoice_date,
                      amount, vat_amount, total, paid, sent, deleted, source)
-                    VALUES (?,?,?,?,?,?,?,?,0,0,0,'auto')""",
+                    VALUES (?,?,?,?,?,?,?,?,0,0,0,'auto')
+                    ON CONFLICT(invoice_number) DO NOTHING""",
                     (inv_num, row["client"], date_from, date_to, invoice_date,
                      row["amount"], row["vat_amount"], row["total"]))
                 if c.rowcount == 1:
@@ -7947,9 +7949,13 @@ def invoices_download():
     settings = get_invoice_settings(conn)
     row = None
     if invoice_number:
-        records = fetch_invoice_records(conn, client=client or None)
-        record = next((r for r in records if str(r["invoice_number"]) == invoice_number), None)
-        if record:
+        rec_row = conn.cursor().execute(
+            "SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date, COALESCE(sent,0), COALESCE(sent_date,''), COALESCE(source,'auto') "
+            "FROM invoice_records WHERE invoice_number=? AND COALESCE(deleted,0)=0",
+            (invoice_number,)
+        ).fetchone()
+        if rec_row:
+            record = invoice_record_to_dict(rec_row)
             row, settings = get_invoice_row_for_record(conn, record)
             invoice_date = record["invoice_date"]
             date_from = record["date_from"]
