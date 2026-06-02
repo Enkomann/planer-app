@@ -4541,6 +4541,8 @@ def load_index_data():
     worker_colors = get_worker_colors(conn)
 
     date_filter = request.args.get("date", "").strip()
+    search_date_from = request.args.get("search_date_from", "").strip()
+    search_date_to = request.args.get("search_date_to", "").strip()
     selected_date = request.args.get("selected_date", "").strip()
     worker_filter = request.args.get("worker", "").strip() if is_admin else current_user
     client_filter = request.args.get("client", "").strip()
@@ -4551,6 +4553,12 @@ def load_index_data():
     if date_filter:
         base_query += " AND date = ?"
         params.append(date_filter)
+    if search_date_from:
+        base_query += " AND date >= ?"
+        params.append(search_date_from)
+    if search_date_to:
+        base_query += " AND date <= ?"
+        params.append(search_date_to)
     if is_admin and client_filter:
         base_query += " AND client = ?"
         params.append(client_filter)
@@ -4639,6 +4647,7 @@ def load_index_data():
         "is_admin": is_admin, "current_user": current_user, "workers": workers, "clients": clients,
         "client_cities": client_cities, "client_addresses": client_addresses, "db_users": db_users, "worker_colors": worker_colors, "shifts": shifts,
         "selected_date": selected_date, "worker_filter": worker_filter, "client_filter": client_filter,
+        "search_date_from": search_date_from, "search_date_to": search_date_to,
         "weekly_hours": calculate_hours_for_user(week_shifts, None if is_admin else current_user),
         "monthly_hours": calculate_hours_for_user(month_shifts, None if is_admin else current_user),
         "week_period": f"{format_date(week_start.strftime('%Y-%m-%d'))} - {format_date(week_end.strftime('%Y-%m-%d'))}",
@@ -4855,7 +4864,24 @@ def index():
 
         <div class="card">
             <h3>{{ tr["search_shifts"] }}</h3>
-            <form method="get"><input type="date" name="date" value="{{ request.args.get('date', '') }}"><select name="worker"><option value="">{{ tr["all_workers"] }}</option>{% for w in workers %}<option value="{{ w[0] }}" {% if worker_filter == w[0] %}selected{% endif %}>{{ w[0] }}</option>{% endfor %}</select><div class="client-search-wrapper" style="display:inline-block;vertical-align:middle;"><input type="text" id="csInputFilt" class="client-search-input" value="{{ client_filter }}" placeholder="{{ tr['all_clients'] }}" autocomplete="off" style="width:160px;"><input type="hidden" name="client" id="csHiddenFilt" value="{{ client_filter }}"><div class="client-search-dropdown" id="csListFilt"></div></div><input name="q" value="{{ request.args.get('q', '') }}" placeholder="{{ tr['search_placeholder'] }}"><button>{{ tr["filter_btn"] }}</button></form><a class="reset-link" href="/">{{ tr["reset"] }}</a>
+            <form method="get">
+                <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;">
+                    <div><label style="font-size:12px;display:block;margin-bottom:3px;">{{ tr["date_from"] }}</label><input type="date" name="search_date_from" value="{{ search_date_from }}" style="margin:0;"></div>
+                    <div><label style="font-size:12px;display:block;margin-bottom:3px;">{{ tr["date_to"] }}</label><input type="date" name="search_date_to" value="{{ search_date_to }}" style="margin:0;"></div>
+                    <div><label style="font-size:12px;display:block;margin-bottom:3px;">{{ tr["choose_worker"] }}</label><select name="worker" style="margin:0;"><option value="">{{ tr["all_workers"] }}</option>{% for w in workers %}<option value="{{ w[0] }}" {% if worker_filter == w[0] %}selected{% endif %}>{{ w[0] }}</option>{% endfor %}</select></div>
+                    <div class="client-search-wrapper"><input type="text" id="csInputFilt" class="client-search-input" value="{{ client_filter }}" placeholder="{{ tr['all_clients'] }}" autocomplete="off" style="width:160px;"><input type="hidden" name="client" id="csHiddenFilt" value="{{ client_filter }}"><div class="client-search-dropdown" id="csListFilt"></div></div>
+                    <div><input name="q" value="{{ request.args.get('q', '') }}" placeholder="{{ tr['search_placeholder'] }}" style="margin:0;"></div>
+                    <button>{{ tr["filter_btn"] }}</button>
+                </div>
+            </form>
+            <a class="reset-link" href="/">{{ tr["reset"] }}</a>
+            {% if search_date_from or search_date_to or worker_filter != current_user or client_filter or request.args.get('q') %}
+            <div style="margin-top:12px;">
+                <a href="/shifts_search_pdf?search_date_from={{ search_date_from }}&search_date_to={{ search_date_to }}&worker={{ worker_filter }}&client={{ client_filter|urlencode }}&q={{ request.args.get('q','')|urlencode }}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:#1f4f82;color:white;border-radius:8px;font-weight:700;text-decoration:none;">
+                    📄 {{ tr.get("pdf","PDF") }} — {{ tr["search_shifts"] }}
+                </a>
+            </div>
+            {% endif %}
         </div>
 
         <div class="card dashboard-panel panel-absence">
@@ -8121,6 +8147,60 @@ def invoices_certificate():
     conn = get_conn(); settings = get_invoice_settings(conn); rows = build_invoice_rows(conn, date_from, date_to, fixed_amount if fixed_amount else None, settings); conn.close()
     pdf = build_invoice_certificate_pdf(rows, invoice_date, date_from, date_to)
     return send_file(pdf, as_attachment=True, download_name=f"certificat_factures_{date_from}_{date_to}.pdf", mimetype="application/pdf")
+
+@app.route("/shifts_search_pdf")
+def shifts_search_pdf():
+    if "user" not in session: return redirect("/login")
+    tr = t(); is_admin = session.get("role") == "admin"; current_user = session.get("user")
+    search_date_from = request.args.get("search_date_from", "").strip()
+    search_date_to   = request.args.get("search_date_to",   "").strip()
+    worker_filter    = request.args.get("worker", "").strip()
+    client_filter    = request.args.get("client", "").strip()
+    search_query     = request.args.get("q", "").strip().lower()
+    conn = get_conn(); c = conn.cursor()
+    base = "SELECT * FROM shifts WHERE 1=1"; params = []
+    if search_date_from: base += " AND date >= ?"; params.append(search_date_from)
+    if search_date_to:   base += " AND date <= ?"; params.append(search_date_to)
+    if client_filter:    base += " AND client = ?"; params.append(client_filter)
+    base += " ORDER BY date, time, id"
+    all_shifts = c.execute(base, tuple(params)).fetchall()
+    if not is_admin: all_shifts = [s for s in all_shifts if worker_in_shift(current_user, s[1])]
+    shifts = []
+    for s in all_shifts:
+        if is_admin and worker_filter and not worker_in_shift(worker_filter, s[1]): continue
+        if search_query and search_query not in f"{s[1]} {s[2]} {s[3]} {s[4]} {s[5]}".lower(): continue
+        shifts.append(s)
+    worker_colors = get_worker_colors(conn); conn.close()
+    parts = []
+    if worker_filter: parts.append(worker_filter)
+    if client_filter: parts.append(client_filter)
+    if search_date_from or search_date_to:
+        parts.append(f"{format_date(search_date_from) if search_date_from else '...'} – {format_date(search_date_to) if search_date_to else '...'}")
+    title = tr["search_shifts"] + (f" — {', '.join(parts)}" if parts else "")
+    buffer = io.BytesIO()
+    doc = pdf_doc(buffer, title, pagesize=landscape(A4), rightMargin=1*cm, leftMargin=1*cm, topMargin=1*cm, bottomMargin=1*cm)
+    styles = getSampleStyleSheet(); elements = []
+    if os.path.exists("static/logo.png"): elements += [Image("static/logo.png", width=4*cm, height=2*cm), Spacer(1, 8)]
+    elements += [Paragraph(title, styles["Title"]), Spacer(1, 10)]
+    total_hours = sum(parse_shift_hours(s[4]) for s in shifts)
+    elements.append(Paragraph(f"{tr.get('hours','Sati')}: {total_hours:.2f}", styles["Normal"])); elements.append(Spacer(1, 8))
+    table_data = [[tr["pdf_date"], tr["pdf_time"], tr["pdf_worker"], tr["pdf_client"], tr["status"]]]
+    for s in shifts:
+        table_data.append([format_date(s[3]), s[4], s[1], s[2], get_status_label(get_auto_status(s[3], s[4]), tr)])
+    if not shifts: table_data.append(["-", "-", "-", "-", tr["pdf_no_shifts"]])
+    table = Table(table_data, colWidths=[3*cm, 3*cm, 5*cm, 7*cm, 4*cm])
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#1f4f82")),
+        ("TEXTCOLOR",  (0,0), (-1,0), colors.white),
+        ("FONTNAME",   (0,0), (-1,0), "Helvetica-Bold"),
+        ("GRID",       (0,0), (-1,-1), 0.5, colors.grey),
+        ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.whitesmoke, colors.HexColor("#eaf2fb")]),
+        ("FONTSIZE",   (0,0), (-1,-1), 9),
+    ]))
+    elements.append(table); doc.build(elements); buffer.seek(0)
+    filename = safe_pdf_name("smjene", worker_filter or "svi", search_date_from or "", search_date_to or "")
+    return send_file(buffer, as_attachment=True, download_name=f"{filename}.pdf", mimetype="application/pdf")
+
 
 @app.route("/export_pdf")
 def export_pdf():
