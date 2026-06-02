@@ -2897,6 +2897,14 @@ def init_db():
             source TEXT DEFAULT 'auto'
         )
     """)
+    try:
+        c.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_invoice_client_period
+            ON invoice_records(client_name, date_from, date_to)
+            WHERE COALESCE(deleted, 0) = 0
+        """)
+    except Exception:
+        pass
     c.execute("""
         CREATE TABLE IF NOT EXISTS manual_invoice_drafts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
