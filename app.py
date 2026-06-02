@@ -3668,7 +3668,7 @@ BASE_STYLE = """
     .wapp-archive-card[open] summary::after { transform:rotate(90deg); }
     .wapp-archive-count { font-size:12px; font-weight:700; color:{{ '#94a3b8' if dark else '#64748b' }}; flex-shrink:0; }
     .wapp-archive-pdf {
-        position:absolute; top:50%; right:42px; transform:translateY(-50%);
+        position:absolute; top:14px; right:42px; transform:none;
         font-size:11px; font-weight:900; padding:4px 10px; border-radius:999px;
         background:{{ '#1e1e20' if dark else '#f1f5f9' }};
         color:{{ '#93c5fd' if dark else '#2563eb' }};
