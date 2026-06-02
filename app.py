@@ -6833,7 +6833,7 @@ def invoices():
             </div>
 
             <table id="invoice-list" class="invoice-table">
-                <tr><th></th><th>{{ tr["client_name"] }}</th><th>Document</th><th>{{ tr["invoice_number"] }}</th><th>{{ tr["invoice_date"] }}</th><th>{{ tr["payment_status"] }}</th><th>{{ tr["sent_status"] }}</th><th>{{ tr["amount_with_vat"] }}</th><th>PDF</th><th></th></tr>
+                <tr><th></th><th>{{ tr["client_name"] }}</th><th>Document</th><th>{{ tr["invoice_number"] }}</th><th>{{ tr["invoice_date"] }}</th><th>{{ tr["payment_status"] }}</th><th>{{ tr["sent_status"] }}</th><th>{{ tr["amount_with_vat"] }}</th><th>{{ tr.get("edit","Uredi") }}</th><th>PDF</th><th></th></tr>
                 {% for row in rows %}
                 <tr class="invoice-row" data-paid="{{ 1 if row.paid else 0 }}" data-search="{{ (row.client ~ ' ' ~ row.invoice_number)|lower }}">
                     <td><input type="checkbox" style="width:auto;"></td>
@@ -6858,11 +6858,16 @@ def invoices():
                     <td><b>{{ "%.2f"|format(row.total) }} EUR</b></td>
                     <td>
                       {% if row.source == 'manual' %}
+                        <a href="/invoices/manual?invoice_number={{ row.invoice_number }}" style="display:inline-block;padding:5px 12px;background:#ffd429;color:#111;border-radius:6px;font-weight:800;font-size:13px;text-decoration:none;">✏️ {{ tr.get("edit","Uredi") }}</a>
+                      {% else %}
+                        <a href="/invoices/manual?load_auto={{ row.invoice_number }}" style="display:inline-block;padding:5px 12px;background:#f59e0b;color:#111;border-radius:6px;font-weight:800;font-size:13px;text-decoration:none;">✏️ {{ tr.get("edit","Uredi") }}</a>
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if row.source == 'manual' %}
                         <a href="/invoices/manual/pdf?invoice_number={{ row.invoice_number }}" style="color:#93c5fd;">PDF</a>
-                        <a href="/invoices/manual?invoice_number={{ row.invoice_number }}" style="color:#ffd429;margin-left:6px;font-size:11px;">✏️</a>
                       {% else %}
                         <a href="/invoices/download?invoice_number={{ row.invoice_number }}&client={{ row.client|urlencode }}&date_from={{ row.date_from }}&date_to={{ row.date_to }}&invoice_date={{ row.invoice_date }}" style="color:#93c5fd;">PDF</a>
-                        <a href="/invoices/manual?load_auto={{ row.invoice_number }}" style="color:#ffd429;margin-left:6px;font-size:11px;" title="Uredi ručno">✏️</a>
                       {% endif %}
                     </td>
                     <td><a href="/invoices/delete?invoice_number={{ row.invoice_number }}" onclick="return confirm('Obrisati fakturu?');" style="color:#fb7185;">{{ tr["delete"] }}</a></td>
