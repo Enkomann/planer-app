@@ -2578,7 +2578,8 @@ def next_invoice_number(conn):
     c = conn.cursor()
     settings = get_invoice_settings(conn)
     start = int(settings.get("invoice_start_number") or 1)
-    # Invoice numbers must never be reused, even if an invoice is soft-deleted.
+    # Only invoice numbers still present in invoice_records are reserved.
+    # Hard-deleted test invoices can be regenerated with the same start number.
     rows = c.execute("SELECT invoice_number FROM invoice_records").fetchall()
     nums = []
     for (n,) in rows:
@@ -2987,6 +2988,16 @@ def init_db():
         """)
     except Exception as _idx_err:
         app.logger.warning("idx_invoice_client_period not created: %s", _idx_err)
+    try:
+        c.execute("""
+            DELETE FROM manual_invoice_drafts
+            WHERE invoice_number IN (
+                SELECT invoice_number FROM invoice_records WHERE COALESCE(deleted, 0) = 1
+            )
+        """)
+        c.execute("DELETE FROM invoice_records WHERE COALESCE(deleted, 0) = 1")
+    except Exception as _purge_err:
+        app.logger.warning("soft-deleted invoice cleanup failed: %s", _purge_err)
     document_cols = [row[1] for row in c.execute("PRAGMA table_info(documents)").fetchall()]
     if "folder_id" not in document_cols:
         c.execute("ALTER TABLE documents ADD COLUMN folder_id INTEGER")
@@ -6699,7 +6710,8 @@ def invoices():
     conn = get_conn()
     settings = get_invoice_settings(conn)
     profiles = get_invoice_profiles(conn)
-    if not request.args.get("q"):
+    skip_auto = request.args.get("skip_auto") == "1"
+    if not request.args.get("q") and not skip_auto:
         _generate_invoices(conn, date_from, date_to, invoice_date)
     rows = fetch_invoice_records_for_work_period(conn, date_from, date_to, invoice_date)
     conn.close()
@@ -7894,11 +7906,24 @@ def invoices_delete():
     if session.get("role") != "admin":
         return redirect("/")
     invoice_number = request.args.get("invoice_number", "").strip()
+    redirect_args = {"skip_auto": "1"}
     if invoice_number:
         conn = get_conn(); c = conn.cursor()
-        c.execute("UPDATE invoice_records SET deleted = 1 WHERE invoice_number = ?", (invoice_number,))
+        row = c.execute(
+            "SELECT date_from, date_to, invoice_date FROM invoice_records WHERE invoice_number = ?",
+            (invoice_number,)
+        ).fetchone()
+        if row:
+            if row[0]:
+                redirect_args["date_from"] = row[0]
+            if row[1]:
+                redirect_args["date_to"] = row[1]
+            if row[2]:
+                redirect_args["invoice_date"] = row[2]
+        c.execute("DELETE FROM manual_invoice_drafts WHERE invoice_number = ?", (invoice_number,))
+        c.execute("DELETE FROM invoice_records WHERE invoice_number = ?", (invoice_number,))
         conn.commit(); conn.close()
-    return redirect("/invoices")
+    return redirect("/invoices?" + urllib.parse.urlencode(redirect_args) + "#invoice-list")
 
 
 @app.route("/invoices/settings", methods=["POST"])
