@@ -2008,7 +2008,7 @@ def get_week_start_from_request():
         except Exception:
             pass
     today = datetime.today()
-    return today - timedelta(days=today.weekday())
+    return datetime(today.year, today.month, 1)
 
 
 def easter_date(year):
@@ -4480,6 +4480,24 @@ def load_index_data():
                 archive_dict[ym] = []
             archive_dict[ym].append(s)
     worker_archive_months = sorted(archive_dict.items(), key=lambda x: x[0], reverse=True)
+    current_plan_shifts = [s for s in shifts if s[3] >= first_of_this_month]
+    admin_archive_dict = {}
+    for s in shifts:
+        if s[3] < first_of_this_month:
+            ym = s[3][:7]
+            admin_archive_dict.setdefault(ym, []).append(s)
+    admin_archive_months = []
+    for ym in sorted(admin_archive_dict.keys(), reverse=True):
+        arc = admin_archive_dict[ym]
+        weeks_dict = {}
+        for s in arc:
+            try:
+                d = datetime.strptime(s[3], "%Y-%m-%d")
+                wk = (d - timedelta(days=d.weekday())).strftime("%Y-%m-%d")
+                weeks_dict.setdefault(wk, []).append(s)
+            except Exception:
+                pass
+        admin_archive_months.append((ym, sorted(weeks_dict.items())))
     conn.close()
     return {
         "is_admin": is_admin, "current_user": current_user, "workers": workers, "clients": clients,
@@ -4488,7 +4506,8 @@ def load_index_data():
         "weekly_hours": calculate_hours_for_user(week_shifts, None if is_admin else current_user),
         "monthly_hours": calculate_hours_for_user(month_shifts, None if is_admin else current_user),
         "week_period": f"{format_date(week_start.strftime('%Y-%m-%d'))} - {format_date(week_end.strftime('%Y-%m-%d'))}",
-        "month_period": today.strftime("%m/%Y"), "weeks_grouped": group_shifts_by_week(shifts),
+        "month_period": today.strftime("%m/%Y"), "weeks_grouped": group_shifts_by_week(current_plan_shifts),
+        "admin_archive_months": admin_archive_months,
         "absences": absences, "absence_summary": absence_summary,
         "today_shift_count": len([s for s in all_shifts_for_hours if s[3] == today.strftime("%Y-%m-%d")]),
         "worker_count": len([w for w in workers if w[0] != "admin"]),
@@ -4756,7 +4775,7 @@ def index():
 
     <div class="card" style="margin-top:20px;">
         <h2>{{ tr["plan"] }}</h2>
-        {% if shifts|length == 0 %}<div class="muted">{{ tr["no_shifts"] }}</div>{% endif %}
+        {% if weeks_grouped|length == 0 %}<div class="muted">{{ tr["no_shifts"] }}</div>{% endif %}
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(360px, 1fr)); gap:18px;">
         {% for week_start_key, week_shifts in weeks_grouped.items() %}
             {% set week_end_key = (datetime.strptime(week_start_key, "%Y-%m-%d") + timedelta(days=6)).strftime("%Y-%m-%d") %}
@@ -4770,6 +4789,49 @@ def index():
         </div>
         <a class="week-link" href="/week">{{ tr["week_calendar"] }}</a>{% if session.get('role') == 'admin' %}<a class="week-link" href="/month">{{ tr["month_calendar"] }}</a>{% endif %}<a class="week-link" href="/route_optimizer">{{ tr["route_optimizer"] }}</a><a class="pdf-link" href="/export_pdf{% if request.args.get('date') %}?date={{ request.args.get('date') }}{% endif %}" target="_blank">{{ tr["pdf"] }}</a>
     </div>
+
+    {% if is_admin and admin_archive_months %}
+    <div class="card" style="margin-top:16px;">
+        <h2>{{ tr.get("archive","Arhiva") }}</h2>
+        {% set ns = namespace(prev_year='') %}
+        {% for ym, arc_shifts in admin_archive_months %}
+        {% set yr = ym[:4] %}
+        {% set mo = ym[5:]|int %}
+        {% if yr != ns.prev_year %}
+        {% set ns.prev_year = yr %}
+        <h3 style="margin:18px 0 8px; color:{{ '#93c5fd' if dark else '#1f4f82' }}; border-bottom:1px solid {{ '#2c2c30' if dark else '#e5e7eb' }}; padding-bottom:6px;">{{ yr }}</h3>
+        {% endif %}
+        <details style="margin-bottom:10px;">
+          <summary style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; cursor:pointer; background:{{ '#1e1e20' if dark else '#f8fafc' }}; border-radius:10px; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; list-style:none; user-select:none;">
+            <span style="font-weight:800; font-size:15px;">{{ format_month_year(yr|int, mo) }}</span>
+            <span style="display:flex; align-items:center; gap:12px;">
+              <span style="font-size:12px; color:{{ '#94a3b8' if dark else '#64748b' }};">{{ arc_shifts|length }} {{ tr.get("shifts","smjena") }}</span>
+              <a href="/month_pdf?year={{ yr }}&month={{ '%02d'|format(mo) }}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="pdf-link" style="font-size:11px; padding:3px 10px;">PDF</a>
+              <span style="font-size:18px; color:{{ '#94a3b8' if dark else '#64748b' }};">›</span>
+            </span>
+          </summary>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(340px, 1fr)); gap:14px; padding:14px 0 4px;">
+          {% for wk, wk_shifts in arc_shifts %}
+          {% set wk_end = (datetime.strptime(wk, "%Y-%m-%d") + timedelta(days=6)).strftime("%Y-%m-%d") %}
+          <div class="card" style="padding:12px;">
+            <h3 style="border-bottom:2px solid #1f4f82; padding-bottom:6px; margin-top:0; font-size:13px;">{{ format_date(wk) }} – {{ format_date(wk_end) }}</h3>
+            {% for s in wk_shifts %}{% set auto_status = get_auto_status(s[3], s[4]) %}
+            <div class="shift" style="border-left:6px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }}">
+              <b>{{ format_date(s[3]) }}</b> | {{ s[4] }}<span class="status-badge" style="background:{{ status_colors.get(auto_status, '#6b7280') }};">{{ get_status_label(auto_status, tr) }}</span><br><br>
+              <b>{{ tr["team"] }}:</b> {{ s[1] }}<br>
+              <b>{{ tr["pdf_client"] }}:</b> {{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}
+              <a class="action-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a>
+              <a class="action-link delete-link" href="/delete_shift/{{ s[0] }}" onclick="return confirm('Da li ste sigurni?');">{{ tr["delete"] }}</a>
+              <a class="action-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>
+            </div>
+            {% endfor %}
+          </div>
+          {% endfor %}
+          </div>
+        </details>
+        {% endfor %}
+    </div>
+    {% endif %}
     {% endif %}
     </div>
 
