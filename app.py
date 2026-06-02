@@ -8159,13 +8159,20 @@ def shifts_search_pdf():
     search_query     = request.args.get("q", "").strip().lower()
     if not search_date_from and not search_date_to and not worker_filter and not client_filter and not search_query:
         return redirect("/")
-    if not search_date_from and not search_date_to:
-        search_date_to = lux_now().strftime("%Y-%m-%d")
+    def _parse_ymd(v):
+        try: return datetime.strptime(v, "%Y-%m-%d")
+        except Exception: return None
+    dt_from = _parse_ymd(search_date_from)
+    dt_to   = _parse_ymd(search_date_to)
+    if search_date_from and not dt_from: search_date_from = ""
+    if search_date_to   and not dt_to:   search_date_to   = ""
+    if not dt_from and not dt_to:
+        search_date_to   = lux_now().strftime("%Y-%m-%d")
         search_date_from = (lux_now() - timedelta(days=90)).strftime("%Y-%m-%d")
-    elif search_date_from and not search_date_to:
-        search_date_to = (datetime.strptime(search_date_from, "%Y-%m-%d") + timedelta(days=90)).strftime("%Y-%m-%d")
-    elif search_date_to and not search_date_from:
-        search_date_from = (datetime.strptime(search_date_to, "%Y-%m-%d") - timedelta(days=90)).strftime("%Y-%m-%d")
+    elif dt_from and not dt_to:
+        search_date_to = (dt_from + timedelta(days=90)).strftime("%Y-%m-%d")
+    elif dt_to and not dt_from:
+        search_date_from = (dt_to - timedelta(days=90)).strftime("%Y-%m-%d")
     conn = get_conn(); c = conn.cursor()
     base = "SELECT * FROM shifts WHERE 1=1"; params = []
     if search_date_from: base += " AND date >= ?"; params.append(search_date_from)
