@@ -6521,13 +6521,13 @@ def _zip_add_folder(conn, zf, folder_id, rel_prefix, errors=None):
         src = document_path(doc["stored_name"])
         arc = rel_prefix + doc["original_name"]
         if not os.path.exists(src):
-            errors.append(f"NOT_ON_DISK:{doc['original_name']}:{src}")
+            errors.append(("NOT_ON_DISK", doc["original_name"], src))
             continue
         try:
             zf.write(src, arc)
             added += 1
         except Exception as e:
-            errors.append(f"WRITE_ERR:{doc['original_name']}:{e}")
+            errors.append(("WRITE_ERR", doc["original_name"], str(e)))
     sub_rows = conn.cursor().execute(
         "SELECT id, name FROM document_folders WHERE parent_id = ? ORDER BY name",
         (folder_id,)).fetchall()
@@ -6545,13 +6545,13 @@ def shared_folder_zip(token, sub_id=None):
     info = _shared_folder_validate(conn, token)
     if not info:
         conn.close()
-        return tr["share_link_invalid"], 404
+        return _share_error_page("🔗", tr.get("share_link_invalid", "Link nije validan"), tr.get("share_link_invalid", "Ovaj link je istekao ili nije validan."), 404)
     root_id, expires_at, root_name = info
     tree_ids = _folder_tree_ids(conn, root_id)
     zip_root = sub_id if sub_id else root_id
     if zip_root not in tree_ids:
         conn.close()
-        return tr["folder_unavailable"], 403
+        return _share_error_page("📁", tr.get("folder_unavailable", "Folder nedostupan"), tr.get("folder_unavailable", "Ovaj folder nije dostupan putem ovog linka."), 403)
     folder_name_row = conn.cursor().execute(
         "SELECT name FROM document_folders WHERE id = ?", (zip_root,)).fetchone()
     zip_folder_name = folder_name_row[0] if folder_name_row else "folder"
@@ -6575,7 +6575,7 @@ def shared_folder_zip(token, sub_id=None):
                 404)
         if errors:
             missing_txt = "Sljedeci fajlovi nisu bili dostupni i nisu ukljuceni u ZIP:\n\n" + \
-                "\n".join(e.split(":", 2)[1] for e in errors if ":" in e)
+                "\n".join(err[1] for err in errors)
             with zipfile.ZipFile(tmp_path, "a") as zf:
                 zf.writestr("_missing_files.txt", missing_txt)
         safe_name = re.sub(r'[\\/:*?"<>|]', "_", zip_folder_name) or "folder"
