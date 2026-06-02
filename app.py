@@ -462,6 +462,7 @@ TRANSLATIONS["bos"].update({
     "leave_approved": "Odobren", "leave_rejected": "Odbijen",
     "leave_requests_pending": "Zahtjevi za odmor", "leave_approve": "Odobri",
     "leave_reject": "Odbij", "leave_no_requests": "Nema zahtjeva",
+    "archive": "Arhiva", "shifts": "smjena",
 })
 TRANSLATIONS["en"].update({
     "contract_type": "Contract type", "contract_end_date": "Contract end date",
@@ -475,6 +476,7 @@ TRANSLATIONS["en"].update({
     "leave_approved": "Approved", "leave_rejected": "Rejected",
     "leave_requests_pending": "Leave requests", "leave_approve": "Approve",
     "leave_reject": "Reject", "leave_no_requests": "No requests",
+    "archive": "Archive", "shifts": "shifts",
 })
 TRANSLATIONS["fr"].update({
     "contract_type": "Type de contrat", "contract_end_date": "Fin du contrat",
@@ -488,6 +490,7 @@ TRANSLATIONS["fr"].update({
     "leave_approved": "Approuvee", "leave_rejected": "Refusee",
     "leave_requests_pending": "Demandes de conge", "leave_approve": "Approuver",
     "leave_reject": "Refuser", "leave_no_requests": "Aucune demande",
+    "archive": "Archives", "shifts": "shifts",
 })
 TRANSLATIONS["de"].update({
     "contract_type": "Vertragsart", "contract_end_date": "Vertragsende",
@@ -501,6 +504,7 @@ TRANSLATIONS["de"].update({
     "leave_approved": "Genehmigt", "leave_rejected": "Abgelehnt",
     "leave_requests_pending": "Urlaubsantraege", "leave_approve": "Genehmigen",
     "leave_reject": "Ablehnen", "leave_no_requests": "Keine Antraege",
+    "archive": "Archiv", "shifts": "Schichten",
 })
 TRANSLATIONS["pt"].update({
     "contract_type": "Tipo de contrato", "contract_end_date": "Fim do contrato",
@@ -514,6 +518,7 @@ TRANSLATIONS["pt"].update({
     "leave_approved": "Aprovado", "leave_rejected": "Recusado",
     "leave_requests_pending": "Pedidos de ferias", "leave_approve": "Aprovar",
     "leave_reject": "Recusar", "leave_no_requests": "Sem pedidos",
+    "archive": "Arquivo", "shifts": "turnos",
 })
 
 # ── Module translations: Workers, Backup, Diagram, Payroll ───────────────────
@@ -4497,7 +4502,7 @@ def load_index_data():
                 weeks_dict.setdefault(wk, []).append(s)
             except Exception:
                 pass
-        admin_archive_months.append((ym, sorted(weeks_dict.items())))
+        admin_archive_months.append((ym, len(arc), sorted(weeks_dict.items())))
     conn.close()
     return {
         "is_admin": is_admin, "current_user": current_user, "workers": workers, "clients": clients,
@@ -4794,24 +4799,25 @@ def index():
     <div class="card" style="margin-top:16px;">
         <h2>{{ tr.get("archive","Arhiva") }}</h2>
         {% set ns = namespace(prev_year='') %}
-        {% for ym, arc_shifts in admin_archive_months %}
+        {% for ym, arc_count, arc_weeks in admin_archive_months %}
         {% set yr = ym[:4] %}
         {% set mo = ym[5:]|int %}
         {% if yr != ns.prev_year %}
         {% set ns.prev_year = yr %}
         <h3 style="margin:18px 0 8px; color:{{ '#93c5fd' if dark else '#1f4f82' }}; border-bottom:1px solid {{ '#2c2c30' if dark else '#e5e7eb' }}; padding-bottom:6px;">{{ yr }}</h3>
         {% endif %}
-        <details style="margin-bottom:10px;">
-          <summary style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; cursor:pointer; background:{{ '#1e1e20' if dark else '#f8fafc' }}; border-radius:10px; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; list-style:none; user-select:none;">
+        <div style="position:relative; margin-bottom:10px;">
+        <a href="/month_pdf?year={{ yr }}&month={{ '%02d'|format(mo) }}" target="_blank" rel="noopener" class="pdf-link" style="position:absolute; top:9px; right:38px; font-size:11px; padding:3px 10px; z-index:2;">PDF</a>
+        <details>
+          <summary style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; padding-right:110px; cursor:pointer; background:{{ '#1e1e20' if dark else '#f8fafc' }}; border-radius:10px; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; list-style:none; user-select:none;">
             <span style="font-weight:800; font-size:15px;">{{ format_month_year(yr|int, mo) }}</span>
             <span style="display:flex; align-items:center; gap:12px;">
-              <span style="font-size:12px; color:{{ '#94a3b8' if dark else '#64748b' }};">{{ arc_shifts|length }} {{ tr.get("shifts","smjena") }}</span>
-              <a href="/month_pdf?year={{ yr }}&month={{ '%02d'|format(mo) }}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="pdf-link" style="font-size:11px; padding:3px 10px;">PDF</a>
+              <span style="font-size:12px; color:{{ '#94a3b8' if dark else '#64748b' }};">{{ arc_count }} {{ tr.get("shifts","smjena") }}</span>
               <span style="font-size:18px; color:{{ '#94a3b8' if dark else '#64748b' }};">›</span>
             </span>
           </summary>
           <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(340px, 1fr)); gap:14px; padding:14px 0 4px;">
-          {% for wk, wk_shifts in arc_shifts %}
+          {% for wk, wk_shifts in arc_weeks %}
           {% set wk_end = (datetime.strptime(wk, "%Y-%m-%d") + timedelta(days=6)).strftime("%Y-%m-%d") %}
           <div class="card" style="padding:12px;">
             <h3 style="border-bottom:2px solid #1f4f82; padding-bottom:6px; margin-top:0; font-size:13px;">{{ format_date(wk) }} – {{ format_date(wk_end) }}</h3>
@@ -4829,6 +4835,7 @@ def index():
           {% endfor %}
           </div>
         </details>
+        </div>
         {% endfor %}
     </div>
     {% endif %}
