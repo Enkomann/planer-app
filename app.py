@@ -2416,6 +2416,42 @@ def invoice_number_from_index(settings, index):
     return str(int(settings.get("invoice_start_number") or 1) + index)
 
 
+def _compact_number(value):
+    try:
+        number = float(value or 0)
+    except Exception:
+        number = 0.0
+    if abs(number - round(number)) < 0.005:
+        return str(int(round(number)))
+    return f"{number:.2f}".rstrip("0").rstrip(".")
+
+
+def _invoice_payment_terms_html(settings, override_terms=None):
+    raw = (override_terms if override_terms is not None else settings.get("payment_terms", ""))
+    raw = (raw or "").strip()
+    normalized = unicodedata.normalize("NFKD", raw).encode("ascii", "ignore").decode("ascii").lower()
+    use_standard = (
+        not raw
+        or (
+            "paiement a 15 jours" in normalized
+            and "post luxembourg" in normalized
+            and "facture" in normalized
+        )
+    )
+    if use_standard:
+        terms = "<br/>".join([
+            "Paiement \u00e0 15 jours d\u00e8s r\u00e9ception de la facture.",
+            "Post Luxembourg BIC (CCPLLULL) LU60 1111 7815 3607 0000",
+            "Lors du virement, veuillez indiquer r\u00e9f\u00e9rence suivante: ***Facture n\u00b0***",
+        ])
+    else:
+        terms = _html.escape(raw).replace("\n", "<br/>")
+    vat = (settings.get("company_vat") or "").strip()
+    if vat:
+        terms += "<br/>" + _html.escape(vat)
+    return terms
+
+
 def build_invoice_pdf(row, settings, invoice_date, date_from, date_to, document_title="FACTURE"):
     buffer = io.BytesIO()
     doc = pdf_doc(buffer, f"{document_title} {row['invoice_number']} - {row['client']}", pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
@@ -2443,23 +2479,26 @@ def build_invoice_pdf(row, settings, invoice_date, date_from, date_to, document_
     company_table.setStyle(TableStyle([("ALIGN", (1,0), (1,0), "RIGHT"), ("VALIGN", (0,0), (-1,-1), "TOP")]))
     elements += [company_table, Spacer(1, 34)]
 
-    billing = Paragraph(f"<b>Facture a</b><br/>{row['client']}<br/>{(row['address'] or '-').replace(chr(10), '<br/>')}" + (f"<br/>{row['email']}" if row["email"] else ""), normal)
-    meta = Paragraph(f"<b>Facture no</b>&nbsp;&nbsp;&nbsp; {row['invoice_number']}<br/><b>Date</b>&nbsp;&nbsp;&nbsp; {format_date(invoice_date)}", normal)
+    billing = Paragraph(f"<b>Factur\u00e9 \u00e0</b><br/>{row['client']}<br/>{(row['address'] or '-').replace(chr(10), '<br/>')}" + (f"<br/>{row['email']}" if row["email"] else ""), normal)
+    meta = Paragraph(f"<b>Facture n\u00b0</b>&nbsp;&nbsp;&nbsp; {row['invoice_number']}<br/><b>Date</b>&nbsp;&nbsp;&nbsp; {format_date(invoice_date)}", normal)
     elements += [Table([[billing, meta]], colWidths=[10*cm, 7.5*cm], style=[("ALIGN", (1,0), (1,0), "RIGHT"), ("VALIGN", (0,0), (-1,-1), "TOP")]), Spacer(1, 28)]
 
     detail_lines = [row["service_title"]]
     for detail in row.get("details", []):
-        detail_lines.append(f"{format_date(detail['date'])[:5]} {detail['hours']:.2f}h")
-    detail_lines += [f"Total {row['hours']:.2f}h", f"Prix {row['hourly_rate']:.2f} EUR l'heure"]
+        detail_lines.append(f"{format_date(detail['date'])[:5]} {_compact_number(detail['hours'])}h")
+    detail_lines += [
+        f"Total {_compact_number(row['hours'])}h",
+        f"Prix {_compact_number(row['hourly_rate'])}\u20ac l'heure",
+    ]
     if settings.get("invoice_text"):
         pass
 
     invoice_table = Table([
-        [Paragraph("<b>DESIGNATION</b>", normal), Paragraph("<b>MONTANT</b>", normal)],
+        [Paragraph("<b>D\u00c9SIGNATION</b>", normal), Paragraph("<b>MONTANT</b>", normal)],
         [Paragraph("<br/>".join(detail_lines), normal), Paragraph(f"{row['amount']:.2f}", normal)],
         ["", Paragraph(f"Total HT&nbsp;&nbsp;&nbsp; {row['amount']:.2f}", normal)],
         ["", Paragraph(f"TVA {row['vat_rate']*100:.1f}%&nbsp;&nbsp;&nbsp; {row['vat_amount']:.2f}", normal)],
-        [Paragraph("<b>TOTAL TTC</b>", styles["Heading2"]), Paragraph(f"<b>{row['total']:.2f} EUR</b>", styles["Heading2"])],
+        [Paragraph("<b>TOTAL TTC</b>", styles["Heading2"]), Paragraph(f"<b>{row['total']:.2f} \u20ac</b>", styles["Heading2"])],
     ], colWidths=[12.8*cm, 4.7*cm])
     invoice_table.setStyle(TableStyle([
         ("GRID", (0,0), (-1,-1), 0.5, colors.grey), ("BACKGROUND", (0,0), (-1,0), colors.whitesmoke),
@@ -2469,8 +2508,10 @@ def build_invoice_pdf(row, settings, invoice_date, date_from, date_to, document_
     ]))
     elements += [invoice_table, Spacer(1, 90)]
 
-    payment_lines = [settings.get("payment_terms", ""), settings.get("company_vat", "")]
-    elements += [Paragraph("<b>Conditions et modalites de paiement</b>", normal), Paragraph("<br/>".join([x for x in payment_lines if x]), normal)]
+    elements += [
+        Paragraph("<b>Conditions et modalit\u00e9s de paiement</b>", normal),
+        Paragraph(_invoice_payment_terms_html(settings), normal),
+    ]
     doc.build(elements)
     buffer.seek(0)
     return buffer
@@ -2638,9 +2679,9 @@ def build_manual_invoice_pdf(draft, settings):
 
     # ── Billing address + invoice meta ────────────────────────────────────
     addr = (draft.get("client_address") or draft.get("client_name","")).replace("\n", "<br/>")
-    billing = Paragraph(f"<b>Facture a</b><br/>{addr}", normal)
+    billing = Paragraph(f"<b>Factur\u00e9 \u00e0</b><br/>{addr}", normal)
     meta = Paragraph(
-        f"<b>Facture no</b>&nbsp;&nbsp;&nbsp; {inv_num}<br/>"
+        f"<b>Facture n\u00b0</b>&nbsp;&nbsp;&nbsp; {inv_num}<br/>"
         f"<b>Date</b>&nbsp;&nbsp;&nbsp; {format_date(draft.get('invoice_date',''))}",
         normal,
     )
@@ -2654,7 +2695,7 @@ def build_manual_invoice_pdf(draft, settings):
         items = []
 
     tdata = [[
-        Paragraph("<b>DESIGNATION</b>", normal),
+        Paragraph("<b>D\u00c9SIGNATION</b>", normal),
         Paragraph("<b>HT (EUR)</b>", normal),
         Paragraph("<b>TVA</b>", normal),
         Paragraph("<b>TTC (EUR)</b>", normal),
@@ -2675,10 +2716,10 @@ def build_manual_invoice_pdf(draft, settings):
     total_ttc = total_ht + total_vat
     n_body = len(items) + 1   # number of rows before totals (header + item rows)
     tdata += [
-        ["", Paragraph(f"Total HT:  {total_ht:.2f} EUR", normal), "", ""],
-        ["", Paragraph(f"TVA:  {total_vat:.2f} EUR", normal), "", ""],
+        ["", Paragraph(f"Total HT:  {total_ht:.2f} \u20ac", normal), "", ""],
+        ["", Paragraph(f"TVA:  {total_vat:.2f} \u20ac", normal), "", ""],
         [Paragraph("<b>TOTAL TTC</b>", styles["Heading2"]), "", "",
-         Paragraph(f"<b>{total_ttc:.2f} EUR</b>", styles["Heading2"])],
+         Paragraph(f"<b>{total_ttc:.2f} \u20ac</b>", styles["Heading2"])],
     ]
     n_total = len(tdata) - 1   # row index of the TOTAL TTC row
     items_tbl = Table(tdata, colWidths=[8.8*cm, 3.2*cm, 1.8*cm, 3.7*cm])
@@ -2696,14 +2737,14 @@ def build_manual_invoice_pdf(draft, settings):
     ]))
 
     # ── Payment terms ─────────────────────────────────────────────────────
-    pay = (draft.get("payment_terms") or settings.get("payment_terms", "")).replace("\n", "<br/>")
+    pay = _invoice_payment_terms_html(settings, draft.get("payment_terms"))
 
     elements = [
         header, Spacer(1, 18),
         co_tbl,  Spacer(1, 34),
         bill_meta, Spacer(1, 28),
         items_tbl, Spacer(1, 60),
-        Paragraph("<b>Conditions et modalites de paiement</b>", normal),
+        Paragraph("<b>Conditions et modalit\u00e9s de paiement</b>", normal),
         Paragraph(pay, normal),
     ]
     doc.build(elements)
@@ -3011,7 +3052,7 @@ def init_db():
     c.execute("INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)", ("worker1", hash_password("1234"), "worker"))
     c.execute("INSERT OR IGNORE INTO workers (name, address) VALUES (?, ?)", ("admin", ""))
     c.execute("INSERT OR IGNORE INTO workers (name, address) VALUES (?, ?)", ("worker1", ""))
-    c.execute("INSERT OR IGNORE INTO invoice_settings (id, invoice_text, payment_terms, bank_account, company_name, company_address, company_phone, company_email, company_vat, invoice_template, invoice_start_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (1, "", "Paiement a 15 jours des reception de la facture.\nPost Luxembourg BIC (CCPLLULL) LU60 1111 7815 3607 0000\nLors du virement, veuillez indiquer reference suivante: ***Facture no***", "", "Luxmann Services", "32, rue Aneschbach\nWiltz L-9511", "+352691642003", "lux@mann.lu", "TVA: LU33673043", "orange", 1))
+    c.execute("INSERT OR IGNORE INTO invoice_settings (id, invoice_text, payment_terms, bank_account, company_name, company_address, company_phone, company_email, company_vat, invoice_template, invoice_start_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (1, "", "Paiement \u00e0 15 jours d\u00e8s r\u00e9ception de la facture.\nPost Luxembourg BIC (CCPLLULL) LU60 1111 7815 3607 0000\nLors du virement, veuillez indiquer r\u00e9f\u00e9rence suivante: ***Facture n\u00b0***", "", "Luxmann Services", "32, rue Aneschbach\nWiltz L-9511", "+352691642003", "lux@mann.lu", "TVA: LU33673043", "orange", 1))
 
     for worker_name, color in DEFAULT_WORKER_COLORS.items():
         c.execute("INSERT OR IGNORE INTO worker_colors (worker_name, color) VALUES (?, ?)", (worker_name, color))
