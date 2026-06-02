@@ -463,6 +463,12 @@ TRANSLATIONS["bos"].update({
     "leave_requests_pending": "Zahtjevi za odmor", "leave_approve": "Odobri",
     "leave_reject": "Odbij", "leave_no_requests": "Nema zahtjeva",
     "archive": "Arhiva", "shifts": "smjena", "shift_singular": "smjena",
+    "zip_unavail_title": "Dokumenti privremeno nisu dostupni",
+    "zip_unavail_body": "Zatraženi fajlovi trenutno nisu dostupni. Molite administratora da vam pošalje fajlove direktno.",
+    "file_unavail_title": "Fajl privremeno nije dostupan",
+    "file_unavail_body": "Traženi fajl trenutno nije dostupan. Molite administratora.",
+    "folder_empty_title": "Folder ne sadrži dokumente",
+    "folder_empty_body": "Nema fajlova za preuzimanje u ovom folderu.",
 })
 TRANSLATIONS["en"].update({
     "contract_type": "Contract type", "contract_end_date": "Contract end date",
@@ -477,6 +483,12 @@ TRANSLATIONS["en"].update({
     "leave_requests_pending": "Leave requests", "leave_approve": "Approve",
     "leave_reject": "Reject", "leave_no_requests": "No requests",
     "archive": "Archive", "shifts": "shifts", "shift_singular": "shift",
+    "zip_unavail_title": "Documents temporarily unavailable",
+    "zip_unavail_body": "The requested files are currently unavailable. Please contact the administrator to send them directly.",
+    "file_unavail_title": "File temporarily unavailable",
+    "file_unavail_body": "The requested file is currently unavailable. Please contact the administrator.",
+    "folder_empty_title": "Folder contains no documents",
+    "folder_empty_body": "There are no files to download in this folder.",
 })
 TRANSLATIONS["fr"].update({
     "contract_type": "Type de contrat", "contract_end_date": "Fin du contrat",
@@ -491,6 +503,12 @@ TRANSLATIONS["fr"].update({
     "leave_requests_pending": "Demandes de conge", "leave_approve": "Approuver",
     "leave_reject": "Refuser", "leave_no_requests": "Aucune demande",
     "archive": "Archives", "shifts": "interventions", "shift_singular": "intervention",
+    "zip_unavail_title": "Documents temporairement indisponibles",
+    "zip_unavail_body": "Les fichiers demandés sont actuellement indisponibles. Veuillez contacter l'administrateur.",
+    "file_unavail_title": "Fichier temporairement indisponible",
+    "file_unavail_body": "Le fichier demandé est actuellement indisponible. Veuillez contacter l'administrateur.",
+    "folder_empty_title": "Dossier vide",
+    "folder_empty_body": "Il n'y a aucun fichier à télécharger dans ce dossier.",
 })
 TRANSLATIONS["de"].update({
     "contract_type": "Vertragsart", "contract_end_date": "Vertragsende",
@@ -505,6 +523,12 @@ TRANSLATIONS["de"].update({
     "leave_requests_pending": "Urlaubsantraege", "leave_approve": "Genehmigen",
     "leave_reject": "Ablehnen", "leave_no_requests": "Keine Antraege",
     "archive": "Archiv", "shifts": "Schichten", "shift_singular": "Schicht",
+    "zip_unavail_title": "Dokumente vorübergehend nicht verfügbar",
+    "zip_unavail_body": "Die angeforderten Dateien sind derzeit nicht verfügbar. Bitte wenden Sie sich an den Administrator.",
+    "file_unavail_title": "Datei vorübergehend nicht verfügbar",
+    "file_unavail_body": "Die angeforderte Datei ist derzeit nicht verfügbar. Bitte wenden Sie sich an den Administrator.",
+    "folder_empty_title": "Ordner enthält keine Dokumente",
+    "folder_empty_body": "In diesem Ordner gibt es keine Dateien zum Herunterladen.",
 })
 TRANSLATIONS["pt"].update({
     "contract_type": "Tipo de contrato", "contract_end_date": "Fim do contrato",
@@ -519,6 +543,12 @@ TRANSLATIONS["pt"].update({
     "leave_requests_pending": "Pedidos de ferias", "leave_approve": "Aprovar",
     "leave_reject": "Recusar", "leave_no_requests": "Sem pedidos",
     "archive": "Arquivo", "shifts": "turnos", "shift_singular": "turno",
+    "zip_unavail_title": "Documentos temporariamente indisponíveis",
+    "zip_unavail_body": "Os ficheiros solicitados estão indisponíveis. Por favor contacte o administrador.",
+    "file_unavail_title": "Ficheiro temporariamente indisponível",
+    "file_unavail_body": "O ficheiro solicitado está indisponível. Por favor contacte o administrador.",
+    "folder_empty_title": "Pasta sem documentos",
+    "folder_empty_body": "Não há ficheiros para descarregar nesta pasta.",
 })
 
 # ── Module translations: Workers, Backup, Diagram, Payroll ───────────────────
@@ -6420,11 +6450,15 @@ def shared_folder_sub(token, sub_id):
 
 @app.route("/share/folder/<token>/file/<int:doc_id>")
 def shared_folder_file(token, doc_id):
+    tr = t()
     conn = get_conn()
     info = _shared_folder_validate(conn, token)
     if not info:
         conn.close()
-        return "Link istekao ili nije validan.", 404
+        return _share_error_page("🔗",
+            tr.get("share_link_invalid", "Link istekao ili nije validan."),
+            tr.get("share_link_invalid", "Ovaj link nije validan ili je istekao."),
+            404)
     root_id = info[0]
     tree_ids = _folder_tree_ids(conn, root_id)
     doc_row = conn.cursor().execute("""
@@ -6433,15 +6467,40 @@ def shared_folder_file(token, doc_id):
     """, (doc_id,)).fetchone()
     conn.close()
     if not doc_row or doc_row[6] not in tree_ids:
-        return "Dokument nije pronađen.", 404
+        return _share_error_page("📄",
+            tr.get("file_unavail_title", "Fajl privremeno nije dostupan"),
+            tr.get("file_unavail_body", "Traženi fajl trenutno nije dostupan. Molite administratora."),
+            404)
     document = document_row(doc_row)
     path = document_path(document["stored_name"])
     if not os.path.exists(path):
-        return "Fajl nije pronađen.", 404
+        return _share_error_page("📂",
+            tr.get("file_unavail_title", "Fajl privremeno nije dostupan"),
+            tr.get("file_unavail_body", "Traženi fajl trenutno nije dostupan. Molite administratora."),
+            503)
     as_download = request.args.get("download") == "1"
     return send_file(path, mimetype=document["mime_type"] or "application/octet-stream",
                      as_attachment=as_download,
                      download_name=document["original_name"] if as_download else None)
+
+
+def _share_error_page(icon, title, body, status=503):
+    html = (
+        "<!doctype html><html><head><meta charset='utf-8'>"
+        "<title>" + title + "</title>"
+        "<style>body{font-family:sans-serif;max-width:520px;margin:80px auto;"
+        "padding:20px;text-align:center;}"
+        ".icon{font-size:48px;margin-bottom:16px;}"
+        "h2{color:#1f4f82;margin-bottom:8px;}p{color:#64748b;line-height:1.6;}"
+        "small{display:block;margin-top:24px;font-size:11px;color:#94a3b8;}"
+        "</style></head><body>"
+        "<div class='icon'>" + icon + "</div>"
+        "<h2>" + title + "</h2>"
+        "<p>" + body + "</p>"
+        "<small>Luxmann Planner</small></body></html>"
+    )
+    from flask import Response
+    return Response(html, status=status, mimetype="text/html")
 
 
 def _zip_add_folder(conn, zf, folder_id, rel_prefix, errors=None):
@@ -6502,30 +6561,19 @@ def shared_folder_zip(token, sub_id=None):
         if added == 0:
             os.unlink(tmp_path)
             if errors:
-                return render_template_string("""<!doctype html>
-<html><head><meta charset="utf-8"><title>ZIP nedostupan</title>
-<style>body{font-family:sans-serif;max-width:520px;margin:80px auto;padding:20px;text-align:center;}
-.icon{font-size:48px;margin-bottom:16px;}
-h2{color:#1f4f82;margin-bottom:8px;}
-p{color:#64748b;line-height:1.6;}
-small{display:block;margin-top:24px;font-size:11px;color:#94a3b8;}</style>
-</head><body>
-<div class="icon">📂</div>
-<h2>Dokumenti privremeno nisu dostupni</h2>
-<p>Zatraženi fajlovi trenutno nisu dostupni za preuzimanje.<br>
-Molite administratora da vam pošalje fajlove direktno.</p>
-<small>Luxmann Planner</small>
-</body></html>"""), 503
-            return render_template_string("""<!doctype html>
-<html><head><meta charset="utf-8"><title>Folder prazan</title>
-<style>body{font-family:sans-serif;max-width:520px;margin:80px auto;padding:20px;text-align:center;}
-.icon{font-size:48px;margin-bottom:16px;}h2{color:#1f4f82;}p{color:#64748b;}</style>
-</head><body>
-<div class="icon">📁</div>
-<h2>Folder ne sadrži dokumente</h2>
-<p>Nema fajlova za preuzimanje u ovom folderu.</p>
-<small style="color:#94a3b8;font-size:11px;">Luxmann Planner</small>
-</body></html>"""), 404
+                return _share_error_page("📂",
+                    tr.get("zip_unavail_title", "Dokumenti privremeno nisu dostupni"),
+                    tr.get("zip_unavail_body", "Zatraženi fajlovi trenutno nisu dostupni. Molite administratora."),
+                    503)
+            return _share_error_page("📁",
+                tr.get("folder_empty_title", "Folder ne sadrži dokumente"),
+                tr.get("folder_empty_body", "Nema fajlova za preuzimanje u ovom folderu."),
+                404)
+        if errors:
+            missing_txt = "Sljedeci fajlovi nisu bili dostupni i nisu ukljuceni u ZIP:\n\n" + \
+                "\n".join(e.split(":")[1] for e in errors if ":" in e)
+            with zipfile.ZipFile(tmp_path, "a") as zf:
+                zf.writestr("_missing_files.txt", missing_txt)
         safe_name = re.sub(r'[\\/:*?"<>|]', "_", zip_folder_name) or "folder"
 
         from flask import after_this_request as _atr
