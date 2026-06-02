@@ -8162,6 +8162,10 @@ def shifts_search_pdf():
     if not search_date_from and not search_date_to:
         search_date_to = lux_now().strftime("%Y-%m-%d")
         search_date_from = (lux_now() - timedelta(days=90)).strftime("%Y-%m-%d")
+    elif search_date_from and not search_date_to:
+        search_date_to = (datetime.strptime(search_date_from, "%Y-%m-%d") + timedelta(days=90)).strftime("%Y-%m-%d")
+    elif search_date_to and not search_date_from:
+        search_date_from = (datetime.strptime(search_date_to, "%Y-%m-%d") - timedelta(days=90)).strftime("%Y-%m-%d")
     conn = get_conn(); c = conn.cursor()
     base = "SELECT * FROM shifts WHERE 1=1"; params = []
     if search_date_from: base += " AND date >= ?"; params.append(search_date_from)
