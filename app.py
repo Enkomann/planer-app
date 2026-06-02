@@ -2578,9 +2578,8 @@ def next_invoice_number(conn):
     c = conn.cursor()
     settings = get_invoice_settings(conn)
     start = int(settings.get("invoice_start_number") or 1)
-    rows = c.execute(
-        "SELECT invoice_number FROM invoice_records WHERE COALESCE(deleted,0)=0"
-    ).fetchall()
+    # Invoice numbers must never be reused, even if an invoice is soft-deleted.
+    rows = c.execute("SELECT invoice_number FROM invoice_records").fetchall()
     nums = []
     for (n,) in rows:
         try:
