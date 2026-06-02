@@ -6651,8 +6651,6 @@ def invoices():
     conn = get_conn()
     settings = get_invoice_settings(conn)
     profiles = get_invoice_profiles(conn)
-    generated_rows = build_invoice_rows(conn, date_from, date_to, None, settings)
-    save_invoice_records(conn, generated_rows, date_from, date_to, invoice_date)
     rows = fetch_invoice_records(conn)
     conn.close()
     profiles_json = json.dumps(profiles)
@@ -6711,11 +6709,16 @@ def invoices():
                 </div>
             </div>
 
-            <form method="get" action="/invoices" class="settings-grid">
+            {% with msgs = get_flashed_messages(with_categories=true) %}
+            {% for cat, msg in msgs %}
+            <div style="background:{% if cat=='error' %}#ef4444{% else %}#22c55e{% endif %};color:{% if cat=='error' %}white{% else %}#111{% endif %};padding:10px 18px;border-radius:8px;font-weight:700;font-size:14px;margin-bottom:12px;">{{ msg }}</div>
+            {% endfor %}
+            {% endwith %}
+            <form method="post" action="/invoices/generate" class="settings-grid">
                 <div><label>{{ tr["date_from"] }}</label><input type="date" name="date_from" value="{{ date_from }}"></div>
                 <div><label>{{ tr["date_to"] }}</label><input type="date" name="date_to" value="{{ date_to }}"></div>
                 <div><label>{{ tr["invoice_date"] }}</label><input type="date" name="invoice_date" value="{{ invoice_date }}"></div>
-                <div style="align-self:end;"><button>{{ tr["generate_invoice"] }}</button></div>
+                <div style="align-self:end;"><button style="background:#22c55e;color:#111;font-weight:800;">{{ tr["generate_invoice"] }}</button></div>
             </form>
 
             <div class="invoice-tabs">
@@ -6756,6 +6759,7 @@ def invoices():
                         <a href="/invoices/manual?invoice_number={{ row.invoice_number }}" style="color:#ffd429;margin-left:6px;font-size:11px;">✏️</a>
                       {% else %}
                         <a href="/invoices/download?client={{ row.client|urlencode }}&date_from={{ row.date_from }}&date_to={{ row.date_to }}&invoice_date={{ row.invoice_date }}" style="color:#93c5fd;">PDF</a>
+                        <a href="/invoices/manual?load_auto={{ row.invoice_number }}" style="color:#ffd429;margin-left:6px;font-size:11px;" title="Uredi ručno">✏️</a>
                       {% endif %}
                     </td>
                     <td><a href="/invoices/delete?invoice_number={{ row.invoice_number }}" onclick="return confirm('Obrisati fakturu?');" style="color:#fb7185;">{{ tr["delete"] }}</a></td>
@@ -6880,6 +6884,58 @@ def invoices():
     });
     </script>
     """, tr=tr, dark=dark, settings=settings, profiles=profiles, profiles_json=profiles_json, rows=rows, paid_rows=paid_rows, unpaid_rows=unpaid_rows, total_paid=total_paid, total_unpaid=total_unpaid, total_all=total_all, format_date=format_date, date_from=date_from, date_to=date_to, invoice_date=invoice_date)
+
+
+@app.route("/invoices/generate", methods=["POST"])
+def invoices_generate():
+    if session.get("role") != "admin":
+        return redirect("/")
+    tr = t()
+    date_from = request.form.get("date_from", "").strip()
+    date_to = request.form.get("date_to", "").strip()
+    invoice_date = request.form.get("invoice_date", lux_now().strftime("%Y-%m-%d")).strip()
+    if not date_from or not date_to:
+        flash(tr.get("generate_invoice", "Generiši fakturu") + ": datum nedostaje.", "error")
+        return redirect("/invoices")
+    conn = get_conn()
+    c = conn.cursor()
+    settings = get_invoice_settings(conn)
+    raw_rows = build_invoice_rows(conn, date_from, date_to, None, settings)
+    generated = 0
+    skipped_exists = 0
+    skipped_no_rate = []
+    for row in raw_rows:
+        if row.get("hourly_rate", 0) == 0 and row.get("amount", 0) == 0:
+            skipped_no_rate.append(row["client"])
+            continue
+        existing = c.execute(
+            "SELECT invoice_number FROM invoice_records WHERE client_name=? AND date_from=? AND date_to=? AND COALESCE(deleted,0)=0",
+            (row["client"], date_from, date_to)
+        ).fetchone()
+        if existing:
+            skipped_exists += 1
+            continue
+        inv_num = next_invoice_number(conn)
+        c.execute("""INSERT INTO invoice_records
+            (invoice_number, client_name, date_from, date_to, invoice_date,
+             amount, vat_amount, total, paid, sent, deleted, source)
+            VALUES (?,?,?,?,?,?,?,?,0,0,0,'auto')""",
+            (inv_num, row["client"], date_from, date_to, invoice_date,
+             row["amount"], row["vat_amount"], row["total"]))
+        conn.commit()
+        generated += 1
+    conn.close()
+    parts = []
+    if generated:
+        parts.append(f"{generated} faktura generisano")
+    if skipped_exists:
+        parts.append(f"{skipped_exists} već postoji za ovaj period")
+    if skipped_no_rate:
+        parts.append(f"Bez cijene: {', '.join(skipped_no_rate)}")
+    if not parts:
+        parts.append("Nema smjena u odabranom periodu ili nema klijenata sa postavljenom cijenom.")
+    flash("; ".join(parts), "error" if generated == 0 else "ok")
+    return redirect(f"/invoices?date_from={date_from}&date_to={date_to}&invoice_date={invoice_date}")
 
 
 @app.route("/invoices/client")
@@ -7283,12 +7339,13 @@ def invoices_manual():
             "SELECT source FROM invoice_records WHERE invoice_number=? AND COALESCE(deleted,0)=0",
             (inv_num,)
         ).fetchone()
-        if form_mode == "create" and existing_src:
-            # Number already taken (auto OR manual) — get a fresh one
+        convert_from_auto = request.form.get("convert_from_auto") == "1"
+        if form_mode == "create" and existing_src and not convert_from_auto:
+            # Number already taken — get a fresh one
             inv_num = next_invoice_number(conn)
-            existing_src = None   # now known to be free
-        elif form_mode == "edit" and existing_src and existing_src[0] != "manual":
-            # Editing but the number was tampered to point at an auto invoice
+            existing_src = None
+        elif form_mode == "edit" and existing_src and existing_src[0] != "manual" and not convert_from_auto:
+            # Editing but number points at an auto invoice (not an explicit conversion)
             inv_num = next_invoice_number(conn)
             existing_src = None
 
@@ -7311,20 +7368,30 @@ def invoices_manual():
                     reserved = True
                     break
             else:
-                # EDIT: update this manual invoice (WHERE guard blocks auto invoices)
-                c.execute("""
-                    INSERT INTO invoice_records
-                        (invoice_number, client_name, date_from, date_to, invoice_date,
-                         amount, vat_amount, total, paid, sent, deleted, source)
-                    VALUES (?,?,?,?,?,?,?,?,0,0,0,'manual')
-                    ON CONFLICT(invoice_number) DO UPDATE SET
-                        client_name=excluded.client_name, invoice_date=excluded.invoice_date,
-                        amount=excluded.amount, vat_amount=excluded.vat_amount,
-                        total=excluded.total, source='manual'
-                    WHERE invoice_records.source='manual'
-                """, (inv_num, client_name, inv_date, inv_date, inv_date,
-                      total_ht, total_vat, total_ttc))
-                conn.commit()
+                if convert_from_auto:
+                    # Converting auto → manual: update source unconditionally
+                    c.execute("""
+                        UPDATE invoice_records SET
+                            client_name=?, invoice_date=?,
+                            amount=?, vat_amount=?, total=?, source='manual'
+                        WHERE invoice_number=? AND COALESCE(deleted,0)=0
+                    """, (client_name, inv_date, total_ht, total_vat, total_ttc, inv_num))
+                    conn.commit()
+                else:
+                    # EDIT: update this manual invoice (WHERE guard blocks auto invoices)
+                    c.execute("""
+                        INSERT INTO invoice_records
+                            (invoice_number, client_name, date_from, date_to, invoice_date,
+                             amount, vat_amount, total, paid, sent, deleted, source)
+                        VALUES (?,?,?,?,?,?,?,?,0,0,0,'manual')
+                        ON CONFLICT(invoice_number) DO UPDATE SET
+                            client_name=excluded.client_name, invoice_date=excluded.invoice_date,
+                            amount=excluded.amount, vat_amount=excluded.vat_amount,
+                            total=excluded.total, source='manual'
+                        WHERE invoice_records.source='manual'
+                    """, (inv_num, client_name, inv_date, inv_date, inv_date,
+                          total_ht, total_vat, total_ttc))
+                    conn.commit()
                 owned = c.execute(
                     "SELECT 1 FROM invoice_records WHERE invoice_number=? AND COALESCE(source,'auto')='manual'",
                     (inv_num,)
@@ -7362,6 +7429,7 @@ def invoices_manual():
     # ── GET: show form ────────────────────────────────────────────────────
     # Pre-fill from existing draft if invoice_number given
     load_num = request.args.get("invoice_number", "").strip()
+    load_auto = request.args.get("load_auto", "").strip()
     draft = {}
     if load_num:
         row = c.execute(
@@ -7373,7 +7441,31 @@ def invoices_manual():
             draft = {"invoice_number": row[0], "client_name": row[1],
                      "client_address": row[2], "invoice_date": row[3],
                      "items_json": row[4], "payment_terms": row[5]}
+    if load_auto and not draft:
+        rec = c.execute(
+            "SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total "
+            "FROM invoice_records WHERE invoice_number=? AND COALESCE(deleted,0)=0",
+            (load_auto,)
+        ).fetchone()
+        if rec:
+            prof = c.execute(
+                "SELECT custom_address FROM client_invoice_profiles WHERE client_name=?",
+                (rec[1],)
+            ).fetchone()
+            client_addr = (prof[0] if prof else "") or ""
+            vr = round(rec[6] / rec[5] * 100, 2) if rec[5] else 17.0
+            service_title = invoice_service_title(rec[2], rec[3])
+            draft = {
+                "invoice_number": rec[0],
+                "client_name": rec[1],
+                "client_address": client_addr,
+                "invoice_date": rec[4],
+                "items_json": json.dumps([{"designation": service_title, "amount": round(float(rec[5]), 2), "vat_rate": vr}], ensure_ascii=False),
+                "payment_terms": settings.get("payment_terms", ""),
+                "_convert_from_auto": True,
+            }
 
+    convert_from_auto = draft.pop("_convert_from_auto", False)
     auto_num = draft.get("invoice_number") or next_invoice_number(conn)
     default_terms = settings.get("payment_terms", "")
     conn.close()
@@ -7455,8 +7547,14 @@ def invoices_manual():
               padding:10px 22px;font-weight:600;font-size:14px;">{{ msg }}</div>
   {% endfor %}
   {% endwith %}
+  {% if convert_from_auto %}
+  <div style="background:#f59e0b;color:#111;padding:10px 22px;font-weight:700;font-size:14px;">
+    ✏️ Uređuješ automatski generisanu fakturu br. {{ auto_num }} — sačuvaj da pretvoriš u ručnu fakturu.
+  </div>
+  {% endif %}
 
   <form id="miForm" method="post" action="/invoices/manual">
+    <input type="hidden" name="convert_from_auto" value="{{ '1' if convert_from_auto else '' }}">
     <div class="mi-body">
 
       <!-- LEFT: main form -->
@@ -7661,6 +7759,7 @@ prefillItems.forEach(function(it){
 </script>
 """, tr=tr, dark=dark, auto_num=auto_num, today=lux_now().strftime("%Y-%m-%d"),
      profiles=profiles,
+     convert_from_auto=convert_from_auto,
      draft=type("D", (), draft)() if draft else type("D", (), {"invoice_number":"","client_name":"","client_address":"","invoice_date":"","payment_terms":""})(),
      default_terms=default_terms,
      templates_list=templates_list,
