@@ -6832,6 +6832,7 @@ def invoices():
                 <a class="invoice-tab" href="/invoices/manual" style="background:#22c55e;color:#111;">✏️ {{ tr.get("mi_title","Facture manuelle") }}</a>
             </div>
 
+            <div style="overflow-x:auto;">
             <table id="invoice-list" class="invoice-table">
                 <tr><th></th><th>{{ tr["client_name"] }}</th><th>Document</th><th>{{ tr["invoice_number"] }}</th><th>{{ tr["invoice_date"] }}</th><th>{{ tr["payment_status"] }}</th><th>{{ tr["sent_status"] }}</th><th>{{ tr["amount_with_vat"] }}</th><th>{{ tr.get("edit","Uredi") }}</th><th>PDF</th><th></th></tr>
                 {% for row in rows %}
@@ -6874,6 +6875,7 @@ def invoices():
                 </tr>
                 {% endfor %}
             </table>
+            </div>
             {% if rows|length == 0 %}<div class="muted">{{ tr.get("inv_gen_empty", "Nema faktura za odabrani period.") }}</div>{% endif %}
 
             <div class="invoice-totals">
