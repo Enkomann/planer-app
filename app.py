@@ -11,6 +11,7 @@ import secrets
 import calendar
 import json
 import math
+import html as _html
 import zipfile
 import tempfile
 import urllib.parse
@@ -6424,17 +6425,17 @@ def shared_folder_sub(token, sub_id):
     info = _shared_folder_validate(conn, token)
     if not info:
         conn.close()
-        return tr["share_link_invalid"], 404
+        return _share_error_page("🔗", tr.get("share_link_invalid", "Link nije validan"), tr.get("share_link_invalid", "Ovaj link je istekao ili nije validan."), 404)
     root_id, expires_at, root_name = info
     tree_ids = _folder_tree_ids(conn, root_id)
     if sub_id not in tree_ids:
         conn.close()
-        return tr["folder_unavailable"], 403
+        return _share_error_page("📁", tr.get("folder_unavailable", "Folder nedostupan"), tr.get("folder_unavailable", "Ovaj folder nije dostupan putem ovog linka."), 403)
     sub_row = conn.cursor().execute(
         "SELECT id, name FROM document_folders WHERE id = ?", (sub_id,)).fetchone()
     if not sub_row:
         conn.close()
-        return tr["folder_not_found_pub"], 404
+        return _share_error_page("📁", tr.get("folder_not_found_pub", "Folder nije pronađen"), tr.get("folder_not_found_pub", "Traženi folder ne postoji."), 404)
     subfolders = conn.cursor().execute(
         "SELECT id, name FROM document_folders WHERE parent_id = ? ORDER BY name", (sub_id,)).fetchall()
     doc_rows = conn.cursor().execute("""
@@ -6485,22 +6486,25 @@ def shared_folder_file(token, doc_id):
 
 
 def _share_error_page(icon, title, body, status=503):
-    html = (
+    safe_icon  = _html.escape(str(icon))
+    safe_title = _html.escape(str(title))
+    safe_body  = _html.escape(str(body))
+    page = (
         "<!doctype html><html><head><meta charset='utf-8'>"
-        "<title>" + title + "</title>"
+        "<title>" + safe_title + "</title>"
         "<style>body{font-family:sans-serif;max-width:520px;margin:80px auto;"
         "padding:20px;text-align:center;}"
         ".icon{font-size:48px;margin-bottom:16px;}"
         "h2{color:#1f4f82;margin-bottom:8px;}p{color:#64748b;line-height:1.6;}"
         "small{display:block;margin-top:24px;font-size:11px;color:#94a3b8;}"
         "</style></head><body>"
-        "<div class='icon'>" + icon + "</div>"
-        "<h2>" + title + "</h2>"
-        "<p>" + body + "</p>"
+        "<div class='icon'>" + safe_icon + "</div>"
+        "<h2>" + safe_title + "</h2>"
+        "<p>" + safe_body + "</p>"
         "<small>Luxmann Planner</small></body></html>"
     )
     from flask import Response
-    return Response(html, status=status, mimetype="text/html")
+    return Response(page, status=status, mimetype="text/html")
 
 
 def _zip_add_folder(conn, zf, folder_id, rel_prefix, errors=None):
@@ -6571,7 +6575,7 @@ def shared_folder_zip(token, sub_id=None):
                 404)
         if errors:
             missing_txt = "Sljedeci fajlovi nisu bili dostupni i nisu ukljuceni u ZIP:\n\n" + \
-                "\n".join(e.split(":")[1] for e in errors if ":" in e)
+                "\n".join(e.split(":", 2)[1] for e in errors if ":" in e)
             with zipfile.ZipFile(tmp_path, "a") as zf:
                 zf.writestr("_missing_files.txt", missing_txt)
         safe_name = re.sub(r'[\\/:*?"<>|]', "_", zip_folder_name) or "folder"
