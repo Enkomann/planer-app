@@ -8157,8 +8157,6 @@ def shifts_search_pdf():
     worker_filter    = request.args.get("worker", "").strip()
     client_filter    = request.args.get("client", "").strip()
     search_query     = request.args.get("q", "").strip().lower()
-    if not search_date_from and not search_date_to and not worker_filter and not client_filter and not search_query:
-        return redirect("/")
     def _parse_ymd(v):
         try: return datetime.strptime(v, "%Y-%m-%d")
         except Exception: return None
@@ -8166,6 +8164,8 @@ def shifts_search_pdf():
     dt_to   = _parse_ymd(search_date_to)
     if search_date_from and not dt_from: search_date_from = ""
     if search_date_to   and not dt_to:   search_date_to   = ""
+    if not search_date_from and not search_date_to and not worker_filter and not client_filter and not search_query:
+        return redirect("/")
     if not dt_from and not dt_to:
         search_date_to   = lux_now().strftime("%Y-%m-%d")
         search_date_from = (lux_now() - timedelta(days=90)).strftime("%Y-%m-%d")
