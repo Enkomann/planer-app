@@ -3637,44 +3637,6 @@ BASE_STYLE = """
         .wapp-bubble { width:60px; padding-left:7px; padding-right:7px; }
         .wapp-bubble .wb-label { font-size:9px; }
     }
-
-    /* ── Worker archive ──────────────────────────────────────── */
-    .wapp-archive-year {
-        font-size:13px; font-weight:900; color:{{ '#64748b' if dark else '#94a3b8' }};
-        margin:8px 0 4px; padding:0 4px;
-    }
-    .wapp-archive-card {
-        border-radius:20px;
-        background:{{ '#161618' if dark else 'white' }};
-        border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};
-        box-shadow:0 4px 14px rgba(0,0,0,.07);
-        overflow:hidden;
-        margin-bottom:10px;
-    }
-    .wapp-archive-card summary {
-        display:flex; align-items:center; justify-content:space-between;
-        padding:14px 16px; cursor:pointer; list-style:none; user-select:none;
-        font-weight:800; font-size:15px;
-        color:{{ '#e5e7eb' if dark else '#1e293b' }};
-        gap:8px;
-    }
-    .wapp-archive-card summary::-webkit-details-marker { display:none; }
-    .wapp-archive-card summary::after {
-        content:"›"; font-size:20px; font-weight:900;
-        color:{{ '#64748b' if dark else '#94a3b8' }};
-        transition:transform .2s; flex-shrink:0;
-    }
-    .wapp-archive-card[open] summary::after { transform:rotate(90deg); }
-    .wapp-archive-summary-right { display:flex; align-items:center; gap:10px; }
-    .wapp-archive-count { font-size:12px; font-weight:700; color:{{ '#94a3b8' if dark else '#64748b' }}; }
-    .wapp-archive-pdf {
-        font-size:11px; font-weight:900; padding:4px 10px; border-radius:999px;
-        background:{{ '#1e1e20' if dark else '#f1f5f9' }};
-        color:{{ '#93c5fd' if dark else '#2563eb' }};
-        text-decoration:none; white-space:nowrap;
-        border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};
-    }
-    .wapp-archive-body { border-top:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; }
 </style>
 <script>
 (function(){
@@ -4469,15 +4431,6 @@ def load_index_data():
     worker_today_hours = sum(parse_shift_hours(s[4]) for s in worker_today_shifts)
     worker_week_hours = sum(calculate_hours_for_user(week_shifts, None if is_admin else current_user).values())
     worker_month_hours = sum(calculate_hours_for_user(month_shifts, None if is_admin else current_user).values())
-    first_of_this_month = datetime(today.year, today.month, 1).strftime("%Y-%m-%d")
-    archive_dict = {}
-    for s in worker_scope_shifts:
-        if s[3] < first_of_this_month:
-            ym = s[3][:7]
-            if ym not in archive_dict:
-                archive_dict[ym] = []
-            archive_dict[ym].append(s)
-    worker_archive_months = sorted(archive_dict.items(), key=lambda x: x[0], reverse=True)
     conn.close()
     return {
         "is_admin": is_admin, "current_user": current_user, "workers": workers, "clients": clients,
@@ -4502,7 +4455,6 @@ def load_index_data():
         "worker_today_hours": worker_today_hours,
         "worker_week_hours": worker_week_hours,
         "worker_month_hours": worker_month_hours,
-        "worker_archive_months": worker_archive_months,
     }
 
 
@@ -4589,43 +4541,6 @@ def index():
                         </div>
                     {% endif %}
                 </section>
-
-                {% if worker_archive_months %}
-                <div class="wapp-sec">{{ tr.get("archive","Arhiva") }}</div>
-                {% set ns = namespace(prev_year='') %}
-                {% for ym, arc_shifts in worker_archive_months %}
-                {% set yr = ym[:4] %}
-                {% set mo = ym[5:]|int %}
-                {% if yr != ns.prev_year %}
-                {% set ns.prev_year = yr %}
-                <div class="wapp-archive-year">{{ yr }}</div>
-                {% endif %}
-                <details class="wapp-archive-card">
-                  <summary>
-                    <span>{{ format_month_year(yr|int, mo) }}</span>
-                    <span class="wapp-archive-summary-right">
-                      <span class="wapp-archive-count">{{ arc_shifts|length }} {{ tr.get("shifts","smjena") }}</span>
-                      <a class="wapp-archive-pdf" href="/month_pdf?year={{ yr }}&month={{ '%02d'|format(mo) }}" target="_blank" rel="noopener" onclick="event.stopPropagation()">PDF</a>
-                    </span>
-                  </summary>
-                  <div class="wapp-archive-body">
-                    {% for s in arc_shifts %}
-                    {% set addr = client_addresses.get(s[2], s[2]) %}
-                    {% set auto_status = get_auto_status(s[3], s[4]) %}
-                    <div class="wapp-shift-row">
-                      <div class="wapp-time">{{ format_date(s[3]) }}</div>
-                      <div>
-                        <div class="wapp-client">{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}</div>
-                        <div class="wapp-address">{{ s[4] }}</div>
-                        <span class="wapp-status-badge" style="background:{{ status_colors.get(auto_status,'#6b7280') }};color:white;">{{ get_status_label(auto_status, tr) }}</span>
-                      </div>
-                      <a class="wapp-map" href="https://www.google.com/maps/search/?api=1&query={{ addr|urlencode }}" target="_blank" rel="noopener" title="Google Maps">➜</a>
-                    </div>
-                    {% endfor %}
-                  </div>
-                </details>
-                {% endfor %}
-                {% endif %}
 
             </div>
             {% else %}
@@ -4815,7 +4730,6 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 </script>
     """, tr=tr, dark=dark, datetime=datetime, timedelta=timedelta, format_date=format_date,
-       format_month_year=format_month_year,
        time_hours=time_hours(), time_minutes=time_minutes(), status_colors=STATUS_COLORS,
        get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers, **data)
 
@@ -4990,9 +4904,8 @@ def week_view():
     c = conn.cursor()
     worker_colors = get_worker_colors(conn)
     week_days = [(start_week + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
-    today_dt = datetime.today()
-    worker_start = datetime(today_dt.year, today_dt.month, 1)
-    worker_year_end = datetime(today_dt.year, 12, 31)
+    worker_start = start_week - timedelta(days=7)
+    worker_year_end = datetime(start_week.year, 12, 31)
     worker_day_count = max(1, (worker_year_end.date() - worker_start.date()).days + 1)
     worker_days_dt = [worker_start + timedelta(days=i) for i in range(worker_day_count)]
     worker_days = [d.strftime("%Y-%m-%d") for d in worker_days_dt]
