@@ -462,7 +462,7 @@ TRANSLATIONS["bos"].update({
     "leave_approved": "Odobren", "leave_rejected": "Odbijen",
     "leave_requests_pending": "Zahtjevi za odmor", "leave_approve": "Odobri",
     "leave_reject": "Odbij", "leave_no_requests": "Nema zahtjeva",
-    "archive": "Arhiva", "shifts": "smjena",
+    "archive": "Arhiva", "shifts": "smjena", "shift_singular": "smjena",
 })
 TRANSLATIONS["en"].update({
     "contract_type": "Contract type", "contract_end_date": "Contract end date",
@@ -476,7 +476,7 @@ TRANSLATIONS["en"].update({
     "leave_approved": "Approved", "leave_rejected": "Rejected",
     "leave_requests_pending": "Leave requests", "leave_approve": "Approve",
     "leave_reject": "Reject", "leave_no_requests": "No requests",
-    "archive": "Archive", "shifts": "shifts",
+    "archive": "Archive", "shifts": "shifts", "shift_singular": "shift",
 })
 TRANSLATIONS["fr"].update({
     "contract_type": "Type de contrat", "contract_end_date": "Fin du contrat",
@@ -490,7 +490,7 @@ TRANSLATIONS["fr"].update({
     "leave_approved": "Approuvee", "leave_rejected": "Refusee",
     "leave_requests_pending": "Demandes de conge", "leave_approve": "Approuver",
     "leave_reject": "Refuser", "leave_no_requests": "Aucune demande",
-    "archive": "Archives", "shifts": "shifts",
+    "archive": "Archives", "shifts": "interventions", "shift_singular": "intervention",
 })
 TRANSLATIONS["de"].update({
     "contract_type": "Vertragsart", "contract_end_date": "Vertragsende",
@@ -504,7 +504,7 @@ TRANSLATIONS["de"].update({
     "leave_approved": "Genehmigt", "leave_rejected": "Abgelehnt",
     "leave_requests_pending": "Urlaubsantraege", "leave_approve": "Genehmigen",
     "leave_reject": "Ablehnen", "leave_no_requests": "Keine Antraege",
-    "archive": "Archiv", "shifts": "Schichten",
+    "archive": "Archiv", "shifts": "Schichten", "shift_singular": "Schicht",
 })
 TRANSLATIONS["pt"].update({
     "contract_type": "Tipo de contrato", "contract_end_date": "Fim do contrato",
@@ -518,7 +518,7 @@ TRANSLATIONS["pt"].update({
     "leave_approved": "Aprovado", "leave_rejected": "Recusado",
     "leave_requests_pending": "Pedidos de ferias", "leave_approve": "Aprovar",
     "leave_reject": "Recusar", "leave_no_requests": "Sem pedidos",
-    "archive": "Arquivo", "shifts": "turnos",
+    "archive": "Arquivo", "shifts": "turnos", "shift_singular": "turno",
 })
 
 # ── Module translations: Workers, Backup, Diagram, Payroll ───────────────────
@@ -4631,7 +4631,7 @@ def index():
                 <details class="wapp-archive-card">
                   <summary>
                     <span>{{ format_month_year(yr|int, mo) }}</span>
-                    <span class="wapp-archive-count">{{ arc_shifts|length }} {{ tr.get("shifts","smjena") }}</span>
+                    <span class="wapp-archive-count">{{ arc_shifts|length }} {{ tr.get("shift_singular","smjena") if arc_shifts|length == 1 else tr.get("shifts","smjena") }}</span>
                   </summary>
                   <div class="wapp-archive-body">
                     {% for s in arc_shifts %}
@@ -4812,7 +4812,7 @@ def index():
           <summary style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; padding-right:110px; cursor:pointer; background:{{ '#1e1e20' if dark else '#f8fafc' }}; border-radius:10px; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; list-style:none; user-select:none;">
             <span style="font-weight:800; font-size:15px;">{{ format_month_year(yr|int, mo) }}</span>
             <span style="display:flex; align-items:center; gap:12px;">
-              <span style="font-size:12px; color:{{ '#94a3b8' if dark else '#64748b' }};">{{ arc_count }} {{ tr.get("shifts","smjena") }}</span>
+              <span style="font-size:12px; color:{{ '#94a3b8' if dark else '#64748b' }};">{{ arc_count }} {{ tr.get("shift_singular","smjena") if arc_count == 1 else tr.get("shifts","smjena") }}</span>
               <span style="font-size:18px; color:{{ '#94a3b8' if dark else '#64748b' }};">›</span>
             </span>
           </summary>
