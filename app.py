@@ -3640,39 +3640,41 @@ BASE_STYLE = """
 
     /* ── Worker archive ──────────────────────────────────────── */
     .wapp-archive-year {
-        font-size:13px; font-weight:900; color:{{ '#64748b' if dark else '#94a3b8' }};
+        font-size:13px; font-weight:900; color:{{ '#94a3b8' if dark else '#64748b' }};
         margin:8px 0 4px; padding:0 4px;
     }
+    .wapp-archive-wrap { position:relative; margin-bottom:10px; }
     .wapp-archive-card {
         border-radius:20px;
         background:{{ '#161618' if dark else 'white' }};
         border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};
         box-shadow:0 4px 14px rgba(0,0,0,.07);
         overflow:hidden;
-        margin-bottom:10px;
     }
     .wapp-archive-card summary {
-        display:flex; align-items:center; justify-content:space-between;
-        padding:14px 16px; cursor:pointer; list-style:none; user-select:none;
+        display:flex; align-items:center;
+        padding:14px 16px; padding-right:80px;
+        cursor:pointer; list-style:none; user-select:none;
         font-weight:800; font-size:15px;
         color:{{ '#e5e7eb' if dark else '#1e293b' }};
         gap:8px;
     }
     .wapp-archive-card summary::-webkit-details-marker { display:none; }
     .wapp-archive-card summary::after {
-        content:"›"; font-size:20px; font-weight:900;
-        color:{{ '#64748b' if dark else '#94a3b8' }};
+        content:"›"; font-size:20px; font-weight:900; margin-left:auto;
+        color:{{ '#94a3b8' if dark else '#64748b' }};
         transition:transform .2s; flex-shrink:0;
     }
     .wapp-archive-card[open] summary::after { transform:rotate(90deg); }
-    .wapp-archive-summary-right { display:flex; align-items:center; gap:10px; }
-    .wapp-archive-count { font-size:12px; font-weight:700; color:{{ '#94a3b8' if dark else '#64748b' }}; }
+    .wapp-archive-count { font-size:12px; font-weight:700; color:{{ '#94a3b8' if dark else '#64748b' }}; flex-shrink:0; }
     .wapp-archive-pdf {
+        position:absolute; top:50%; right:42px; transform:translateY(-50%);
         font-size:11px; font-weight:900; padding:4px 10px; border-radius:999px;
         background:{{ '#1e1e20' if dark else '#f1f5f9' }};
         color:{{ '#93c5fd' if dark else '#2563eb' }};
         text-decoration:none; white-space:nowrap;
         border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};
+        z-index:2;
     }
     .wapp-archive-body { border-top:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; }
 </style>
@@ -4600,13 +4602,12 @@ def index():
                 {% set ns.prev_year = yr %}
                 <div class="wapp-archive-year">{{ yr }}</div>
                 {% endif %}
+                <div class="wapp-archive-wrap">
+                <a class="wapp-archive-pdf" href="/month_pdf?year={{ yr }}&month={{ '%02d'|format(mo) }}" target="_blank" rel="noopener">PDF</a>
                 <details class="wapp-archive-card">
                   <summary>
                     <span>{{ format_month_year(yr|int, mo) }}</span>
-                    <span class="wapp-archive-summary-right">
-                      <span class="wapp-archive-count">{{ arc_shifts|length }} {{ tr.get("shifts","smjena") }}</span>
-                      <a class="wapp-archive-pdf" href="/month_pdf?year={{ yr }}&month={{ '%02d'|format(mo) }}" target="_blank" rel="noopener" onclick="event.stopPropagation()">PDF</a>
-                    </span>
+                    <span class="wapp-archive-count">{{ arc_shifts|length }} {{ tr.get("shifts","smjena") }}</span>
                   </summary>
                   <div class="wapp-archive-body">
                     {% for s in arc_shifts %}
@@ -4624,6 +4625,7 @@ def index():
                     {% endfor %}
                   </div>
                 </details>
+                </div>
                 {% endfor %}
                 {% endif %}
 
