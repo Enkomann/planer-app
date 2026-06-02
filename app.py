@@ -2897,14 +2897,6 @@ def init_db():
             source TEXT DEFAULT 'auto'
         )
     """)
-    try:
-        c.execute("""
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_invoice_client_period
-            ON invoice_records(client_name, date_from, date_to)
-            WHERE COALESCE(deleted, 0) = 0 AND COALESCE(source, 'auto') = 'auto'
-        """)
-    except Exception as _idx_err:
-        app.logger.warning("idx_invoice_client_period not created: %s", _idx_err)
     c.execute("""
         CREATE TABLE IF NOT EXISTS manual_invoice_drafts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2962,6 +2954,14 @@ def init_db():
         c.execute("ALTER TABLE invoice_records ADD COLUMN sent_date TEXT DEFAULT ''")
     if "source" not in invoice_record_cols:
         c.execute("ALTER TABLE invoice_records ADD COLUMN source TEXT DEFAULT 'auto'")
+    try:
+        c.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_invoice_client_period
+            ON invoice_records(client_name, date_from, date_to)
+            WHERE COALESCE(deleted, 0) = 0 AND COALESCE(source, 'auto') = 'auto'
+        """)
+    except Exception as _idx_err:
+        app.logger.warning("idx_invoice_client_period not created: %s", _idx_err)
     document_cols = [row[1] for row in c.execute("PRAGMA table_info(documents)").fetchall()]
     if "folder_id" not in document_cols:
         c.execute("ALTER TABLE documents ADD COLUMN folder_id INTEGER")
