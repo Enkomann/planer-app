@@ -6927,6 +6927,7 @@ def _generate_invoices(conn, date_from, date_to, invoice_date):
         for row in raw_rows:
             if row.get("hourly_rate", 0) == 0:
                 no_rate_clients.append(row["client"])
+                continue
             existing = c.execute(
                 "SELECT invoice_number FROM invoice_records WHERE client_name=? AND date_from=? AND date_to=? AND COALESCE(deleted,0)=0",
                 (row["client"], date_from, date_to)
