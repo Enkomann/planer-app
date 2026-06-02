@@ -6927,14 +6927,13 @@ def invoices_generate():
     raw_rows = build_invoice_rows(conn, date_from, date_to, None, settings)
     generated = 0
     skipped_exists = 0
-    skipped_no_rate = []
+    no_rate_clients = []
     try:
         if not USE_POSTGRES:
             c.execute("BEGIN IMMEDIATE")
         for row in raw_rows:
-            if row.get("hourly_rate", 0) == 0 and row.get("amount", 0) == 0:
-                skipped_no_rate.append(row["client"])
-                continue
+            if row.get("hourly_rate", 0) == 0:
+                no_rate_clients.append(row["client"])
             existing = c.execute(
                 "SELECT invoice_number FROM invoice_records WHERE client_name=? AND date_from=? AND date_to=? AND COALESCE(deleted,0)=0",
                 (row["client"], date_from, date_to)
@@ -6982,11 +6981,11 @@ def invoices_generate():
         parts.append(tr.get("inv_gen_ok", "{n} faktura generisano").replace("{n}", str(generated)))
     if skipped_exists:
         parts.append(tr.get("inv_gen_exists", "{n} već postoji za ovaj period").replace("{n}", str(skipped_exists)))
-    if skipped_no_rate:
-        parts.append(tr.get("inv_gen_no_rate", "Bez postavljene cijene") + ": " + ", ".join(skipped_no_rate))
     if not parts:
-        parts.append(tr.get("inv_gen_empty", "Nema smjena ili klijenata sa postavljenom cijenom."))
-    flash("; ".join(parts), "error" if generated == 0 else "ok")
+        parts.append(tr.get("inv_gen_empty", "Nema smjena u odabranom periodu."))
+    if no_rate_clients:
+        parts.append(tr.get("inv_gen_no_rate", "Bez postavljene cijene") + ": " + ", ".join(no_rate_clients))
+    flash("; ".join(parts), "error" if generated == 0 and not skipped_exists else "ok")
     return redirect(f"/invoices?date_from={date_from}&date_to={date_to}&invoice_date={invoice_date}")
 
 
