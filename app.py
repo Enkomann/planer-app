@@ -6675,6 +6675,8 @@ def invoices():
     conn = get_conn()
     settings = get_invoice_settings(conn)
     profiles = get_invoice_profiles(conn)
+    if not request.args.get("q"):
+        _generate_invoices(conn, date_from, date_to, invoice_date)
     rows = fetch_invoice_records(conn)
     conn.close()
     profiles_json = json.dumps(profiles)
@@ -6910,18 +6912,9 @@ def invoices():
     """, tr=tr, dark=dark, settings=settings, profiles=profiles, profiles_json=profiles_json, rows=rows, paid_rows=paid_rows, unpaid_rows=unpaid_rows, total_paid=total_paid, total_unpaid=total_unpaid, total_all=total_all, format_date=format_date, date_from=date_from, date_to=date_to, invoice_date=invoice_date)
 
 
-@app.route("/invoices/generate", methods=["POST"])
-def invoices_generate():
-    if session.get("role") != "admin":
-        return redirect("/")
-    tr = t()
-    date_from = request.form.get("date_from", "").strip()
-    date_to = request.form.get("date_to", "").strip()
-    invoice_date = request.form.get("invoice_date", lux_now().strftime("%Y-%m-%d")).strip()
-    if not date_from or not date_to:
-        flash(tr.get("generate_invoice", "Generiši fakturu") + ": datum nedostaje.", "error")
-        return redirect("/invoices")
-    conn = get_conn()
+def _generate_invoices(conn, date_from, date_to, invoice_date):
+    """Insert new invoice records for clients with shifts in the period.
+    Skips clients/periods that already have a record. Returns (generated, skipped_exists, no_rate_clients)."""
     c = conn.cursor()
     settings = get_invoice_settings(conn)
     raw_rows = build_invoice_rows(conn, date_from, date_to, None, settings)
@@ -6955,14 +6948,12 @@ def invoices_generate():
                     if c.rowcount == 1:
                         inserted = True
                         break
-                    # rowcount==0: find out which constraint fired
                     period_taken = c.execute(
                         "SELECT 1 FROM invoice_records WHERE client_name=? AND date_from=? AND date_to=? AND COALESCE(deleted,0)=0",
                         (row["client"], date_from, date_to)
                     ).fetchone()
                     if period_taken:
-                        break  # period conflict — stop retrying
-                    # else invoice_number conflict — retry with new number
+                        break
                 except Exception:
                     break
             if inserted:
@@ -6972,9 +6963,23 @@ def invoices_generate():
         conn.commit()
     except Exception as e:
         conn.rollback()
-        conn.close()
-        flash(tr.get("generate_invoice", "Generiši fakturu") + f": greška — {e}", "error")
+        app.logger.warning("_generate_invoices error: %s", e)
+    return generated, skipped_exists, no_rate_clients
+
+
+@app.route("/invoices/generate", methods=["POST"])
+def invoices_generate():
+    if session.get("role") != "admin":
+        return redirect("/")
+    tr = t()
+    date_from = request.form.get("date_from", "").strip()
+    date_to = request.form.get("date_to", "").strip()
+    invoice_date = request.form.get("invoice_date", lux_now().strftime("%Y-%m-%d")).strip()
+    if not date_from or not date_to:
+        flash(tr.get("generate_invoice", "Generiši fakturu") + ": datum nedostaje.", "error")
         return redirect("/invoices")
+    conn = get_conn()
+    generated, skipped_exists, no_rate_clients = _generate_invoices(conn, date_from, date_to, invoice_date)
     conn.close()
     parts = []
     if generated:
