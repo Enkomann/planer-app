@@ -4875,9 +4875,9 @@ def index():
                 </div>
             </form>
             <a class="reset-link" href="/">{{ tr["reset"] }}</a>
-            {% if search_date_from or search_date_to or worker_filter != current_user or client_filter or request.args.get('q') %}
+            {% if search_date_from or search_date_to or client_filter or request.args.get('q') or (is_admin and worker_filter) %}
             <div style="margin-top:12px;">
-                <a href="/shifts_search_pdf?search_date_from={{ search_date_from }}&search_date_to={{ search_date_to }}&worker={{ worker_filter }}&client={{ client_filter|urlencode }}&q={{ request.args.get('q','')|urlencode }}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:#1f4f82;color:white;border-radius:8px;font-weight:700;text-decoration:none;">
+                <a href="/shifts_search_pdf?search_date_from={{ search_date_from|urlencode }}&search_date_to={{ search_date_to|urlencode }}&worker={{ worker_filter|urlencode }}&client={{ client_filter|urlencode }}&q={{ request.args.get('q','')|urlencode }}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:#1f4f82;color:white;border-radius:8px;font-weight:700;text-decoration:none;">
                     📄 {{ tr.get("pdf","PDF") }} — {{ tr["search_shifts"] }}
                 </a>
             </div>
@@ -8157,6 +8157,11 @@ def shifts_search_pdf():
     worker_filter    = request.args.get("worker", "").strip()
     client_filter    = request.args.get("client", "").strip()
     search_query     = request.args.get("q", "").strip().lower()
+    if not search_date_from and not search_date_to and not worker_filter and not client_filter and not search_query:
+        return redirect("/")
+    if not search_date_from and not search_date_to:
+        search_date_to = lux_now().strftime("%Y-%m-%d")
+        search_date_from = (lux_now() - timedelta(days=90)).strftime("%Y-%m-%d")
     conn = get_conn(); c = conn.cursor()
     base = "SELECT * FROM shifts WHERE 1=1"; params = []
     if search_date_from: base += " AND date >= ?"; params.append(search_date_from)
