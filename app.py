@@ -2387,6 +2387,17 @@ def fetch_invoice_records(conn, date_from=None, date_to=None, client=None, statu
     return [invoice_record_to_dict(row) for row in c.execute(query, params).fetchall()]
 
 
+def fetch_invoice_records_for_work_period(conn, date_from, date_to):
+    c = conn.cursor()
+    query = """
+        SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date, COALESCE(sent, 0), COALESCE(sent_date, ''), COALESCE(source, 'auto')
+        FROM invoice_records
+        WHERE COALESCE(deleted, 0) = 0 AND date_from = ? AND date_to = ?
+        ORDER BY CAST(invoice_number AS INTEGER) DESC, invoice_date DESC
+    """
+    return [invoice_record_to_dict(row) for row in c.execute(query, (date_from, date_to)).fetchall()]
+
+
 def invoice_number_from_index(settings, index):
     return str(int(settings.get("invoice_start_number") or 1) + index)
 
@@ -6677,7 +6688,7 @@ def invoices():
     profiles = get_invoice_profiles(conn)
     if not request.args.get("q"):
         _generate_invoices(conn, date_from, date_to, invoice_date)
-    rows = fetch_invoice_records(conn)
+    rows = fetch_invoice_records_for_work_period(conn, date_from, date_to)
     conn.close()
     profiles_json = json.dumps(profiles)
     paid_rows = [r for r in rows if r.get("paid")]
@@ -6755,7 +6766,7 @@ def invoices():
                 <a class="invoice-tab" href="/invoices/manual" style="background:#22c55e;color:#111;">✏️ {{ tr.get("mi_title","Facture manuelle") }}</a>
             </div>
 
-            <table class="invoice-table">
+            <table id="invoice-list" class="invoice-table">
                 <tr><th></th><th>{{ tr["client_name"] }}</th><th>Document</th><th>{{ tr["invoice_number"] }}</th><th>{{ tr["invoice_date"] }}</th><th>{{ tr["payment_status"] }}</th><th>{{ tr["sent_status"] }}</th><th>{{ tr["amount_with_vat"] }}</th><th>PDF</th><th></th></tr>
                 {% for row in rows %}
                 <tr class="invoice-row" data-paid="{{ 1 if row.paid else 0 }}" data-search="{{ (row.client ~ ' ' ~ row.invoice_number)|lower }}">
@@ -6792,7 +6803,7 @@ def invoices():
                 </tr>
                 {% endfor %}
             </table>
-            {% if rows|length == 0 %}<div class="muted">{{ tr["no_shifts"] }}</div>{% endif %}
+            {% if rows|length == 0 %}<div class="muted">{{ tr.get("inv_gen_empty", "Nema faktura za odabrani period.") }}</div>{% endif %}
 
             <div class="invoice-totals">
                 <div class="invoice-total-card"><div class="muted">{{ tr["paid"] }}</div><div class="paid-text">{{ "%.2f"|format(total_paid) }} EUR</div></div>
@@ -6992,7 +7003,7 @@ def invoices_generate():
     if no_rate_clients:
         parts.append(tr.get("inv_gen_no_rate", "Bez postavljene cijene") + ": " + ", ".join(no_rate_clients))
     flash("; ".join(parts), "error" if generated == 0 and not skipped_exists else "ok")
-    return redirect(f"/invoices?date_from={date_from}&date_to={date_to}&invoice_date={invoice_date}")
+    return redirect(f"/invoices?date_from={date_from}&date_to={date_to}&invoice_date={invoice_date}#invoice-list")
 
 
 @app.route("/invoices/client")
