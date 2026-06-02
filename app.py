@@ -464,6 +464,9 @@ TRANSLATIONS["bos"].update({
     "leave_requests_pending": "Zahtjevi za odmor", "leave_approve": "Odobri",
     "leave_reject": "Odbij", "leave_no_requests": "Nema zahtjeva",
     "archive": "Arhiva", "shifts": "smjena", "shift_singular": "smjena",
+    "inv_gen_ok": "{n} faktura generisano", "inv_gen_exists": "{n} već postoji za ovaj period",
+    "inv_gen_no_rate": "Bez postavljene cijene", "inv_gen_empty": "Nema smjena ili klijenata sa postavljenom cijenom.",
+    "inv_convert_banner": "Uređuješ automatski generisanu fakturu br. {num} — sačuvaj da pretvoriš u ručnu fakturu.",
     "zip_unavail_title": "Dokumenti privremeno nisu dostupni",
     "zip_unavail_body": "Zatraženi fajlovi trenutno nisu dostupni. Molite administratora da vam pošalje fajlove direktno.",
     "file_unavail_title": "Fajl privremeno nije dostupan",
@@ -484,6 +487,9 @@ TRANSLATIONS["en"].update({
     "leave_requests_pending": "Leave requests", "leave_approve": "Approve",
     "leave_reject": "Reject", "leave_no_requests": "No requests",
     "archive": "Archive", "shifts": "shifts", "shift_singular": "shift",
+    "inv_gen_ok": "{n} invoices generated", "inv_gen_exists": "{n} already exist for this period",
+    "inv_gen_no_rate": "No rate set", "inv_gen_empty": "No shifts or clients with a rate in this period.",
+    "inv_convert_banner": "Editing auto-generated invoice #{num} — save to convert it to a manual invoice.",
     "zip_unavail_title": "Documents temporarily unavailable",
     "zip_unavail_body": "The requested files are currently unavailable. Please contact the administrator to send them directly.",
     "file_unavail_title": "File temporarily unavailable",
@@ -504,6 +510,9 @@ TRANSLATIONS["fr"].update({
     "leave_requests_pending": "Demandes de conge", "leave_approve": "Approuver",
     "leave_reject": "Refuser", "leave_no_requests": "Aucune demande",
     "archive": "Archives", "shifts": "interventions", "shift_singular": "intervention",
+    "inv_gen_ok": "{n} factures generees", "inv_gen_exists": "{n} existent deja pour cette periode",
+    "inv_gen_no_rate": "Tarif non defini", "inv_gen_empty": "Aucune prestation ou tarif client absent.",
+    "inv_convert_banner": "Modification facture auto n°{num} — sauvegarder pour convertir en facture manuelle.",
     "zip_unavail_title": "Documents temporairement indisponibles",
     "zip_unavail_body": "Les fichiers demandés sont actuellement indisponibles. Veuillez contacter l'administrateur.",
     "file_unavail_title": "Fichier temporairement indisponible",
@@ -524,6 +533,9 @@ TRANSLATIONS["de"].update({
     "leave_requests_pending": "Urlaubsantraege", "leave_approve": "Genehmigen",
     "leave_reject": "Ablehnen", "leave_no_requests": "Keine Antraege",
     "archive": "Archiv", "shifts": "Schichten", "shift_singular": "Schicht",
+    "inv_gen_ok": "{n} Rechnungen erstellt", "inv_gen_exists": "{n} bereits vorhanden fuer diesen Zeitraum",
+    "inv_gen_no_rate": "Kein Tarif festgelegt", "inv_gen_empty": "Keine Schichten oder Tarife fuer diesen Zeitraum.",
+    "inv_convert_banner": "Auto-Rechnung Nr. {num} bearbeiten — speichern zum Umwandeln in manuelle Rechnung.",
     "zip_unavail_title": "Dokumente vorübergehend nicht verfügbar",
     "zip_unavail_body": "Die angeforderten Dateien sind derzeit nicht verfügbar. Bitte wenden Sie sich an den Administrator.",
     "file_unavail_title": "Datei vorübergehend nicht verfügbar",
@@ -544,6 +556,9 @@ TRANSLATIONS["pt"].update({
     "leave_requests_pending": "Pedidos de ferias", "leave_approve": "Aprovar",
     "leave_reject": "Recusar", "leave_no_requests": "Sem pedidos",
     "archive": "Arquivo", "shifts": "turnos", "shift_singular": "turno",
+    "inv_gen_ok": "{n} faturas geradas", "inv_gen_exists": "{n} ja existem para este periodo",
+    "inv_gen_no_rate": "Tarifa nao definida", "inv_gen_empty": "Sem servicos ou tarifas definidas para este periodo.",
+    "inv_convert_banner": "A editar fatura automatica n.°{num} — guarde para converter em fatura manual.",
     "zip_unavail_title": "Documentos temporariamente indisponíveis",
     "zip_unavail_body": "Os ficheiros solicitados estão indisponíveis. Por favor contacte o administrador.",
     "file_unavail_title": "Ficheiro temporariamente indisponível",
@@ -6758,7 +6773,7 @@ def invoices():
                         <a href="/invoices/manual/pdf?invoice_number={{ row.invoice_number }}" style="color:#93c5fd;">PDF</a>
                         <a href="/invoices/manual?invoice_number={{ row.invoice_number }}" style="color:#ffd429;margin-left:6px;font-size:11px;">✏️</a>
                       {% else %}
-                        <a href="/invoices/download?client={{ row.client|urlencode }}&date_from={{ row.date_from }}&date_to={{ row.date_to }}&invoice_date={{ row.invoice_date }}" style="color:#93c5fd;">PDF</a>
+                        <a href="/invoices/download?invoice_number={{ row.invoice_number }}&client={{ row.client|urlencode }}&date_from={{ row.date_from }}&date_to={{ row.date_to }}&invoice_date={{ row.invoice_date }}" style="color:#93c5fd;">PDF</a>
                         <a href="/invoices/manual?load_auto={{ row.invoice_number }}" style="color:#ffd429;margin-left:6px;font-size:11px;" title="Uredi ručno">✏️</a>
                       {% endif %}
                     </td>
@@ -6904,36 +6919,49 @@ def invoices_generate():
     generated = 0
     skipped_exists = 0
     skipped_no_rate = []
-    for row in raw_rows:
-        if row.get("hourly_rate", 0) == 0 and row.get("amount", 0) == 0:
-            skipped_no_rate.append(row["client"])
-            continue
-        existing = c.execute(
-            "SELECT invoice_number FROM invoice_records WHERE client_name=? AND date_from=? AND date_to=? AND COALESCE(deleted,0)=0",
-            (row["client"], date_from, date_to)
-        ).fetchone()
-        if existing:
-            skipped_exists += 1
-            continue
-        inv_num = next_invoice_number(conn)
-        c.execute("""INSERT INTO invoice_records
-            (invoice_number, client_name, date_from, date_to, invoice_date,
-             amount, vat_amount, total, paid, sent, deleted, source)
-            VALUES (?,?,?,?,?,?,?,?,0,0,0,'auto')""",
-            (inv_num, row["client"], date_from, date_to, invoice_date,
-             row["amount"], row["vat_amount"], row["total"]))
+    try:
+        c.execute("BEGIN IMMEDIATE")
+        for row in raw_rows:
+            if row.get("hourly_rate", 0) == 0 and row.get("amount", 0) == 0:
+                skipped_no_rate.append(row["client"])
+                continue
+            existing = c.execute(
+                "SELECT invoice_number FROM invoice_records WHERE client_name=? AND date_from=? AND date_to=? AND COALESCE(deleted,0)=0",
+                (row["client"], date_from, date_to)
+            ).fetchone()
+            if existing:
+                skipped_exists += 1
+                continue
+            inv_num = next_invoice_number(conn)
+            try:
+                c.execute("""INSERT OR IGNORE INTO invoice_records
+                    (invoice_number, client_name, date_from, date_to, invoice_date,
+                     amount, vat_amount, total, paid, sent, deleted, source)
+                    VALUES (?,?,?,?,?,?,?,?,0,0,0,'auto')""",
+                    (inv_num, row["client"], date_from, date_to, invoice_date,
+                     row["amount"], row["vat_amount"], row["total"]))
+                if c.rowcount == 1:
+                    generated += 1
+                else:
+                    skipped_exists += 1
+            except Exception:
+                skipped_exists += 1
         conn.commit()
-        generated += 1
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        flash(tr.get("generate_invoice", "Generiši fakturu") + f": greška — {e}", "error")
+        return redirect("/invoices")
     conn.close()
     parts = []
     if generated:
-        parts.append(f"{generated} faktura generisano")
+        parts.append(tr.get("inv_gen_ok", "{n} faktura generisano").replace("{n}", str(generated)))
     if skipped_exists:
-        parts.append(f"{skipped_exists} već postoji za ovaj period")
+        parts.append(tr.get("inv_gen_exists", "{n} već postoji za ovaj period").replace("{n}", str(skipped_exists)))
     if skipped_no_rate:
-        parts.append(f"Bez cijene: {', '.join(skipped_no_rate)}")
+        parts.append(tr.get("inv_gen_no_rate", "Bez postavljene cijene") + ": " + ", ".join(skipped_no_rate))
     if not parts:
-        parts.append("Nema smjena u odabranom periodu ili nema klijenata sa postavljenom cijenom.")
+        parts.append(tr.get("inv_gen_empty", "Nema smjena ili klijenata sa postavljenom cijenom."))
     flash("; ".join(parts), "error" if generated == 0 else "ok")
     return redirect(f"/invoices?date_from={date_from}&date_to={date_to}&invoice_date={invoice_date}")
 
@@ -7549,7 +7577,7 @@ def invoices_manual():
   {% endwith %}
   {% if convert_from_auto %}
   <div style="background:#f59e0b;color:#111;padding:10px 22px;font-weight:700;font-size:14px;">
-    ✏️ Uređuješ automatski generisanu fakturu br. {{ auto_num }} — sačuvaj da pretvoriš u ručnu fakturu.
+    ✏️ {{ tr.get("inv_convert_banner","Uređuješ automatski generisanu fakturu br. {num} — sačuvaj da pretvoriš u ručnu fakturu.").replace("{num}", auto_num|string) }}
   </div>
   {% endif %}
 
@@ -7914,8 +7942,22 @@ def invoices_download():
     if session.get("role") != "admin":
         return redirect("/")
     date_from = request.args.get("date_from", "").strip(); date_to = request.args.get("date_to", "").strip(); invoice_date = request.args.get("invoice_date", lux_now().strftime("%Y-%m-%d")).strip(); client = request.args.get("client", "").strip()
-    conn = get_conn(); settings = get_invoice_settings(conn); rows = build_invoice_rows(conn, date_from, date_to, None, settings); conn.close()
-    row = next((r for r in rows if r["client"] == client), None)
+    invoice_number = request.args.get("invoice_number", "").strip()
+    conn = get_conn()
+    settings = get_invoice_settings(conn)
+    row = None
+    if invoice_number:
+        records = fetch_invoice_records(conn, client=client or None)
+        record = next((r for r in records if str(r["invoice_number"]) == invoice_number), None)
+        if record:
+            row, settings = get_invoice_row_for_record(conn, record)
+            invoice_date = record["invoice_date"]
+            date_from = record["date_from"]
+            date_to = record["date_to"]
+    if not row:
+        rows = build_invoice_rows(conn, date_from, date_to, None, settings)
+        row = next((r for r in rows if r["client"] == client), None)
+    conn.close()
     if not row:
         return redirect("/invoices")
     pdf = build_invoice_pdf(row, settings, invoice_date, date_from, date_to)
