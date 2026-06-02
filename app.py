@@ -2901,10 +2901,10 @@ def init_db():
         c.execute("""
             CREATE UNIQUE INDEX IF NOT EXISTS idx_invoice_client_period
             ON invoice_records(client_name, date_from, date_to)
-            WHERE COALESCE(deleted, 0) = 0
+            WHERE COALESCE(deleted, 0) = 0 AND COALESCE(source, 'auto') = 'auto'
         """)
-    except Exception:
-        pass
+    except Exception as _idx_err:
+        app.logger.warning("idx_invoice_client_period not created: %s", _idx_err)
     c.execute("""
         CREATE TABLE IF NOT EXISTS manual_invoice_drafts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -6949,12 +6949,20 @@ def invoices_generate():
                         (invoice_number, client_name, date_from, date_to, invoice_date,
                          amount, vat_amount, total, paid, sent, deleted, source)
                         VALUES (?,?,?,?,?,?,?,?,0,0,0,'auto')
-                        ON CONFLICT(invoice_number) DO NOTHING""",
+                        ON CONFLICT DO NOTHING""",
                         (inv_num, row["client"], date_from, date_to, invoice_date,
                          row["amount"], row["vat_amount"], row["total"]))
                     if c.rowcount == 1:
                         inserted = True
                         break
+                    # rowcount==0: find out which constraint fired
+                    period_taken = c.execute(
+                        "SELECT 1 FROM invoice_records WHERE client_name=? AND date_from=? AND date_to=? AND COALESCE(deleted,0)=0",
+                        (row["client"], date_from, date_to)
+                    ).fetchone()
+                    if period_taken:
+                        break  # period conflict — stop retrying
+                    # else invoice_number conflict — retry with new number
                 except Exception:
                     break
             if inserted:
