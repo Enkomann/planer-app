@@ -1272,6 +1272,7 @@ INVOICE_TRANSLATIONS = {
     "client_statement": "Stanje racuna klijenta",
     "client_statement_pdf": "Stanje racuna klijenta PDF",
     "no_invoices_period": "Nema faktura za izabrani period.",
+    "invoice_not_found": "Faktura nije pronadjena.",
     "balance_due": "Saldo duga",
     "amount_paid": "Naplaceni iznos",
     "amount_total": "Ukupan iznos",
@@ -1307,6 +1308,7 @@ INVOICE_TRANSLATIONS["en"] = {
     "client_statement": "Client account statement",
     "client_statement_pdf": "Client statement PDF",
     "no_invoices_period": "No invoices for the selected period.",
+    "invoice_not_found": "Invoice not found.",
     "balance_due": "Balance due",
     "amount_paid": "Amount paid",
     "amount_total": "Total amount",
@@ -1341,6 +1343,7 @@ INVOICE_TRANSLATIONS["fr"] = {
     "client_statement": "Releve de compte client",
     "client_statement_pdf": "Releve de compte client PDF",
     "no_invoices_period": "Aucune facture pour la periode selectionnee.",
+    "invoice_not_found": "Facture introuvable.",
     "balance_due": "Solde du",
     "amount_paid": "Montant paye",
     "amount_total": "Montant total",
@@ -1375,6 +1378,7 @@ INVOICE_TRANSLATIONS["de"] = {
     "client_statement": "Kundenkontoauszug",
     "client_statement_pdf": "Kundenkontoauszug PDF",
     "no_invoices_period": "Keine Rechnungen fuer den gewaehlten Zeitraum.",
+    "invoice_not_found": "Rechnung nicht gefunden.",
     "balance_due": "Faelliger Saldo",
     "amount_paid": "Bezahlter Betrag",
     "amount_total": "Gesamtbetrag",
@@ -1409,6 +1413,7 @@ INVOICE_TRANSLATIONS["pt"] = {
     "client_statement": "Extrato de conta do cliente",
     "client_statement_pdf": "Extrato de cliente PDF",
     "no_invoices_period": "Sem faturas para o periodo selecionado.",
+    "invoice_not_found": "Fatura nao encontrada.",
     "balance_due": "Saldo em divida",
     "amount_paid": "Valor pago",
     "amount_total": "Valor total",
@@ -7334,7 +7339,7 @@ def invoices_view():
         ).fetchone()
         if not draft_exists:
             conn.close()
-            flash(tr.get("no_invoices_period", "Faktura nije pronadjena."), "error")
+            flash(tr.get("invoice_not_found", "Faktura nije pronadjena."), "error")
             return redirect("/invoices")
         settings = get_invoice_settings(conn)
         conn.close()
@@ -8267,6 +8272,9 @@ def invoices_mark_sent():
         conn.commit(); conn.close()
     if request.args.get("ajax") == "1":
         return {"ok": True, "sent": bool(sent)}
+    next_url = request.args.get("next", "").strip()
+    if next_url.startswith("/invoices"):
+        return redirect(next_url)
     return redirect(request.referrer or "/invoices")
 
 
