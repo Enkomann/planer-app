@@ -6943,19 +6943,11 @@ def invoices():
                 <tr class="invoice-row" data-paid="{{ 1 if row.paid else 0 }}" data-search="{{ (row.client ~ ' ' ~ row.invoice_number)|lower }}">
                     <td><input type="checkbox" style="width:auto;"></td>
                     <td>
-                      {% if row.source == 'manual' %}
-                        <a href="/invoices/manual?invoice_number={{ row.invoice_number }}" style="color:white;text-decoration:underline;">{{ row.client }}</a>
-                      {% else %}
-                        <a href="/invoices/view?invoice_number={{ row.invoice_number }}" style="color:white;text-decoration:underline;">{{ row.client }}</a>
-                      {% endif %}
+                      <a href="/invoices/view?invoice_number={{ row.invoice_number }}" style="color:white;text-decoration:underline;">{{ row.client }}</a>
                     </td>
                     <td>{{ tr["invoices"] }}{% if row.source == 'manual' %} <span style="font-size:10px;background:#22c55e;color:#111;padding:1px 5px;border-radius:4px;">✏️</span>{% endif %}</td>
                     <td>
-                      {% if row.source == 'manual' %}
-                        <a href="/invoices/manual?invoice_number={{ row.invoice_number }}" style="color:#ffd429;text-decoration:underline;">{{ row.invoice_number }}</a>
-                      {% else %}
-                        <a href="/invoices/view?invoice_number={{ row.invoice_number }}" style="color:white;text-decoration:underline;">{{ row.invoice_number }}</a>
-                      {% endif %}
+                      <a href="/invoices/view?invoice_number={{ row.invoice_number }}" style="color:{{ '#ffd429' if row.source == 'manual' else 'white' }};text-decoration:underline;">{{ row.invoice_number }}</a>
                     </td>
                     <td>{{ format_date(row.invoice_date) }}</td>
                     <td>
@@ -7239,7 +7231,7 @@ def invoices_client():
                 <h2 style="margin:0;color:white;">📁 {{ tr.get("client_documents_of","Documents de") }} {{ client }}
                     <span style="background:#111;border-radius:999px;padding:2px 10px;font-size:13px;margin-left:6px;">{{ rows|length }}</span>
                 </h2>
-                <a href="/invoices/client_statement?client={{ client|urlencode }}&date_from={{ date_from }}&date_to={{ date_to }}" style="background:#888;color:white;padding:10px 14px;border-radius:6px;text-decoration:none;">📄 {{ tr.get("client_statement_pdf","Releve de compte client PDF") }}</a>
+                <a href="/invoices/client_statement?client={{ client|urlencode }}&date_from={{ date_from }}&date_to={{ date_to }}&status={{ status }}&doc={{ doc_filter }}" style="background:#888;color:white;padding:10px 14px;border-radius:6px;text-decoration:none;">📄 {{ tr.get("client_statement_pdf","Releve de compte client PDF") }}</a>
             </div>
             <form class="filters" method="get" action="/invoices/client">
                 <input type="hidden" name="client" value="{{ client }}">
@@ -7285,11 +7277,7 @@ def invoices_client():
                     <td>{{ row.client }}</td>
                     <td>{{ tr["invoices"] }}{% if row.source == 'manual' %} <span style="font-size:10px;background:#22c55e;color:#111;padding:1px 5px;border-radius:4px;">✏️</span>{% endif %}</td>
                     <td>
-                      {% if row.source == 'manual' %}
-                        <a href="/invoices/manual?invoice_number={{ row.invoice_number }}">{{ row.invoice_number }}</a>
-                      {% else %}
-                        <a href="/invoices/view?invoice_number={{ row.invoice_number }}">{{ row.invoice_number }}</a>
-                      {% endif %}
+                      <a href="/invoices/view?invoice_number={{ row.invoice_number }}" style="color:{{ '#ffd429' if row.source == 'manual' else 'white' }};">{{ row.invoice_number }}</a>
                     </td>
                     <td>{{ format_date(row.invoice_date) }}</td>
                     <td class="{{ 'paid-text' if row.paid else 'unpaid-text' }}">{{ "%.2f"|format(row.total if row.paid else 0) }} €</td>
@@ -7327,20 +7315,41 @@ def invoices_view():
     invoice_number = request.args.get("invoice_number", "").strip()
     conn = get_conn(); c = conn.cursor()
     record_row = c.execute("""
-        SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date
+        SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date, COALESCE(sent,0), COALESCE(sent_date,''), COALESCE(source,'auto')
         FROM invoice_records WHERE invoice_number = ? AND COALESCE(deleted, 0) = 0
     """, (invoice_number,)).fetchone()
     if not record_row:
         conn.close()
         return redirect("/invoices")
     record = invoice_record_to_dict(record_row)
-    row, settings = get_invoice_row_for_record(conn, record)
-    conn.close()
-    if not row:
-        return redirect("/invoices")
-    pdf_url = f"/invoices/preview_pdf?invoice_number={urllib.parse.quote(invoice_number)}"
-    download_url = f"/invoices/download?client={urllib.parse.quote(row['client'])}&date_from={record['date_from']}&date_to={record['date_to']}&invoice_date={record['invoice_date']}"
-    paid_url = f"/invoices/mark_paid?invoice_number={urllib.parse.quote(invoice_number)}&paid={0 if record['paid'] else 1}&client={urllib.parse.quote(row['client'])}&date_from={record['date_from']}&date_to={record['date_to']}&invoice_date={record['invoice_date']}&amount={row['amount']}&vat_amount={row['vat_amount']}&total={row['total']}&next={urllib.parse.quote('/invoices/view?invoice_number=' + invoice_number)}"
+    is_manual = record.get("source") == "manual"
+
+    if is_manual:
+        # Manual invoice — read draft, no shift reconstruction needed
+        settings = get_invoice_settings(conn)
+        conn.close()
+        row = {
+            "invoice_number": invoice_number,
+            "client":         record["client"],
+            "amount":         record["amount"],
+            "vat_amount":     record["vat_amount"],
+            "total":          record["total"],
+            "paid":           record["paid"],
+            "sent":           record.get("sent", False),
+        }
+        pdf_url      = f"/invoices/manual/pdf?invoice_number={urllib.parse.quote(invoice_number)}&inline=1"
+        download_url = f"/invoices/manual/pdf?invoice_number={urllib.parse.quote(invoice_number)}"
+        edit_url     = f"/invoices/manual?invoice_number={urllib.parse.quote(invoice_number)}"
+    else:
+        row, settings = get_invoice_row_for_record(conn, record)
+        conn.close()
+        if not row:
+            return redirect("/invoices")
+        pdf_url      = f"/invoices/preview_pdf?invoice_number={urllib.parse.quote(invoice_number)}"
+        download_url = f"/invoices/download?invoice_number={urllib.parse.quote(invoice_number)}&client={urllib.parse.quote(row['client'])}&date_from={record['date_from']}&date_to={record['date_to']}&invoice_date={record['invoice_date']}"
+        edit_url     = "/invoices#invoice-profiles"   # auto invoices edit via settings panel
+
+    paid_url = f"/invoices/mark_paid?invoice_number={urllib.parse.quote(invoice_number)}&paid={0 if record['paid'] else 1}&client={urllib.parse.quote(row['client'])}&date_from={record.get('date_from','')}&date_to={record.get('date_to','')}&invoice_date={record.get('invoice_date','')}&amount={row['amount']}&vat_amount={row['vat_amount']}&total={row['total']}&next={urllib.parse.quote('/invoices/view?invoice_number=' + invoice_number)}"
     return render_template_string(BASE_STYLE + header_html() + """
     <style>
         .viewer-shell { background:#2b2b2b; color:white; border-radius:10px; padding:24px; }
@@ -7364,21 +7373,21 @@ def invoices_view():
         </div>
         <div class="viewer-panel">
             <div class="toolbar">
-                <span class="tool active">Facture</span>
+                <span class="tool active">{{ tr.get("invoices","Facture") }}{% if is_manual %} ✏️{% endif %}</span>
+                {% if not is_manual %}
                 <a class="tool" href="/invoices/devis_pdf?invoice_number={{ row.invoice_number }}">{{ tr["quote"] }}</a>
-                <a class="tool" href="/invoices#invoice-profiles">Modifier</a>
-                <a class="tool" href="/invoices#invoice-settings">Modeles</a>
-                <span class="tool">E-mail</span>
-                <span class="tool">Dupliquer</span>
-                <a class="tool" href="/invoices/delete?invoice_number={{ row.invoice_number }}" onclick="return confirm('Obrisati fakturu?');">Supprimer</a>
+                {% endif %}
+                <a class="tool" href="{{ edit_url }}">{{ tr.get("edit","Modifier") }}</a>
+                <a class="tool" href="/invoices/delete?invoice_number={{ row.invoice_number }}" onclick="return confirm({{ (tr.get('doc_delete_confirm','Obrisati fakturu?'))|tojson }});">{{ tr.get("delete","Supprimer") }}</a>
                 <a class="tool pay" href="{{ paid_url }}">{{ tr["mark_unpaid"] if record.paid else tr["mark_paid"] }}</a>
-                <span class="tool">Recurrent</span>
-                <a class="tool" href="{{ download_url }}">Telecharger</a>
+                <a class="tool" href="{{ download_url }}">{{ tr.get("download","Telecharger") }}</a>
             </div>
             <iframe class="pdf-frame" src="{{ pdf_url }}"></iframe>
         </div>
     </div>
-    """, tr=tr, dark=dark, row=row, record=record, pdf_url=pdf_url, download_url=download_url, paid_url=paid_url)
+    """, tr=tr, dark=dark, row=row, record=record, pdf_url=pdf_url,
+         download_url=download_url, paid_url=paid_url,
+         is_manual=is_manual, edit_url=edit_url)
 
 
 @app.route("/invoices/preview_pdf")
@@ -7408,14 +7417,24 @@ def invoices_client_statement():
     if session.get("role") != "admin":
         return redirect("/")
     client = request.args.get("client", "").strip()
-    default_from, default_to = previous_month_range()
-    date_from = request.args.get("date_from", default_from).strip()
-    date_to = request.args.get("date_to", default_to).strip()
+    # Default: empty = ALL history for client (matches /invoices/client default)
+    date_from = request.args.get("date_from", "").strip()
+    date_to   = request.args.get("date_to",   "").strip()
+    status    = request.args.get("status",    "all").strip()
+    doc_filter = request.args.get("doc",      "all").strip()
     conn = get_conn()
-    records = fetch_invoice_records(conn, date_from, date_to, client, "all")
+    records = fetch_invoice_records(
+        conn, date_from or None, date_to or None, client, status
+    )
     conn.close()
+    # Apply the same document filter as /invoices/client so PDF matches table
+    if doc_filter == "facture":
+        records = [r for r in records if r.get("source", "auto") != "manual"]
+    elif doc_filter == "manual":
+        records = [r for r in records if r.get("source", "auto") == "manual"]
     pdf = build_client_statement_pdf(client, records, date_from, date_to)
-    return send_file(pdf, as_attachment=True, download_name=f"releve_{client}_{date_from}_{date_to}.pdf", mimetype="application/pdf")
+    fname = f"releve_{client}_{date_from or 'all'}_{date_to or 'all'}.pdf"
+    return send_file(pdf, as_attachment=True, download_name=fname, mimetype="application/pdf")
 
 
 @app.route("/invoices/export_options")
@@ -8102,7 +8121,9 @@ def invoices_manual_pdf():
              "invoice_date": row[3], "items_json": row[4], "payment_terms": row[5]}
     pdf = build_manual_invoice_pdf(draft, settings)
     fname = safe_pdf_name(inv_num, row[1] or "manuel")
-    return send_file(pdf, as_attachment=True, download_name=f"{fname}.pdf",
+    # ?inline=1 → render in <iframe> for viewer; otherwise force download
+    inline = request.args.get("inline", "").strip() == "1"
+    return send_file(pdf, as_attachment=not inline, download_name=f"{fname}.pdf",
                      mimetype="application/pdf")
 
 
