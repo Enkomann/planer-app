@@ -2632,73 +2632,88 @@ def next_invoice_number(conn):
 
 
 def build_manual_invoice_pdf(draft, settings):
-    """Build a ReportLab PDF for a manually created multi-line-item invoice."""
+    """Build a ReportLab PDF for a manually created multi-line-item invoice.
+
+    Visual style matches build_invoice_pdf (auto invoice) so both look identical.
+    """
     buffer = io.BytesIO()
-    inv_num = draft["invoice_number"]
+    inv_num     = draft["invoice_number"]
+    client_name = draft.get("client_name", "") or "-"
+    client_addr = draft.get("client_address", "") or ""
+    inv_date    = draft.get("invoice_date", "")
+
     doc = pdf_doc(
-        buffer, f"FACTURE {inv_num} - {draft.get('client_name','')[:40]}",
+        buffer, f"FACTURE {inv_num} - {client_name[:40]}",
         pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm,
         topMargin=1.5*cm, bottomMargin=1.5*cm,
     )
     styles = getSampleStyleSheet()
-    accent = {"orange": "#ff7a2f", "blue": "#1f4f82", "green": "#2f7d32"}.get(
-        settings.get("invoice_template", "orange"), "#ff7a2f"
-    )
+    template_colors = {"orange": "#ff7a2f", "blue": "#1f4f82", "green": "#2f7d32"}
+    accent = template_colors.get(settings.get("invoice_template", "orange"), "#ff7a2f")
     normal = styles["Normal"]
 
-    # ── Header bar ────────────────────────────────────────────────────────
+    # ── Header bar (identical to auto invoice) ──────────────────────────────────
     header = Table([
         [Paragraph(f"<b>{settings.get('company_name','')}</b>", styles["Title"]),
          Paragraph("<b>FACTURE</b>", styles["Title"])]
     ], colWidths=[12.5*cm, 5*cm])
     header.setStyle(TableStyle([
         ("BACKGROUND", (0,0), (-1,-1), colors.HexColor(accent)),
-        ("TEXTCOLOR", (0,0), (-1,-1), colors.white),
-        ("ALIGN", (1,0), (1,0), "RIGHT"),
-        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
-        ("LEFTPADDING", (0,0), (-1,-1), 8),
+        ("TEXTCOLOR",  (0,0), (-1,-1), colors.white),
+        ("ALIGN",      (1,0), (1,0),   "RIGHT"),
+        ("VALIGN",     (0,0), (-1,-1), "MIDDLE"),
+        ("LEFTPADDING",  (0,0), (-1,-1), 8),
         ("RIGHTPADDING", (0,0), (-1,-1), 8),
     ]))
+    elements = [header, Spacer(1, 18)]
 
-    # ── Company info + logo ───────────────────────────────────────────────
-    co_lines = [settings.get("company_address", "").replace("\n", "<br/>")]
+    # ── Company info + logo (identical to auto invoice) ────────────────────────────
+    company_lines = [settings.get("company_address", "").replace("\n", "<br/>")]
     if settings.get("company_phone"):
-        co_lines.append(f"Tel: {settings['company_phone']}")
+        company_lines.append(f"Tel: {settings['company_phone']}")
     if settings.get("company_email"):
-        co_lines.append(settings["company_email"])
-    logo_cell = (Image("static/logo.png", width=4.5*cm, height=2.4*cm)
-                 if os.path.exists("static/logo.png") else "")
-    co_tbl = Table(
-        [[Paragraph("<br/>".join([x for x in co_lines if x]), normal), logo_cell]],
+        company_lines.append(settings["company_email"])
+    logo_cell = ""
+    if os.path.exists("static/logo.png"):
+        logo_cell = Image("static/logo.png", width=4.5*cm, height=2.4*cm)
+    company_table = Table(
+        [[Paragraph("<br/>".join([x for x in company_lines if x]), normal), logo_cell]],
         colWidths=[10*cm, 7.5*cm],
     )
-    co_tbl.setStyle(TableStyle([
-        ("ALIGN", (1,0), (1,0), "RIGHT"),
+    company_table.setStyle(TableStyle([
+        ("ALIGN",  (1,0), (1,0),   "RIGHT"),
         ("VALIGN", (0,0), (-1,-1), "TOP"),
     ]))
+    elements += [company_table, Spacer(1, 34)]
 
-    # ── Billing address + invoice meta ────────────────────────────────────
-    addr = (draft.get("client_address") or draft.get("client_name","")).replace("\n", "<br/>")
-    billing = Paragraph(f"<b>Factur\u00e9 \u00e0</b><br/>{addr}", normal)
-    meta = Paragraph(
-        f"<b>Facture n\u00b0</b>&nbsp;&nbsp;&nbsp; {inv_num}<br/>"
-        f"<b>Date</b>&nbsp;&nbsp;&nbsp; {format_date(draft.get('invoice_date',''))}",
+    # ── Billing block (client name + address) — matches auto invoice ─────────────
+    addr_html = client_addr.replace("\n", "<br/>") if client_addr else "-"
+    billing = Paragraph(
+        f"<b>Facturé à</b><br/>{client_name}<br/>{addr_html}",
         normal,
     )
-    bill_meta = Table([[billing, meta]], colWidths=[10*cm, 7.5*cm],
-                      style=[("ALIGN",(1,0),(1,0),"RIGHT"),("VALIGN",(0,0),(-1,-1),"TOP")])
+    meta = Paragraph(
+        f"<b>Facture n°</b>&nbsp;&nbsp;&nbsp; {inv_num}<br/>"
+        f"<b>Date</b>&nbsp;&nbsp;&nbsp; {format_date(inv_date)}",
+        normal,
+    )
+    elements += [
+        Table([[billing, meta]], colWidths=[10*cm, 7.5*cm],
+              style=[("ALIGN",(1,0),(1,0),"RIGHT"),("VALIGN",(0,0),(-1,-1),"TOP")]),
+        Spacer(1, 28),
+    ]
 
-    # ── Line items table ──────────────────────────────────────────────────
+    # ── Line items table (4 cols: DÉSIGNATION | HT | TVA | TTC) ────────────
     try:
         items = json.loads(draft.get("items_json") or "[]")
     except Exception:
         items = []
 
     tdata = [[
-        Paragraph("<b>D\u00c9SIGNATION</b>", normal),
-        Paragraph("<b>HT (EUR)</b>", normal),
-        Paragraph("<b>TVA</b>", normal),
-        Paragraph("<b>TTC (EUR)</b>", normal),
+        Paragraph("<b>DÉSIGNATION</b>", normal),
+        Paragraph("<b>HT (€)</b>",      normal),
+        Paragraph("<b>TVA</b>",               normal),
+        Paragraph("<b>TTC (€)</b>",     normal),
     ]]
     total_ht = 0.0; total_vat = 0.0
     for item in items:
@@ -2709,43 +2724,46 @@ def build_manual_invoice_pdf(draft, settings):
         total_vat += vat
         tdata.append([
             Paragraph((item.get("designation") or "").replace("\n", "<br/>"), normal),
-            Paragraph(f"{amt:.2f}", normal),
+            Paragraph(f"{amt:.2f}",     normal),
             Paragraph(f"{vr*100:.0f}%", normal),
             Paragraph(f"{amt+vat:.2f}", normal),
         ])
     total_ttc = total_ht + total_vat
-    n_body = len(items) + 1   # number of rows before totals (header + item rows)
+    n_body  = len(items) + 1          # header + item rows
+    n_thtt  = n_body                  # 'Total HT' row index
+    n_tvat  = n_body + 1              # 'TVA' row index
+    n_total = n_body + 2              # 'TOTAL TTC' row index
     tdata += [
-        ["", Paragraph(f"Total HT:  {total_ht:.2f} \u20ac", normal), "", ""],
-        ["", Paragraph(f"TVA:  {total_vat:.2f} \u20ac", normal), "", ""],
+        ["", "", "",
+         Paragraph(f"Total HT&nbsp;&nbsp;&nbsp; {total_ht:.2f}", normal)],
+        ["", "", "",
+         Paragraph(f"TVA&nbsp;&nbsp;&nbsp; {total_vat:.2f}",     normal)],
         [Paragraph("<b>TOTAL TTC</b>", styles["Heading2"]), "", "",
-         Paragraph(f"<b>{total_ttc:.2f} \u20ac</b>", styles["Heading2"])],
+         Paragraph(f"<b>{total_ttc:.2f} €</b>", styles["Heading2"])],
     ]
-    n_total = len(tdata) - 1   # row index of the TOTAL TTC row
     items_tbl = Table(tdata, colWidths=[8.8*cm, 3.2*cm, 1.8*cm, 3.7*cm])
     items_tbl.setStyle(TableStyle([
+        # Grid only on items (header + rows), not totals
         ("GRID",       (0,0),       (-1, n_body-1), 0.5, colors.grey),
         ("BACKGROUND", (0,0),       (-1, 0),         colors.whitesmoke),
         ("ALIGN",      (1,0),       (-1, -1),        "RIGHT"),
         ("VALIGN",     (0,0),       (-1, -1),        "TOP"),
-        # TOTAL TTC row: span cols 0-2 so the label is visible
-        ("SPAN",       (0,n_total), (2, n_total)),
-        ("ALIGN",      (0,n_total), (0, n_total),    "LEFT"),
-        ("BACKGROUND", (0,n_total), (-1, n_total),   colors.whitesmoke),
-        ("FONTNAME",   (0,n_total), (-1, n_total),   "Helvetica-Bold"),
-        ("LINEABOVE",  (0,n_total), (-1, n_total),   1, colors.grey),
+        # Total HT and TVA rows: span left 3 cols so amount goes right
+        ("SPAN",       (0, n_thtt), (2, n_thtt)),
+        ("SPAN",       (0, n_tvat), (2, n_tvat)),
+        # TOTAL TTC row
+        ("SPAN",       (0, n_total),(2, n_total)),
+        ("ALIGN",      (0, n_total),(0, n_total),    "LEFT"),
+        ("BACKGROUND", (0, n_total),(-1, n_total),   colors.whitesmoke),
+        ("FONTNAME",   (0, n_total),(-1, n_total),   "Helvetica-Bold"),
+        ("LINEABOVE",  (0, n_total),(-1, n_total),   1, colors.grey),
     ]))
+    elements += [items_tbl, Spacer(1, 90)]
 
-    # ── Payment terms ─────────────────────────────────────────────────────
-    pay = _invoice_payment_terms_html(settings, draft.get("payment_terms"))
-
-    elements = [
-        header, Spacer(1, 18),
-        co_tbl,  Spacer(1, 34),
-        bill_meta, Spacer(1, 28),
-        items_tbl, Spacer(1, 60),
-        Paragraph("<b>Conditions et modalit\u00e9s de paiement</b>", normal),
-        Paragraph(pay, normal),
+    # ── Payment terms (identical to auto invoice) ────────────────────────
+    elements += [
+        Paragraph("<b>Conditions et modalités de paiement</b>", normal),
+        Paragraph(_invoice_payment_terms_html(settings, draft.get("payment_terms")), normal),
     ]
     doc.build(elements)
     buffer.seek(0)
