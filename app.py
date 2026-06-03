@@ -7789,7 +7789,7 @@ def invoices_manual():
       </div><!-- /mi-main -->
     </form><!-- /miForm — closed before sidebar to avoid nested forms -->
 
-      <!-- RIGHT: sidebar (template forms are standalone, save buttons use form="miForm") -->
+      <!-- RIGHT: sidebar — template forms are standalone; primary save buttons are inside miForm above -->
       <div class="mi-sidebar">
 
         <!-- Articles sauvegardés -->
