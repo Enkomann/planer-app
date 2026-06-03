@@ -7776,6 +7776,16 @@ def invoices_manual():
                     style="min-height:100px;">{{ draft.payment_terms or default_terms }}</textarea>
         </div>
 
+        <!-- ★ Primary save buttons INSIDE the form (guaranteed to submit) -->
+        <div class="mi-card" style="display:flex;flex-direction:column;gap:10px;">
+          <button type="submit" name="action" value="save" class="mi-save-btn">
+            💾 {{ tr.get("mi_save_invoice","Sauvegarder la facture") }}
+          </button>
+          <button type="submit" name="download_pdf" value="1" class="mi-pdf-btn">
+            📄 {{ tr.get("mi_save_pdf","Sauvegarder + PDF") }}
+          </button>
+        </div>
+
       </div><!-- /mi-main -->
     </form><!-- /miForm — closed before sidebar to avoid nested forms -->
 
@@ -7836,17 +7846,6 @@ def invoices_manual():
               </form>
             </div>
           </details>
-        </div>
-
-        <!-- Save / PDF buttons — form="miForm" links them to the main form outside sidebar -->
-        <div class="mi-card">
-          <h3>💾 {{ tr.get("mi_actions","Actions") }}</h3>
-          <button type="submit" form="miForm" name="action" value="save" class="mi-save-btn">
-            💾 {{ tr.get("mi_save_invoice","Sauvegarder la facture") }}
-          </button>
-          <button type="submit" form="miForm" name="download_pdf" value="1" class="mi-pdf-btn">
-            📄 {{ tr.get("mi_save_pdf","Sauvegarder + PDF") }}
-          </button>
         </div>
 
       </div><!-- /mi-sidebar -->
@@ -7917,6 +7916,13 @@ function escHtml(s){
 prefillItems.forEach(function(it){
   addItem(it.designation, it.amount !== ''? it.amount : '', it.vat_rate || 17);
 });
+
+// Surface validation errors — when 'required' fields are empty, scroll to them
+// so user sees the browser tooltip on mobile (where required tooltips can be hidden)
+document.getElementById('miForm').addEventListener('invalid', function(e){
+  e.target.scrollIntoView({behavior:'smooth', block:'center'});
+  e.target.focus({preventScroll:true});
+}, true);
 </script>
 """, tr=tr, dark=dark, auto_num=auto_num, today=lux_now().strftime("%Y-%m-%d"),
      profiles=profiles,
