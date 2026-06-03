@@ -2703,60 +2703,56 @@ def build_manual_invoice_pdf(draft, settings):
         Spacer(1, 28),
     ]
 
-    # ── Line items table (4 cols: DÉSIGNATION | HT | TVA | TTC) ────────────
+    # ── Line items table — 2 cols (DÉSIGNATION | MONTANT) — matches auto invoice 1:1
     try:
         items = json.loads(draft.get("items_json") or "[]")
     except Exception:
         items = []
 
-    tdata = [[
-        Paragraph("<b>DÉSIGNATION</b>", normal),
-        Paragraph("<b>HT (€)</b>",      normal),
-        Paragraph("<b>TVA</b>",               normal),
-        Paragraph("<b>TTC (€)</b>",     normal),
-    ]]
-    total_ht = 0.0; total_vat = 0.0
+    # Build a single multi-line designation block (like auto invoice).
+    # All line items are concatenated with <br/> as one designation cell.
+    designation_lines = []
+    total_ht = 0.0
+    total_vat = 0.0
+    vat_rates_seen = set()
     for item in items:
         amt = float(item.get("amount") or 0)
         vr  = float(item.get("vat_rate") or 0) / 100.0
-        vat = amt * vr
         total_ht  += amt
-        total_vat += vat
-        tdata.append([
-            Paragraph((item.get("designation") or "").replace("\n", "<br/>"), normal),
-            Paragraph(f"{amt:.2f}",     normal),
-            Paragraph(f"{vr*100:.0f}%", normal),
-            Paragraph(f"{amt+vat:.2f}", normal),
-        ])
+        total_vat += amt * vr
+        vat_rates_seen.add(round(vr * 100, 2))
+        desig = (item.get("designation") or "").replace("\n", "<br/>")
+        if desig:
+            designation_lines.append(desig)
     total_ttc = total_ht + total_vat
-    n_body  = len(items) + 1          # header + item rows
-    n_thtt  = n_body                  # 'Total HT' row index
-    n_tvat  = n_body + 1              # 'TVA' row index
-    n_total = n_body + 2              # 'TOTAL TTC' row index
-    tdata += [
-        ["", "", "",
-         Paragraph(f"Total HT&nbsp;&nbsp;&nbsp; {total_ht:.2f}", normal)],
-        ["", "", "",
-         Paragraph(f"TVA&nbsp;&nbsp;&nbsp; {total_vat:.2f}",     normal)],
-        [Paragraph("<b>TOTAL TTC</b>", styles["Heading2"]), "", "",
+
+    # If all items share the same VAT rate, show "TVA 17.0%" (like auto).
+    # If mixed VATs (rare), drop the percentage suffix.
+    if len(vat_rates_seen) == 1:
+        vat_label = f"TVA {next(iter(vat_rates_seen)):.1f}%"
+    else:
+        vat_label = "TVA"
+
+    invoice_table = Table([
+        [Paragraph("<b>DÉSIGNATION</b>", normal),
+         Paragraph("<b>MONTANT</b>",     normal)],
+        [Paragraph("<br/>".join(designation_lines) or "-", normal),
+         Paragraph(f"{total_ht:.2f}", normal)],
+        ["", Paragraph(f"Total HT&nbsp;&nbsp;&nbsp; {total_ht:.2f}", normal)],
+        ["", Paragraph(f"{vat_label}&nbsp;&nbsp;&nbsp; {total_vat:.2f}", normal)],
+        [Paragraph("<b>TOTAL TTC</b>", styles["Heading2"]),
          Paragraph(f"<b>{total_ttc:.2f} €</b>", styles["Heading2"])],
-    ]
-    items_tbl = Table(tdata, colWidths=[8.8*cm, 3.2*cm, 1.8*cm, 3.7*cm])
-    items_tbl.setStyle(TableStyle([
-        # Grid across the WHOLE table (matches auto invoice style)
-        ("GRID",       (0,0),       (-1, -1),        0.5, colors.grey),
-        ("BACKGROUND", (0,0),       (-1, 0),         colors.whitesmoke),
-        ("ALIGN",      (1,0),       (-1, -1),        "RIGHT"),
-        ("VALIGN",     (0,0),       (-1, -1),        "TOP"),
-        # Total HT and TVA rows: span left 3 cols so amount goes right
-        ("SPAN",       (0, n_thtt), (2, n_thtt)),
-        ("SPAN",       (0, n_tvat), (2, n_tvat)),
-        # TOTAL TTC row: label spans left 3, amount in last col
-        ("SPAN",       (0, n_total),(2, n_total)),
-        ("ALIGN",      (0, n_total),(0, n_total),    "LEFT"),
-        ("BACKGROUND", (0, n_total),(-1, n_total),   colors.whitesmoke),
-        ("FONTNAME",   (0, n_total),(-1, n_total),   "Helvetica-Bold"),
+    ], colWidths=[12.8*cm, 4.7*cm])
+    invoice_table.setStyle(TableStyle([
+        ("GRID",        (0,0), (-1,-1), 0.5, colors.grey),
+        ("BACKGROUND",  (0,0), (-1,0),  colors.whitesmoke),
+        ("ALIGN",       (1,1), (1,-1),  "RIGHT"),
+        ("VALIGN",      (0,0), (-1,-1), "TOP"),
+        ("SPAN",        (0,2), (0,3)),                # merge left cell over Total HT + TVA rows
+        ("BACKGROUND",  (1,4), (1,4),   colors.whitesmoke),
+        ("MINROWHEIGHT",(0,1), (-1,1),  4.2*cm),
     ]))
+    items_tbl = invoice_table
     elements += [items_tbl, Spacer(1, 90)]
 
     # ── Payment terms (identical to auto invoice) ────────────────────────
