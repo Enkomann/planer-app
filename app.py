@@ -7584,7 +7584,8 @@ def invoices_manual():
 
         if request.form.get("download_pdf"):
             return redirect(f"/invoices/manual/pdf?invoice_number={inv_num}")
-        return redirect("/invoices")
+        flash(f"✓ {tr.get('mi_save_invoice','Faktura sačuvana')} #{inv_num}", "ok")
+        return redirect(f"/invoices/manual?invoice_number={inv_num}")
 
     # ── GET: show form ────────────────────────────────────────────────────
     # Pre-fill from existing draft if invoice_number given
@@ -7713,9 +7714,9 @@ def invoices_manual():
   </div>
   {% endif %}
 
-  <form id="miForm" method="post" action="/invoices/manual">
+  <div class="mi-body">
+    <form id="miForm" method="post" action="/invoices/manual">
     <input type="hidden" name="convert_from_auto" value="{{ '1' if convert_from_auto else '' }}">
-    <div class="mi-body">
 
       <!-- LEFT: main form -->
       <div class="mi-main">
@@ -7776,8 +7777,9 @@ def invoices_manual():
         </div>
 
       </div><!-- /mi-main -->
+    </form><!-- /miForm — closed before sidebar to avoid nested forms -->
 
-      <!-- RIGHT: sidebar -->
+      <!-- RIGHT: sidebar (template forms are standalone, save buttons use form="miForm") -->
       <div class="mi-sidebar">
 
         <!-- Articles sauvegardés -->
@@ -7836,20 +7838,19 @@ def invoices_manual():
           </details>
         </div>
 
-        <!-- Save / PDF buttons -->
+        <!-- Save / PDF buttons — form="miForm" links them to the main form outside sidebar -->
         <div class="mi-card">
           <h3>💾 {{ tr.get("mi_actions","Actions") }}</h3>
-          <button type="submit" name="action" value="save" class="mi-save-btn">
+          <button type="submit" form="miForm" name="action" value="save" class="mi-save-btn">
             💾 {{ tr.get("mi_save_invoice","Sauvegarder la facture") }}
           </button>
-          <button type="submit" name="download_pdf" value="1" class="mi-pdf-btn">
+          <button type="submit" form="miForm" name="download_pdf" value="1" class="mi-pdf-btn">
             📄 {{ tr.get("mi_save_pdf","Sauvegarder + PDF") }}
           </button>
         </div>
 
       </div><!-- /mi-sidebar -->
-    </div>
-  </form>
+  </div><!-- /mi-body -->
 </div>
 
 <script>
