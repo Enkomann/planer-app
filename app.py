@@ -1266,6 +1266,19 @@ INVOICE_TRANSLATIONS = {
         "generate_quote": "Generisi ponudu", "client_email": "Email klijenta",
         "sent_status": "Status slanja", "sent_yes": "Poslato", "sent_no": "Neposlato",
         "mark_sent": "Oznaci poslato", "mark_unsent": "Oznaci neposlato",
+    "my_documents": "Moji dokumenti",
+    "my_clients": "Moji klijenti",
+    "my_reports": "Moji izvjestaji",
+    "client_statement": "Stanje racuna klijenta",
+    "client_statement_pdf": "Stanje racuna klijenta PDF",
+    "no_invoices_period": "Nema faktura za izabrani period.",
+    "balance_due": "Saldo duga",
+    "amount_paid": "Naplaceni iznos",
+    "amount_total": "Ukupan iznos",
+    "document": "Dokument",
+    "all_filter": "--Sve--",
+    "search_btn": "Pretrazi",
+    "client_documents_of": "Dokumenti klijenta",
     }
 }
 INVOICE_TRANSLATIONS["en"] = {
@@ -1288,6 +1301,19 @@ INVOICE_TRANSLATIONS["en"] = {
     "quote_text": "Quote text", "quote_price": "Quote price", "generate_quote": "Generate quote", "client_email": "Client email",
     "sent_status": "Sending status", "sent_yes": "Sent", "sent_no": "Not sent",
     "mark_sent": "Mark sent", "mark_unsent": "Mark not sent",
+    "my_documents": "My documents",
+    "my_clients": "My clients",
+    "my_reports": "My reports",
+    "client_statement": "Client account statement",
+    "client_statement_pdf": "Client statement PDF",
+    "no_invoices_period": "No invoices for the selected period.",
+    "balance_due": "Balance due",
+    "amount_paid": "Amount paid",
+    "amount_total": "Total amount",
+    "document": "Document",
+    "all_filter": "--All--",
+    "search_btn": "Search",
+    "client_documents_of": "Documents of",
 }
 INVOICE_TRANSLATIONS["fr"] = {
     "invoices": "Factures", "invoice_settings": "Parametres des factures", "invoice_text": "Texte sur la facture",
@@ -1309,6 +1335,19 @@ INVOICE_TRANSLATIONS["fr"] = {
     "quote_text": "Texte du devis", "quote_price": "Montant du devis", "generate_quote": "Generer devis", "client_email": "Email client",
     "sent_status": "Statut d'envoi", "sent_yes": "Envoye", "sent_no": "Non envoye",
     "mark_sent": "Marquer envoye", "mark_unsent": "Marquer non envoye",
+    "my_documents": "Mes documents",
+    "my_clients": "Mes clients",
+    "my_reports": "Mes rapports",
+    "client_statement": "Releve de compte client",
+    "client_statement_pdf": "Releve de compte client PDF",
+    "no_invoices_period": "Aucune facture pour la periode selectionnee.",
+    "balance_due": "Solde du",
+    "amount_paid": "Montant paye",
+    "amount_total": "Montant total",
+    "document": "Document",
+    "all_filter": "--Tous--",
+    "search_btn": "Rechercher",
+    "client_documents_of": "Documents de",
 }
 INVOICE_TRANSLATIONS["de"] = {
     "invoices": "Rechnungen", "invoice_settings": "Rechnungseinstellungen", "invoice_text": "Rechnungstext",
@@ -1330,6 +1369,19 @@ INVOICE_TRANSLATIONS["de"] = {
     "quote_text": "Angebotstext", "quote_price": "Angebotspreis", "generate_quote": "Angebot erstellen", "client_email": "Kunden-E-Mail",
     "sent_status": "Sendestatus", "sent_yes": "Gesendet", "sent_no": "Nicht gesendet",
     "mark_sent": "Als gesendet markieren", "mark_unsent": "Als nicht gesendet markieren",
+    "my_documents": "Meine Dokumente",
+    "my_clients": "Meine Kunden",
+    "my_reports": "Meine Berichte",
+    "client_statement": "Kundenkontoauszug",
+    "client_statement_pdf": "Kundenkontoauszug PDF",
+    "no_invoices_period": "Keine Rechnungen fuer den gewaehlten Zeitraum.",
+    "balance_due": "Faelliger Saldo",
+    "amount_paid": "Bezahlter Betrag",
+    "amount_total": "Gesamtbetrag",
+    "document": "Dokument",
+    "all_filter": "--Alle--",
+    "search_btn": "Suchen",
+    "client_documents_of": "Dokumente von",
 }
 INVOICE_TRANSLATIONS["pt"] = {
     "invoices": "Faturas", "invoice_settings": "Definicoes de faturas", "invoice_text": "Texto na fatura",
@@ -1351,6 +1403,19 @@ INVOICE_TRANSLATIONS["pt"] = {
     "quote_text": "Texto do orcamento", "quote_price": "Valor do orcamento", "generate_quote": "Gerar orcamento", "client_email": "Email do cliente",
     "sent_status": "Estado de envio", "sent_yes": "Enviada", "sent_no": "Nao enviada",
     "mark_sent": "Marcar enviada", "mark_unsent": "Marcar nao enviada",
+    "my_documents": "Os meus documentos",
+    "my_clients": "Os meus clientes",
+    "my_reports": "Os meus relatorios",
+    "client_statement": "Extrato de conta do cliente",
+    "client_statement_pdf": "Extrato de cliente PDF",
+    "no_invoices_period": "Sem faturas para o periodo selecionado.",
+    "balance_due": "Saldo em divida",
+    "amount_paid": "Valor pago",
+    "amount_total": "Valor total",
+    "document": "Documento",
+    "all_filter": "--Todos--",
+    "search_btn": "Pesquisar",
+    "client_documents_of": "Documentos de",
 }
 for _lang, _values in INVOICE_TRANSLATIONS.items():
     TRANSLATIONS[_lang].update(_values)
@@ -6877,7 +6942,13 @@ def invoices():
                 {% for row in rows %}
                 <tr class="invoice-row" data-paid="{{ 1 if row.paid else 0 }}" data-search="{{ (row.client ~ ' ' ~ row.invoice_number)|lower }}">
                     <td><input type="checkbox" style="width:auto;"></td>
-                    <td><a href="/invoices/client?client={{ row.client|urlencode }}&date_from={{ date_from }}&date_to={{ date_to }}" style="color:white;text-decoration:underline;">{{ row.client }}</a></td>
+                    <td>
+                      {% if row.source == 'manual' %}
+                        <a href="/invoices/manual?invoice_number={{ row.invoice_number }}" style="color:white;text-decoration:underline;">{{ row.client }}</a>
+                      {% else %}
+                        <a href="/invoices/view?invoice_number={{ row.invoice_number }}" style="color:white;text-decoration:underline;">{{ row.client }}</a>
+                      {% endif %}
+                    </td>
                     <td>{{ tr["invoices"] }}{% if row.source == 'manual' %} <span style="font-size:10px;background:#22c55e;color:#111;padding:1px 5px;border-radius:4px;">✏️</span>{% endif %}</td>
                     <td>
                       {% if row.source == 'manual' %}
@@ -7117,13 +7188,21 @@ def invoices_client():
         return redirect("/")
     tr = t(); dark = get_theme() == "dark"
     client = request.args.get("client", "").strip()
-    default_from, default_to = previous_month_range()
-    date_from = request.args.get("date_from", default_from).strip()
-    date_to = request.args.get("date_to", default_to).strip()
+    # Default: empty date range = show ALL invoices for this client
+    date_from = request.args.get("date_from", "").strip()
+    date_to = request.args.get("date_to", "").strip()
     status = request.args.get("status", "all").strip()
+    doc_filter = request.args.get("doc", "all").strip()
     conn = get_conn()
-    rows = fetch_invoice_records(conn, date_from, date_to, client, status)
+    rows = fetch_invoice_records(
+        conn, date_from or None, date_to or None, client, status
+    )
     conn.close()
+    # Document filter (auto = invoice, manual = manual invoice — both render same here)
+    if doc_filter == "facture":
+        rows = [r for r in rows if r.get("source", "auto") != "manual"]
+    elif doc_filter == "manual":
+        rows = [r for r in rows if r.get("source", "auto") == "manual"]
     total_paid = sum(r["total"] for r in rows if r["paid"])
     total_unpaid = sum(r["total"] for r in rows if not r["paid"])
     total_all = sum(r["total"] for r in rows)
@@ -7132,58 +7211,112 @@ def invoices_client():
         .invoice-shell { background:#2b2b2b; color:white; border-radius:10px; padding:24px; }
         .invoice-panel { max-width:1280px; margin:0 auto; background:#4a4a4a; border-radius:8px; padding:22px 30px; }
         .doc-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px; }
-        .doc-tab { background:#777; color:white; padding:12px 16px; border-radius:8px 8px 0 0; font-weight:bold; }
+        .doc-tab { background:#777; color:white; padding:12px 16px; border-radius:8px 8px 0 0; font-weight:bold; text-decoration:none; }
         .doc-tab.active { background:#4a4a4a; }
         .invoice-table { width:100%; border-collapse:collapse; color:white; }
         .invoice-table th, .invoice-table td { padding:14px 10px; border-bottom:1px solid #a3a3a3; text-align:left; }
         .invoice-table th { text-transform:uppercase; font-size:13px; }
+        .invoice-table a { color:white; text-decoration:underline; }
         .paid-text { color:#34d399; font-weight:bold; } .unpaid-text { color:#fb7185; font-weight:bold; }
-        .filters { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; margin:18px 0 28px; }
+        .filters { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:14px; margin:18px 0 28px; align-items:end; }
+        .filters label { display:block; font-size:12px; opacity:.85; margin-bottom:4px; }
+        .filters input, .filters select { width:100%; }
         .totals { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-top:18px; }
         .total-card { background:#3d3d3d; border-radius:8px; padding:14px; }
+        .total-row { display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #555; font-size:14px; }
+        .total-row:last-child { border-bottom:none; font-weight:bold; }
+        .summary-block { margin-top:24px; padding:14px 20px; background:#3d3d3d; border-radius:8px; }
     </style>
     <div class="invoice-shell">
         <div class="doc-tabs">
-            <a class="doc-tab" href="/invoices">Mes documents</a>
-            <a class="doc-tab" href="/invoices#invoice-profiles">Mes clients</a>
-            <a class="doc-tab" href="/invoices">Mes rapports</a>
-            <span class="doc-tab active">{{ client }} <a href="/invoices" style="color:white;margin-left:8px;">x</a></span>
+            <a class="doc-tab" href="/invoices">{{ tr.get("my_documents","Mes documents") }}</a>
+            <a class="doc-tab" href="/invoices#invoice-profiles">{{ tr.get("my_clients","Mes clients") }}</a>
+            <a class="doc-tab" href="/invoices">{{ tr.get("my_reports","Mes rapports") }}</a>
+            <span class="doc-tab active">📁 {{ client }} <a href="/invoices" style="color:white;margin-left:8px;text-decoration:none;">×</a></span>
         </div>
         <div class="invoice-panel">
             <div style="display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap;">
-                <h2 style="margin:0;color:white;">Documents de {{ client }} <span style="background:#111;border-radius:999px;padding:2px 8px;font-size:13px;">{{ rows|length }}</span></h2>
-                <a href="/invoices/client_statement?client={{ client|urlencode }}&date_from={{ date_from }}&date_to={{ date_to }}" style="background:#888;color:white;padding:10px 14px;border-radius:6px;">Releve de compte client PDF</a>
+                <h2 style="margin:0;color:white;">📁 {{ tr.get("client_documents_of","Documents de") }} {{ client }}
+                    <span style="background:#111;border-radius:999px;padding:2px 10px;font-size:13px;margin-left:6px;">{{ rows|length }}</span>
+                </h2>
+                <a href="/invoices/client_statement?client={{ client|urlencode }}&date_from={{ date_from }}&date_to={{ date_to }}" style="background:#888;color:white;padding:10px 14px;border-radius:6px;text-decoration:none;">📄 {{ tr.get("client_statement_pdf","Releve de compte client PDF") }}</a>
             </div>
             <form class="filters" method="get" action="/invoices/client">
                 <input type="hidden" name="client" value="{{ client }}">
-                <div><label>Date du</label><input type="date" name="date_from" value="{{ date_from }}"></div>
-                <div><label>Date au</label><input type="date" name="date_to" value="{{ date_to }}"></div>
-                <div><label>Statut</label><select name="status"><option value="all" {% if status == 'all' %}selected{% endif %}>--Tous--</option><option value="paid" {% if status == 'paid' %}selected{% endif %}>{{ tr["paid"] }}</option><option value="unpaid" {% if status == 'unpaid' %}selected{% endif %}>{{ tr["unpaid"] }}</option></select></div>
-                <div style="align-self:end;"><button>Rechercher</button></div>
+                <div>
+                    <label>{{ tr.get("date_from","Date du") }}</label>
+                    <input type="date" name="date_from" value="{{ date_from }}">
+                </div>
+                <div>
+                    <label>{{ tr.get("date_to","Date au") }}</label>
+                    <input type="date" name="date_to" value="{{ date_to }}">
+                </div>
+                <div>
+                    <label>{{ tr.get("payment_status","Statut") }}</label>
+                    <select name="status">
+                        <option value="all"    {% if status == 'all'    %}selected{% endif %}>{{ tr.get("all_filter","--Tous--") }}</option>
+                        <option value="paid"   {% if status == 'paid'   %}selected{% endif %}>{{ tr["paid"] }}</option>
+                        <option value="unpaid" {% if status == 'unpaid' %}selected{% endif %}>{{ tr["unpaid"] }}</option>
+                    </select>
+                </div>
+                <div>
+                    <label>{{ tr.get("document","Document") }}</label>
+                    <select name="doc">
+                        <option value="all"     {% if doc_filter == 'all'     %}selected{% endif %}>{{ tr.get("all_filter","--Tous--") }}</option>
+                        <option value="facture" {% if doc_filter == 'facture' %}selected{% endif %}>{{ tr.get("invoices","Fakture") }}</option>
+                        <option value="manual"  {% if doc_filter == 'manual'  %}selected{% endif %}>✏️ {{ tr.get("mi_title","Facture manuelle") }}</option>
+                    </select>
+                </div>
+                <div><button>{{ tr.get("search_btn","Rechercher") }}</button></div>
             </form>
             <table class="invoice-table">
-                <tr><th></th><th>Client</th><th>Document</th><th>Numero</th><th>Date</th><th>Paye</th><th>Montant</th></tr>
+                <tr>
+                    <th></th>
+                    <th>{{ tr.get("client_name","Client") }}</th>
+                    <th>{{ tr.get("document","Document") }}</th>
+                    <th>{{ tr.get("invoice_number","Numéro") }}</th>
+                    <th>{{ tr.get("invoice_date","Date") }}</th>
+                    <th>{{ tr.get("paid","Payé") }}</th>
+                    <th>{{ tr.get("amount_with_vat","Montant") }}</th>
+                </tr>
                 {% for row in rows %}
                 <tr>
                     <td><input type="checkbox" style="width:auto;"></td>
                     <td>{{ row.client }}</td>
-                    <td>Facture</td>
-                    <td><a href="/invoices/view?invoice_number={{ row.invoice_number }}" style="color:white;text-decoration:underline;">{{ row.invoice_number }}</a></td>
+                    <td>{{ tr["invoices"] }}{% if row.source == 'manual' %} <span style="font-size:10px;background:#22c55e;color:#111;padding:1px 5px;border-radius:4px;">✏️</span>{% endif %}</td>
+                    <td>
+                      {% if row.source == 'manual' %}
+                        <a href="/invoices/manual?invoice_number={{ row.invoice_number }}">{{ row.invoice_number }}</a>
+                      {% else %}
+                        <a href="/invoices/view?invoice_number={{ row.invoice_number }}">{{ row.invoice_number }}</a>
+                      {% endif %}
+                    </td>
                     <td>{{ format_date(row.invoice_date) }}</td>
-                    <td class="{{ 'paid-text' if row.paid else 'unpaid-text' }}">{{ "%.2f"|format(row.total if row.paid else 0) }} EUR</td>
-                    <td>{{ "%.2f"|format(row.total) }} EUR</td>
+                    <td class="{{ 'paid-text' if row.paid else 'unpaid-text' }}">{{ "%.2f"|format(row.total if row.paid else 0) }} €</td>
+                    <td><b>{{ "%.2f"|format(row.total) }} €</b></td>
                 </tr>
                 {% endfor %}
             </table>
-            {% if rows|length == 0 %}<p class="muted">Nema faktura za izabrani period.</p>{% endif %}
-            <div class="totals">
-                <div class="total-card"><div class="muted">{{ tr["paid"] }}</div><div class="paid-text">{{ "%.2f"|format(total_paid) }} EUR</div></div>
-                <div class="total-card"><div class="muted">{{ tr["unpaid"] }}</div><div class="unpaid-text">{{ "%.2f"|format(total_unpaid) }} EUR</div></div>
-                <div class="total-card"><div class="muted">Ukupno</div><b>{{ "%.2f"|format(total_all) }} EUR</b></div>
+            {% if rows|length == 0 %}<p class="muted" style="padding:24px 4px;">{{ tr.get("no_invoices_period","Nema faktura za izabrani period.") }}</p>{% endif %}
+
+            <!-- Summary block (matches reference invoice client page) -->
+            <div class="summary-block">
+                <div class="total-row">
+                    <span>{{ tr.get("amount_total","Montant total")|upper }}</span>
+                    <b>{{ "%.2f"|format(total_all) }} EUR</b>
+                </div>
+                <div class="total-row">
+                    <span>{{ tr.get("amount_paid","Montant payé")|upper }}</span>
+                    <span class="paid-text">{{ "%.2f"|format(total_paid) }} EUR</span>
+                </div>
+                <div class="total-row">
+                    <span>{{ tr.get("balance_due","Solde dû")|upper }}</span>
+                    <span class="unpaid-text">{{ "%.2f"|format(total_unpaid) }} EUR</span>
+                </div>
             </div>
         </div>
     </div>
-    """, tr=tr, dark=dark, client=client, rows=rows, date_from=date_from, date_to=date_to, status=status, format_date=format_date, total_paid=total_paid, total_unpaid=total_unpaid, total_all=total_all)
+    """, tr=tr, dark=dark, client=client, rows=rows, date_from=date_from, date_to=date_to, status=status, doc_filter=doc_filter, format_date=format_date, total_paid=total_paid, total_unpaid=total_unpaid, total_all=total_all)
 
 
 @app.route("/invoices/view")
@@ -7223,9 +7356,11 @@ def invoices_view():
     </style>
     <div class="viewer-shell">
         <div class="doc-tabs">
-            <a class="doc-tab" href="/invoices">Mes documents</a>
-            <a class="doc-tab" href="/invoices/client?client={{ row.client|urlencode }}"> {{ row.client }}</a>
-            <span class="doc-tab active">{{ row.invoice_number }} <a href="/invoices/client?client={{ row.client|urlencode }}" style="color:white;margin-left:8px;">x</a></span>
+            <a class="doc-tab" href="/invoices">{{ tr.get("my_documents","Mes documents") }}</a>
+            <a class="doc-tab" href="/invoices#invoice-profiles">{{ tr.get("my_clients","Mes clients") }}</a>
+            <a class="doc-tab" href="/invoices">{{ tr.get("my_reports","Mes rapports") }}</a>
+            <a class="doc-tab" href="/invoices/client?client={{ row.client|urlencode }}">📁 {{ row.client }}</a>
+            <span class="doc-tab active">{{ row.invoice_number }} <a href="/invoices/client?client={{ row.client|urlencode }}" style="color:white;margin-left:8px;text-decoration:none;">×</a></span>
         </div>
         <div class="viewer-panel">
             <div class="toolbar">
