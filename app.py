@@ -2743,20 +2743,19 @@ def build_manual_invoice_pdf(draft, settings):
     ]
     items_tbl = Table(tdata, colWidths=[8.8*cm, 3.2*cm, 1.8*cm, 3.7*cm])
     items_tbl.setStyle(TableStyle([
-        # Grid only on items (header + rows), not totals
-        ("GRID",       (0,0),       (-1, n_body-1), 0.5, colors.grey),
+        # Grid across the WHOLE table (matches auto invoice style)
+        ("GRID",       (0,0),       (-1, -1),        0.5, colors.grey),
         ("BACKGROUND", (0,0),       (-1, 0),         colors.whitesmoke),
         ("ALIGN",      (1,0),       (-1, -1),        "RIGHT"),
         ("VALIGN",     (0,0),       (-1, -1),        "TOP"),
         # Total HT and TVA rows: span left 3 cols so amount goes right
         ("SPAN",       (0, n_thtt), (2, n_thtt)),
         ("SPAN",       (0, n_tvat), (2, n_tvat)),
-        # TOTAL TTC row
+        # TOTAL TTC row: label spans left 3, amount in last col
         ("SPAN",       (0, n_total),(2, n_total)),
         ("ALIGN",      (0, n_total),(0, n_total),    "LEFT"),
         ("BACKGROUND", (0, n_total),(-1, n_total),   colors.whitesmoke),
         ("FONTNAME",   (0, n_total),(-1, n_total),   "Helvetica-Bold"),
-        ("LINEABOVE",  (0, n_total),(-1, n_total),   1, colors.grey),
     ]))
     elements += [items_tbl, Spacer(1, 90)]
 
