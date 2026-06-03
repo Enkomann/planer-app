@@ -7231,7 +7231,7 @@ def invoices_client():
                 <h2 style="margin:0;color:white;">📁 {{ tr.get("client_documents_of","Documents de") }} {{ client }}
                     <span style="background:#111;border-radius:999px;padding:2px 10px;font-size:13px;margin-left:6px;">{{ rows|length }}</span>
                 </h2>
-                <a href="/invoices/client_statement?client={{ client|urlencode }}&date_from={{ date_from }}&date_to={{ date_to }}&status={{ status }}&doc={{ doc_filter }}" style="background:#888;color:white;padding:10px 14px;border-radius:6px;text-decoration:none;">📄 {{ tr.get("client_statement_pdf","Releve de compte client PDF") }}</a>
+                <a href="/invoices/client_statement?client={{ client|urlencode }}&date_from={{ date_from|urlencode }}&date_to={{ date_to|urlencode }}&status={{ status|urlencode }}&doc={{ doc_filter|urlencode }}" style="background:#888;color:white;padding:10px 14px;border-radius:6px;text-decoration:none;">📄 {{ tr.get("client_statement_pdf","Releve de compte client PDF") }}</a>
             </div>
             <form class="filters" method="get" action="/invoices/client">
                 <input type="hidden" name="client" value="{{ client }}">
@@ -7325,7 +7325,17 @@ def invoices_view():
     is_manual = record.get("source") == "manual"
 
     if is_manual:
-        # Manual invoice — read draft, no shift reconstruction needed
+        # Manual invoice — read draft, no shift reconstruction needed.
+        # Bail out cleanly if the draft is missing (e.g. partially deleted),
+        # otherwise the iframe would silently redirect to the empty form.
+        draft_exists = c.execute(
+            "SELECT 1 FROM manual_invoice_drafts WHERE invoice_number=?",
+            (invoice_number,)
+        ).fetchone()
+        if not draft_exists:
+            conn.close()
+            flash(tr.get("no_invoices_period", "Faktura nije pronadjena."), "error")
+            return redirect("/invoices")
         settings = get_invoice_settings(conn)
         conn.close()
         row = {
@@ -7350,6 +7360,7 @@ def invoices_view():
         edit_url     = "/invoices#invoice-profiles"   # auto invoices edit via settings panel
 
     paid_url = f"/invoices/mark_paid?invoice_number={urllib.parse.quote(invoice_number)}&paid={0 if record['paid'] else 1}&client={urllib.parse.quote(row['client'])}&date_from={record.get('date_from','')}&date_to={record.get('date_to','')}&invoice_date={record.get('invoice_date','')}&amount={row['amount']}&vat_amount={row['vat_amount']}&total={row['total']}&next={urllib.parse.quote('/invoices/view?invoice_number=' + invoice_number)}"
+    sent_url = f"/invoices/mark_sent?invoice_number={urllib.parse.quote(invoice_number)}&sent={0 if record.get('sent') else 1}&next={urllib.parse.quote('/invoices/view?invoice_number=' + invoice_number)}"
     return render_template_string(BASE_STYLE + header_html() + """
     <style>
         .viewer-shell { background:#2b2b2b; color:white; border-radius:10px; padding:24px; }
@@ -7380,13 +7391,14 @@ def invoices_view():
                 <a class="tool" href="{{ edit_url }}">{{ tr.get("edit","Modifier") }}</a>
                 <a class="tool" href="/invoices/delete?invoice_number={{ row.invoice_number }}" onclick="return confirm({{ (tr.get('doc_delete_confirm','Obrisati fakturu?'))|tojson }});">{{ tr.get("delete","Supprimer") }}</a>
                 <a class="tool pay" href="{{ paid_url }}">{{ tr["mark_unpaid"] if record.paid else tr["mark_paid"] }}</a>
+                <a class="tool" style="background:{{ '#16a34a' if record.sent else '#ef4444' }};" href="{{ sent_url }}">{{ tr["mark_unsent"] if record.sent else tr["mark_sent"] }}</a>
                 <a class="tool" href="{{ download_url }}">{{ tr.get("download","Telecharger") }}</a>
             </div>
             <iframe class="pdf-frame" src="{{ pdf_url }}"></iframe>
         </div>
     </div>
     """, tr=tr, dark=dark, row=row, record=record, pdf_url=pdf_url,
-         download_url=download_url, paid_url=paid_url,
+         download_url=download_url, paid_url=paid_url, sent_url=sent_url,
          is_manual=is_manual, edit_url=edit_url)
 
 
