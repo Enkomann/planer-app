@@ -2325,6 +2325,21 @@ def invoice_service_title(date_from, date_to):
     return f"Entretien et nettoyage de la maison pour le mois {prefix}{month}'{str(start.year)[-2:]}"
 
 
+def invoice_designation_lines(row):
+    lines = [row.get("service_title") or invoice_service_title(row.get("date_from", ""), row.get("date_to", ""))]
+    for detail in row.get("details", []):
+        lines.append(f"{format_date(detail['date'])[:5]} {_compact_number(detail['hours'])}h")
+    if "hours" in row:
+        lines.append(f"Total {_compact_number(row['hours'])}h")
+    if "hourly_rate" in row:
+        lines.append(f"Prix {_compact_number(row['hourly_rate'])}€ l'heure")
+    return lines
+
+
+def invoice_designation_text(row):
+    return "\n".join(invoice_designation_lines(row))
+
+
 def get_invoice_paid_map(conn):
     c = conn.cursor()
     return {row[0]: bool(row[1]) for row in c.execute("SELECT invoice_number, paid FROM invoice_records").fetchall()}
@@ -2553,13 +2568,7 @@ def build_invoice_pdf(row, settings, invoice_date, date_from, date_to, document_
     meta = Paragraph(f"<b>Facture n\u00b0</b>&nbsp;&nbsp;&nbsp; {row['invoice_number']}<br/><b>Date</b>&nbsp;&nbsp;&nbsp; {format_date(invoice_date)}", normal)
     elements += [Table([[billing, meta]], colWidths=[10*cm, 7.5*cm], style=[("ALIGN", (1,0), (1,0), "RIGHT"), ("VALIGN", (0,0), (-1,-1), "TOP")]), Spacer(1, 28)]
 
-    detail_lines = [row["service_title"]]
-    for detail in row.get("details", []):
-        detail_lines.append(f"{format_date(detail['date'])[:5]} {_compact_number(detail['hours'])}h")
-    detail_lines += [
-        f"Total {_compact_number(row['hours'])}h",
-        f"Prix {_compact_number(row['hourly_rate'])}\u20ac l'heure",
-    ]
+    detail_lines = invoice_designation_lines(row)
     if settings.get("invoice_text"):
         pass
 
@@ -7788,24 +7797,27 @@ def invoices_manual():
                      "items_json": row[4], "payment_terms": row[5]}
     if load_auto and not draft:
         rec = c.execute(
-            "SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total "
+            "SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, "
+            "paid, paid_date, COALESCE(sent, 0), COALESCE(sent_date, ''), COALESCE(source, 'auto') "
             "FROM invoice_records WHERE invoice_number=? AND COALESCE(deleted,0)=0",
             (load_auto,)
         ).fetchone()
         if rec:
+            record = invoice_record_to_dict(rec)
+            auto_row, _ = get_invoice_row_for_record(conn, record)
             prof = c.execute(
                 "SELECT custom_address FROM client_invoice_profiles WHERE client_name=?",
-                (rec[1],)
+                (record["client"],)
             ).fetchone()
-            client_addr = (prof[0] if prof else "") or ""
-            vr = round(rec[6] / rec[5] * 100, 2) if rec[5] else 17.0
-            service_title = invoice_service_title(rec[2], rec[3])
+            client_addr = (prof[0] if prof else "") or (auto_row.get("address") if auto_row else "") or ""
+            vr = round(record["vat_amount"] / record["amount"] * 100, 2) if record["amount"] else 17.0
+            designation = invoice_designation_text(auto_row) if auto_row else invoice_service_title(record["date_from"], record["date_to"])
             draft = {
-                "invoice_number": rec[0],
-                "client_name": rec[1],
+                "invoice_number": record["invoice_number"],
+                "client_name": record["client"],
                 "client_address": client_addr,
-                "invoice_date": rec[4],
-                "items_json": json.dumps([{"designation": service_title, "amount": round(float(rec[5]), 2), "vat_rate": vr}], ensure_ascii=False),
+                "invoice_date": record["invoice_date"],
+                "items_json": json.dumps([{"designation": designation, "amount": round(float(record["amount"]), 2), "vat_rate": vr}], ensure_ascii=False),
                 "payment_terms": settings.get("payment_terms", ""),
                 "_convert_from_auto": True,
             }
