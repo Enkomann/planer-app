@@ -3419,7 +3419,8 @@ def init_db():
             status TEXT DEFAULT 'draft',
             error TEXT DEFAULT '',
             sent_at TEXT DEFAULT '',
-            created_at TEXT DEFAULT ''
+            created_at TEXT DEFAULT '',
+            claimed_at TEXT DEFAULT ''
         )
     """)
     c.execute("""
@@ -3466,6 +3467,13 @@ def init_db():
         c.execute("ALTER TABLE invoice_records ADD COLUMN sent_date TEXT DEFAULT ''")
     if "source" not in invoice_record_cols:
         c.execute("ALTER TABLE invoice_records ADD COLUMN source TEXT DEFAULT 'auto'")
+    # Migrate invoice_email_queue: add claimed_at if missing
+    try:
+        queue_cols = [r[1] for r in c.execute("PRAGMA table_info(invoice_email_queue)").fetchall()]
+        if "claimed_at" not in queue_cols:
+            c.execute("ALTER TABLE invoice_email_queue ADD COLUMN claimed_at TEXT DEFAULT ''")
+    except Exception:
+        pass
     try:
         c.execute("DROP INDEX IF EXISTS idx_invoice_client_period")
         c.execute("""
@@ -8930,6 +8938,20 @@ def task_send_scheduled_emails():
 
     now_str = lux_now().strftime("%Y-%m-%d %H:%M:%S")
     conn = get_conn(); c = conn.cursor()
+
+    # Recovery sweep: any row stuck in 'sending' for > 30 minutes is
+    # considered abandoned (process crash, Render restart, SMTP hang).
+    # We revert it to 'scheduled' so the next cron tick retries it.
+    stale_cutoff = (lux_now() - timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M:%S")
+    c.execute(
+        "UPDATE invoice_email_queue "
+        "SET status='scheduled' "
+        "WHERE status='sending' AND claimed_at != '' AND claimed_at < ?",
+        (stale_cutoff,)
+    )
+    conn.commit()
+    recovered = getattr(c, "rowcount", 0)
+
     candidate_rows = c.execute("""
         SELECT id, invoice_number, recipient, cc, bcc, subject, body
         FROM invoice_email_queue
@@ -8939,14 +8961,15 @@ def task_send_scheduled_emails():
 
     # Claim-pattern: atomic UPDATE...WHERE status='scheduled' guarantees that
     # only one cron call grabs each row, even if two crons fire simultaneously
-    # (cron-job.org + Render Cron + manual call).
+    # (cron-job.org + Render Cron + manual call). claimed_at lets the
+    # recovery sweep above detect abandoned rows.
     rows = []
     for row in candidate_rows:
         qid = row[0]
         c.execute(
-            "UPDATE invoice_email_queue SET status='sending' "
+            "UPDATE invoice_email_queue SET status='sending', claimed_at=? "
             "WHERE id=? AND status='scheduled'",
-            (qid,)
+            (now_str, qid)
         )
         conn.commit()
         if getattr(c, "rowcount", 0) == 1:
@@ -8958,34 +8981,56 @@ def task_send_scheduled_emails():
         qid, inv_num, rcpt, cc_s, bcc_s, subj, bdy = row
         cc_list  = [x for x in (cc_s  or "").split(",") if x]
         bcc_list = [x for x in (bcc_s or "").split(",") if x]
-        pdf_bytes, pdf_name = _build_invoice_pdf_for_email(conn, inv_num)
-        if not pdf_bytes:
-            c.execute("UPDATE invoice_email_queue SET status='failed', error=?, sent_at=? WHERE id=?",
-                      ("invoice not found", now_str, qid))
-            fail_count += 1
-            processed += 1
-            continue
-        ok, err = _smtp_send(rcpt, subj, bdy, pdf_bytes, pdf_name,
-                             cc=cc_list, bcc=bcc_list)
-        c.execute("""
-            UPDATE invoice_email_queue SET status=?, error=?, sent_at=? WHERE id=?
-        """, ("sent" if ok else "failed", err if not ok else "", now_str, qid))
-        c.execute("""
-            INSERT INTO invoice_email_logs
-                (invoice_number, recipient, subject, status, error, sent_at)
-            VALUES (?,?,?,?,?,?)
-        """, (inv_num, rcpt, subj, "sent" if ok else "failed",
-              err if not ok else "", now_str))
-        if ok:
-            c.execute("UPDATE invoice_records SET sent=1, sent_date=? WHERE invoice_number=?",
-                      (lux_now().strftime("%Y-%m-%d"), inv_num))
-            ok_count += 1
-        else:
+        # Wrap each row in try/except so an unexpected exception (PDF build
+        # crash, DB hiccup) never leaves the row stuck in 'sending'.
+        try:
+            pdf_bytes, pdf_name = _build_invoice_pdf_for_email(conn, inv_num)
+            if not pdf_bytes:
+                c.execute("UPDATE invoice_email_queue SET status='failed', error=?, sent_at=? WHERE id=?",
+                          ("invoice not found", now_str, qid))
+                conn.commit()
+                fail_count += 1
+                processed += 1
+                continue
+            ok, err = _smtp_send(rcpt, subj, bdy, pdf_bytes, pdf_name,
+                                 cc=cc_list, bcc=bcc_list)
+            c.execute("""
+                UPDATE invoice_email_queue SET status=?, error=?, sent_at=? WHERE id=?
+            """, ("sent" if ok else "failed", err if not ok else "", now_str, qid))
+            c.execute("""
+                INSERT INTO invoice_email_logs
+                    (invoice_number, recipient, subject, status, error, sent_at)
+                VALUES (?,?,?,?,?,?)
+            """, (inv_num, rcpt, subj, "sent" if ok else "failed",
+                  err if not ok else "", now_str))
+            if ok:
+                c.execute("UPDATE invoice_records SET sent=1, sent_date=? WHERE invoice_number=?",
+                          (lux_now().strftime("%Y-%m-%d"), inv_num))
+                ok_count += 1
+            else:
+                fail_count += 1
+            conn.commit()
+        except Exception as ex:
+            # Revert to 'scheduled' so the next cron tick retries the row.
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            try:
+                c.execute(
+                    "UPDATE invoice_email_queue SET status='scheduled', "
+                    "error=? WHERE id=?",
+                    (f"retry after error: {ex.__class__.__name__}: {str(ex)[:400]}", qid)
+                )
+                conn.commit()
+            except Exception:
+                pass
             fail_count += 1
         processed += 1
     conn.commit(); conn.close()
     return {"ok": True, "processed": processed, "sent": ok_count,
-            "failed": fail_count, "skipped_claimed": skipped}
+            "failed": fail_count, "skipped_claimed": skipped,
+            "recovered_stale": recovered}
 
 
 @app.route("/invoices/download")
