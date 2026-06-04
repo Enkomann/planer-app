@@ -35,8 +35,12 @@ if USE_POSTGRES:
 
 # ── SMTP / Email configuration (read from Render env vars) ─────────────────
 SMTP_HOST      = os.environ.get("SMTP_HOST", "").strip()
-SMTP_PORT      = int(os.environ.get("SMTP_PORT", "587") or "587")
-SMTP_USE_SSL   = os.environ.get("SMTP_USE_SSL", "0").strip() in ("1", "true", "yes")
+try:
+    SMTP_PORT  = int((os.environ.get("SMTP_PORT", "") or "587").strip())
+except (TypeError, ValueError):
+    SMTP_PORT  = 587   # safe default if env is empty / malformed
+SMTP_USE_SSL   = os.environ.get("SMTP_USE_SSL", "0").strip().lower() in ("1", "true", "yes")
+SMTP_ALLOW_INSECURE = os.environ.get("SMTP_ALLOW_INSECURE", "").strip().lower() in ("1", "true", "yes")
 SMTP_USER      = os.environ.get("SMTP_USER", "").strip()
 SMTP_PASSWORD  = os.environ.get("SMTP_PASSWORD", "")    # never log this
 SMTP_FROM      = os.environ.get("SMTP_FROM", "").strip() or SMTP_USER
@@ -2924,20 +2928,26 @@ def _smtp_send(to_addrs, subject, body, pdf_bytes=None, pdf_name="facture.pdf",
         else:
             with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30) as s:
                 s.ehlo()
+                # STARTTLS is REQUIRED on plain ports unless admin explicitly
+                # opted in to insecure mode via SMTP_ALLOW_INSECURE=1. We never
+                # send credentials over an unencrypted connection silently.
                 try:
                     s.starttls(context=ssl.create_default_context())
                     s.ehlo()
-                except smtplib.SMTPException:
-                    pass  # server may not support STARTTLS
+                except smtplib.SMTPException as e:
+                    if not SMTP_ALLOW_INSECURE:
+                        return False, ("STARTTLS not available on this server. "
+                                       "Set SMTP_ALLOW_INSECURE=1 to bypass "
+                                       f"(at your own risk). Detail: {str(e)[:120]}")
                 if SMTP_USER:
                     s.login(SMTP_USER, SMTP_PASSWORD)
                 s.send_message(msg, from_addr=SMTP_FROM, to_addrs=all_rcpts)
     except smtplib.SMTPException as e:
-        return False, f"SMTP error: {e.__class__.__name__}: {str(e)[:200]}"
+        return False, f"SMTP error: {e.__class__.__name__}: {str(e)[:900]}"
     except (OSError, ssl.SSLError) as e:
-        return False, f"Network/SSL error: {e.__class__.__name__}: {str(e)[:200]}"
+        return False, f"Network/SSL error: {e.__class__.__name__}: {str(e)[:900]}"
     except Exception as e:
-        return False, f"{e.__class__.__name__}: {str(e)[:200]}"
+        return False, f"{e.__class__.__name__}: {str(e)[:900]}"
     return True, ""
 
 
@@ -8793,8 +8803,10 @@ def invoices_email():
           <input class="em-input" type="datetime-local" name="scheduled_at" value="">
 
           <div class="em-actions">
-            <button class="em-btn primary"  name="action" value="send_now">📤 {{ tr.get("send_now","Pošalji odmah") }}</button>
-            <button class="em-btn sched"    name="action" value="schedule">⏰ {{ tr.get("schedule","Zakaži") }}</button>
+            <button class="em-btn primary"  name="action" value="send_now"
+                    {% if not smtp_ready %}disabled title="SMTP not configured" style="opacity:.5;cursor:not-allowed;"{% endif %}>📤 {{ tr.get("send_now","Pošalji odmah") }}</button>
+            <button class="em-btn sched"    name="action" value="schedule"
+                    {% if not smtp_ready %}disabled title="SMTP not configured" style="opacity:.5;cursor:not-allowed;"{% endif %}>⏰ {{ tr.get("schedule","Zakaži") }}</button>
             <button class="em-btn draft"    name="action" value="draft">💾 {{ tr.get("save_draft","Sačuvaj nacrt") }}</button>
             <a class="em-btn" href="/invoices/view?invoice_number={{ invoice_number }}" style="background:#6b7280;color:white;text-decoration:none;text-align:center;line-height:24px;">{{ tr["back"] }}</a>
           </div>
@@ -8830,6 +8842,12 @@ def invoices_email_send():
     if not _is_valid_email(recipient):
         flash(tr.get("invalid_email", "Neispravna email adresa."), "error")
         return redirect(f"/invoices/email?invoice_number={urllib.parse.quote(invoice_number)}")
+
+    # Server-side enforce: send_now / schedule require SMTP config.
+    # draft is always allowed since it doesn't touch SMTP.
+    if action in ("send_now", "schedule") and not (SMTP_HOST and SMTP_FROM):
+        flash("SMTP not configured. Saved as draft.", "error")
+        action = "draft"
 
     cc_list  = _split_email_list(cc_raw)
     bcc_list = _split_email_list(bcc_raw)
@@ -8912,14 +8930,30 @@ def task_send_scheduled_emails():
 
     now_str = lux_now().strftime("%Y-%m-%d %H:%M:%S")
     conn = get_conn(); c = conn.cursor()
-    rows = c.execute("""
+    candidate_rows = c.execute("""
         SELECT id, invoice_number, recipient, cc, bcc, subject, body
         FROM invoice_email_queue
         WHERE status='scheduled' AND scheduled_at != '' AND scheduled_at <= ?
         ORDER BY scheduled_at LIMIT 50
     """, (now_str,)).fetchall()
 
-    processed = 0; ok_count = 0; fail_count = 0
+    # Claim-pattern: atomic UPDATE...WHERE status='scheduled' guarantees that
+    # only one cron call grabs each row, even if two crons fire simultaneously
+    # (cron-job.org + Render Cron + manual call).
+    rows = []
+    for row in candidate_rows:
+        qid = row[0]
+        c.execute(
+            "UPDATE invoice_email_queue SET status='sending' "
+            "WHERE id=? AND status='scheduled'",
+            (qid,)
+        )
+        conn.commit()
+        if getattr(c, "rowcount", 0) == 1:
+            rows.append(row)
+        # else: another worker already claimed it — skip silently
+
+    processed = 0; ok_count = 0; fail_count = 0; skipped = len(candidate_rows) - len(rows)
     for row in rows:
         qid, inv_num, rcpt, cc_s, bcc_s, subj, bdy = row
         cc_list  = [x for x in (cc_s  or "").split(",") if x]
@@ -8950,7 +8984,8 @@ def task_send_scheduled_emails():
             fail_count += 1
         processed += 1
     conn.commit(); conn.close()
-    return {"ok": True, "processed": processed, "sent": ok_count, "failed": fail_count}
+    return {"ok": True, "processed": processed, "sent": ok_count,
+            "failed": fail_count, "skipped_claimed": skipped}
 
 
 @app.route("/invoices/download")
