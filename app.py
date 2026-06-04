@@ -49,55 +49,37 @@ EMAIL_SCHEDULER_SECRET = os.environ.get("EMAIL_SCHEDULER_SECRET", "").strip()
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
-# Default templates seeded on first init (one per language).
+# Default templates seeded on init (one per language).
 # Variables: {client_name} {invoice_number} {invoice_month} {invoice_date}
-# {total_ttc} {company_name} {company_email}
+# {total_ttc} {company_name} {company_address} {company_phone} {company_email}
+DEFAULT_INVOICE_EMAIL_SUBJECT = "Facture du mois de {invoice_month}"
+DEFAULT_INVOICE_EMAIL_BODY = (
+    "Léiwe Client,\n\n"
+    "Mir soen Iech villmools Merci fir Äert Vertrauen an Är Zesummenaarbecht.\n"
+    "Am Uschloss fannt Dir Är Rechnung.\n"
+    "Mir bieden Iech, d'Rechnung am Uschloss virum Bezuelen ze kontrolléieren.\n"
+    "Wann Dir e Feeler oder eng Onstëmmegkeet bemierkt, gitt eis w.e.g. direkt Bescheed.\n\n"
+    "------------------------------------------------------------\n\n"
+    "Cher Client,\n\n"
+    "Nous vous remercions de votre confiance et de votre collaboration.\n"
+    "Veuillez trouver ci-joint votre facture.\n"
+    "Nous vous prions de bien vouloir vérifier la facture ci-jointe avant le paiement.\n"
+    "En cas d'erreur ou d'incohérence, merci de nous en informer immédiatement.\n\n"
+    "------------------------------------------------------------\n\n"
+    "Lieber Kunde,\n\n"
+    "Vielen Dank für Ihr Vertrauen und Ihre Zusammenarbeit.\n"
+    "Anbei finden Sie Ihre Rechnung.\n"
+    "Bitte überprüfen Sie die beigefügte Rechnung vor der Zahlung.\n"
+    "Sollten Sie einen Fehler oder eine Unstimmigkeit feststellen, informieren Sie uns bitte umgehend.\n\n"
+    "Mit freundlichen Grüßen,\n\n"
+    "Luxmann Services\n"
+    "32 rue Aneschbach\n"
+    "WILTZ L-9511\n"
+    "Tel: +352691642003"
+)
 DEFAULT_EMAIL_TEMPLATES = [
-    ("fr",
-     "Facture du mois de {invoice_month}",
-     "Cher Client,\n\n"
-     "Nous vous remercions de votre confiance et de votre collaboration.\n"
-     "Veuillez trouver ci-joint votre facture n° {invoice_number}.\n"
-     "Nous vous prions de bien vouloir vérifier la facture ci-jointe avant le paiement.\n"
-     "En cas d’erreur ou d’incohérence, merci de nous en informer immédiatement.\n\n"
-     "Cordialement,\n"
-     "{company_name}"),
-    ("en",
-     "Invoice for {invoice_month}",
-     "Dear Client,\n\n"
-     "Thank you for your trust and cooperation.\n"
-     "Please find attached your invoice no. {invoice_number}.\n"
-     "Kindly review the attached invoice before payment.\n"
-     "In case of any error or discrepancy, please notify us immediately.\n\n"
-     "Best regards,\n"
-     "{company_name}"),
-    ("bos",
-     "Faktura za mjesec {invoice_month}",
-     "Poštovani klijente,\n\n"
-     "Hvala Vam na povjerenju i saradnji.\n"
-     "U prilogu Vam šaljemo fakturu br. {invoice_number}.\n"
-     "Molimo Vas da provjerite priloženu fakturu prije plaćanja.\n"
-     "U slučaju greške ili nepodudaranja, molimo Vas da nas odmah obavijestite.\n\n"
-     "Srdačan pozdrav,\n"
-     "{company_name}"),
-    ("de",
-     "Rechnung für {invoice_month}",
-     "Sehr geehrter Kunde,\n\n"
-     "Wir danken Ihnen für Ihr Vertrauen und Ihre Zusammenarbeit.\n"
-     "Anbei finden Sie Ihre Rechnung Nr. {invoice_number}.\n"
-     "Bitte überprüfen Sie die beigefügte Rechnung vor der Zahlung.\n"
-     "Bei Fehlern oder Abweichungen informieren Sie uns bitte umgehend.\n\n"
-     "Mit freundlichen Grüßen,\n"
-     "{company_name}"),
-    ("pt",
-     "Fatura do mês de {invoice_month}",
-     "Caro Cliente,\n\n"
-     "Agradecemos a sua confiança e cooperação.\n"
-     "Em anexo encontrará a sua fatura n.º {invoice_number}.\n"
-     "Por favor, verifique a fatura anexa antes do pagamento.\n"
-     "Em caso de erro ou divergência, informe-nos imediatamente.\n\n"
-     "Cordialmente,\n"
-     "{company_name}"),
+    (lang, DEFAULT_INVOICE_EMAIL_SUBJECT, DEFAULT_INVOICE_EMAIL_BODY)
+    for lang in ("fr", "en", "bos", "de", "pt")
 ]
 
 from reportlab.lib import colors
@@ -2887,6 +2869,36 @@ def _split_email_list(s):
     return [p.strip() for p in parts if p.strip() and _is_valid_email(p.strip())]
 
 
+def _email_body_to_html(body):
+    """Render editable plain-text email body as safe HTML for nicer signatures."""
+    html_lines = []
+    for raw_line in (body or "").splitlines():
+        line = str(raw_line or "")
+        stripped = line.strip()
+        if not stripped:
+            html_lines.append("<br>")
+            continue
+        if re.fullmatch(r"-{10,}", stripped):
+            html_lines.append(
+                '<hr style="border:none;border-top:1px solid #d1d5db;'
+                'margin:22px 0;">'
+            )
+            continue
+        safe = _html.escape(line)
+        if stripped == "Luxmann Services":
+            safe = '<strong style="color:#16a34a;font-weight:700;">Luxmann Services</strong>'
+        elif stripped.lower().startswith("tel:"):
+            label, number = line.split(":", 1)
+            safe = f"{_html.escape(label)}: <strong>{_html.escape(number.strip())}</strong>"
+        html_lines.append(f"<div>{safe}</div>")
+    return (
+        '<div style="font-family:Arial,Helvetica,sans-serif;'
+        'font-size:15px;line-height:1.55;color:#111827;">'
+        + "\n".join(html_lines)
+        + "</div>"
+    )
+
+
 def _smtp_send(to_addrs, subject, body, pdf_bytes=None, pdf_name="facture.pdf",
                cc=None, bcc=None):
     """Send an email via configured SMTP. Returns (ok, error_string)."""
@@ -2911,6 +2923,8 @@ def _smtp_send(to_addrs, subject, body, pdf_bytes=None, pdf_name="facture.pdf",
         msg["Cc"] = ", ".join(cc)
     msg["Subject"] = subject or "(no subject)"
     msg.set_content(body or "")
+    if body:
+        msg.add_alternative(_email_body_to_html(body), subtype="html")
 
     if pdf_bytes:
         msg.add_attachment(pdf_bytes, maintype="application", subtype="pdf",
@@ -3008,12 +3022,13 @@ def _invoice_email_context(conn, invoice_number):
     settings = get_invoice_settings(conn)
     if not rec:
         return {}
-    # Build a French month name for {invoice_month}
+    # Build a French month name for the worked period, not the invoice issue date.
     try:
-        d = datetime.strptime(rec[4], "%Y-%m-%d")
+        period_date = rec[2] or rec[3] or rec[4]
+        d = datetime.strptime(period_date, "%Y-%m-%d")
         month_str = month_name(d.month, "fr") + " " + str(d.year)
     except Exception:
-        month_str = rec[4] or ""
+        month_str = rec[2] or rec[3] or rec[4] or ""
     return {
         "client_name":    rec[1] or "",
         "invoice_number": rec[0] or "",
@@ -3021,6 +3036,8 @@ def _invoice_email_context(conn, invoice_number):
         "invoice_date":   format_date(rec[4] or ""),
         "total_ttc":      f"{float(rec[7] or 0):.2f} EUR",
         "company_name":   settings.get("company_name", "") or "",
+        "company_address": settings.get("company_address", "") or "",
+        "company_phone":  settings.get("company_phone", "") or "",
         "company_email":  settings.get("company_email", "") or "",
     }
 
@@ -3517,6 +3534,11 @@ def init_db():
     _have_langs = {r[0] for r in _existing_tpls}
     for lang, subject, body in DEFAULT_EMAIL_TEMPLATES:
         if lang in _have_langs:
+            c.execute("""
+                UPDATE invoice_email_templates
+                SET subject=?, body=?, updated_at=?
+                WHERE language=? AND is_default=1
+            """, (subject, body, _now, lang))
             continue
         c.execute("""
             INSERT INTO invoice_email_templates (name, subject, body, language, is_default, updated_at)
@@ -8803,6 +8825,7 @@ def invoices_email():
             <code>{client_name}</code> <code>{invoice_number}</code>
             <code>{invoice_month}</code> <code>{invoice_date}</code>
             <code>{total_ttc}</code> <code>{company_name}</code>
+            <code>{company_address}</code> <code>{company_phone}</code>
           </div>
 
           <div class="em-pdf">📎 {{ pdf_name }} ({{ tr.get("pdf_attached","PDF prilog") }})</div>
