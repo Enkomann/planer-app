@@ -8065,16 +8065,28 @@ function recalc(){
   document.getElementById('totTTC').textContent  = fmtN(ht+vat);
 }
 
+function autoGrow(el){
+  // Reset then grow to scrollHeight so full content is always visible
+  el.style.height = 'auto';
+  el.style.height = (el.scrollHeight + 2) + 'px';
+}
+
 function addItem(desig, amt, vat){
   desig = desig || '';
   amt   = (amt !== undefined) ? amt : '';
   vat   = (vat !== undefined) ? vat : 17;
+  // Pick initial row count based on content so long imported items
+  // (e.g. converted auto-invoice service title with date list) render
+  // fully on first paint without needing manual scrolling.
+  var lines = String(desig).split('\n').length;
+  var initRows = Math.max(3, Math.min(lines + 1, 12));
   var c = document.getElementById('itemsContainer');
   var d = document.createElement('div');
   d.className = 'mi-row mi-item-row';
   d.innerHTML =
-    '<textarea class="mi-textarea mi-desig" name="designation[]" rows="2"'
-    +' placeholder="' + escHtml(miPlaceholder) + '" oninput="recalc()">'
+    '<textarea class="mi-textarea mi-desig" name="designation[]" rows="' + initRows + '"'
+    +' placeholder="' + escHtml(miPlaceholder) + '"'
+    +' oninput="recalc();autoGrow(this);">'
     + escHtml(String(desig)) + '</textarea>'
     + '<input class="mi-input mi-amt" type="number" step="0.01" name="amount[]"'
     +' value="'+(amt===''?'':Number(amt).toFixed(2))+'" placeholder="0.00" oninput="recalc()">'
@@ -8086,6 +8098,10 @@ function addItem(desig, amt, vat){
     + '</select>'
     + '<button type="button" class="mi-del-btn" onclick="this.closest(\'.mi-item-row\').remove();recalc();">×</button>';
   c.appendChild(d);
+  // Trigger auto-grow on the newly inserted textarea so pre-filled
+  // multi-line content expands immediately on page load
+  var ta = d.querySelector('.mi-desig');
+  if (ta) autoGrow(ta);
   recalc();
 }
 
