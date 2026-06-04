@@ -17,6 +17,10 @@ import tempfile
 import urllib.parse
 import urllib.request
 import unicodedata
+import smtplib
+import ssl
+from email.message import EmailMessage
+from email.utils import formataddr, parseaddr
 from datetime import datetime, timedelta, date as dt_date
 try:
     from zoneinfo import ZoneInfo
@@ -28,6 +32,69 @@ USE_POSTGRES = bool(DATABASE_URL)
 
 if USE_POSTGRES:
     import psycopg2
+
+# ── SMTP / Email configuration (read from Render env vars) ─────────────────
+SMTP_HOST      = os.environ.get("SMTP_HOST", "").strip()
+SMTP_PORT      = int(os.environ.get("SMTP_PORT", "587") or "587")
+SMTP_USE_SSL   = os.environ.get("SMTP_USE_SSL", "0").strip() in ("1", "true", "yes")
+SMTP_USER      = os.environ.get("SMTP_USER", "").strip()
+SMTP_PASSWORD  = os.environ.get("SMTP_PASSWORD", "")    # never log this
+SMTP_FROM      = os.environ.get("SMTP_FROM", "").strip() or SMTP_USER
+SMTP_FROM_NAME = os.environ.get("SMTP_FROM_NAME", "Luxmann Services").strip()
+EMAIL_SCHEDULER_SECRET = os.environ.get("EMAIL_SCHEDULER_SECRET", "").strip()
+
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+# Default templates seeded on first init (one per language).
+# Variables: {client_name} {invoice_number} {invoice_month} {invoice_date}
+# {total_ttc} {company_name} {company_email}
+DEFAULT_EMAIL_TEMPLATES = [
+    ("fr",
+     "Facture du mois de {invoice_month}",
+     "Cher Client,\n\n"
+     "Nous vous remercions de votre confiance et de votre collaboration.\n"
+     "Veuillez trouver ci-joint votre facture n° {invoice_number}.\n"
+     "Nous vous prions de bien vouloir vérifier la facture ci-jointe avant le paiement.\n"
+     "En cas d’erreur ou d’incohérence, merci de nous en informer immédiatement.\n\n"
+     "Cordialement,\n"
+     "{company_name}"),
+    ("en",
+     "Invoice for {invoice_month}",
+     "Dear Client,\n\n"
+     "Thank you for your trust and cooperation.\n"
+     "Please find attached your invoice no. {invoice_number}.\n"
+     "Kindly review the attached invoice before payment.\n"
+     "In case of any error or discrepancy, please notify us immediately.\n\n"
+     "Best regards,\n"
+     "{company_name}"),
+    ("bos",
+     "Faktura za mjesec {invoice_month}",
+     "Poštovani klijente,\n\n"
+     "Hvala Vam na povjerenju i saradnji.\n"
+     "U prilogu Vam šaljemo fakturu br. {invoice_number}.\n"
+     "Molimo Vas da provjerite priloženu fakturu prije plaćanja.\n"
+     "U slučaju greške ili nepodudaranja, molimo Vas da nas odmah obavijestite.\n\n"
+     "Srdačan pozdrav,\n"
+     "{company_name}"),
+    ("de",
+     "Rechnung für {invoice_month}",
+     "Sehr geehrter Kunde,\n\n"
+     "Wir danken Ihnen für Ihr Vertrauen und Ihre Zusammenarbeit.\n"
+     "Anbei finden Sie Ihre Rechnung Nr. {invoice_number}.\n"
+     "Bitte überprüfen Sie die beigefügte Rechnung vor der Zahlung.\n"
+     "Bei Fehlern oder Abweichungen informieren Sie uns bitte umgehend.\n\n"
+     "Mit freundlichen Grüßen,\n"
+     "{company_name}"),
+    ("pt",
+     "Fatura do mês de {invoice_month}",
+     "Caro Cliente,\n\n"
+     "Agradecemos a sua confiança e cooperação.\n"
+     "Em anexo encontrará a sua fatura n.º {invoice_number}.\n"
+     "Por favor, verifique a fatura anexa antes do pagamento.\n"
+     "Em caso de erro ou divergência, informe-nos imediatamente.\n\n"
+     "Cordialmente,\n"
+     "{company_name}"),
+]
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
@@ -1273,6 +1340,24 @@ INVOICE_TRANSLATIONS = {
     "client_statement_pdf": "Stanje racuna klijenta PDF",
     "no_invoices_period": "Nema faktura za izabrani period.",
     "invoice_not_found": "Faktura nije pronadjena.",
+    "send_email": "Posalji emailom",
+    "email_to": "Primalac",
+    "subject": "Naslov",
+    "body": "Tekst poruke",
+    "send_now": "Posalji odmah",
+    "schedule": "Zakazi",
+    "schedule_at": "Zakazi za",
+    "save_draft": "Sacuvaj nacrt",
+    "test_smtp": "Test SMTP",
+    "pdf_attached": "PDF prilog",
+    "template_vars": "Promjenljive",
+    "email_sent_ok": "Email poslat.",
+    "email_send_failed": "Slanje nije uspjelo",
+    "email_scheduled": "Email je zakazan.",
+    "email_drafted": "Nacrt je sacuvan.",
+    "email_test_ok": "Test email poslat.",
+    "email_test_fail": "Test SMTP nije uspio",
+    "invalid_email": "Neispravna email adresa.",
     "balance_due": "Saldo duga",
     "amount_paid": "Naplaceni iznos",
     "amount_total": "Ukupan iznos",
@@ -1309,6 +1394,24 @@ INVOICE_TRANSLATIONS["en"] = {
     "client_statement_pdf": "Client statement PDF",
     "no_invoices_period": "No invoices for the selected period.",
     "invoice_not_found": "Invoice not found.",
+    "send_email": "Send by email",
+    "email_to": "Recipient",
+    "subject": "Subject",
+    "body": "Message",
+    "send_now": "Send now",
+    "schedule": "Schedule",
+    "schedule_at": "Schedule for",
+    "save_draft": "Save draft",
+    "test_smtp": "Test SMTP",
+    "pdf_attached": "PDF attached",
+    "template_vars": "Variables",
+    "email_sent_ok": "Email sent.",
+    "email_send_failed": "Send failed",
+    "email_scheduled": "Email scheduled.",
+    "email_drafted": "Draft saved.",
+    "email_test_ok": "Test email sent.",
+    "email_test_fail": "SMTP test failed",
+    "invalid_email": "Invalid email address.",
     "balance_due": "Balance due",
     "amount_paid": "Amount paid",
     "amount_total": "Total amount",
@@ -1344,6 +1447,24 @@ INVOICE_TRANSLATIONS["fr"] = {
     "client_statement_pdf": "Releve de compte client PDF",
     "no_invoices_period": "Aucune facture pour la periode selectionnee.",
     "invoice_not_found": "Facture introuvable.",
+    "send_email": "Envoyer par email",
+    "email_to": "Destinataire",
+    "subject": "Objet",
+    "body": "Message",
+    "send_now": "Envoyer maintenant",
+    "schedule": "Planifier",
+    "schedule_at": "Planifier pour",
+    "save_draft": "Enregistrer brouillon",
+    "test_smtp": "Test SMTP",
+    "pdf_attached": "PDF joint",
+    "template_vars": "Variables",
+    "email_sent_ok": "Email envoye.",
+    "email_send_failed": "L'envoi a echoue",
+    "email_scheduled": "Email planifie.",
+    "email_drafted": "Brouillon enregistre.",
+    "email_test_ok": "Email de test envoye.",
+    "email_test_fail": "Echec du test SMTP",
+    "invalid_email": "Adresse email invalide.",
     "balance_due": "Solde du",
     "amount_paid": "Montant paye",
     "amount_total": "Montant total",
@@ -1379,6 +1500,24 @@ INVOICE_TRANSLATIONS["de"] = {
     "client_statement_pdf": "Kundenkontoauszug PDF",
     "no_invoices_period": "Keine Rechnungen fuer den gewaehlten Zeitraum.",
     "invoice_not_found": "Rechnung nicht gefunden.",
+    "send_email": "Per E-Mail senden",
+    "email_to": "Empfaenger",
+    "subject": "Betreff",
+    "body": "Nachricht",
+    "send_now": "Jetzt senden",
+    "schedule": "Planen",
+    "schedule_at": "Planen fuer",
+    "save_draft": "Entwurf speichern",
+    "test_smtp": "SMTP-Test",
+    "pdf_attached": "PDF-Anhang",
+    "template_vars": "Variablen",
+    "email_sent_ok": "E-Mail gesendet.",
+    "email_send_failed": "Senden fehlgeschlagen",
+    "email_scheduled": "E-Mail geplant.",
+    "email_drafted": "Entwurf gespeichert.",
+    "email_test_ok": "Test-E-Mail gesendet.",
+    "email_test_fail": "SMTP-Test fehlgeschlagen",
+    "invalid_email": "Ungueltige E-Mail-Adresse.",
     "balance_due": "Faelliger Saldo",
     "amount_paid": "Bezahlter Betrag",
     "amount_total": "Gesamtbetrag",
@@ -1414,6 +1553,24 @@ INVOICE_TRANSLATIONS["pt"] = {
     "client_statement_pdf": "Extrato de cliente PDF",
     "no_invoices_period": "Sem faturas para o periodo selecionado.",
     "invoice_not_found": "Fatura nao encontrada.",
+    "send_email": "Enviar por email",
+    "email_to": "Destinatario",
+    "subject": "Assunto",
+    "body": "Mensagem",
+    "send_now": "Enviar agora",
+    "schedule": "Agendar",
+    "schedule_at": "Agendar para",
+    "save_draft": "Guardar rascunho",
+    "test_smtp": "Teste SMTP",
+    "pdf_attached": "PDF anexo",
+    "template_vars": "Variaveis",
+    "email_sent_ok": "Email enviado.",
+    "email_send_failed": "Falha no envio",
+    "email_scheduled": "Email agendado.",
+    "email_drafted": "Rascunho guardado.",
+    "email_test_ok": "Email de teste enviado.",
+    "email_test_fail": "Falha no teste SMTP",
+    "invalid_email": "Endereco de email invalido.",
     "balance_due": "Saldo em divida",
     "amount_paid": "Valor pago",
     "amount_total": "Valor total",
@@ -2710,6 +2867,154 @@ def next_invoice_number(conn):
     return str(max(max(nums) + 1, start) if nums else start)
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+#  EMAIL — SMTP, PDF attachment, template rendering, queue scheduler
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _is_valid_email(addr):
+    return bool(addr and EMAIL_RE.match(addr.strip()))
+
+
+def _split_email_list(s):
+    """Parse a comma- or semicolon-separated email list, dropping invalid ones."""
+    if not s:
+        return []
+    parts = re.split(r"[,;\s]+", s)
+    return [p.strip() for p in parts if p.strip() and _is_valid_email(p.strip())]
+
+
+def _smtp_send(to_addrs, subject, body, pdf_bytes=None, pdf_name="facture.pdf",
+               cc=None, bcc=None):
+    """Send an email via configured SMTP. Returns (ok, error_string)."""
+    if not SMTP_HOST or not SMTP_FROM:
+        return False, "SMTP not configured (SMTP_HOST / SMTP_FROM missing)"
+
+    cc = cc or []
+    bcc = bcc or []
+    if isinstance(to_addrs, str):
+        to_addrs = [to_addrs]
+
+    valid_to = [a for a in to_addrs if _is_valid_email(a)]
+    if not valid_to:
+        return False, "No valid recipient address"
+
+    msg = EmailMessage()
+    from_addr = formataddr((SMTP_FROM_NAME or "", SMTP_FROM))
+    msg["From"] = from_addr
+    msg["Reply-To"] = from_addr
+    msg["To"] = ", ".join(valid_to)
+    if cc:
+        msg["Cc"] = ", ".join(cc)
+    msg["Subject"] = subject or "(no subject)"
+    msg.set_content(body or "")
+
+    if pdf_bytes:
+        msg.add_attachment(pdf_bytes, maintype="application", subtype="pdf",
+                           filename=pdf_name)
+
+    all_rcpts = list(dict.fromkeys(valid_to + list(cc) + list(bcc)))
+
+    try:
+        if SMTP_USE_SSL or SMTP_PORT == 465:
+            ctx = ssl.create_default_context()
+            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, context=ctx, timeout=30) as s:
+                if SMTP_USER:
+                    s.login(SMTP_USER, SMTP_PASSWORD)
+                s.send_message(msg, from_addr=SMTP_FROM, to_addrs=all_rcpts)
+        else:
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30) as s:
+                s.ehlo()
+                try:
+                    s.starttls(context=ssl.create_default_context())
+                    s.ehlo()
+                except smtplib.SMTPException:
+                    pass  # server may not support STARTTLS
+                if SMTP_USER:
+                    s.login(SMTP_USER, SMTP_PASSWORD)
+                s.send_message(msg, from_addr=SMTP_FROM, to_addrs=all_rcpts)
+    except smtplib.SMTPException as e:
+        return False, f"SMTP error: {e.__class__.__name__}: {str(e)[:200]}"
+    except (OSError, ssl.SSLError) as e:
+        return False, f"Network/SSL error: {e.__class__.__name__}: {str(e)[:200]}"
+    except Exception as e:
+        return False, f"{e.__class__.__name__}: {str(e)[:200]}"
+    return True, ""
+
+
+def _render_email_template(text, ctx):
+    """Substitute {key} placeholders. Unknown vars left as-is to avoid KeyError."""
+    if not text:
+        return ""
+    out = text
+    for k, v in ctx.items():
+        out = out.replace("{" + k + "}", str(v) if v is not None else "")
+    return out
+
+
+def _build_invoice_pdf_for_email(conn, invoice_number):
+    """Generate the PDF for an invoice (auto or manual). Returns (bytes, filename)."""
+    c = conn.cursor()
+    record_row = c.execute("""
+        SELECT invoice_number, client_name, date_from, date_to, invoice_date,
+               amount, vat_amount, total, paid, paid_date,
+               COALESCE(sent,0), COALESCE(sent_date,''), COALESCE(source,'auto')
+        FROM invoice_records WHERE invoice_number = ? AND COALESCE(deleted,0)=0
+    """, (invoice_number,)).fetchone()
+    if not record_row:
+        return None, None
+    record = invoice_record_to_dict(record_row)
+    settings = get_invoice_settings(conn)
+    client_safe = re.sub(r"[^A-Za-z0-9_-]+", "_", (record["client"] or "")).strip("_")[:40]
+    fname = f"{invoice_number}-{client_safe or 'facture'}.pdf"
+    if record.get("source") == "manual":
+        draft_row = c.execute(
+            "SELECT invoice_number, client_name, client_address, invoice_date, "
+            "items_json, payment_terms FROM manual_invoice_drafts WHERE invoice_number=?",
+            (invoice_number,)
+        ).fetchone()
+        if not draft_row:
+            return None, None
+        draft = {"invoice_number": draft_row[0], "client_name": draft_row[1],
+                 "client_address": draft_row[2], "invoice_date": draft_row[3],
+                 "items_json": draft_row[4], "payment_terms": draft_row[5]}
+        buf = build_manual_invoice_pdf(draft, settings)
+    else:
+        row, _set = get_invoice_row_for_record(conn, record)
+        if not row:
+            return None, None
+        buf = build_invoice_pdf(row, settings, record["invoice_date"],
+                                 record["date_from"], record["date_to"])
+    return buf.getvalue(), fname
+
+
+def _invoice_email_context(conn, invoice_number):
+    """Build the {key} context dict for a given invoice."""
+    c = conn.cursor()
+    rec = c.execute("""
+        SELECT invoice_number, client_name, date_from, date_to, invoice_date,
+               amount, vat_amount, total
+        FROM invoice_records WHERE invoice_number = ? AND COALESCE(deleted,0)=0
+    """, (invoice_number,)).fetchone()
+    settings = get_invoice_settings(conn)
+    if not rec:
+        return {}
+    # Build a French month name for {invoice_month}
+    try:
+        d = datetime.strptime(rec[4], "%Y-%m-%d")
+        month_str = month_name(d.month, "fr") + " " + str(d.year)
+    except Exception:
+        month_str = rec[4] or ""
+    return {
+        "client_name":    rec[1] or "",
+        "invoice_number": rec[0] or "",
+        "invoice_month":  month_str,
+        "invoice_date":   format_date(rec[4] or ""),
+        "total_ttc":      f"{float(rec[7] or 0):.2f} EUR",
+        "company_name":   settings.get("company_name", "") or "",
+        "company_email":  settings.get("company_email", "") or "",
+    }
+
+
 def build_manual_invoice_pdf(draft, settings):
     """Build a ReportLab PDF for a manually created multi-line-item invoice.
 
@@ -3079,6 +3384,45 @@ def init_db():
             sort_order INTEGER DEFAULT 0
         )
     """)
+    # ── Email: templates / queue / logs ────────────────────────────────────
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS invoice_email_templates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT DEFAULT '',
+            subject TEXT DEFAULT '',
+            body TEXT DEFAULT '',
+            language TEXT DEFAULT 'fr',
+            is_default INTEGER DEFAULT 0,
+            updated_at TEXT DEFAULT ''
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS invoice_email_queue (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            invoice_number TEXT,
+            recipient TEXT,
+            cc TEXT DEFAULT '',
+            bcc TEXT DEFAULT '',
+            subject TEXT,
+            body TEXT,
+            scheduled_at TEXT DEFAULT '',
+            status TEXT DEFAULT 'draft',
+            error TEXT DEFAULT '',
+            sent_at TEXT DEFAULT '',
+            created_at TEXT DEFAULT ''
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS invoice_email_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            invoice_number TEXT,
+            recipient TEXT,
+            subject TEXT,
+            status TEXT,
+            error TEXT DEFAULT '',
+            sent_at TEXT DEFAULT ''
+        )
+    """)
 
     # Migration safety
     shift_cols = [row[1] for row in c.execute("PRAGMA table_info(shifts)").fetchall()]
@@ -3148,6 +3492,18 @@ def init_db():
 
     for worker_name, color in DEFAULT_WORKER_COLORS.items():
         c.execute("INSERT OR IGNORE INTO worker_colors (worker_name, color) VALUES (?, ?)", (worker_name, color))
+
+    # ── Seed default invoice email templates (idempotent) ──────────────────
+    _now = lux_now().strftime("%Y-%m-%d %H:%M:%S") if 'lux_now' in globals() else datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    _existing_tpls = c.execute("SELECT language FROM invoice_email_templates WHERE is_default=1").fetchall()
+    _have_langs = {r[0] for r in _existing_tpls}
+    for lang, subject, body in DEFAULT_EMAIL_TEMPLATES:
+        if lang in _have_langs:
+            continue
+        c.execute("""
+            INSERT INTO invoice_email_templates (name, subject, body, language, is_default, updated_at)
+            VALUES (?, ?, ?, ?, 1, ?)
+        """, (f"Default {lang.upper()}", subject, body, lang, _now))
 
     conn.commit()
     conn.close()
@@ -7406,6 +7762,7 @@ def invoices_view():
                 <a class="tool" href="/invoices/delete?invoice_number={{ row.invoice_number }}" onclick="return confirm({{ (tr.get('doc_delete_confirm','Obrisati fakturu?'))|tojson }});">{{ tr.get("delete","Supprimer") }}</a>
                 <a class="tool pay" href="{{ paid_url }}">{{ tr["mark_unpaid"] if record.paid else tr["mark_paid"] }}</a>
                 <a class="tool" style="background:{{ '#16a34a' if record.sent else '#ef4444' }};" href="{{ sent_url }}">{{ tr["mark_unsent"] if record.sent else tr["mark_sent"] }}</a>
+                <a class="tool" style="background:#0ea5e9;" href="/invoices/email?invoice_number={{ row.invoice_number }}">✉ {{ tr.get("send_email","Envoyer") }}</a>
                 <a class="tool" href="{{ download_url }}">{{ tr.get("download","Telecharger") }}</a>
             </div>
             <iframe class="pdf-frame" src="{{ pdf_url }}"></iframe>
@@ -8304,6 +8661,296 @@ def invoices_mark_sent():
     if next_url.startswith("/invoices"):
         return redirect(next_url)
     return redirect(request.referrer or "/invoices")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  INVOICE EMAIL — admin UI, send, schedule, scheduler endpoint
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _get_invoice_email_template(conn, lang):
+    """Return (subject, body) — preferred language, or any default, or empty."""
+    c = conn.cursor()
+    row = c.execute(
+        "SELECT subject, body FROM invoice_email_templates "
+        "WHERE language=? AND is_default=1 ORDER BY id LIMIT 1",
+        (lang or "fr",)
+    ).fetchone()
+    if row:
+        return row[0] or "", row[1] or ""
+    row = c.execute(
+        "SELECT subject, body FROM invoice_email_templates "
+        "WHERE is_default=1 ORDER BY id LIMIT 1"
+    ).fetchone()
+    return (row[0] if row else "", row[1] if row else "")
+
+
+@app.route("/invoices/email", methods=["GET"])
+def invoices_email():
+    if session.get("role") != "admin":
+        return redirect("/")
+    tr = t(); dark = get_theme() == "dark"
+    invoice_number = request.args.get("invoice_number", "").strip()
+    if not invoice_number:
+        return redirect("/invoices")
+
+    conn = get_conn(); c = conn.cursor()
+    rec = c.execute("""
+        SELECT invoice_number, client_name, date_from, date_to, invoice_date,
+               amount, vat_amount, total, COALESCE(sent,0), COALESCE(sent_date,''), COALESCE(source,'auto')
+        FROM invoice_records WHERE invoice_number=? AND COALESCE(deleted,0)=0
+    """, (invoice_number,)).fetchone()
+    if not rec:
+        conn.close()
+        flash(tr.get("invoice_not_found", "Faktura nije pronadjena."), "error")
+        return redirect("/invoices")
+
+    # Pre-fill recipient from client profile if available
+    prof = c.execute(
+        "SELECT email FROM client_invoice_profiles WHERE client_name=?",
+        (rec[1],)
+    ).fetchone()
+    recipient = (prof[0] if prof else "") or ""
+
+    lang = session.get("lang", "fr")
+    if lang not in ("fr", "en", "bos", "de", "pt"):
+        lang = "fr"
+    subject_tpl, body_tpl = _get_invoice_email_template(conn, lang)
+    ctx = _invoice_email_context(conn, invoice_number)
+    subject = _render_email_template(subject_tpl, ctx)
+    body    = _render_email_template(body_tpl, ctx)
+    conn.close()
+
+    smtp_ready = bool(SMTP_HOST and SMTP_FROM)
+    return render_template_string(BASE_STYLE + header_html() + """
+    <style>
+      .em-shell { max-width:780px; margin:24px auto; padding:0 16px; }
+      .em-card { background:{{ '#161618' if dark else 'white' }}; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; border-radius:14px; padding:22px; box-shadow:0 4px 14px rgba(0,0,0,.08); }
+      .em-card h2 { margin:0 0 4px; }
+      .em-meta { font-size:13px; color:{{ '#94a3b8' if dark else '#64748b' }}; margin-bottom:18px; }
+      .em-label { font-size:12px; font-weight:700; color:{{ '#94a3b8' if dark else '#64748b' }}; margin:14px 0 4px; display:block; }
+      .em-input, .em-area { width:100%; padding:10px 12px; border-radius:8px; border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }}; background:{{ '#0f0f10' if dark else '#fff' }}; color:{{ '#e2e8f0' if dark else '#0f172a' }}; font-size:14px; box-sizing:border-box; }
+      .em-area { min-height:200px; font-family:inherit; resize:vertical; }
+      .em-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+      .em-pdf { display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:10px; background:{{ '#1d1d1f' if dark else '#f1f5f9' }}; margin-top:10px; font-size:13px; }
+      .em-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; }
+      .em-btn { flex:1; min-width:160px; padding:12px; border-radius:10px; border:none; cursor:pointer; font-weight:700; font-size:14px; }
+      .em-btn.primary { background:#16a34a; color:white; }
+      .em-btn.draft   { background:#6b7280; color:white; }
+      .em-btn.sched   { background:#2563eb; color:white; }
+      .em-btn.test    { background:#f59e0b; color:white; }
+      .em-warn { padding:10px 14px; border-radius:8px; background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-size:13px; margin-bottom:14px; }
+      .em-vars { font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; padding:8px 12px; background:{{ '#0f0f10' if dark else '#f8fafc' }}; border-radius:8px; border:1px dashed {{ '#2c2c30' if dark else '#e2e8f0' }}; }
+    </style>
+    <div class="em-shell">
+      {% with msgs = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in msgs %}
+      <div style="padding:10px 14px;border-radius:8px;margin-bottom:12px;background:{% if cat=='error' %}#ef4444{% else %}#16a34a{% endif %};color:white;font-weight:600;">{{ msg }}</div>
+      {% endfor %}
+      {% endwith %}
+      <div class="em-card">
+        <h2>✉ {{ tr.get("send_email","Poslati fakturu emailom") }}</h2>
+        <div class="em-meta">
+          {{ tr.get("invoice_number","Numéro") }} <b>{{ rec[0] }}</b> ·
+          {{ rec[1] }} · {{ "%.2f"|format(rec[7]) }} EUR
+        </div>
+        {% if not smtp_ready %}
+        <div class="em-warn">⚠ SMTP nije konfigurisan. Postavi SMTP_HOST i SMTP_FROM u Render env vars.</div>
+        {% endif %}
+
+        <form method="post" action="/invoices/email/send">
+          <input type="hidden" name="invoice_number" value="{{ invoice_number }}">
+
+          <label class="em-label">{{ tr.get("email_to","Primalac") }} <span style="color:#ef4444;">*</span></label>
+          <input class="em-input" type="email" name="recipient" value="{{ recipient }}" required>
+
+          <div class="em-row">
+            <div>
+              <label class="em-label">CC</label>
+              <input class="em-input" type="text" name="cc" value="" placeholder="email1@x.com, email2@x.com">
+            </div>
+            <div>
+              <label class="em-label">BCC</label>
+              <input class="em-input" type="text" name="bcc" value="">
+            </div>
+          </div>
+
+          <label class="em-label">{{ tr.get("subject","Naslov") }}</label>
+          <input class="em-input" type="text" name="subject" value="{{ subject }}" required>
+
+          <label class="em-label">{{ tr.get("body","Tekst poruke") }}</label>
+          <textarea class="em-area" name="body" required>{{ body }}</textarea>
+
+          <div class="em-vars">
+            {{ tr.get("template_vars","Promjenljive") }}:
+            <code>{client_name}</code> <code>{invoice_number}</code>
+            <code>{invoice_month}</code> <code>{invoice_date}</code>
+            <code>{total_ttc}</code> <code>{company_name}</code>
+          </div>
+
+          <div class="em-pdf">📎 {{ pdf_name }} ({{ tr.get("pdf_attached","PDF prilog") }})</div>
+
+          <label class="em-label">{{ tr.get("schedule_at","Zakaži za (opcionalno)") }}</label>
+          <input class="em-input" type="datetime-local" name="scheduled_at" value="">
+
+          <div class="em-actions">
+            <button class="em-btn primary"  name="action" value="send_now">📤 {{ tr.get("send_now","Pošalji odmah") }}</button>
+            <button class="em-btn sched"    name="action" value="schedule">⏰ {{ tr.get("schedule","Zakaži") }}</button>
+            <button class="em-btn draft"    name="action" value="draft">💾 {{ tr.get("save_draft","Sačuvaj nacrt") }}</button>
+            <a class="em-btn" href="/invoices/view?invoice_number={{ invoice_number }}" style="background:#6b7280;color:white;text-decoration:none;text-align:center;line-height:24px;">{{ tr["back"] }}</a>
+          </div>
+        </form>
+
+        <form method="post" action="/invoices/email/test" style="margin-top:14px;">
+          <button class="em-btn test">🧪 {{ tr.get("test_smtp","Test SMTP (na SMTP_FROM)") }}</button>
+        </form>
+      </div>
+    </div>
+    """, tr=tr, dark=dark, rec=rec, invoice_number=invoice_number, recipient=recipient,
+         subject=subject, body=body, smtp_ready=smtp_ready,
+         pdf_name=f"{invoice_number}-facture.pdf")
+
+
+@app.route("/invoices/email/send", methods=["POST"])
+def invoices_email_send():
+    if session.get("role") != "admin":
+        return redirect("/")
+    tr = t()
+    invoice_number = request.form.get("invoice_number", "").strip()
+    action         = request.form.get("action", "draft").strip()
+    recipient      = request.form.get("recipient", "").strip()
+    cc_raw         = request.form.get("cc", "").strip()
+    bcc_raw        = request.form.get("bcc", "").strip()
+    subject        = request.form.get("subject", "").strip()
+    body           = request.form.get("body", "").strip()
+    scheduled_at   = request.form.get("scheduled_at", "").strip()
+
+    if not invoice_number:
+        return redirect("/invoices")
+
+    if not _is_valid_email(recipient):
+        flash(tr.get("invalid_email", "Neispravna email adresa."), "error")
+        return redirect(f"/invoices/email?invoice_number={urllib.parse.quote(invoice_number)}")
+
+    cc_list  = _split_email_list(cc_raw)
+    bcc_list = _split_email_list(bcc_raw)
+    now_str  = lux_now().strftime("%Y-%m-%d %H:%M:%S")
+
+    conn = get_conn(); c = conn.cursor()
+
+    if action == "send_now":
+        pdf_bytes, pdf_name = _build_invoice_pdf_for_email(conn, invoice_number)
+        if not pdf_bytes:
+            conn.close()
+            flash(tr.get("invoice_not_found", "Faktura nije pronadjena."), "error")
+            return redirect(f"/invoices/email?invoice_number={urllib.parse.quote(invoice_number)}")
+        ok, err = _smtp_send(recipient, subject, body, pdf_bytes, pdf_name,
+                             cc=cc_list, bcc=bcc_list)
+        c.execute("""
+            INSERT INTO invoice_email_logs
+                (invoice_number, recipient, subject, status, error, sent_at)
+            VALUES (?,?,?,?,?,?)
+        """, (invoice_number, recipient, subject,
+              "sent" if ok else "failed", err if not ok else "", now_str))
+        if ok:
+            c.execute(
+                "UPDATE invoice_records SET sent=1, sent_date=? WHERE invoice_number=?",
+                (lux_now().strftime("%Y-%m-%d"), invoice_number)
+            )
+        conn.commit(); conn.close()
+        if ok:
+            flash(tr.get("email_sent_ok", "Email poslat."), "ok")
+            return redirect(f"/invoices/view?invoice_number={urllib.parse.quote(invoice_number)}")
+        flash(tr.get("email_send_failed", "Slanje nije uspjelo") + ": " + (err or "?"), "error")
+        return redirect(f"/invoices/email?invoice_number={urllib.parse.quote(invoice_number)}")
+
+    # schedule or draft → insert queue row
+    status = "scheduled" if action == "schedule" and scheduled_at else "draft"
+    sched_db = scheduled_at.replace("T", " ") if scheduled_at else ""
+    c.execute("""
+        INSERT INTO invoice_email_queue
+            (invoice_number, recipient, cc, bcc, subject, body,
+             scheduled_at, status, created_at)
+        VALUES (?,?,?,?,?,?,?,?,?)
+    """, (invoice_number, recipient, ",".join(cc_list), ",".join(bcc_list),
+          subject, body, sched_db, status, now_str))
+    conn.commit(); conn.close()
+    if status == "scheduled":
+        flash(tr.get("email_scheduled", "Email je zakazan."), "ok")
+    else:
+        flash(tr.get("email_drafted", "Nacrt je sačuvan."), "ok")
+    return redirect(f"/invoices/view?invoice_number={urllib.parse.quote(invoice_number)}")
+
+
+@app.route("/invoices/email/test", methods=["POST"])
+def invoices_email_test():
+    if session.get("role") != "admin":
+        return redirect("/")
+    tr = t()
+    if not (SMTP_HOST and SMTP_FROM):
+        flash("SMTP not configured.", "error")
+        return redirect("/invoices")
+    ok, err = _smtp_send(
+        SMTP_FROM,
+        "Luxmann SMTP test",
+        "This is a test email from your Luxmann Planner instance. SMTP works.",
+    )
+    if ok:
+        flash(tr.get("email_test_ok", f"Test email poslat na {SMTP_FROM}"), "ok")
+    else:
+        flash(tr.get("email_test_fail", "Test SMTP nije uspio") + ": " + (err or "?"), "error")
+    return redirect(request.referrer or "/invoices")
+
+
+@app.route("/tasks/send_scheduled_emails", methods=["GET", "POST"])
+def task_send_scheduled_emails():
+    """Cron-protected endpoint — sends queued emails whose scheduled_at <= now.
+    Call from cron-job.org / Render Cron every 5 minutes:
+        /tasks/send_scheduled_emails?secret=<EMAIL_SCHEDULER_SECRET>"""
+    secret = request.args.get("secret", "") or request.form.get("secret", "")
+    if not EMAIL_SCHEDULER_SECRET or secret != EMAIL_SCHEDULER_SECRET:
+        return ("forbidden", 403)
+
+    now_str = lux_now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = get_conn(); c = conn.cursor()
+    rows = c.execute("""
+        SELECT id, invoice_number, recipient, cc, bcc, subject, body
+        FROM invoice_email_queue
+        WHERE status='scheduled' AND scheduled_at != '' AND scheduled_at <= ?
+        ORDER BY scheduled_at LIMIT 50
+    """, (now_str,)).fetchall()
+
+    processed = 0; ok_count = 0; fail_count = 0
+    for row in rows:
+        qid, inv_num, rcpt, cc_s, bcc_s, subj, bdy = row
+        cc_list  = [x for x in (cc_s  or "").split(",") if x]
+        bcc_list = [x for x in (bcc_s or "").split(",") if x]
+        pdf_bytes, pdf_name = _build_invoice_pdf_for_email(conn, inv_num)
+        if not pdf_bytes:
+            c.execute("UPDATE invoice_email_queue SET status='failed', error=?, sent_at=? WHERE id=?",
+                      ("invoice not found", now_str, qid))
+            fail_count += 1
+            processed += 1
+            continue
+        ok, err = _smtp_send(rcpt, subj, bdy, pdf_bytes, pdf_name,
+                             cc=cc_list, bcc=bcc_list)
+        c.execute("""
+            UPDATE invoice_email_queue SET status=?, error=?, sent_at=? WHERE id=?
+        """, ("sent" if ok else "failed", err if not ok else "", now_str, qid))
+        c.execute("""
+            INSERT INTO invoice_email_logs
+                (invoice_number, recipient, subject, status, error, sent_at)
+            VALUES (?,?,?,?,?,?)
+        """, (inv_num, rcpt, subj, "sent" if ok else "failed",
+              err if not ok else "", now_str))
+        if ok:
+            c.execute("UPDATE invoice_records SET sent=1, sent_date=? WHERE invoice_number=?",
+                      (lux_now().strftime("%Y-%m-%d"), inv_num))
+            ok_count += 1
+        else:
+            fail_count += 1
+        processed += 1
+    conn.commit(); conn.close()
+    return {"ok": True, "processed": processed, "sent": ok_count, "failed": fail_count}
 
 
 @app.route("/invoices/download")
