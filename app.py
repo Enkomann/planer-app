@@ -1338,6 +1338,8 @@ INVOICE_TRANSLATIONS = {
     "delete_selected_confirm": "Obrisati {n} odabranih faktura?",
     "bulk_action_done": "Akcija izvrsena",
     "bulk_no_selection": "Niste odabrali ni jednu fakturu.",
+    "pagination_previous": "Prethodna",
+    "pagination_next": "Sljedeca",
     "send_email": "Posalji emailom",
     "email_to": "Primalac",
     "subject": "Naslov",
@@ -1404,6 +1406,8 @@ INVOICE_TRANSLATIONS["en"] = {
     "delete_selected_confirm": "Delete {n} selected invoices?",
     "bulk_action_done": "Action completed",
     "bulk_no_selection": "No invoices selected.",
+    "pagination_previous": "Previous",
+    "pagination_next": "Next",
     "send_email": "Send by email",
     "email_to": "Recipient",
     "subject": "Subject",
@@ -1469,6 +1473,8 @@ INVOICE_TRANSLATIONS["fr"] = {
     "delete_selected_confirm": "Supprimer {n} factures selectionnees ?",
     "bulk_action_done": "Action terminee",
     "bulk_no_selection": "Aucune facture selectionnee.",
+    "pagination_previous": "Précédent",
+    "pagination_next": "Suivant",
     "send_email": "Envoyer par email",
     "email_to": "Destinataire",
     "subject": "Objet",
@@ -1534,6 +1540,8 @@ INVOICE_TRANSLATIONS["de"] = {
     "delete_selected_confirm": "{n} ausgewaehlte Rechnungen loeschen?",
     "bulk_action_done": "Aktion ausgefuehrt",
     "bulk_no_selection": "Keine Rechnung ausgewaehlt.",
+    "pagination_previous": "Zurueck",
+    "pagination_next": "Weiter",
     "send_email": "Per E-Mail senden",
     "email_to": "Empfaenger",
     "subject": "Betreff",
@@ -1599,6 +1607,8 @@ INVOICE_TRANSLATIONS["pt"] = {
     "delete_selected_confirm": "Eliminar {n} faturas selecionadas?",
     "bulk_action_done": "Acao concluida",
     "bulk_no_selection": "Nenhuma fatura selecionada.",
+    "pagination_previous": "Anterior",
+    "pagination_next": "Seguinte",
     "send_email": "Enviar por email",
     "email_to": "Destinatario",
     "subject": "Assunto",
@@ -7331,11 +7341,49 @@ def invoices():
     rows = fetch_invoice_records_for_work_period(conn, date_from, date_to, invoice_date)
     conn.close()
     profiles_json = json.dumps(profiles)
+    # Stats are based on the FULL filtered set (not just current page)
     paid_rows = [r for r in rows if r.get("paid")]
     unpaid_rows = [r for r in rows if not r.get("paid")]
     total_paid = sum(r["total"] for r in paid_rows)
     total_unpaid = sum(r["total"] for r in unpaid_rows)
     total_all = sum(r["total"] for r in rows)
+
+    # ── Pagination ─────────────────────────────────────────────────────
+    PER_PAGE = 30
+    total_records = len(rows)
+    total_pages = max(1, (total_records + PER_PAGE - 1) // PER_PAGE)
+    try:
+        current_page = int(request.args.get("page", "1") or "1")
+    except (TypeError, ValueError):
+        current_page = 1
+    if current_page < 1: current_page = 1
+    if current_page > total_pages: current_page = total_pages
+    start = (current_page - 1) * PER_PAGE
+    page_records = rows[start:start + PER_PAGE]
+
+    # Build a "smart ellipsis" list of page numbers to render
+    # Always include 1, last 1-2, current ± 2; insert None where there's a gap.
+    def _build_pages(cur, total):
+        if total <= 1: return [1]
+        keep = set([1, total])
+        if total >= 2: keep.add(total - 1)
+        for p in range(cur - 2, cur + 3):
+            if 1 <= p <= total: keep.add(p)
+        out = []
+        prev = 0
+        for p in sorted(keep):
+            if prev and p - prev > 1:
+                out.append(None)   # ellipsis marker
+            out.append(p); prev = p
+        return out
+    pages_to_show = _build_pages(current_page, total_pages)
+
+    # Preserve current query params on each page link (drop only 'page')
+    _qs_args = {k: v for k, v in request.args.items() if k != "page"}
+    def _page_link(p):
+        a = dict(_qs_args); a["page"] = str(p)
+        return "/invoices?" + urllib.parse.urlencode(a) + "#invoice-list"
+    page_link = _page_link
     return render_template_string(BASE_STYLE + header_html() + """
     <style>
         .invoice-shell { background:{{ '#161618' if dark else '#ffffff' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }}; border-radius:10px; padding:0 0 22px 0; overflow:hidden; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; }
@@ -7446,7 +7494,7 @@ def invoices():
                     <th style="width:36px;"><input type="checkbox" id="bulkSelectAll" style="width:auto;cursor:pointer;" title="{{ tr.get('select_all','Select all') }}"></th>
                     <th>{{ tr["client_name"] }}</th><th>Document</th><th>{{ tr["invoice_number"] }}</th><th>{{ tr["invoice_date"] }}</th><th>{{ tr["payment_status"] }}</th><th>{{ tr["sent_status"] }}</th><th>{{ tr["amount_with_vat"] }}</th><th>{{ tr.get("edit","Uredi") }}</th><th>PDF</th><th></th>
                 </tr>
-                {% for row in rows %}
+                {% for row in page_records %}
                 <tr class="invoice-row" data-paid="{{ 1 if row.paid else 0 }}" data-total="{{ row.total }}" data-search="{{ (row.client ~ ' ' ~ row.invoice_number)|lower }}">
                     <td><input type="checkbox" class="invoice-select" value="{{ row.invoice_number }}" style="width:auto;cursor:pointer;"></td>
                     <td>
@@ -7486,6 +7534,25 @@ def invoices():
             </table>
             </div>
             {% if rows|length == 0 %}<div class="muted">{{ tr.get("inv_gen_empty", "Nema faktura za odabrani period.") }}</div>{% endif %}
+
+            {% if total_pages > 1 %}
+            <nav class="pagination" aria-label="Pagination" style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;margin:22px 0 8px;">
+              <span style="margin-right:10px;font-size:12px;color:{{ '#94a3b8' if dark else '#64748b' }};">{{ start + 1 }}–{{ start + page_records|length }} / {{ total_records }}</span>
+              {% set _prev_dis = (current_page == 1) %}
+              <a href="{{ page_link(current_page - 1) if not _prev_dis else '#' }}" aria-disabled="{{ _prev_dis|lower }}" style="padding:7px 12px;border-radius:8px;font-weight:700;font-size:13px;text-decoration:none;border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};background:{{ '#1d1d1f' if dark else '#ffffff' }};color:{% if _prev_dis %}{{ '#475569' if dark else '#94a3b8' }}{% else %}{{ '#e2e8f0' if dark else '#1e293b' }}{% endif %};pointer-events:{% if _prev_dis %}none{% else %}auto{% endif %};">← {{ tr.get("pagination_previous","Précédent") }}</a>
+              {% for p in pages_to_show %}
+                {% if p is none %}
+                  <span style="padding:7px 4px;color:{{ '#94a3b8' if dark else '#64748b' }};font-weight:700;">…</span>
+                {% elif p == current_page %}
+                  <span style="padding:7px 12px;border-radius:8px;font-weight:800;font-size:13px;background:{{ '#2c2c30' if dark else '#1f4f82' }};color:white;">{{ p }}</span>
+                {% else %}
+                  <a href="{{ page_link(p) }}" style="padding:7px 12px;border-radius:8px;font-weight:700;font-size:13px;text-decoration:none;border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};background:{{ '#1d1d1f' if dark else '#ffffff' }};color:{{ '#e2e8f0' if dark else '#1e293b' }};">{{ p }}</a>
+                {% endif %}
+              {% endfor %}
+              {% set _next_dis = (current_page == total_pages) %}
+              <a href="{{ page_link(current_page + 1) if not _next_dis else '#' }}" aria-disabled="{{ _next_dis|lower }}" style="padding:7px 12px;border-radius:8px;font-weight:700;font-size:13px;text-decoration:none;border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};background:{{ '#1d1d1f' if dark else '#ffffff' }};color:{% if _next_dis %}{{ '#475569' if dark else '#94a3b8' }}{% else %}{{ '#e2e8f0' if dark else '#1e293b' }}{% endif %};pointer-events:{% if _next_dis %}none{% else %}auto{% endif %};">{{ tr.get("pagination_next","Suivant") }} →</a>
+            </nav>
+            {% endif %}
 
             <div class="invoice-totals">
                 <div class="invoice-total-card"><div class="muted">{{ tr["paid"] }}</div><div class="paid-text">{{ "%.2f"|format(total_paid) }} EUR</div></div>
@@ -7668,7 +7735,13 @@ def invoices():
         });
     });
     </script>
-    """, tr=tr, dark=dark, settings=settings, profiles=profiles, profiles_json=profiles_json, rows=rows, paid_rows=paid_rows, unpaid_rows=unpaid_rows, total_paid=total_paid, total_unpaid=total_unpaid, total_all=total_all, format_date=format_date, date_from=date_from, date_to=date_to, invoice_date=invoice_date)
+    """, tr=tr, dark=dark, settings=settings, profiles=profiles, profiles_json=profiles_json,
+         rows=rows, page_records=page_records,
+         current_page=current_page, total_pages=total_pages, total_records=total_records,
+         start=start, pages_to_show=pages_to_show, page_link=page_link,
+         paid_rows=paid_rows, unpaid_rows=unpaid_rows, total_paid=total_paid,
+         total_unpaid=total_unpaid, total_all=total_all, format_date=format_date,
+         date_from=date_from, date_to=date_to, invoice_date=invoice_date)
 
 
 def _generate_invoices(conn, date_from, date_to, invoice_date):
