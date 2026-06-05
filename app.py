@@ -8914,7 +8914,6 @@ def invoices_manual():
 .mi-number-box { background:{{ '#0f0f10' if dark else '#f1f5f9' }}; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; border-radius:8px; padding:10px 14px;
                  font-size:22px; font-weight:800; color:{{ '#ffd429' if dark else '#b45309' }}; margin-bottom:6px; }
 @media (max-width:760px){
-  .mi-body { grid-template-columns:1fr; }
   .mi-row { grid-template-columns:1fr 110px 80px 36px; }
 }
 
@@ -9055,9 +9054,8 @@ def invoices_manual():
         </div>
 
       </div><!-- /mi-main -->
-    </form><!-- /miForm — closed before sidebar to avoid nested forms -->
+    </form><!-- /miForm — primary save buttons live inside this form -->
 
-      <!-- RIGHT: sidebar — template forms are standalone; primary save buttons are inside miForm above -->
       <!-- Right sidebar removed — saved items live in the modal popup now -->
   </div><!-- /mi-body -->
 </div>
