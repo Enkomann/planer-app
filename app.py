@@ -2860,7 +2860,7 @@ def build_invoice_pdf(row, settings, invoice_date, date_from, date_to, document_
     accent = template_colors.get(settings.get("invoice_template", "orange"), "#ff7a2f")
     normal = styles["Normal"]
     header = Table([[Paragraph(f"<b>{settings['company_name']}</b>", styles["Title"]), Paragraph(f"<b>{document_title}</b>", styles["Title"])]], colWidths=[12.5*cm, 5*cm])
-    header.setStyle(TableStyle([("BACKGROUND", (0,0), (-1,-1), colors.HexColor(accent)), ("TEXTCOLOR", (0,0), (-1,-1), colors.white), ("ALIGN", (1,0), (1,0), "RIGHT"), ("VALIGN", (0,0), (-1,-1), "MIDDLE"), ("LEFTPADDING", (0,0), (-1,-1), 8), ("RIGHTPADDING", (0,0), (-1,-1), 8)]))
+    header.setStyle(TableStyle([("BACKGROUND", (0,0), (-1,-1), colors.HexColor(accent)), ("TEXTCOLOR", (0,0), (-1,-1), colors.white), ("ALIGN", (0,0), (0,0), "RIGHT"), ("ALIGN", (1,0), (1,0), "RIGHT"), ("VALIGN", (0,0), (-1,-1), "MIDDLE"), ("LEFTPADDING", (0,0), (-1,-1), 8), ("RIGHTPADDING", (0,0), (-1,-1), 8)]))
     elements = [header, Spacer(1, 18)]
 
     company_lines = [settings.get("company_address", "").replace("\n", "<br/>")]
@@ -2915,7 +2915,7 @@ def build_quote_pdf(data, settings):
     normal = styles["Normal"]
     document_title = data.get("document_title") or "DEVIS"
     header = Table([[Paragraph(f"<b>{settings['company_name']}</b>", styles["Title"]), Paragraph(f"<b>{document_title}</b>", styles["Title"])]], colWidths=[12.5*cm, 5*cm])
-    header.setStyle(TableStyle([("BACKGROUND", (0,0), (-1,-1), colors.HexColor(accent)), ("TEXTCOLOR", (0,0), (-1,-1), colors.white), ("ALIGN", (1,0), (1,0), "RIGHT"), ("LEFTPADDING", (0,0), (-1,-1), 8), ("RIGHTPADDING", (0,0), (-1,-1), 8)]))
+    header.setStyle(TableStyle([("BACKGROUND", (0,0), (-1,-1), colors.HexColor(accent)), ("TEXTCOLOR", (0,0), (-1,-1), colors.white), ("ALIGN", (0,0), (0,0), "RIGHT"), ("ALIGN", (1,0), (1,0), "RIGHT"), ("LEFTPADDING", (0,0), (-1,-1), 8), ("RIGHTPADDING", (0,0), (-1,-1), 8)]))
     company_lines = [settings.get("company_address", "").replace("\n", "<br/>")]
     if settings.get("company_phone"):
         company_lines.append(f"Tel: {settings['company_phone']}")
@@ -3239,6 +3239,9 @@ def build_manual_invoice_pdf(draft, settings):
     header.setStyle(TableStyle([
         ("BACKGROUND", (0,0), (-1,-1), colors.HexColor(accent)),
         ("TEXTCOLOR",  (0,0), (-1,-1), colors.white),
+        # Both cells right-aligned: company name sits flush right in its
+        # column (closer to the colored bar's right edge), FACTURE on far right.
+        ("ALIGN",      (0,0), (0,0),   "RIGHT"),
         ("ALIGN",      (1,0), (1,0),   "RIGHT"),
         ("VALIGN",     (0,0), (-1,-1), "MIDDLE"),
         ("LEFTPADDING",  (0,0), (-1,-1), 8),
@@ -8180,7 +8183,7 @@ def invoices_view():
             font-family:'Helvetica Neue', Arial, sans-serif;
             font-size:13px; line-height:1.55;
         }
-        .ip-header { background:{{ view_ctx.accent }}; color:#ffffff; padding:18px 24px; border-radius:4px; display:flex; align-items:center; justify-content:space-between; }
+        .ip-header { background:{{ view_ctx.accent }}; color:#ffffff; padding:18px 24px; border-radius:4px; display:flex; align-items:center; justify-content:flex-end; gap:48px; }
         .ip-brand { font-size:22px; font-weight:800; }
         .ip-doc-type { font-size:22px; font-weight:800; }
         .ip-co-row { display:flex; gap:24px; align-items:flex-start; margin:24px 0 30px; }
