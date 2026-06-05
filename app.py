@@ -3340,8 +3340,8 @@ def build_manual_invoice_pdf(draft, settings):
         ("VALIGN",      (0, 0),         (-1, -1),         "TOP"),
         # Merge left cell across the two Total HT / TVA rows
         ("SPAN",        (0, n_thtt),    (0, n_tvat)),
-        # Highlight the TOTAL TTC row (BOTH label and amount cells)
-        ("BACKGROUND",  (0, n_total),   (-1, n_total),    colors.whitesmoke),
+        # Match the auto invoice model: only the final amount cell is shaded.
+        ("BACKGROUND",  (1, n_total),   (1, n_total),     colors.whitesmoke),
     ]
     # Single-item case (auto-converted or one-line manual): keep the body row
     # at the same 4.2cm minimum height as the auto invoice so the layout
@@ -8203,9 +8203,9 @@ def invoices_view():
         .ip-totals td { padding:8px 14px; }
         .ip-total-label { text-align:right; color:#374151; }
         .ip-total-amount { text-align:right; font-weight:600; min-width:140px; }
-        .ip-total-ttc td { background:#f3f4f6; font-weight:800; font-size:16px; padding:14px; }
-        .ip-total-ttc .ip-total-label { color:#111827; }
-        .ip-total-ttc .ip-total-amount { color:#111827; }
+        .ip-total-ttc td { font-weight:800; font-size:16px; padding:14px; }
+        .ip-total-ttc .ip-total-label { color:#111827; background:#ffffff; }
+        .ip-total-ttc .ip-total-amount { color:#111827; background:#f3f4f6; }
 
         .ip-pay { margin-top:36px; padding-top:18px; border-top:1px solid #e5e7eb; }
         .ip-pay b { display:block; margin-bottom:6px; color:#111827; }
