@@ -2797,28 +2797,23 @@ def _invoice_view_context(conn, record):
             items = json.loads(items_json or "[]")
         except Exception:
             items = []
-        # Match build_manual_invoice_pdf: concatenate all item designations
-        # into ONE designation block (with line breaks), show ONE total HT row.
+        # Match the new build_manual_invoice_pdf: ONE ROW PER ITEM with its
+        # own amount. Auto-converted invoices still produce a single row.
         rates_seen = set()
-        designation_lines = []
         for it in items:
             amt = float(it.get("amount") or 0)
             vr_pct = float(it.get("vat_rate") or 0)
             vat = amt * vr_pct / 100.0
             rates_seen.add(round(vr_pct, 2))
-            desig = (it.get("designation") or "").strip()
-            if desig:
-                designation_lines.append(desig)
+            ctx["items"].append({
+                "designation": (it.get("designation") or "").strip() or "-",
+                "amount":      amt,
+                "vat_pct":     vr_pct,
+                "ttc":         amt + vat,
+            })
             ctx["total_ht"]  += amt
             ctx["total_vat"] += vat
         ctx["total_ttc"] = ctx["total_ht"] + ctx["total_vat"]
-        # Single row matches the PDF layout (DÉSIGNATION | MONTANT, one line).
-        ctx["items"].append({
-            "designation": "\n".join(designation_lines) or "-",
-            "amount":      ctx["total_ht"],
-            "vat_pct":     next(iter(rates_seen)) if len(rates_seen) == 1 else 0,
-            "ttc":         ctx["total_ttc"],
-        })
         if len(rates_seen) == 1:
             ctx["vat_label"] = f"TVA {next(iter(rates_seen)):.1f}%"
         else:
@@ -3289,48 +3284,60 @@ def build_manual_invoice_pdf(draft, settings):
     except Exception:
         items = []
 
-    # Build a single multi-line designation block (like auto invoice).
-    # All line items are concatenated with <br/> as one designation cell.
-    designation_lines = []
+    # ── ONE ROW PER ITEM (correct layout for multi-item manual invoices)
+    # Each item keeps its own designation + its own amount; totals are summed
+    # at the bottom. Auto-converted invoices with a single multi-line item
+    # still render as a single row — same visual result as before.
+    table_data = [
+        [Paragraph("<b>DÉSIGNATION</b>", normal),
+         Paragraph("<b>MONTANT</b>",     normal)],
+    ]
     total_ht = 0.0
     total_vat = 0.0
     vat_rates_seen = set()
     for item in items:
         amt = float(item.get("amount") or 0)
-        vr  = float(item.get("vat_rate") or 0) / 100.0
+        vr_pct = float(item.get("vat_rate") or 0)
+        vr = vr_pct / 100.0
         total_ht  += amt
         total_vat += amt * vr
-        vat_rates_seen.add(round(vr * 100, 2))
-        desig = (item.get("designation") or "").replace("\n", "<br/>")
-        if desig:
-            designation_lines.append(desig)
+        vat_rates_seen.add(round(vr_pct, 2))
+        desig_html = (item.get("designation") or "").replace("\n", "<br/>") or "-"
+        table_data.append([
+            Paragraph(desig_html, normal),
+            Paragraph(f"{amt:.2f}", normal),
+        ])
+    if not items:   # safety: never produce an item-less table
+        table_data.append([Paragraph("-", normal), Paragraph("0.00", normal)])
     total_ttc = total_ht + total_vat
-
-    # If all items share the same VAT rate, show "TVA 17.0%" (like auto).
-    # If mixed VATs (rare), drop the percentage suffix.
     if len(vat_rates_seen) == 1:
         vat_label = f"TVA {next(iter(vat_rates_seen)):.1f}%"
     else:
         vat_label = "TVA"
 
-    invoice_table = Table([
-        [Paragraph("<b>DÉSIGNATION</b>", normal),
-         Paragraph("<b>MONTANT</b>",     normal)],
-        [Paragraph("<br/>".join(designation_lines) or "-", normal),
-         Paragraph(f"{total_ht:.2f}", normal)],
+    n_header   = 1
+    n_items    = max(1, len(items))
+    n_body_end = n_header + n_items - 1     # last item row index
+    n_thtt     = n_body_end + 1
+    n_tvat     = n_body_end + 2
+    n_total    = n_body_end + 3
+
+    table_data += [
         ["", Paragraph(f"Total HT&nbsp;&nbsp;&nbsp; {total_ht:.2f}", normal)],
         ["", Paragraph(f"{vat_label}&nbsp;&nbsp;&nbsp; {total_vat:.2f}", normal)],
         [Paragraph("<b>TOTAL TTC</b>", styles["Heading2"]),
          Paragraph(f"<b>{total_ttc:.2f} €</b>", styles["Heading2"])],
-    ], colWidths=[12.8*cm, 4.7*cm])
+    ]
+    invoice_table = Table(table_data, colWidths=[12.8*cm, 4.7*cm])
     invoice_table.setStyle(TableStyle([
-        ("GRID",        (0,0), (-1,-1), 0.5, colors.grey),
-        ("BACKGROUND",  (0,0), (-1,0),  colors.whitesmoke),
-        ("ALIGN",       (1,1), (1,-1),  "RIGHT"),
-        ("VALIGN",      (0,0), (-1,-1), "TOP"),
-        ("SPAN",        (0,2), (0,3)),                # merge left cell over Total HT + TVA rows
-        ("BACKGROUND",  (1,4), (1,4),   colors.whitesmoke),
-        ("MINROWHEIGHT",(0,1), (-1,1),  4.2*cm),
+        ("GRID",        (0, 0),         (-1, -1),         0.5, colors.grey),
+        ("BACKGROUND",  (0, 0),         (-1, 0),          colors.whitesmoke),
+        ("ALIGN",       (1, 1),         (1, -1),          "RIGHT"),
+        ("VALIGN",      (0, 0),         (-1, -1),         "TOP"),
+        # Merge left cell across the two Total HT / TVA rows
+        ("SPAN",        (0, n_thtt),    (0, n_tvat)),
+        # Highlight the TOTAL TTC amount cell
+        ("BACKGROUND",  (1, n_total),   (1, n_total),     colors.whitesmoke),
     ]))
     items_tbl = invoice_table
     elements += [items_tbl, Spacer(1, 90)]
