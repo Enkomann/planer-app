@@ -2797,21 +2797,28 @@ def _invoice_view_context(conn, record):
             items = json.loads(items_json or "[]")
         except Exception:
             items = []
+        # Match build_manual_invoice_pdf: concatenate all item designations
+        # into ONE designation block (with line breaks), show ONE total HT row.
         rates_seen = set()
+        designation_lines = []
         for it in items:
             amt = float(it.get("amount") or 0)
             vr_pct = float(it.get("vat_rate") or 0)
             vat = amt * vr_pct / 100.0
             rates_seen.add(round(vr_pct, 2))
-            ctx["items"].append({
-                "designation": (it.get("designation") or "").strip(),
-                "amount":      amt,
-                "vat_pct":     vr_pct,
-                "ttc":         amt + vat,
-            })
+            desig = (it.get("designation") or "").strip()
+            if desig:
+                designation_lines.append(desig)
             ctx["total_ht"]  += amt
             ctx["total_vat"] += vat
         ctx["total_ttc"] = ctx["total_ht"] + ctx["total_vat"]
+        # Single row matches the PDF layout (DÉSIGNATION | MONTANT, one line).
+        ctx["items"].append({
+            "designation": "\n".join(designation_lines) or "-",
+            "amount":      ctx["total_ht"],
+            "vat_pct":     next(iter(rates_seen)) if len(rates_seen) == 1 else 0,
+            "ttc":         ctx["total_ttc"],
+        })
         if len(rates_seen) == 1:
             ctx["vat_label"] = f"TVA {next(iter(rates_seen)):.1f}%"
         else:
@@ -8186,17 +8193,16 @@ def invoices_view():
         .ip-pay b { display:block; margin-bottom:6px; color:#111827; }
         .ip-pay-body { color:#374151; font-size:12.5px; line-height:1.7; }
 
-        .ip-status-stamp {
-            position:absolute; right:54px; top:130px;
-            font-size:42px; font-weight:900;
-            letter-spacing:0.08em;
-            transform:rotate(-12deg); opacity:0.65;
-            border:5px solid currentColor; padding:6px 18px;
-            border-radius:8px;
-            pointer-events:none;
+        /* Status pill in the toolbar (replaces the old overlay stamp
+           which used to land on top of the company logo). */
+        .ip-status-pill {
+            display:inline-flex; align-items:center; gap:6px;
+            margin-left:auto; padding:8px 14px; border-radius:999px;
+            font-weight:800; font-size:13px; letter-spacing:0.04em;
+            text-transform:uppercase;
         }
-        .ip-status-stamp.paid   { color:#16a34a; }
-        .ip-status-stamp.unpaid { color:#dc2626; }
+        .ip-status-pill.paid   { background:#dcfce7; color:#15803d; border:1px solid #86efac; }
+        .ip-status-pill.unpaid { background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; }
 
         .ip-download-cta {
             display:block; max-width:920px; margin:18px auto 0;
@@ -8241,15 +8247,14 @@ def invoices_view():
                 <a class="tool send-toggle" href="{{ sent_url }}">{{ tr["mark_unsent"] if record.sent else tr["mark_sent"] }}</a>
                 <a class="tool email-btn" href="/invoices/email?invoice_number={{ row.invoice_number }}">✉ {{ tr.get("send_email","Envoyer") }}</a>
                 <a class="tool dl" href="{{ download_url }}">⬇ {{ tr.get("download","Telecharger") }}</a>
+                <span class="ip-status-pill {{ 'paid' if record.paid else 'unpaid' }}">
+                  {% if record.paid %}● {{ tr["paid"] }}{% else %}○ {{ tr["unpaid"] }}{% endif %}
+                </span>
             </div>
 
             <div class="invoice-stage">
               {% if view_ctx %}
-              <article class="invoice-paper" style="position:relative;">
-                {% if record.paid %}
-                <div class="ip-status-stamp paid">PAID</div>
-                {% endif %}
-
+              <article class="invoice-paper">
                 <header class="ip-header">
                   <div class="ip-brand">{{ view_ctx.company_name }}</div>
                   <div class="ip-doc-type">FACTURE</div>
