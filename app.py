@@ -723,6 +723,30 @@ MODULE_TRANSLATIONS = {
         "mi_reserve_error": "Nije moguce rezervisati broj fakture. Pokusajte ponovo.",
         "mi_vat_col": "TVA (%)",
         "mi_vat_short": "TVA",
+        "mi_add_vat_label": "Ajouter taxe...",
+        "mi_add_vat_prompt": "Saisir le nouveau taux de TVA (%)",
+        "mi_invalid_vat": "Taux de TVA invalide.",
+        "mi_modal_title": "Ajouter des articles sauvegardés",
+        "mi_modal_search": "Rechercher par désignation ou montant",
+        "mi_modal_recent": "Éléments récents",
+        "mi_modal_archived": "Éléments archivés",
+        "mi_modal_net": "Net à payer",
+        "mi_modal_archives": "Archives",
+        "mi_modal_no_items": "Aucun article correspondant.",
+        "mi_modal_archive": "Archiver",
+        "mi_modal_unarchive": "Restaurer",
+        "mi_add_vat_label": "Dodaj taksu...",
+        "mi_add_vat_prompt": "Unesite novu stopu TVA (%)",
+        "mi_invalid_vat": "Neispravna stopa TVA.",
+        "mi_modal_title": "Dodaj sačuvane stavke",
+        "mi_modal_search": "Pretrazi po nazivu ili iznosu",
+        "mi_modal_recent": "Skorasnje stavke",
+        "mi_modal_archived": "Arhivirane stavke",
+        "mi_modal_net": "Iznos",
+        "mi_modal_archives": "Arhiva",
+        "mi_modal_no_items": "Nema sacuvanih stavki.",
+        "mi_modal_archive": "Arhiviraj",
+        "mi_modal_unarchive": "Vrati",
         "mi_actions": "Akcije",
         "payroll_note_franchise_abbr": "franšiza",
         "payroll_note_tax_line": "Porez: progresivni razredi ACD + impôt de solidarité (7% kl.1/1a · 9% kl.2). Odbitna stavka: maladie + pension + forfait frais d'obtention 45 €/mj.",
@@ -821,6 +845,18 @@ MODULE_TRANSLATIONS = {
         "mi_reserve_error": "Could not reserve invoice number. Please try again.",
         "mi_vat_col": "VAT (%)",
         "mi_vat_short": "VAT",
+        "mi_add_vat_label": "Add tax...",
+        "mi_add_vat_prompt": "Enter the new VAT rate (%)",
+        "mi_invalid_vat": "Invalid VAT rate.",
+        "mi_modal_title": "Add saved items",
+        "mi_modal_search": "Search by description or amount",
+        "mi_modal_recent": "Recent items",
+        "mi_modal_archived": "Archived items",
+        "mi_modal_net": "Net amount",
+        "mi_modal_archives": "Archive",
+        "mi_modal_no_items": "No saved items.",
+        "mi_modal_archive": "Archive",
+        "mi_modal_unarchive": "Restore",
         "mi_actions": "Actions",
         "payroll_note_franchise_abbr": "franchise",
         "payroll_note_tax_line": "Tax: progressive ACD brackets + impôt de solidarité (7% class 1/1a · 9% class 2). Deductible: maladie + pension + forfait frais d'obtention 45 €/mo.",
@@ -1017,6 +1053,18 @@ MODULE_TRANSLATIONS = {
         "mi_reserve_error": "Rechnungsnummer konnte nicht reserviert werden. Bitte erneut versuchen.",
         "mi_vat_col": "MwSt (%)",
         "mi_vat_short": "MwSt",
+        "mi_add_vat_label": "Steuersatz hinzufuegen...",
+        "mi_add_vat_prompt": "Neuen MwSt-Satz eingeben (%)",
+        "mi_invalid_vat": "Ungueltiger MwSt-Satz.",
+        "mi_modal_title": "Gespeicherte Positionen hinzufuegen",
+        "mi_modal_search": "Suche nach Bezeichnung oder Betrag",
+        "mi_modal_recent": "Letzte Positionen",
+        "mi_modal_archived": "Archivierte Positionen",
+        "mi_modal_net": "Netto-Betrag",
+        "mi_modal_archives": "Archiv",
+        "mi_modal_no_items": "Keine gespeicherten Positionen.",
+        "mi_modal_archive": "Archivieren",
+        "mi_modal_unarchive": "Wiederherstellen",
         "mi_actions": "Aktionen",
         "payroll_note_franchise_abbr": "Freibetrag",
         "payroll_note_tax_line": "Steuer: progressive ACD-Klassen + impot de solidarite (7% Kl.1/1a · 9% Kl.2). Abzuge: maladie + pension + forfait frais d'obtention 45 €/Mon.",
@@ -1115,6 +1163,18 @@ MODULE_TRANSLATIONS = {
         "mi_reserve_error": "Nao foi possivel reservar o numero da fatura. Tente novamente.",
         "mi_vat_col": "IVA (%)",
         "mi_vat_short": "IVA",
+        "mi_add_vat_label": "Adicionar taxa...",
+        "mi_add_vat_prompt": "Inserir nova taxa de IVA (%)",
+        "mi_invalid_vat": "Taxa de IVA invalida.",
+        "mi_modal_title": "Adicionar artigos guardados",
+        "mi_modal_search": "Procurar por descricao ou montante",
+        "mi_modal_recent": "Artigos recentes",
+        "mi_modal_archived": "Artigos arquivados",
+        "mi_modal_net": "Valor liquido",
+        "mi_modal_archives": "Arquivo",
+        "mi_modal_no_items": "Sem artigos guardados.",
+        "mi_modal_archive": "Arquivar",
+        "mi_modal_unarchive": "Restaurar",
         "mi_actions": "Acoes",
         "payroll_note_franchise_abbr": "franquia",
         "payroll_note_tax_line": "Imposto: escaloes progressivos ACD + impot de solidarite (7% cl.1/1a · 9% cl.2). Deducoes: maladie + pension + forfait frais d'obtention 45 €/mes.",
@@ -3605,7 +3665,19 @@ def init_db():
             designation TEXT DEFAULT '',
             default_amount REAL DEFAULT 0,
             default_vat REAL DEFAULT 17,
-            sort_order INTEGER DEFAULT 0
+            sort_order INTEGER DEFAULT 0,
+            auto_saved INTEGER DEFAULT 0,
+            archived INTEGER DEFAULT 0,
+            last_used_at TEXT DEFAULT ''
+        )
+    """)
+    # Persistent extra VAT rates that admin adds via the manual-invoice
+    # form (when official tax rates change).
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS invoice_custom_vat_rates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            rate REAL NOT NULL,
+            created_at TEXT DEFAULT ''
         )
     """)
     # ── Email: templates / queue / logs ────────────────────────────────────
@@ -3686,6 +3758,17 @@ def init_db():
         queue_cols = [r[1] for r in c.execute("PRAGMA table_info(invoice_email_queue)").fetchall()]
         if "claimed_at" not in queue_cols:
             c.execute("ALTER TABLE invoice_email_queue ADD COLUMN claimed_at TEXT DEFAULT ''")
+    except Exception:
+        pass
+    # Migrate manual_item_templates: add auto_saved / archived / last_used_at
+    try:
+        tpl_cols = [r[1] for r in c.execute("PRAGMA table_info(manual_item_templates)").fetchall()]
+        if "auto_saved" not in tpl_cols:
+            c.execute("ALTER TABLE manual_item_templates ADD COLUMN auto_saved INTEGER DEFAULT 0")
+        if "archived" not in tpl_cols:
+            c.execute("ALTER TABLE manual_item_templates ADD COLUMN archived INTEGER DEFAULT 0")
+        if "last_used_at" not in tpl_cols:
+            c.execute("ALTER TABLE manual_item_templates ADD COLUMN last_used_at TEXT DEFAULT ''")
     except Exception:
         pass
     try:
@@ -8562,8 +8645,15 @@ def invoices_manual():
     settings = get_invoice_settings(conn)
     profiles = get_invoice_profiles(conn)
     templates = c.execute(
-        "SELECT id, designation, default_amount, default_vat FROM manual_item_templates ORDER BY sort_order, id"
+        "SELECT id, designation, default_amount, default_vat, "
+        "COALESCE(archived,0), COALESCE(auto_saved,0), COALESCE(last_used_at,'') "
+        "FROM manual_item_templates "
+        "ORDER BY COALESCE(last_used_at,'') DESC, sort_order, id"
     ).fetchall()
+    # Persistent custom VAT rates (admin can add new ones if rates change)
+    extra_vat_rates = [r[0] for r in c.execute(
+        "SELECT rate FROM invoice_custom_vat_rates ORDER BY rate"
+    ).fetchall()]
 
     if request.method == "POST":
         action = request.form.get("action", "save")
@@ -8588,6 +8678,15 @@ def invoices_manual():
             c.execute("DELETE FROM manual_item_templates WHERE id=?", (tpl_id,))
             conn.commit()
             conn.close()
+            return redirect("/invoices/manual")
+
+        # ── Archive / unarchive saved item ────────────────────────────────
+        if action in ("archive_template", "unarchive_template"):
+            tpl_id = request.form.get("tpl_id", "")
+            new_state = 1 if action == "archive_template" else 0
+            c.execute("UPDATE manual_item_templates SET archived=? WHERE id=?",
+                      (new_state, tpl_id))
+            conn.commit(); conn.close()
             return redirect("/invoices/manual")
 
         # ── Save invoice ──────────────────────────────────────────────────
@@ -8714,6 +8813,31 @@ def invoices_manual():
                 total_vat=excluded.total_vat, total_ttc=excluded.total_ttc
         """, (inv_num, client_name, client_addr, inv_date, items_json,
               payment_terms, total_ht, total_vat, total_ttc, now_str))
+
+        # ── Auto-save each item as a reusable template ────────────────────
+        # Dedup by case-folded designation: existing rows bump last_used_at,
+        # new ones are inserted with auto_saved=1.
+        for it in items:
+            d = (it.get("designation") or "").strip()
+            if not d:
+                continue
+            existing = c.execute(
+                "SELECT id FROM manual_item_templates WHERE LOWER(designation)=LOWER(?) LIMIT 1",
+                (d,),
+            ).fetchone()
+            if existing:
+                c.execute(
+                    "UPDATE manual_item_templates SET default_amount=?, default_vat=?, "
+                    "last_used_at=?, archived=0 WHERE id=?",
+                    (it["amount"], it["vat_rate"], now_str, existing[0]),
+                )
+            else:
+                c.execute(
+                    "INSERT INTO manual_item_templates "
+                    "(designation, default_amount, default_vat, auto_saved, last_used_at) "
+                    "VALUES (?,?,?,1,?)",
+                    (d, it["amount"], it["vat_rate"], now_str),
+                )
         conn.commit(); conn.close()
 
         if request.form.get("download_pdf"):
@@ -8775,7 +8899,9 @@ def invoices_manual():
     if not prefill_items:
         prefill_items = [{"designation": "", "amount": "", "vat_rate": 17}]
 
-    templates_list = [{"id": r[0], "designation": r[1], "amount": r[2], "vat": r[3]}
+    templates_list = [{"id": r[0], "designation": r[1], "amount": r[2], "vat": r[3],
+                       "archived": int(r[4] or 0), "auto_saved": int(r[5] or 0),
+                       "last_used_at": r[6] or ""}
                       for r in templates]
 
     return render_template_string(BASE_STYLE + header_html() + r"""
@@ -8832,6 +8958,52 @@ def invoices_manual():
   .mi-body { grid-template-columns:1fr; }
   .mi-row { grid-template-columns:1fr 110px 80px 36px; }
 }
+
+/* ── Saved items modal ──────────────────────────────────────────── */
+.si-overlay { display:none; position:fixed; inset:0; z-index:9999;
+              background:rgba(0,0,0,.55); align-items:center; justify-content:center; padding:16px; }
+.si-modal { background:{{ '#161618' if dark else '#ffffff' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }};
+            width:min(900px, 100%); max-height:88vh; border-radius:14px;
+            display:flex; flex-direction:column; overflow:hidden;
+            box-shadow:0 20px 60px rgba(0,0,0,.4); }
+.si-hdr { display:flex; align-items:center; gap:10px; padding:14px 18px;
+          background:{{ '#1d1d1f' if dark else '#0f172a' }}; color:#fff; }
+.si-hdr h3 { margin:0; font-size:16px; font-weight:700; flex:1; }
+.si-close { background:transparent; color:#fff; border:none; font-size:22px; cursor:pointer; padding:4px 8px; }
+.si-search-row { display:flex; gap:8px; padding:14px 18px;
+                 background:{{ '#191919' if dark else '#f8fafc' }};
+                 border-bottom:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; }
+.si-search-row input { flex:1; padding:9px 12px; border-radius:8px; font-size:14px;
+                       border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};
+                       background:{{ '#0f0f10' if dark else '#ffffff' }};
+                       color:{{ '#e2e8f0' if dark else '#0f172a' }}; }
+.si-search-row button { background:{{ '#374151' if dark else '#1f4f82' }};
+                        color:#fff; border:none; padding:9px 16px;
+                        border-radius:8px; font-weight:700; cursor:pointer; }
+.si-tabs { display:flex; gap:6px; padding:8px 18px;
+           background:{{ '#191919' if dark else '#f8fafc' }};
+           border-bottom:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; }
+.si-tab { padding:8px 14px; border-radius:8px 8px 0 0;
+          background:{{ '#0f0f10' if dark else '#e2e8f0' }};
+          color:{{ '#e2e8f0' if dark else '#1e293b' }};
+          font-weight:700; font-size:13px; border:none; cursor:pointer; }
+.si-tab.active { background:{{ '#374151' if dark else '#1f4f82' }}; color:#fff; }
+.si-table-hdr { display:grid; grid-template-columns:1fr 140px 110px; gap:12px;
+                padding:10px 18px; font-size:11px; font-weight:700;
+                color:{{ '#94a3b8' if dark else '#64748b' }};
+                text-transform:uppercase; letter-spacing:.06em;
+                border-bottom:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; }
+.si-list { flex:1; overflow-y:auto; padding:0; }
+.si-row { display:grid; grid-template-columns:1fr 140px 110px; gap:12px;
+          padding:14px 18px; align-items:center;
+          border-bottom:1px solid {{ '#2c2c30' if dark else '#f1f5f9' }}; }
+.si-row:hover { background:{{ '#1d1d1f' if dark else '#f8fafc' }}; }
+.si-desig { font-size:13px; line-height:1.4; white-space:pre-line;
+            color:{{ '#93c5fd' if dark else '#1f4f82' }}; text-decoration:none; font-weight:600; }
+.si-amt { text-align:right; font-weight:700; font-size:14px; }
+.si-arch { background:transparent; color:{{ '#93c5fd' if dark else '#1f4f82' }};
+           border:none; cursor:pointer; font-weight:600; text-align:right;
+           font-size:13px; padding:4px 6px; }
 </style>
 
 <div class="mi-shell">
@@ -8897,7 +9069,10 @@ def invoices_manual():
             <span>{{ tr.get("mi_designation","Désignation") }}</span><span>{{ tr.get("mi_amount_ht","Montant HT (€)") }}</span><span>{{ tr.get("mi_vat_col","TVA (%)") }}</span><span></span>
           </div>
           <div id="itemsContainer"></div>
-          <button type="button" class="mi-add-btn" onclick="addItem()">{{ tr.get("mi_add_item","+ Ajouter un article") }}</button>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <button type="button" class="mi-add-btn" onclick="addItem()" style="margin-top:6px;">{{ tr.get("mi_add_item","+ Ajouter un article") }}</button>
+            <button type="button" class="mi-add-btn" onclick="openSavedItemsModal()" style="margin-top:6px;background:#0ea5e9;">📂 {{ tr.get("mi_saved_items","Articles sauvegardés") }}</button>
+          </div>
 
           <div class="mi-totals">
             <div class="mi-tot-row"><span>Total HT</span><span id="totHT">0.00 €</span></div>
@@ -8989,10 +9164,42 @@ def invoices_manual():
   </div><!-- /mi-body -->
 </div>
 
+<!-- Saved items picker modal -->
+<div id="savedItemsModal" class="si-overlay" onclick="if(event.target===this)closeSavedItemsModal();">
+  <div class="si-modal">
+    <div class="si-hdr">
+      <h3>📂 {{ tr.get("mi_modal_title","Ajouter des articles sauvegardés") }}</h3>
+      <button class="si-close" type="button" onclick="closeSavedItemsModal()">×</button>
+    </div>
+    <div class="si-search-row">
+      <input id="siSearch" type="search" placeholder="{{ tr.get('mi_modal_search','Rechercher par désignation ou montant') }}" oninput="renderSavedItems()">
+      <button type="button" onclick="renderSavedItems()">{{ tr.get("search_btn","Rechercher") }}</button>
+    </div>
+    <div class="si-tabs">
+      <button class="si-tab active" data-tab="recent"   type="button" onclick="setSiTab('recent')">📋 {{ tr.get("mi_modal_recent","Éléments récents") }}</button>
+      <button class="si-tab"        data-tab="archived" type="button" onclick="setSiTab('archived')">📦 {{ tr.get("mi_modal_archived","Éléments archivés") }}</button>
+    </div>
+    <div class="si-table-hdr">
+      <span>{{ tr.get("mi_designation","Désignation") }}</span>
+      <span style="text-align:right;">{{ tr.get("mi_modal_net","Net à payer") }}</span>
+      <span style="text-align:right;">{{ tr.get("mi_modal_archives","Archives") }}</span>
+    </div>
+    <div id="siList" class="si-list"></div>
+  </div>
+</div>
+
 <script>
 var miProfiles = {{ profiles|tojson }};
 var prefillItems = {{ prefill_items|tojson }};
 var miPlaceholder = {{ tr.get("mi_designation_placeholder","Désignation de la prestation...")|tojson }};
+var extraVatRates = {{ extra_vat_rates|tojson }};
+var savedItemsAll = {{ templates_list|tojson }};
+var miAddVatLabel  = {{ tr.get("mi_add_vat_label","Ajouter taxe...")|tojson }};
+var miAddVatPrompt = {{ tr.get("mi_add_vat_prompt","Saisir le nouveau taux de TVA (%)")|tojson }};
+var miInvalidVat   = {{ tr.get("mi_invalid_vat","Taux de TVA invalide.")|tojson }};
+var miNoItems      = {{ tr.get("mi_modal_no_items","Aucun article correspondant.")|tojson }};
+var miArchiveLabel   = {{ tr.get("mi_modal_archive","Archiver")|tojson }};
+var miUnarchiveLabel = {{ tr.get("mi_modal_unarchive","Restaurer")|tojson }};
 
 function fillMiClient(){
   var name = document.getElementById('miClientSearch').value;
@@ -9046,6 +9253,23 @@ function addItem(desig, amt, vat){
   // fully on first paint without needing manual scrolling.
   var lines = String(desig).split('\n').length;
   var initRows = Math.max(3, Math.min(lines + 1, 12));
+  // Build VAT options: standard rates + persisted custom rates + "+ Add" entry
+  var standard = [17, 8, 3, 0];
+  var allRates = standard.concat(extraVatRates || []).map(function(r){ return parseFloat(r); });
+  // Make sure the saved item's own rate is present even if it isn't standard/extra
+  if (!isNaN(parseFloat(vat)) && allRates.indexOf(parseFloat(vat)) === -1) {
+    allRates.push(parseFloat(vat));
+  }
+  // De-dupe and sort descending
+  allRates = Array.from(new Set(allRates)).sort(function(a,b){ return b-a; });
+  var vatHtml = '';
+  allRates.forEach(function(r){
+    var sel = (parseFloat(vat) === r) ? ' selected' : '';
+    var label = (Number.isInteger(r) ? r : r.toFixed(2).replace(/\.?0+$/, '')) + '%';
+    vatHtml += '<option value="'+r+'"'+sel+'>'+label+'</option>';
+  });
+  vatHtml += '<option value="__add__">+ ' + escHtml(miAddVatLabel) + '</option>';
+
   var c = document.getElementById('itemsContainer');
   var d = document.createElement('div');
   d.className = 'mi-row mi-item-row';
@@ -9056,11 +9280,8 @@ function addItem(desig, amt, vat){
     + escHtml(String(desig)) + '</textarea>'
     + '<input class="mi-input mi-amt" type="number" step="0.01" name="amount[]"'
     +' value="'+(amt===''?'':Number(amt).toFixed(2))+'" placeholder="0.00" oninput="recalc()">'
-    + '<select class="mi-input mi-vat" name="vat_rate[]" onchange="recalc()">'
-    + '<option value="17"'+(vat==17?' selected':'')+'>17%</option>'
-    + '<option value="8"'+(vat==8?' selected':'')+'>8%</option>'
-    + '<option value="3"'+(vat==3?' selected':'')+'>3%</option>'
-    + '<option value="0"'+(vat==0?' selected':'')+'>0%</option>'
+    + '<select class="mi-input mi-vat" name="vat_rate[]" onchange="onVatChange(this)">'
+    + vatHtml
     + '</select>'
     + '<button type="button" class="mi-del-btn" onclick="this.closest(\'.mi-item-row\').remove();recalc();">×</button>';
   c.appendChild(d);
@@ -9072,6 +9293,87 @@ function addItem(desig, amt, vat){
 }
 
 function useTemplate(desig, amt, vat){ addItem(desig, amt, vat); }
+
+// VAT dropdown — "+ Add custom rate" sentinel handler
+function onVatChange(sel){
+  if (sel.value === '__add__') {
+    var ask = prompt(miAddVatPrompt, '');
+    if (ask === null) { sel.value = sel.dataset.prev || '17'; recalc(); return; }
+    var rate = parseFloat(String(ask).replace(',', '.'));
+    if (isNaN(rate) || rate < 0 || rate > 100) {
+      alert(miInvalidVat);
+      sel.value = sel.dataset.prev || '17'; recalc(); return;
+    }
+    rate = Math.round(rate * 100) / 100;
+    // Persist (best-effort) so it shows in dropdowns next time
+    var fd = new FormData(); fd.append('rate', rate);
+    fetch('/invoices/manual/vat_rate', {method:'POST', body:fd}).catch(function(){});
+    if (extraVatRates.indexOf(rate) === -1) extraVatRates.push(rate);
+    // Inject the new option into every row's select that doesn't have it yet
+    document.querySelectorAll('.mi-vat').forEach(function(s){
+      if (Array.from(s.options).some(function(o){ return parseFloat(o.value) === rate; })) return;
+      var addOpt = s.querySelector('option[value="__add__"]');
+      var newOpt = document.createElement('option');
+      newOpt.value = rate;
+      newOpt.textContent = (Number.isInteger(rate) ? rate : rate.toFixed(2).replace(/\.?0+$/, '')) + '%';
+      s.insertBefore(newOpt, addOpt);
+    });
+    sel.value = String(rate);
+  }
+  sel.dataset.prev = sel.value;
+  recalc();
+}
+
+// ── Saved items modal ─────────────────────────────────────────────────
+function openSavedItemsModal(){
+  var modal = document.getElementById('savedItemsModal');
+  if (modal) { modal.style.display = 'flex'; renderSavedItems(); }
+}
+function closeSavedItemsModal(){
+  var modal = document.getElementById('savedItemsModal');
+  if (modal) modal.style.display = 'none';
+}
+var _siCurrentTab = 'recent';   // 'recent' | 'archived'
+function setSiTab(tab){
+  _siCurrentTab = tab;
+  document.querySelectorAll('.si-tab').forEach(function(t){
+    t.classList.toggle('active', t.dataset.tab === tab);
+  });
+  renderSavedItems();
+}
+function renderSavedItems(){
+  var q = (document.getElementById('siSearch').value || '').trim().toLowerCase();
+  var rows = savedItemsAll.filter(function(it){
+    var matches = !q
+      || (String(it.designation || '').toLowerCase().indexOf(q) !== -1)
+      || (String(it.amount || '').indexOf(q) !== -1);
+    var isArchived = !!it.archived;
+    var tabOk = (_siCurrentTab === 'archived') ? isArchived : !isArchived;
+    return matches && tabOk;
+  });
+  var html = '';
+  if (!rows.length) {
+    html = '<div style="padding:24px;text-align:center;color:#9ca3af;">' + escHtml(miNoItems) + '</div>';
+  } else {
+    rows.forEach(function(it){
+      var amtFmt = Number(it.amount || 0).toFixed(2);
+      var archAction = it.archived ? 'unarchive_template' : 'archive_template';
+      var archLabel  = it.archived ? miUnarchiveLabel : miArchiveLabel;
+      html += '<div class="si-row">' +
+        '<a class="si-desig" href="javascript:void(0)" onclick="useTemplate('
+          + JSON.stringify(it.designation) + ',' + it.amount + ',' + it.vat + ');closeSavedItemsModal();">'
+          + escHtml(String(it.designation || '')) + '</a>' +
+        '<div class="si-amt">' + amtFmt + '</div>' +
+        '<form method="post" action="/invoices/manual" style="display:inline;">'
+          + '<input type="hidden" name="action" value="' + archAction + '">'
+          + '<input type="hidden" name="tpl_id" value="' + it.id + '">'
+          + '<button type="submit" class="si-arch">' + escHtml(archLabel) + '</button>'
+        + '</form>' +
+      '</div>';
+    });
+  }
+  document.getElementById('siList').innerHTML = html;
+}
 
 function escHtml(s){
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
@@ -9100,7 +9402,32 @@ document.getElementById('miForm').addEventListener('invalid', function(e){
      draft=type("D", (), draft)() if draft else type("D", (), {"invoice_number":"","client_name":"","client_address":"","invoice_date":"","payment_terms":""})(),
      default_terms=default_terms,
      templates_list=templates_list,
-     prefill_items=prefill_items)
+     prefill_items=prefill_items,
+     extra_vat_rates=extra_vat_rates)
+
+
+@app.route("/invoices/manual/vat_rate", methods=["POST"])
+def invoices_manual_add_vat_rate():
+    """Persist a new custom VAT rate so it appears in the dropdown next time."""
+    if session.get("role") != "admin":
+        return {"ok": False, "error": "forbidden"}, 403
+    try:
+        rate = float((request.form.get("rate", "") or "0").replace(",", "."))
+    except (ValueError, TypeError):
+        return {"ok": False, "error": "invalid rate"}, 400
+    if rate < 0 or rate > 100:
+        return {"ok": False, "error": "out of range"}, 400
+    rate = round(rate, 2)
+    conn = get_conn(); c = conn.cursor()
+    # Idempotent: don't double-insert the same rate
+    exists = c.execute("SELECT 1 FROM invoice_custom_vat_rates WHERE rate=?",
+                       (rate,)).fetchone()
+    if not exists and rate not in (0, 3, 8, 17):
+        c.execute("INSERT INTO invoice_custom_vat_rates (rate, created_at) VALUES (?,?)",
+                  (rate, lux_now().strftime("%Y-%m-%d %H:%M:%S")))
+        conn.commit()
+    conn.close()
+    return {"ok": True, "rate": rate}
 
 
 @app.route("/invoices/manual/pdf")
