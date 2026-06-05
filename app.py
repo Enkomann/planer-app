@@ -84,7 +84,8 @@ DEFAULT_EMAIL_TEMPLATES = [
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_RIGHT
 from reportlab.lib.units import cm
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 
@@ -2804,7 +2805,8 @@ def _invoice_view_context(conn, record):
             amt = float(it.get("amount") or 0)
             vr_pct = float(it.get("vat_rate") or 0)
             vat = amt * vr_pct / 100.0
-            rates_seen.add(round(vr_pct, 2))
+            if abs(vr_pct) > 0.0001:
+                rates_seen.add(round(vr_pct, 2))
             ctx["items"].append({
                 "designation": (it.get("designation") or "").strip() or "-",
                 "amount":      amt,
@@ -2859,7 +2861,8 @@ def build_invoice_pdf(row, settings, invoice_date, date_from, date_to, document_
     }
     accent = template_colors.get(settings.get("invoice_template", "orange"), "#ff7a2f")
     normal = styles["Normal"]
-    header = Table([[Paragraph(f"<b>{settings['company_name']}</b>", styles["Title"]), Paragraph(f"<b>{document_title}</b>", styles["Title"])]], colWidths=[12.5*cm, 5*cm])
+    title_right = ParagraphStyle("InvoiceTitleRight", parent=styles["Title"], alignment=TA_RIGHT)
+    header = Table([[Paragraph(f"<b>{settings['company_name']}</b>", title_right), Paragraph(f"<b>{document_title}</b>", title_right)]], colWidths=[12.5*cm, 5*cm])
     header.setStyle(TableStyle([("BACKGROUND", (0,0), (-1,-1), colors.HexColor(accent)), ("TEXTCOLOR", (0,0), (-1,-1), colors.white), ("ALIGN", (0,0), (0,0), "RIGHT"), ("ALIGN", (1,0), (1,0), "RIGHT"), ("VALIGN", (0,0), (-1,-1), "MIDDLE"), ("LEFTPADDING", (0,0), (-1,-1), 8), ("RIGHTPADDING", (0,0), (-1,-1), 8)]))
     elements = [header, Spacer(1, 18)]
 
@@ -2914,7 +2917,8 @@ def build_quote_pdf(data, settings):
     accent = {"orange": "#ff7a2f", "blue": "#1f4f82", "green": "#2f7d32"}.get(settings.get("invoice_template", "orange"), "#ff7a2f")
     normal = styles["Normal"]
     document_title = data.get("document_title") or "DEVIS"
-    header = Table([[Paragraph(f"<b>{settings['company_name']}</b>", styles["Title"]), Paragraph(f"<b>{document_title}</b>", styles["Title"])]], colWidths=[12.5*cm, 5*cm])
+    title_right = ParagraphStyle("InvoiceTitleRight", parent=styles["Title"], alignment=TA_RIGHT)
+    header = Table([[Paragraph(f"<b>{settings['company_name']}</b>", title_right), Paragraph(f"<b>{document_title}</b>", title_right)]], colWidths=[12.5*cm, 5*cm])
     header.setStyle(TableStyle([("BACKGROUND", (0,0), (-1,-1), colors.HexColor(accent)), ("TEXTCOLOR", (0,0), (-1,-1), colors.white), ("ALIGN", (0,0), (0,0), "RIGHT"), ("ALIGN", (1,0), (1,0), "RIGHT"), ("LEFTPADDING", (0,0), (-1,-1), 8), ("RIGHTPADDING", (0,0), (-1,-1), 8)]))
     company_lines = [settings.get("company_address", "").replace("\n", "<br/>")]
     if settings.get("company_phone"):
@@ -3230,11 +3234,12 @@ def build_manual_invoice_pdf(draft, settings):
     template_colors = {"orange": "#ff7a2f", "blue": "#1f4f82", "green": "#2f7d32"}
     accent = template_colors.get(settings.get("invoice_template", "orange"), "#ff7a2f")
     normal = styles["Normal"]
+    title_right = ParagraphStyle("InvoiceTitleRight", parent=styles["Title"], alignment=TA_RIGHT)
 
     # ── Header bar (identical to auto invoice) ──────────────────────────────────
     header = Table([
-        [Paragraph(f"<b>{settings.get('company_name','')}</b>", styles["Title"]),
-         Paragraph("<b>FACTURE</b>", styles["Title"])]
+        [Paragraph(f"<b>{settings.get('company_name','')}</b>", title_right),
+         Paragraph("<b>FACTURE</b>", title_right)]
     ], colWidths=[12.5*cm, 5*cm])
     header.setStyle(TableStyle([
         ("BACKGROUND", (0,0), (-1,-1), colors.HexColor(accent)),
@@ -3308,7 +3313,8 @@ def build_manual_invoice_pdf(draft, settings):
         vr = vr_pct / 100.0
         total_ht  += amt
         total_vat += amt * vr
-        vat_rates_seen.add(round(vr_pct, 2))
+        if abs(vr_pct) > 0.0001:
+            vat_rates_seen.add(round(vr_pct, 2))
         desig_html = (item.get("designation") or "").replace("\n", "<br/>") or "-"
         table_data.append([
             Paragraph(desig_html, normal),
