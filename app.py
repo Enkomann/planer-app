@@ -7319,7 +7319,7 @@ def invoices():
 
         <div class="invoice-panel">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
-                <h1 style="color:white;margin:0;">{{ tr["invoices"] }}</h1>
+                <h1 style="margin:0;">{{ tr["invoices"] }}</h1>
                 <div class="invoice-actions">
                     <a href="/invoices/export_options?type=all">{{ tr["download_all_invoices"] }}</a>
                     <a href="/invoices/export_options?type=certificate">{{ tr["annual_certificate"] }}</a>
@@ -7354,20 +7354,20 @@ def invoices():
                 <tr class="invoice-row" data-paid="{{ 1 if row.paid else 0 }}" data-search="{{ (row.client ~ ' ' ~ row.invoice_number)|lower }}">
                     <td><input type="checkbox" style="width:auto;"></td>
                     <td>
-                      <a href="/invoices/view?invoice_number={{ row.invoice_number }}" style="color:white;text-decoration:underline;">{{ row.client }}</a>
+                      <a href="/invoices/view?invoice_number={{ row.invoice_number }}" style="color:{{ '#93c5fd' if dark else '#1f4f82' }};text-decoration:underline;font-weight:600;">{{ row.client }}</a>
                     </td>
                     <td>{{ tr["invoices"] }}{% if row.source == 'manual' %} <span style="font-size:10px;background:#22c55e;color:#111;padding:1px 5px;border-radius:4px;">✏️</span>{% endif %}</td>
                     <td>
-                      <a href="/invoices/view?invoice_number={{ row.invoice_number }}" style="color:{{ '#ffd429' if row.source == 'manual' else 'white' }};text-decoration:underline;">{{ row.invoice_number }}</a>
+                      <a href="/invoices/view?invoice_number={{ row.invoice_number }}" style="color:{% if row.source == 'manual' %}{{ '#ffd429' if dark else '#b45309' }}{% else %}{{ '#93c5fd' if dark else '#1f4f82' }}{% endif %};text-decoration:underline;font-weight:600;">{{ row.invoice_number }}</a>
                     </td>
                     <td>{{ format_date(row.invoice_date) }}</td>
                     <td>
                         <span class="payment-label {{ 'paid-text' if row.paid else 'unpaid-text' }}">{{ tr["paid"] if row.paid else tr["unpaid"] }}</span><br>
-                        <a class="ajax-invoice-toggle" data-kind="paid" data-paid-label="{{ tr['paid'] }}" data-unpaid-label="{{ tr['unpaid'] }}" data-mark-paid="{{ tr['mark_paid'] }}" data-mark-unpaid="{{ tr['mark_unpaid'] }}" href="/invoices/mark_paid?invoice_number={{ row.invoice_number }}&paid={{ 0 if row.paid else 1 }}&client={{ row.client|urlencode }}&date_from={{ row.date_from }}&date_to={{ row.date_to }}&invoice_date={{ row.invoice_date }}&amount={{ row.amount }}&vat_amount={{ row.vat_amount }}&total={{ row.total }}&ajax=1" style="color:#e5e7eb;">{{ tr["mark_unpaid"] if row.paid else tr["mark_paid"] }}</a>
+                        <a class="ajax-invoice-toggle" data-kind="paid" data-paid-label="{{ tr['paid'] }}" data-unpaid-label="{{ tr['unpaid'] }}" data-mark-paid="{{ tr['mark_paid'] }}" data-mark-unpaid="{{ tr['mark_unpaid'] }}" href="/invoices/mark_paid?invoice_number={{ row.invoice_number }}&paid={{ 0 if row.paid else 1 }}&client={{ row.client|urlencode }}&date_from={{ row.date_from }}&date_to={{ row.date_to }}&invoice_date={{ row.invoice_date }}&amount={{ row.amount }}&vat_amount={{ row.vat_amount }}&total={{ row.total }}&ajax=1" style="color:{{ '#93c5fd' if dark else '#1f4f82' }};font-size:12px;text-decoration:underline;">{{ tr["mark_unpaid"] if row.paid else tr["mark_paid"] }}</a>
                     </td>
                     <td>
                         <span class="sent-badge {{ 'sent' if row.sent else 'unsent' }}">{{ tr["sent_yes"] if row.sent else tr["sent_no"] }}</span><br>
-                        <a class="ajax-invoice-toggle" data-kind="sent" data-sent-label="{{ tr['sent_yes'] }}" data-unsent-label="{{ tr['sent_no'] }}" data-mark-sent="{{ tr['mark_sent'] }}" data-mark-unsent="{{ tr['mark_unsent'] }}" href="/invoices/mark_sent?invoice_number={{ row.invoice_number }}&sent={{ 0 if row.sent else 1 }}&ajax=1" style="color:#e5e7eb;">{{ tr["mark_unsent"] if row.sent else tr["mark_sent"] }}</a>
+                        <a class="ajax-invoice-toggle" data-kind="sent" data-sent-label="{{ tr['sent_yes'] }}" data-unsent-label="{{ tr['sent_no'] }}" data-mark-sent="{{ tr['mark_sent'] }}" data-mark-unsent="{{ tr['mark_unsent'] }}" href="/invoices/mark_sent?invoice_number={{ row.invoice_number }}&sent={{ 0 if row.sent else 1 }}&ajax=1" style="color:{{ '#93c5fd' if dark else '#1f4f82' }};font-size:12px;text-decoration:underline;">{{ tr["mark_unsent"] if row.sent else tr["mark_sent"] }}</a>
                     </td>
                     <td><b>{{ "%.2f"|format(row.total) }} EUR</b></td>
                     <td>
@@ -7643,7 +7643,7 @@ def invoices_client():
                 <h2 style="margin:0;color:white;">📁 {{ tr.get("client_documents_of","Documents de") }} {{ client }}
                     <span style="background:#111;border-radius:999px;padding:2px 10px;font-size:13px;margin-left:6px;">{{ rows|length }}</span>
                 </h2>
-                <a href="/invoices/client_statement?client={{ client|urlencode }}&date_from={{ date_from|urlencode }}&date_to={{ date_to|urlencode }}&status={{ status|urlencode }}&doc={{ doc_filter|urlencode }}" style="background:#888;color:white;padding:10px 14px;border-radius:6px;text-decoration:none;">📄 {{ tr.get("client_statement_pdf","Releve de compte client PDF") }}</a>
+                <a href="/invoices/client_statement?client={{ client|urlencode }}&date_from={{ date_from|urlencode }}&date_to={{ date_to|urlencode }}&status={{ status|urlencode }}&doc={{ doc_filter|urlencode }}" style="background:{{ '#1d4ed8' if dark else '#1f4f82' }};color:white;padding:10px 14px;border-radius:6px;text-decoration:none;font-weight:600;">📄 {{ tr.get("client_statement_pdf","Releve de compte client PDF") }}</a>
             </div>
             <form class="filters" method="get" action="/invoices/client">
                 <input type="hidden" name="client" value="{{ client }}">
@@ -7689,7 +7689,7 @@ def invoices_client():
                     <td>{{ row.client }}</td>
                     <td>{{ tr["invoices"] }}{% if row.source == 'manual' %} <span style="font-size:10px;background:#22c55e;color:#111;padding:1px 5px;border-radius:4px;">✏️</span>{% endif %}</td>
                     <td>
-                      <a href="/invoices/view?invoice_number={{ row.invoice_number }}" style="color:{{ '#ffd429' if row.source == 'manual' else 'white' }};">{{ row.invoice_number }}</a>
+                      <a href="/invoices/view?invoice_number={{ row.invoice_number }}" style="color:{% if row.source == 'manual' %}{{ '#ffd429' if dark else '#b45309' }}{% else %}{{ '#93c5fd' if dark else '#1f4f82' }}{% endif %};text-decoration:underline;font-weight:600;">{{ row.invoice_number }}</a>
                     </td>
                     <td>{{ format_date(row.invoice_date) }}</td>
                     <td class="{{ 'paid-text' if row.paid else 'unpaid-text' }}">{{ "%.2f"|format(row.total if row.paid else 0) }} €</td>
@@ -8238,40 +8238,40 @@ def invoices_manual():
 
     return render_template_string(BASE_STYLE + header_html() + r"""
 <style>
-.mi-shell { background:#2b2b2b; color:white; border-radius:10px; padding:0 0 22px 0; overflow:hidden; }
+.mi-shell { background:{{ '#161618' if dark else '#ffffff' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }}; border-radius:10px; padding:0 0 22px 0; overflow:hidden; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; }
 .mi-top { display:flex; align-items:center; justify-content:space-between; gap:18px;
-          padding:18px 22px; background:#3d3d3d; }
-.mi-brand { font-size:22px; font-weight:800; }
+          padding:18px 22px; background:{{ '#1d1d1f' if dark else '#f1f5f9' }}; }
+.mi-brand { font-size:22px; font-weight:800; color:{{ '#e2e8f0' if dark else '#1e293b' }}; }
 .mi-brand span { background:#ffd429; color:#111; border-radius:6px; padding:2px 6px; }
 .mi-body { max-width:1100px; margin:28px auto; padding:0 24px; display:grid;
            grid-template-columns:1fr 340px; gap:24px; }
 .mi-main {}
 .mi-sidebar {}
-.mi-card { background:#3d3d3d; border-radius:10px; padding:18px; margin-bottom:16px; }
-.mi-card h3 { margin:0 0 12px; font-size:14px; color:#ffd429; text-transform:uppercase;
+.mi-card { background:{{ '#1d1d1f' if dark else '#ffffff' }}; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; border-radius:10px; padding:18px; margin-bottom:16px; }
+.mi-card h3 { margin:0 0 12px; font-size:14px; color:{{ '#ffd429' if dark else '#b45309' }}; text-transform:uppercase;
               letter-spacing:.05em; }
-.mi-label { font-size:12px; color:#9ca3af; margin:10px 0 3px; display:block; }
-.mi-input { width:100%; padding:8px 10px; border-radius:7px; border:1px solid #555;
-            background:#2b2b2b; color:white; font-size:14px; box-sizing:border-box;
+.mi-label { font-size:12px; color:{{ '#94a3b8' if dark else '#64748b' }}; margin:10px 0 3px; display:block; }
+.mi-input { width:100%; padding:8px 10px; border-radius:7px; border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};
+            background:{{ '#0f0f10' if dark else '#ffffff' }}; color:{{ '#e2e8f0' if dark else '#0f172a' }}; font-size:14px; box-sizing:border-box;
             margin:0; }
-.mi-input::placeholder { color:#6b7280; }
-.mi-textarea { width:100%; padding:8px 10px; border-radius:7px; border:1px solid #555;
-               background:#2b2b2b; color:white; font-size:13px; box-sizing:border-box;
+.mi-input::placeholder { color:{{ '#6b7280' if dark else '#94a3b8' }}; }
+.mi-textarea { width:100%; padding:8px 10px; border-radius:7px; border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};
+               background:{{ '#0f0f10' if dark else '#ffffff' }}; color:{{ '#e2e8f0' if dark else '#0f172a' }}; font-size:13px; box-sizing:border-box;
                resize:vertical; margin:0; min-height:70px; }
 .mi-row { display:grid; grid-template-columns:1fr 130px 100px 36px; gap:8px;
           align-items:start; margin-bottom:8px; }
 .mi-row-hdr { display:grid; grid-template-columns:1fr 130px 100px 36px; gap:8px;
-              font-size:11px; color:#9ca3af; text-transform:uppercase;
+              font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; text-transform:uppercase;
               letter-spacing:.05em; margin-bottom:4px; }
 .mi-del-btn { background:#ef4444; border:none; color:white; border-radius:6px;
               cursor:pointer; padding:0; height:38px; width:36px; font-size:18px; }
 .mi-add-btn { width:100%; padding:10px; background:#1f4f82; color:white;
               border:none; border-radius:7px; cursor:pointer; font-size:14px;
               font-weight:600; margin-top:6px; }
-.mi-totals { border-top:1px solid #555; margin-top:14px; padding-top:10px; }
+.mi-totals { border-top:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; margin-top:14px; padding-top:10px; }
 .mi-tot-row { display:flex; justify-content:space-between; padding:4px 0;
               font-size:14px; }
-.mi-tot-row.big { font-size:18px; font-weight:800; color:#ffd429; }
+.mi-tot-row.big { font-size:18px; font-weight:800; color:{{ '#ffd429' if dark else '#b45309' }}; }
 .mi-save-btn { width:100%; padding:13px; background:#22c55e; color:#111;
                border:none; border-radius:8px; cursor:pointer; font-size:16px;
                font-weight:800; margin-top:8px; }
@@ -8279,13 +8279,13 @@ def invoices_manual():
                border:none; border-radius:8px; cursor:pointer; font-size:16px;
                font-weight:700; margin-top:8px; }
 .tpl-item { display:flex; align-items:center; gap:8px; padding:7px 0;
-            border-bottom:1px solid #4a4a4a; }
+            border-bottom:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; }
 .tpl-use  { background:#1f4f82; color:white; border:none; border-radius:5px;
             padding:4px 10px; cursor:pointer; font-size:12px; }
 .tpl-del  { background:#ef4444; color:white; border:none; border-radius:5px;
             padding:4px 8px; cursor:pointer; font-size:12px; }
-.mi-number-box { background:#1e1e20; border-radius:8px; padding:10px 14px;
-                 font-size:22px; font-weight:800; color:#ffd429; margin-bottom:6px; }
+.mi-number-box { background:{{ '#0f0f10' if dark else '#f1f5f9' }}; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; border-radius:8px; padding:10px 14px;
+                 font-size:22px; font-weight:800; color:{{ '#ffd429' if dark else '#b45309' }}; margin-bottom:6px; }
 @media (max-width:760px){
   .mi-body { grid-template-columns:1fr; }
   .mi-row { grid-template-columns:1fr 110px 80px 36px; }
