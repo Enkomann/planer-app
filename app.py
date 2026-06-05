@@ -2814,6 +2814,10 @@ def _invoice_view_context(conn, record):
             ctx["total_ht"]  += amt
             ctx["total_vat"] += vat
         ctx["total_ttc"] = ctx["total_ht"] + ctx["total_vat"]
+        # Safety: never render an item-less table. Matches the PDF builder.
+        if not ctx["items"]:
+            ctx["items"].append({"designation": "-", "amount": 0.0,
+                                  "vat_pct": 0, "ttc": 0.0})
         if len(rates_seen) == 1:
             ctx["vat_label"] = f"TVA {next(iter(rates_seen)):.1f}%"
         else:
@@ -3329,7 +3333,7 @@ def build_manual_invoice_pdf(draft, settings):
          Paragraph(f"<b>{total_ttc:.2f} €</b>", styles["Heading2"])],
     ]
     invoice_table = Table(table_data, colWidths=[12.8*cm, 4.7*cm])
-    invoice_table.setStyle(TableStyle([
+    _style = [
         ("GRID",        (0, 0),         (-1, -1),         0.5, colors.grey),
         ("BACKGROUND",  (0, 0),         (-1, 0),          colors.whitesmoke),
         ("ALIGN",       (1, 1),         (1, -1),          "RIGHT"),
@@ -3338,7 +3342,14 @@ def build_manual_invoice_pdf(draft, settings):
         ("SPAN",        (0, n_thtt),    (0, n_tvat)),
         # Highlight the TOTAL TTC amount cell
         ("BACKGROUND",  (1, n_total),   (1, n_total),     colors.whitesmoke),
-    ]))
+    ]
+    # Single-item case (auto-converted or one-line manual): keep the body row
+    # at the same 4.2cm minimum height as the auto invoice so the layout
+    # matches the existing paper look. Multi-item invoices let each row
+    # size to content to avoid huge empty boxes per row.
+    if n_items == 1:
+        _style.append(("MINROWHEIGHT", (0, 1), (-1, 1), 4.2*cm))
+    invoice_table.setStyle(TableStyle(_style))
     items_tbl = invoice_table
     elements += [items_tbl, Spacer(1, 90)]
 
