@@ -7278,27 +7278,28 @@ def invoices():
     total_all = sum(r["total"] for r in rows)
     return render_template_string(BASE_STYLE + header_html() + """
     <style>
-        .invoice-shell { background:#2b2b2b; color:white; border-radius:10px; padding:0 0 22px 0; overflow:hidden; }
-        .invoice-top { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:18px 22px; background:#3d3d3d; }
-        .invoice-brand { font-size:26px; font-weight:800; }
+        .invoice-shell { background:{{ '#161618' if dark else '#ffffff' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }}; border-radius:10px; padding:0 0 22px 0; overflow:hidden; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; }
+        .invoice-top { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:18px 22px; background:{{ '#1d1d1f' if dark else '#f1f5f9' }}; }
+        .invoice-brand { font-size:26px; font-weight:800; color:{{ '#e2e8f0' if dark else '#1e293b' }}; }
         .invoice-brand span { background:#ffd429; color:#111; border-radius:6px; padding:2px 6px; }
         .invoice-search { flex:1; display:flex; max-width:720px; }
         .invoice-search input { border-radius:0; margin:0; }
-        .invoice-search button { width:130px; margin:0; border-radius:0; background:#111; }
-        .invoice-panel { max-width:1280px; margin:34px auto 0 auto; background:#4a4a4a; border-radius:8px; padding:22px 30px; }
+        .invoice-search button { width:130px; margin:0; border-radius:0; background:#111; color:white; }
+        .invoice-panel { max-width:1280px; margin:34px auto 0 auto; background:{{ '#191919' if dark else '#f8fafc' }}; border-radius:8px; padding:22px 30px; color:{{ '#e2e8f0' if dark else '#1e293b' }}; }
+        .invoice-panel h1, .invoice-panel h2, .invoice-panel h3, .invoice-panel h4 { color:{{ '#e2e8f0' if dark else '#1e293b' }} !important; }
         .invoice-tabs { display:flex; gap:6px; flex-wrap:wrap; margin:14px 0 22px; }
-        .invoice-tab { padding:12px 16px; background:#737373; color:white; border-radius:8px 8px 0 0; font-weight:bold; }
-        .invoice-tab.active { background:#5a5a5a; }
+        .invoice-tab { padding:12px 16px; background:{{ '#222225' if dark else '#cbd5e1' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }}; border-radius:8px 8px 0 0; font-weight:bold; text-decoration:none; }
+        .invoice-tab.active { background:{{ '#2c2c30' if dark else '#94a3b8' }}; color:white; }
         .pill { display:inline-block; margin-left:6px; padding:2px 8px; border-radius:999px; font-size:12px; color:#111; background:#e5e7eb; }
         .pill.red { background:#fb7185; color:white; } .pill.green { background:#34d399; }
-        .invoice-table { width:100%; border-collapse:collapse; color:white; }
-        .invoice-table th, .invoice-table td { padding:14px 10px; border-bottom:1px solid #9ca3af; text-align:left; }
-        .invoice-table th { font-size:13px; text-transform:uppercase; color:#f3f4f6; }
-        .paid-text { color:#34d399; font-weight:bold; } .unpaid-text { color:#fb7185; font-weight:bold; }
+        .invoice-table { width:100%; border-collapse:collapse; color:{{ '#e2e8f0' if dark else '#1e293b' }}; }
+        .invoice-table th, .invoice-table td { padding:14px 10px; border-bottom:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; text-align:left; }
+        .invoice-table th { font-size:13px; text-transform:uppercase; color:{{ '#94a3b8' if dark else '#475569' }}; }
+        .paid-text { color:{{ '#4ade80' if dark else '#16a34a' }}; font-weight:bold; } .unpaid-text { color:{{ '#fb7185' if dark else '#dc2626' }}; font-weight:bold; }
         .sent-badge { display:inline-block; padding:4px 8px; border-radius:999px; font-size:12px; font-weight:bold; color:#111; }
         .sent-badge.sent { background:#34d399; } .sent-badge.unsent { background:#fb7185; color:white; }
         .invoice-totals { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-top:16px; }
-        .invoice-total-card { background:#3d3d3d; border-radius:8px; padding:14px; }
+        .invoice-total-card { background:{{ '#1d1d1f' if dark else '#f1f5f9' }}; border-radius:8px; padding:14px; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; }
         .invoice-actions { display:flex; gap:10px; flex-wrap:wrap; margin:16px 0; }
         .invoice-actions a { background:#111; color:white; padding:10px 14px; border-radius:6px; }
         .settings-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:16px; margin-top:18px; }
@@ -7610,24 +7611,25 @@ def invoices_client():
     total_all = sum(r["total"] for r in rows)
     return render_template_string(BASE_STYLE + header_html() + """
     <style>
-        .invoice-shell { background:#2b2b2b; color:white; border-radius:10px; padding:24px; }
-        .invoice-panel { max-width:1280px; margin:0 auto; background:#4a4a4a; border-radius:8px; padding:22px 30px; }
+        .invoice-shell { background:{{ '#161618' if dark else '#ffffff' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }}; border-radius:10px; padding:24px; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; }
+        .invoice-panel { max-width:1280px; margin:0 auto; background:{{ '#191919' if dark else '#f8fafc' }}; border-radius:8px; padding:22px 30px; color:{{ '#e2e8f0' if dark else '#1e293b' }}; }
+        .invoice-panel h1, .invoice-panel h2, .invoice-panel h3 { color:{{ '#e2e8f0' if dark else '#1e293b' }} !important; }
         .doc-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px; }
-        .doc-tab { background:#777; color:white; padding:12px 16px; border-radius:8px 8px 0 0; font-weight:bold; text-decoration:none; }
-        .doc-tab.active { background:#4a4a4a; }
-        .invoice-table { width:100%; border-collapse:collapse; color:white; }
-        .invoice-table th, .invoice-table td { padding:14px 10px; border-bottom:1px solid #a3a3a3; text-align:left; }
-        .invoice-table th { text-transform:uppercase; font-size:13px; }
-        .invoice-table a { color:white; text-decoration:underline; }
-        .paid-text { color:#34d399; font-weight:bold; } .unpaid-text { color:#fb7185; font-weight:bold; }
+        .doc-tab { background:{{ '#222225' if dark else '#cbd5e1' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }}; padding:12px 16px; border-radius:8px 8px 0 0; font-weight:bold; text-decoration:none; }
+        .doc-tab.active { background:{{ '#191919' if dark else '#94a3b8' }}; color:white; }
+        .invoice-table { width:100%; border-collapse:collapse; color:{{ '#e2e8f0' if dark else '#1e293b' }}; }
+        .invoice-table th, .invoice-table td { padding:14px 10px; border-bottom:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; text-align:left; }
+        .invoice-table th { text-transform:uppercase; font-size:13px; color:{{ '#94a3b8' if dark else '#475569' }}; }
+        .invoice-table a { color:{{ '#93c5fd' if dark else '#1f4f82' }}; text-decoration:underline; }
+        .paid-text { color:{{ '#4ade80' if dark else '#16a34a' }}; font-weight:bold; } .unpaid-text { color:{{ '#fb7185' if dark else '#dc2626' }}; font-weight:bold; }
         .filters { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:14px; margin:18px 0 28px; align-items:end; }
         .filters label { display:block; font-size:12px; opacity:.85; margin-bottom:4px; }
         .filters input, .filters select { width:100%; }
         .totals { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-top:18px; }
-        .total-card { background:#3d3d3d; border-radius:8px; padding:14px; }
-        .total-row { display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #555; font-size:14px; }
+        .total-card { background:{{ '#1d1d1f' if dark else '#f1f5f9' }}; border-radius:8px; padding:14px; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; }
+        .total-row { display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; font-size:14px; }
         .total-row:last-child { border-bottom:none; font-weight:bold; }
-        .summary-block { margin-top:24px; padding:14px 20px; background:#3d3d3d; border-radius:8px; }
+        .summary-block { margin-top:24px; padding:14px 20px; background:{{ '#1d1d1f' if dark else '#f1f5f9' }}; border-radius:8px; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; }
     </style>
     <div class="invoice-shell">
         <div class="doc-tabs">
@@ -7773,14 +7775,14 @@ def invoices_view():
     sent_url = f"/invoices/mark_sent?invoice_number={urllib.parse.quote(invoice_number)}&sent={0 if record.get('sent') else 1}&next={urllib.parse.quote('/invoices/view?invoice_number=' + invoice_number)}"
     return render_template_string(BASE_STYLE + header_html() + """
     <style>
-        .viewer-shell { background:#2b2b2b; color:white; border-radius:10px; padding:24px; }
-        .viewer-panel { max-width:1280px; margin:0 auto; background:#555; border-radius:8px; padding:22px 30px; }
+        .viewer-shell { background:{{ '#161618' if dark else '#ffffff' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }}; border-radius:10px; padding:24px; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; }
+        .viewer-panel { max-width:1280px; margin:0 auto; background:{{ '#191919' if dark else '#f8fafc' }}; border-radius:8px; padding:22px 30px; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; }
         .doc-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:0; }
-        .doc-tab { background:#777; color:white; padding:12px 16px; border-radius:8px 8px 0 0; font-weight:bold; }
-        .doc-tab.active { background:#555; }
+        .doc-tab { background:{{ '#222225' if dark else '#cbd5e1' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }}; padding:12px 16px; border-radius:8px 8px 0 0; font-weight:bold; text-decoration:none; }
+        .doc-tab.active { background:{{ '#191919' if dark else '#94a3b8' }}; color:white; }
         .toolbar { display:flex; flex-wrap:wrap; gap:4px; margin:22px 0 0; }
-        .tool { background:#888; color:white; border-radius:8px 8px 0 0; padding:12px 16px; font-weight:bold; }
-        .tool.active { background:white; color:#111; }
+        .tool { background:{{ '#2c2c30' if dark else '#64748b' }}; color:white; border-radius:8px 8px 0 0; padding:12px 16px; font-weight:bold; text-decoration:none; }
+        .tool.active { background:{{ '#e2e8f0' if dark else '#ffffff' }}; color:#111; }
         .tool.pay { background:{{ '#16a34a' if record.paid else '#ef4444' }}; }
         .pdf-frame { background:white; width:100%; height:900px; border:0; }
     </style>
