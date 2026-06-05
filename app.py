@@ -8219,7 +8219,6 @@ def invoices_view():
             .ip-bill-row, .ip-co-row { flex-direction:column; }
             .ip-meta { text-align:left; }
             .ip-meta .ip-meta-row { justify-content:flex-start; }
-            .ip-status-stamp { font-size:28px; right:18px; top:90px; }
         }
         @media print {
             .doc-tabs, .toolbar, .ip-download-cta, .sidebar, .topbar, .bottom-nav, .brandbar { display:none !important; }
