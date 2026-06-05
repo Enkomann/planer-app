@@ -7642,22 +7642,6 @@ def invoices():
     <script>
     var invoiceProfiles = {{ profiles_json|safe }};
     // Search + paid/unpaid tabs are server-side now (pagination-aware).
-    // Client-side filter only handles bulk-aware hide of any DOM rows
-    // that the search input might want to dim while the user types.
-    var currentInvoiceStatus = "all";
-    function filterInvoiceRows(){
-        // No-op: kept as a hook for bulkUpdate() called below.
-        document.querySelectorAll('.invoice-row').forEach(function(row){
-            var statusOk = true;
-            var textOk = true;
-            // uncheck hidden rows so they cannot accidentally be submitted
-            if (row.style.display === 'none') {
-                var cb = row.querySelector('.invoice-select');
-                if (cb && cb.checked) cb.checked = false;
-            }
-        });
-        bulkUpdate();
-    }
     /* ── Bulk selection UI ───────────────────────────────────────── */
     function bulkUpdate(){
         var checks = document.querySelectorAll('.invoice-select:checked');
@@ -7731,6 +7715,10 @@ def invoices():
             cb.addEventListener('change', bulkUpdate);
         });
         bulkUpdate();
+        // ?status=paid|unpaid filter is server-side, so toggling paid via
+        // AJAX would leave a now-stale row visible in the wrong tab. When
+        // filtering is active, reload to let the server re-render the page.
+        var SERVER_STATUS_FILTER = {{ ('paid' if status == 'paid' else ('unpaid' if status == 'unpaid' else ''))|tojson }};
         document.querySelectorAll('.ajax-invoice-toggle').forEach(function(link){
             link.addEventListener('click', function(event){
                 event.preventDefault();
@@ -7739,6 +7727,13 @@ def invoices():
                     .then(function(resp){ return resp.json(); })
                     .then(function(data){
                         if(!data.ok){ window.location.href = link.href.replace('&ajax=1', ''); return; }
+                        // Paid toggle changed the row's eligibility for the
+                        // active server status filter → reload current URL
+                        // so pagination + counts stay correct.
+                        if(link.dataset.kind === 'paid' && SERVER_STATUS_FILTER){
+                            window.location.reload();
+                            return;
+                        }
                         if(link.dataset.kind === 'sent'){
                             var badge = row.querySelector('.sent-badge');
                             badge.textContent = data.sent ? link.dataset.sentLabel : link.dataset.unsentLabel;
@@ -7754,7 +7749,6 @@ def invoices():
                             row.setAttribute('data-paid', data.paid ? '1' : '0');
                             link.textContent = data.paid ? link.dataset.markUnpaid : link.dataset.markPaid;
                             link.href = link.href.replace(/paid=[01]/, 'paid=' + (data.paid ? '0' : '1'));
-                            filterInvoiceRows();
                         }
                     })
                     .catch(function(){ window.location.href = link.href.replace('&ajax=1', ''); });
