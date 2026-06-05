@@ -9068,9 +9068,13 @@ function escHtml(s){
           .replace(/"/g,'&quot;');
 }
 
-// Load prefill items on page load
+// Load prefill items on page load.
+// Use explicit undefined/null check (NOT ||) so vat_rate=0 is honoured,
+// otherwise '0 || 17' would silently snap a deducted line back to 17%.
 prefillItems.forEach(function(it){
-  addItem(it.designation, it.amount !== ''? it.amount : '', it.vat_rate || 17);
+  var amt = (it.amount !== '' && it.amount !== undefined && it.amount !== null) ? it.amount : '';
+  var vr  = (it.vat_rate !== undefined && it.vat_rate !== null) ? it.vat_rate : 17;
+  addItem(it.designation, amt, vr);
 });
 
 // Surface validation errors — when 'required' fields are empty, scroll to them
