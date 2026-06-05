@@ -2750,6 +2750,98 @@ def _invoice_payment_terms_html(settings, override_terms=None):
     return terms
 
 
+def _invoice_view_context(conn, record):
+    """Build a uniform dict for the HTML invoice preview that mirrors
+    the PDF layout (build_invoice_pdf + build_manual_invoice_pdf).
+    Returns None if data is missing for a manual invoice.
+    """
+    settings = get_invoice_settings(conn)
+    is_manual = record.get("source") == "manual"
+    template_colors = {"orange": "#ff7a2f", "blue": "#1f4f82", "green": "#2f7d32"}
+    accent = template_colors.get(settings.get("invoice_template", "orange"), "#ff7a2f")
+
+    ctx = {
+        "invoice_number": record["invoice_number"],
+        "invoice_date":   format_date(record.get("invoice_date") or ""),
+        "is_manual":      is_manual,
+        "accent":         accent,
+        "company_name":    settings.get("company_name", "") or "",
+        "company_address": settings.get("company_address", "") or "",
+        "company_phone":   settings.get("company_phone", "") or "",
+        "company_email":   settings.get("company_email", "") or "",
+        "payment_terms_html": _invoice_payment_terms_html(settings),
+        "client_name":    "",
+        "client_address": "",
+        "client_email":   "",
+        "items":          [],     # list of {designation, amount, vat_pct, ttc}
+        "total_ht":       0.0,
+        "total_vat":      0.0,
+        "total_ttc":      0.0,
+        "vat_label":      "TVA",  # e.g. "TVA 17.0%"
+        "show_vat_pct":   True,
+    }
+
+    if is_manual:
+        c = conn.cursor()
+        drow = c.execute(
+            "SELECT client_name, client_address, items_json, payment_terms "
+            "FROM manual_invoice_drafts WHERE invoice_number=?",
+            (record["invoice_number"],),
+        ).fetchone()
+        if not drow:
+            return None
+        client_name, client_addr, items_json, pterms = drow
+        ctx["client_name"]    = client_name or record.get("client", "")
+        ctx["client_address"] = client_addr or ""
+        try:
+            items = json.loads(items_json or "[]")
+        except Exception:
+            items = []
+        rates_seen = set()
+        for it in items:
+            amt = float(it.get("amount") or 0)
+            vr_pct = float(it.get("vat_rate") or 0)
+            vat = amt * vr_pct / 100.0
+            rates_seen.add(round(vr_pct, 2))
+            ctx["items"].append({
+                "designation": (it.get("designation") or "").strip(),
+                "amount":      amt,
+                "vat_pct":     vr_pct,
+                "ttc":         amt + vat,
+            })
+            ctx["total_ht"]  += amt
+            ctx["total_vat"] += vat
+        ctx["total_ttc"] = ctx["total_ht"] + ctx["total_vat"]
+        if len(rates_seen) == 1:
+            ctx["vat_label"] = f"TVA {next(iter(rates_seen)):.1f}%"
+        else:
+            ctx["vat_label"] = "TVA"
+        # Override payment terms only if the manual draft had a custom value
+        if pterms:
+            ctx["payment_terms_html"] = _invoice_payment_terms_html(settings, pterms)
+    else:
+        row, _set = get_invoice_row_for_record(conn, record)
+        if not row:
+            return None
+        ctx["client_name"]    = row.get("client", "") or record.get("client", "")
+        ctx["client_address"] = row.get("address", "") or "-"
+        ctx["client_email"]   = row.get("email", "") or ""
+        # Auto invoice: one designation block (service title + dates + total + price)
+        designation_text = "\n".join(invoice_designation_lines(row))
+        ctx["items"].append({
+            "designation": designation_text,
+            "amount":      float(row.get("amount") or 0),
+            "vat_pct":     float(row.get("vat_rate") or 0) * 100,
+            "ttc":         float(row.get("total") or 0),
+        })
+        ctx["total_ht"]  = float(row.get("amount") or 0)
+        ctx["total_vat"] = float(row.get("vat_amount") or 0)
+        ctx["total_ttc"] = float(row.get("total") or 0)
+        rate = float(row.get("vat_rate") or 0) * 100
+        ctx["vat_label"] = f"TVA {rate:.1f}%"
+    return ctx
+
+
 def build_invoice_pdf(row, settings, invoice_date, date_from, date_to, document_title="FACTURE"):
     buffer = io.BytesIO()
     doc = pdf_doc(buffer, f"{document_title} {row['invoice_number']} - {row['client']}", pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
@@ -8028,18 +8120,106 @@ def invoices_view():
 
     paid_url = f"/invoices/mark_paid?invoice_number={urllib.parse.quote(invoice_number)}&paid={0 if record['paid'] else 1}&client={urllib.parse.quote(row['client'])}&date_from={record.get('date_from','')}&date_to={record.get('date_to','')}&invoice_date={record.get('invoice_date','')}&amount={row['amount']}&vat_amount={row['vat_amount']}&total={row['total']}&next={urllib.parse.quote('/invoices/view?invoice_number=' + invoice_number)}"
     sent_url = f"/invoices/mark_sent?invoice_number={urllib.parse.quote(invoice_number)}&sent={0 if record.get('sent') else 1}&next={urllib.parse.quote('/invoices/view?invoice_number=' + invoice_number)}"
+
+    # Build HTML preview context (shared data with PDF builders)
+    conn2 = get_conn()
+    view_ctx = _invoice_view_context(conn2, record)
+    conn2.close()
+
     return render_template_string(BASE_STYLE + header_html() + """
     <style>
-        .viewer-shell { background:{{ '#161618' if dark else '#ffffff' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }}; border-radius:10px; padding:24px; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; }
-        .viewer-panel { max-width:1280px; margin:0 auto; background:{{ '#191919' if dark else '#f8fafc' }}; border-radius:8px; padding:22px 30px; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; }
-        .doc-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:0; }
-        .doc-tab { background:{{ '#222225' if dark else '#cbd5e1' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }}; padding:12px 16px; border-radius:8px 8px 0 0; font-weight:bold; text-decoration:none; }
-        .doc-tab.active { background:{{ '#191919' if dark else '#1f4f82' }}; color:white; }
-        .toolbar { display:flex; flex-wrap:wrap; gap:4px; margin:22px 0 0; }
-        .tool { background:{{ '#2c2c30' if dark else '#64748b' }}; color:white; border-radius:8px 8px 0 0; padding:12px 16px; font-weight:bold; text-decoration:none; }
-        .tool.active { background:{{ '#e2e8f0' if dark else '#ffffff' }}; color:#111; }
-        .tool.pay { background:{{ '#16a34a' if record.paid else '#ef4444' }}; }
-        .pdf-frame { background:white; width:100%; height:900px; border:0; }
+        /* Outer shell — neutral page chrome */
+        .viewer-shell { background:{{ '#161618' if dark else '#f5f7fa' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }}; border-radius:10px; padding:18px; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; }
+        .viewer-panel { max-width:1280px; margin:0 auto; }
+        /* Tabs match invoicehome cream/white style in light theme */
+        .doc-tabs { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:0; }
+        .doc-tab { background:{{ '#222225' if dark else '#fde68a' }}; color:{{ '#e2e8f0' if dark else '#78350f' }}; padding:10px 14px; border-radius:8px 8px 0 0; font-weight:700; text-decoration:none; font-size:13px; }
+        .doc-tab.active { background:{{ '#191919' if dark else '#ffffff' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }}; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; border-bottom:none; }
+        /* Toolbar buttons row */
+        .toolbar { display:flex; flex-wrap:wrap; gap:4px; padding:14px 14px 0; background:{{ '#191919' if dark else '#ffffff' }}; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; border-bottom:none; border-radius:0; }
+        .tool { background:{{ '#2c2c30' if dark else '#f1f5f9' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }}; border-radius:8px 8px 0 0; padding:10px 14px; font-weight:700; text-decoration:none; font-size:13px; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; border-bottom:none; }
+        .tool.active { background:{{ '#0f0f10' if dark else '#1f4f82' }}; color:white; }
+        .tool.pay { background:{{ '#16a34a' if record.paid else '#ef4444' }}; color:white; border-color:transparent; }
+        .tool.send-toggle { background:{{ '#16a34a' if record.sent else '#ef4444' }}; color:white; border-color:transparent; }
+        .tool.email-btn { background:#0ea5e9; color:white; border-color:transparent; }
+        .tool.dl { background:#1f4f82; color:white; border-color:transparent; }
+
+        /* ── Invoice "paper" preview ──────────────────────────────── */
+        .invoice-stage { background:{{ '#0f0f10' if dark else '#e5e7eb' }}; padding:32px 16px; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; border-radius:0 0 10px 10px; }
+        .invoice-paper {
+            background:#ffffff; color:#111827;
+            max-width:920px; margin:0 auto;
+            padding:36px 44px;
+            border-radius:4px;
+            box-shadow:0 12px 36px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.04);
+            font-family:'Helvetica Neue', Arial, sans-serif;
+            font-size:13px; line-height:1.55;
+        }
+        .ip-header { background:{{ view_ctx.accent }}; color:#ffffff; padding:18px 24px; border-radius:4px; display:flex; align-items:center; justify-content:space-between; }
+        .ip-brand { font-size:22px; font-weight:800; }
+        .ip-doc-type { font-size:22px; font-weight:800; }
+        .ip-co-row { display:flex; gap:24px; align-items:flex-start; margin:24px 0 30px; }
+        .ip-co-info { flex:1; white-space:pre-line; font-size:13px; }
+        .ip-co-logo img { max-height:64px; max-width:160px; object-fit:contain; }
+        .ip-bill-row { display:flex; gap:24px; margin-bottom:24px; }
+        .ip-billed-to, .ip-meta { flex:1; }
+        .ip-billed-to b, .ip-meta b { display:inline-block; margin-bottom:4px; color:#111827; font-weight:700; font-size:13px; }
+        .ip-meta { text-align:right; }
+        .ip-meta .ip-meta-row { display:flex; justify-content:flex-end; gap:14px; margin-bottom:3px; }
+        .ip-meta .ip-meta-row b { min-width:80px; text-align:left; }
+        .ip-client-name { font-weight:700; }
+        .ip-client-addr { white-space:pre-line; }
+
+        .ip-table { width:100%; border-collapse:collapse; margin:20px 0 0; }
+        .ip-table th, .ip-table td { padding:12px 14px; text-align:left; border-bottom:1px solid #e5e7eb; vertical-align:top; font-size:13px; }
+        .ip-table thead th { background:#f3f4f6; color:#374151; font-weight:700; text-transform:uppercase; font-size:12px; letter-spacing:0.04em; }
+        .ip-table .ip-amount-col { text-align:right; min-width:140px; }
+        .ip-table .ip-desig { white-space:pre-line; }
+        .ip-totals td { padding:8px 14px; }
+        .ip-total-label { text-align:right; color:#374151; }
+        .ip-total-amount { text-align:right; font-weight:600; min-width:140px; }
+        .ip-total-ttc td { background:#f3f4f6; font-weight:800; font-size:16px; padding:14px; }
+        .ip-total-ttc .ip-total-label { color:#111827; }
+        .ip-total-ttc .ip-total-amount { color:#111827; }
+
+        .ip-pay { margin-top:36px; padding-top:18px; border-top:1px solid #e5e7eb; }
+        .ip-pay b { display:block; margin-bottom:6px; color:#111827; }
+        .ip-pay-body { color:#374151; font-size:12.5px; line-height:1.7; }
+
+        .ip-status-stamp {
+            position:absolute; right:54px; top:130px;
+            font-size:42px; font-weight:900;
+            letter-spacing:0.08em;
+            transform:rotate(-12deg); opacity:0.65;
+            border:5px solid currentColor; padding:6px 18px;
+            border-radius:8px;
+            pointer-events:none;
+        }
+        .ip-status-stamp.paid   { color:#16a34a; }
+        .ip-status-stamp.unpaid { color:#dc2626; }
+
+        .ip-download-cta {
+            display:block; max-width:920px; margin:18px auto 0;
+            background:#1f4f82; color:white;
+            padding:14px 18px; border-radius:8px;
+            text-align:center; text-decoration:none;
+            font-weight:800; font-size:15px;
+            box-shadow:0 4px 14px rgba(31,79,130,0.3);
+        }
+        .ip-download-cta:hover { background:#16395f; }
+
+        @media (max-width:720px){
+            .invoice-paper { padding:22px 18px; font-size:12.5px; }
+            .ip-bill-row, .ip-co-row { flex-direction:column; }
+            .ip-meta { text-align:left; }
+            .ip-meta .ip-meta-row { justify-content:flex-start; }
+            .ip-status-stamp { font-size:28px; right:18px; top:90px; }
+        }
+        @media print {
+            .doc-tabs, .toolbar, .ip-download-cta, .sidebar, .topbar, .bottom-nav, .brandbar { display:none !important; }
+            .invoice-stage, .viewer-shell, .viewer-panel { background:white !important; padding:0 !important; border:none !important; box-shadow:none !important; }
+            .invoice-paper { box-shadow:none !important; max-width:none !important; }
+        }
     </style>
     <div class="viewer-shell">
         <div class="doc-tabs">
@@ -8047,7 +8227,7 @@ def invoices_view():
             <a class="doc-tab" href="/invoices#invoice-profiles">{{ tr.get("my_clients","Mes clients") }}</a>
             <a class="doc-tab" href="/invoices">{{ tr.get("my_reports","Mes rapports") }}</a>
             <a class="doc-tab" href="/invoices/client?client={{ row.client|urlencode }}">📁 {{ row.client }}</a>
-            <span class="doc-tab active">{{ row.invoice_number }} <a href="/invoices/client?client={{ row.client|urlencode }}" style="color:white;margin-left:8px;text-decoration:none;">×</a></span>
+            <span class="doc-tab active">{{ row.invoice_number }} <a href="/invoices/client?client={{ row.client|urlencode }}" style="color:inherit;margin-left:8px;text-decoration:none;opacity:.6;">×</a></span>
         </div>
         <div class="viewer-panel">
             <div class="toolbar">
@@ -8058,15 +8238,90 @@ def invoices_view():
                 <a class="tool" href="{{ edit_url }}">{{ tr.get("edit","Modifier") }}</a>
                 <a class="tool" href="/invoices/delete?invoice_number={{ row.invoice_number }}" onclick='return confirm({{ tr.get("invoice_delete_confirm","Obrisati ovu fakturu?")|tojson }});'>{{ tr.get("delete","Supprimer") }}</a>
                 <a class="tool pay" href="{{ paid_url }}">{{ tr["mark_unpaid"] if record.paid else tr["mark_paid"] }}</a>
-                <a class="tool" style="background:{{ '#16a34a' if record.sent else '#ef4444' }};" href="{{ sent_url }}">{{ tr["mark_unsent"] if record.sent else tr["mark_sent"] }}</a>
-                <a class="tool" style="background:#0ea5e9;" href="/invoices/email?invoice_number={{ row.invoice_number }}">✉ {{ tr.get("send_email","Envoyer") }}</a>
-                <a class="tool" href="{{ download_url }}">{{ tr.get("download","Telecharger") }}</a>
+                <a class="tool send-toggle" href="{{ sent_url }}">{{ tr["mark_unsent"] if record.sent else tr["mark_sent"] }}</a>
+                <a class="tool email-btn" href="/invoices/email?invoice_number={{ row.invoice_number }}">✉ {{ tr.get("send_email","Envoyer") }}</a>
+                <a class="tool dl" href="{{ download_url }}">⬇ {{ tr.get("download","Telecharger") }}</a>
             </div>
-            <iframe class="pdf-frame" src="{{ pdf_url }}"></iframe>
+
+            <div class="invoice-stage">
+              {% if view_ctx %}
+              <article class="invoice-paper" style="position:relative;">
+                {% if record.paid %}
+                <div class="ip-status-stamp paid">PAID</div>
+                {% endif %}
+
+                <header class="ip-header">
+                  <div class="ip-brand">{{ view_ctx.company_name }}</div>
+                  <div class="ip-doc-type">FACTURE</div>
+                </header>
+
+                <section class="ip-co-row">
+                  <div class="ip-co-info">{{ view_ctx.company_address }}{% if view_ctx.company_phone %}
+Tel: {{ view_ctx.company_phone }}{% endif %}{% if view_ctx.company_email %}
+{{ view_ctx.company_email }}{% endif %}</div>
+                  <div class="ip-co-logo">
+                    <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" onerror="this.style.display='none'">
+                  </div>
+                </section>
+
+                <section class="ip-bill-row">
+                  <div class="ip-billed-to">
+                    <b>Facturé à</b>
+                    <div class="ip-client-name">{{ view_ctx.client_name or '-' }}</div>
+                    <div class="ip-client-addr">{{ view_ctx.client_address or '-' }}</div>
+                    {% if view_ctx.client_email %}<div>{{ view_ctx.client_email }}</div>{% endif %}
+                  </div>
+                  <div class="ip-meta">
+                    <div class="ip-meta-row"><b>Facture n°</b> <span>{{ view_ctx.invoice_number }}</span></div>
+                    <div class="ip-meta-row"><b>Date</b> <span>{{ view_ctx.invoice_date }}</span></div>
+                  </div>
+                </section>
+
+                <table class="ip-table">
+                  <thead>
+                    <tr><th>DÉSIGNATION</th><th class="ip-amount-col">MONTANT</th></tr>
+                  </thead>
+                  <tbody>
+                    {% for it in view_ctx['items'] %}
+                    <tr>
+                      <td class="ip-desig">{{ it.designation }}</td>
+                      <td class="ip-amount-col">{{ "%.2f"|format(it.amount) }}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                  <tfoot>
+                    <tr class="ip-totals">
+                      <td class="ip-total-label">Total HT</td>
+                      <td class="ip-total-amount">{{ "%.2f"|format(view_ctx.total_ht) }}</td>
+                    </tr>
+                    <tr class="ip-totals">
+                      <td class="ip-total-label">{{ view_ctx.vat_label }}</td>
+                      <td class="ip-total-amount">{{ "%.2f"|format(view_ctx.total_vat) }}</td>
+                    </tr>
+                    <tr class="ip-totals ip-total-ttc">
+                      <td class="ip-total-label">TOTAL TTC</td>
+                      <td class="ip-total-amount">{{ "%.2f"|format(view_ctx.total_ttc) }} €</td>
+                    </tr>
+                  </tfoot>
+                </table>
+
+                <section class="ip-pay">
+                  <b>Conditions et modalités de paiement</b>
+                  <div class="ip-pay-body">{{ view_ctx.payment_terms_html|safe }}</div>
+                </section>
+              </article>
+              {% else %}
+              <div class="invoice-paper">
+                <p style="color:#dc2626;">{{ tr.get("invoice_not_found","Faktura nije pronadjena.") }}</p>
+              </div>
+              {% endif %}
+            </div>
+
+            <a class="ip-download-cta" href="{{ download_url }}">⬇ {{ tr.get("download","Telecharger") }} PDF</a>
         </div>
     </div>
-    """, tr=tr, dark=dark, row=row, record=record, pdf_url=pdf_url,
-         download_url=download_url, paid_url=paid_url, sent_url=sent_url,
+    """, tr=tr, dark=dark, row=row, record=record, view_ctx=view_ctx,
+         pdf_url=pdf_url, download_url=download_url, paid_url=paid_url, sent_url=sent_url,
          is_manual=is_manual, edit_url=edit_url)
 
 
