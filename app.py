@@ -7434,7 +7434,7 @@ def invoices():
                 <button type="submit" style="background:#f59e0b;color:white;font-weight:700;padding:7px 12px;border-radius:6px;border:none;cursor:pointer;font-size:13px;">↺ {{ tr.get("mark_selected_unsent","Mark as unsent") }}</button>
               </form>
               <form method="post" action="/invoices/bulk_action" class="bulk-form" id="bulkDeleteForm" style="display:inline;"
-                    onsubmit='return confirm({{ tr.get("delete_selected_confirm","Delete {n} selected invoices?").replace("{n}", "") | tojson }} + " " + document.getElementById("bulkCount").textContent);'>
+                    onsubmit='var _tpl={{ tr.get("delete_selected_confirm","Delete {n} selected invoices?")|tojson }};return confirm(_tpl.replace("{n}", document.getElementById("bulkCount").textContent));'>
                 <input type="hidden" name="action" value="delete">
                 <button type="submit" style="background:#ef4444;color:white;font-weight:700;padding:7px 12px;border-radius:6px;border:none;cursor:pointer;font-size:13px;">🗑 {{ tr.get("delete_selected","Delete selected") }}</button>
               </form>
