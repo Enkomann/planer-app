@@ -9108,7 +9108,7 @@ def invoices_manual():
         <div class="mi-card">
           <h3>📂 {{ tr.get("mi_saved_items","Articles sauvegardés") }}</h3>
           <div id="tplList">
-            {% for tpl in templates_list %}
+            {% for tpl in templates_list if not tpl.archived %}
             <div class="tpl-item">
               <div style="flex:1;font-size:13px;">
                 <div style="font-weight:600;">{{ tpl.designation }}</div>
@@ -9280,7 +9280,13 @@ function addItem(desig, amt, vat){
     + escHtml(String(desig)) + '</textarea>'
     + '<input class="mi-input mi-amt" type="number" step="0.01" name="amount[]"'
     +' value="'+(amt===''?'':Number(amt).toFixed(2))+'" placeholder="0.00" oninput="recalc()">'
-    + '<select class="mi-input mi-vat" name="vat_rate[]" onchange="onVatChange(this)">'
+    // data-prev seeded with the row's current rate so a Cancel on "+ Add"
+    // restores THIS row's value instead of falling back to 17%.
+    // onfocus/onmousedown keeps it in sync if the user manually changes
+    // the rate before opening "+ Add" again.
+    + '<select class="mi-input mi-vat" name="vat_rate[]" data-prev="' + vat + '"'
+    +' onfocus="this.dataset.prev=this.value" onmousedown="this.dataset.prev=this.value"'
+    +' onchange="onVatChange(this)">'
     + vatHtml
     + '</select>'
     + '<button type="button" class="mi-del-btn" onclick="this.closest(\'.mi-item-row\').remove();recalc();">×</button>';
@@ -9351,28 +9357,56 @@ function renderSavedItems(){
     var tabOk = (_siCurrentTab === 'archived') ? isArchived : !isArchived;
     return matches && tabOk;
   });
-  var html = '';
+  var list = document.getElementById('siList');
+  list.innerHTML = '';
   if (!rows.length) {
-    html = '<div style="padding:24px;text-align:center;color:#9ca3af;">' + escHtml(miNoItems) + '</div>';
-  } else {
-    rows.forEach(function(it){
-      var amtFmt = Number(it.amount || 0).toFixed(2);
-      var archAction = it.archived ? 'unarchive_template' : 'archive_template';
-      var archLabel  = it.archived ? miUnarchiveLabel : miArchiveLabel;
-      html += '<div class="si-row">' +
-        '<a class="si-desig" href="javascript:void(0)" onclick="useTemplate('
-          + JSON.stringify(it.designation) + ',' + it.amount + ',' + it.vat + ');closeSavedItemsModal();">'
-          + escHtml(String(it.designation || '')) + '</a>' +
-        '<div class="si-amt">' + amtFmt + '</div>' +
-        '<form method="post" action="/invoices/manual" style="display:inline;">'
-          + '<input type="hidden" name="action" value="' + archAction + '">'
-          + '<input type="hidden" name="tpl_id" value="' + it.id + '">'
-          + '<button type="submit" class="si-arch">' + escHtml(archLabel) + '</button>'
-        + '</form>' +
-      '</div>';
-    });
+    var empty = document.createElement('div');
+    empty.style.cssText = 'padding:24px;text-align:center;color:#9ca3af;';
+    empty.textContent = miNoItems;
+    list.appendChild(empty);
+    return;
   }
-  document.getElementById('siList').innerHTML = html;
+  // Build rows via DOM so we never inline-quote arbitrary user strings
+  // (designation may contain ", ', <, >, line breaks, etc.).
+  rows.forEach(function(it){
+    var amtFmt = Number(it.amount || 0).toFixed(2);
+    var archAction = it.archived ? 'unarchive_template' : 'archive_template';
+    var archLabel  = it.archived ? miUnarchiveLabel : miArchiveLabel;
+
+    var row = document.createElement('div');
+    row.className = 'si-row';
+
+    var a = document.createElement('a');
+    a.className = 'si-desig';
+    a.href = 'javascript:void(0)';
+    a.textContent = String(it.designation || '');
+    a.addEventListener('click', function(){
+      useTemplate(it.designation, it.amount, it.vat);
+      closeSavedItemsModal();
+    });
+
+    var amt = document.createElement('div');
+    amt.className = 'si-amt';
+    amt.textContent = amtFmt;
+
+    var form = document.createElement('form');
+    form.method = 'post';
+    form.action = '/invoices/manual';
+    form.style.display = 'inline';
+    form.innerHTML =
+        '<input type="hidden" name="action" value="' + archAction + '">'
+      + '<input type="hidden" name="tpl_id" value="' + Number(it.id) + '">';
+    var btn = document.createElement('button');
+    btn.type = 'submit';
+    btn.className = 'si-arch';
+    btn.textContent = archLabel;
+    form.appendChild(btn);
+
+    row.appendChild(a);
+    row.appendChild(amt);
+    row.appendChild(form);
+    list.appendChild(row);
+  });
 }
 
 function escHtml(s){
