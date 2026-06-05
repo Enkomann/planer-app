@@ -1327,6 +1327,17 @@ INVOICE_TRANSLATIONS = {
     "no_invoices_period": "Nema faktura za izabrani period.",
     "invoice_not_found": "Faktura nije pronadjena.",
     "invoice_delete_confirm": "Obrisati ovu fakturu?",
+    "bulk_selected": "odabrano",
+    "select_all": "Odaberi sve",
+    "download_selected_pdf": "Preuzmi PDF (ZIP)",
+    "mark_selected_paid": "Oznaci kao placene",
+    "mark_selected_unpaid": "Oznaci kao neplacene",
+    "mark_selected_sent": "Oznaci kao poslate",
+    "mark_selected_unsent": "Oznaci kao neposlate",
+    "delete_selected": "Obrisi odabrane",
+    "delete_selected_confirm": "Obrisati {n} odabranih faktura?",
+    "bulk_action_done": "Akcija izvrsena",
+    "bulk_no_selection": "Niste odabrali ni jednu fakturu.",
     "send_email": "Posalji emailom",
     "email_to": "Primalac",
     "subject": "Naslov",
@@ -1382,6 +1393,17 @@ INVOICE_TRANSLATIONS["en"] = {
     "no_invoices_period": "No invoices for the selected period.",
     "invoice_not_found": "Invoice not found.",
     "invoice_delete_confirm": "Delete this invoice?",
+    "bulk_selected": "selected",
+    "select_all": "Select all",
+    "download_selected_pdf": "Download PDF (ZIP)",
+    "mark_selected_paid": "Mark as paid",
+    "mark_selected_unpaid": "Mark as unpaid",
+    "mark_selected_sent": "Mark as sent",
+    "mark_selected_unsent": "Mark as unsent",
+    "delete_selected": "Delete selected",
+    "delete_selected_confirm": "Delete {n} selected invoices?",
+    "bulk_action_done": "Action completed",
+    "bulk_no_selection": "No invoices selected.",
     "send_email": "Send by email",
     "email_to": "Recipient",
     "subject": "Subject",
@@ -1436,6 +1458,17 @@ INVOICE_TRANSLATIONS["fr"] = {
     "no_invoices_period": "Aucune facture pour la periode selectionnee.",
     "invoice_not_found": "Facture introuvable.",
     "invoice_delete_confirm": "Supprimer cette facture ?",
+    "bulk_selected": "selectionnees",
+    "select_all": "Tout selectionner",
+    "download_selected_pdf": "Telecharger PDF (ZIP)",
+    "mark_selected_paid": "Marquer payees",
+    "mark_selected_unpaid": "Marquer non payees",
+    "mark_selected_sent": "Marquer envoyees",
+    "mark_selected_unsent": "Marquer non envoyees",
+    "delete_selected": "Supprimer la selection",
+    "delete_selected_confirm": "Supprimer {n} factures selectionnees ?",
+    "bulk_action_done": "Action terminee",
+    "bulk_no_selection": "Aucune facture selectionnee.",
     "send_email": "Envoyer par email",
     "email_to": "Destinataire",
     "subject": "Objet",
@@ -1490,6 +1523,17 @@ INVOICE_TRANSLATIONS["de"] = {
     "no_invoices_period": "Keine Rechnungen fuer den gewaehlten Zeitraum.",
     "invoice_not_found": "Rechnung nicht gefunden.",
     "invoice_delete_confirm": "Diese Rechnung loeschen?",
+    "bulk_selected": "ausgewaehlt",
+    "select_all": "Alle auswaehlen",
+    "download_selected_pdf": "PDF herunterladen (ZIP)",
+    "mark_selected_paid": "Als bezahlt markieren",
+    "mark_selected_unpaid": "Als unbezahlt markieren",
+    "mark_selected_sent": "Als gesendet markieren",
+    "mark_selected_unsent": "Als nicht gesendet markieren",
+    "delete_selected": "Auswahl loeschen",
+    "delete_selected_confirm": "{n} ausgewaehlte Rechnungen loeschen?",
+    "bulk_action_done": "Aktion ausgefuehrt",
+    "bulk_no_selection": "Keine Rechnung ausgewaehlt.",
     "send_email": "Per E-Mail senden",
     "email_to": "Empfaenger",
     "subject": "Betreff",
@@ -1544,6 +1588,17 @@ INVOICE_TRANSLATIONS["pt"] = {
     "no_invoices_period": "Sem faturas para o periodo selecionado.",
     "invoice_not_found": "Fatura nao encontrada.",
     "invoice_delete_confirm": "Eliminar esta fatura?",
+    "bulk_selected": "selecionadas",
+    "select_all": "Selecionar todas",
+    "download_selected_pdf": "Descarregar PDF (ZIP)",
+    "mark_selected_paid": "Marcar como pagas",
+    "mark_selected_unpaid": "Marcar como nao pagas",
+    "mark_selected_sent": "Marcar como enviadas",
+    "mark_selected_unsent": "Marcar como nao enviadas",
+    "delete_selected": "Eliminar selecao",
+    "delete_selected_confirm": "Eliminar {n} faturas selecionadas?",
+    "bulk_action_done": "Acao concluida",
+    "bulk_no_selection": "Nenhuma fatura selecionada.",
     "send_email": "Enviar por email",
     "email_to": "Destinatario",
     "subject": "Assunto",
@@ -7352,12 +7407,48 @@ def invoices():
                 <a class="invoice-tab" href="/invoices/manual" style="background:#22c55e;color:#111;">✏️ {{ tr.get("mi_title","Facture manuelle") }}</a>
             </div>
 
+            <!-- Bulk action bar (hidden until at least one row is selected) -->
+            <div id="bulkBar" style="display:none;background:{{ '#0d1117' if dark else '#1f4f82' }};color:white;padding:12px 16px;border-radius:10px;margin:0 0 12px;align-items:center;gap:12px;flex-wrap:wrap;">
+              <span style="font-weight:700;font-size:14px;">
+                <span id="bulkCount">0</span> {{ tr.get("bulk_selected","selected") }}
+                <span style="opacity:.7;margin-left:8px;">· TTC: <span id="bulkTotal">0.00</span> €</span>
+              </span>
+              <div style="flex:1;"></div>
+              <form method="post" action="/invoices/bulk_download" class="bulk-form" style="display:inline;">
+                <button type="submit" style="background:#0ea5e9;color:white;font-weight:700;padding:7px 12px;border-radius:6px;border:none;cursor:pointer;font-size:13px;">📥 {{ tr.get("download_selected_pdf","Download PDF (ZIP)") }}</button>
+              </form>
+              <form method="post" action="/invoices/bulk_action" class="bulk-form" style="display:inline;">
+                <input type="hidden" name="action" value="mark_paid">
+                <button type="submit" style="background:#16a34a;color:white;font-weight:700;padding:7px 12px;border-radius:6px;border:none;cursor:pointer;font-size:13px;">✓ {{ tr.get("mark_selected_paid","Mark as paid") }}</button>
+              </form>
+              <form method="post" action="/invoices/bulk_action" class="bulk-form" style="display:inline;">
+                <input type="hidden" name="action" value="mark_unpaid">
+                <button type="submit" style="background:#f59e0b;color:white;font-weight:700;padding:7px 12px;border-radius:6px;border:none;cursor:pointer;font-size:13px;">↺ {{ tr.get("mark_selected_unpaid","Mark as unpaid") }}</button>
+              </form>
+              <form method="post" action="/invoices/bulk_action" class="bulk-form" style="display:inline;">
+                <input type="hidden" name="action" value="mark_sent">
+                <button type="submit" style="background:#16a34a;color:white;font-weight:700;padding:7px 12px;border-radius:6px;border:none;cursor:pointer;font-size:13px;">✉ {{ tr.get("mark_selected_sent","Mark as sent") }}</button>
+              </form>
+              <form method="post" action="/invoices/bulk_action" class="bulk-form" style="display:inline;">
+                <input type="hidden" name="action" value="mark_unsent">
+                <button type="submit" style="background:#f59e0b;color:white;font-weight:700;padding:7px 12px;border-radius:6px;border:none;cursor:pointer;font-size:13px;">↺ {{ tr.get("mark_selected_unsent","Mark as unsent") }}</button>
+              </form>
+              <form method="post" action="/invoices/bulk_action" class="bulk-form" id="bulkDeleteForm" style="display:inline;"
+                    onsubmit='return confirm({{ tr.get("delete_selected_confirm","Delete {n} selected invoices?").replace("{n}", "") | tojson }} + " " + document.getElementById("bulkCount").textContent);'>
+                <input type="hidden" name="action" value="delete">
+                <button type="submit" style="background:#ef4444;color:white;font-weight:700;padding:7px 12px;border-radius:6px;border:none;cursor:pointer;font-size:13px;">🗑 {{ tr.get("delete_selected","Delete selected") }}</button>
+              </form>
+            </div>
+
             <div style="overflow-x:auto;">
             <table id="invoice-list" class="invoice-table">
-                <tr><th></th><th>{{ tr["client_name"] }}</th><th>Document</th><th>{{ tr["invoice_number"] }}</th><th>{{ tr["invoice_date"] }}</th><th>{{ tr["payment_status"] }}</th><th>{{ tr["sent_status"] }}</th><th>{{ tr["amount_with_vat"] }}</th><th>{{ tr.get("edit","Uredi") }}</th><th>PDF</th><th></th></tr>
+                <tr>
+                    <th style="width:36px;"><input type="checkbox" id="bulkSelectAll" style="width:auto;cursor:pointer;" title="{{ tr.get('select_all','Select all') }}"></th>
+                    <th>{{ tr["client_name"] }}</th><th>Document</th><th>{{ tr["invoice_number"] }}</th><th>{{ tr["invoice_date"] }}</th><th>{{ tr["payment_status"] }}</th><th>{{ tr["sent_status"] }}</th><th>{{ tr["amount_with_vat"] }}</th><th>{{ tr.get("edit","Uredi") }}</th><th>PDF</th><th></th>
+                </tr>
                 {% for row in rows %}
-                <tr class="invoice-row" data-paid="{{ 1 if row.paid else 0 }}" data-search="{{ (row.client ~ ' ' ~ row.invoice_number)|lower }}">
-                    <td><input type="checkbox" style="width:auto;"></td>
+                <tr class="invoice-row" data-paid="{{ 1 if row.paid else 0 }}" data-total="{{ row.total }}" data-search="{{ (row.client ~ ' ' ~ row.invoice_number)|lower }}">
+                    <td><input type="checkbox" class="invoice-select" value="{{ row.invoice_number }}" style="width:auto;cursor:pointer;"></td>
                     <td>
                       <a href="/invoices/view?invoice_number={{ row.invoice_number }}" style="color:{{ '#93c5fd' if dark else '#1f4f82' }};text-decoration:underline;font-weight:600;">{{ row.client }}</a>
                     </td>
@@ -7465,7 +7556,66 @@ def invoices():
             var statusOk = currentInvoiceStatus === 'all' || (currentInvoiceStatus === 'paid' && paid) || (currentInvoiceStatus === 'unpaid' && !paid);
             var textOk = !query || (row.getAttribute('data-search') || '').indexOf(query) !== -1;
             row.style.display = statusOk && textOk ? '' : 'none';
+            // uncheck hidden rows so they cannot accidentally be submitted
+            if (row.style.display === 'none') {
+                var cb = row.querySelector('.invoice-select');
+                if (cb && cb.checked) cb.checked = false;
+            }
         });
+        bulkUpdate();
+    }
+    /* ── Bulk selection UI ───────────────────────────────────────── */
+    function bulkUpdate(){
+        var checks = document.querySelectorAll('.invoice-select:checked');
+        var count = checks.length;
+        var total = 0;
+        var nums = [];
+        checks.forEach(function(cb){
+            nums.push(cb.value);
+            var row = cb.closest('.invoice-row');
+            if (row) total += parseFloat(row.getAttribute('data-total') || '0') || 0;
+        });
+        var bar = document.getElementById('bulkBar');
+        if (bar) {
+            bar.style.display = count > 0 ? 'flex' : 'none';
+            document.getElementById('bulkCount').textContent = String(count);
+            document.getElementById('bulkTotal').textContent = total.toFixed(2);
+        }
+        // Sync every bulk-form: inject hidden invoice_numbers[] inputs
+        document.querySelectorAll('.bulk-form').forEach(function(f){
+            f.querySelectorAll('input[name="invoice_numbers[]"]').forEach(function(x){ x.remove(); });
+            nums.forEach(function(n){
+                var h = document.createElement('input');
+                h.type='hidden'; h.name='invoice_numbers[]'; h.value=n;
+                f.appendChild(h);
+            });
+            // next= back to current page
+            var nx = f.querySelector('input[name="next"]');
+            if (!nx) {
+                nx = document.createElement('input');
+                nx.type='hidden'; nx.name='next';
+                f.appendChild(nx);
+            }
+            nx.value = window.location.pathname + window.location.search;
+        });
+        // select-all checkbox indeterminate / checked sync
+        var sa = document.getElementById('bulkSelectAll');
+        if (sa) {
+            var visible = Array.prototype.filter.call(
+                document.querySelectorAll('.invoice-select'),
+                function(cb){ var r=cb.closest('.invoice-row'); return r && r.style.display !== 'none'; }
+            );
+            var visChecked = visible.filter(function(cb){ return cb.checked; });
+            sa.checked       = visible.length > 0 && visChecked.length === visible.length;
+            sa.indeterminate = visChecked.length > 0 && visChecked.length < visible.length;
+        }
+    }
+    function bulkToggleAll(master){
+        document.querySelectorAll('.invoice-select').forEach(function(cb){
+            var r = cb.closest('.invoice-row');
+            if (r && r.style.display !== 'none') cb.checked = master.checked;
+        });
+        bulkUpdate();
     }
     function fillInvoiceProfile(){
         var name = document.getElementById('invoiceClientSearch').value;
@@ -7480,6 +7630,13 @@ def invoices():
     document.addEventListener('DOMContentLoaded', function(){
         var search = document.getElementById('invoiceDashboardSearch');
         if(search){search.addEventListener('input', filterInvoiceRows); filterInvoiceRows();}
+        // Bulk selection wiring
+        var selAll = document.getElementById('bulkSelectAll');
+        if (selAll) selAll.addEventListener('change', function(){ bulkToggleAll(this); });
+        document.querySelectorAll('.invoice-select').forEach(function(cb){
+            cb.addEventListener('change', bulkUpdate);
+        });
+        bulkUpdate();
         document.querySelectorAll('.ajax-invoice-toggle').forEach(function(link){
             link.addEventListener('click', function(event){
                 event.preventDefault();
@@ -7680,7 +7837,6 @@ def invoices_client():
             </form>
             <table class="invoice-table">
                 <tr>
-                    <th></th>
                     <th>{{ tr.get("client_name","Client") }}</th>
                     <th>{{ tr.get("document","Document") }}</th>
                     <th>{{ tr.get("invoice_number","Numéro") }}</th>
@@ -7690,7 +7846,6 @@ def invoices_client():
                 </tr>
                 {% for row in rows %}
                 <tr>
-                    <td><input type="checkbox" style="width:auto;"></td>
                     <td>{{ row.client }}</td>
                     <td>{{ tr["invoices"] }}{% if row.source == 'manual' %} <span style="font-size:10px;background:#22c55e;color:#111;padding:1px 5px;border-radius:4px;">✏️</span>{% endif %}</td>
                     <td>
@@ -8623,6 +8778,159 @@ def invoices_delete():
         c.execute("DELETE FROM invoice_records WHERE invoice_number = ?", (invoice_number,))
         conn.commit(); conn.close()
     return redirect("/invoices?" + urllib.parse.urlencode(redirect_args) + "#invoice-list")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  INVOICE BULK ACTIONS — multi-row select + mass paid/sent/delete/ZIP
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _validate_invoice_numbers(conn, raw_list):
+    """Return list of invoice numbers that exist and are not soft-deleted.
+    Filters out anything not in DB so a crafted POST cannot affect arbitrary rows."""
+    if not raw_list:
+        return []
+    seen = []
+    nums = []
+    for n in raw_list:
+        s = (n or "").strip()
+        if s and s not in seen and len(s) < 64:
+            seen.append(s); nums.append(s)
+    if not nums:
+        return []
+    c = conn.cursor()
+    placeholders = ",".join(["?"] * len(nums))
+    rows = c.execute(
+        f"SELECT invoice_number FROM invoice_records "
+        f"WHERE invoice_number IN ({placeholders}) AND COALESCE(deleted,0)=0",
+        tuple(nums),
+    ).fetchall()
+    return [r[0] for r in rows]
+
+
+@app.route("/invoices/bulk_action", methods=["POST"])
+def invoices_bulk_action():
+    if session.get("role") != "admin":
+        return redirect("/")
+    tr = t()
+    action   = request.form.get("action", "").strip()
+    raw_nums = request.form.getlist("invoice_numbers[]") or request.form.getlist("invoice_numbers")
+    next_url = request.form.get("next", "/invoices").strip()
+    if not next_url.startswith("/invoices"):
+        next_url = "/invoices"
+
+    conn = get_conn(); c = conn.cursor()
+    valid = _validate_invoice_numbers(conn, raw_nums)
+    if not valid:
+        conn.close()
+        flash(tr.get("bulk_no_selection", "No invoices selected."), "error")
+        return redirect(next_url)
+
+    placeholders = ",".join(["?"] * len(valid))
+    affected = 0
+
+    if action == "mark_paid":
+        today = lux_now().strftime("%Y-%m-%d")
+        c.execute(
+            f"UPDATE invoice_records SET paid=1, paid_date=? "
+            f"WHERE invoice_number IN ({placeholders})",
+            (today,) + tuple(valid),
+        )
+        affected = getattr(c, "rowcount", 0) or len(valid)
+    elif action == "mark_unpaid":
+        c.execute(
+            f"UPDATE invoice_records SET paid=0, paid_date='' "
+            f"WHERE invoice_number IN ({placeholders})",
+            tuple(valid),
+        )
+        affected = getattr(c, "rowcount", 0) or len(valid)
+    elif action == "mark_sent":
+        today = lux_now().strftime("%Y-%m-%d")
+        c.execute(
+            f"UPDATE invoice_records SET sent=1, sent_date=? "
+            f"WHERE invoice_number IN ({placeholders})",
+            (today,) + tuple(valid),
+        )
+        affected = getattr(c, "rowcount", 0) or len(valid)
+    elif action == "mark_unsent":
+        c.execute(
+            f"UPDATE invoice_records SET sent=0, sent_date='' "
+            f"WHERE invoice_number IN ({placeholders})",
+            tuple(valid),
+        )
+        affected = getattr(c, "rowcount", 0) or len(valid)
+    elif action == "delete":
+        # Hard delete — same behaviour as the single-row delete
+        c.execute(
+            f"DELETE FROM manual_invoice_drafts WHERE invoice_number IN ({placeholders})",
+            tuple(valid),
+        )
+        c.execute(
+            f"DELETE FROM invoice_records WHERE invoice_number IN ({placeholders})",
+            tuple(valid),
+        )
+        affected = len(valid)
+    else:
+        conn.close()
+        flash("Unknown bulk action: " + (action or "?"), "error")
+        return redirect(next_url)
+
+    conn.commit(); conn.close()
+    flash(f"{tr.get('bulk_action_done','Action completed')}: {affected}", "ok")
+    sep = "&" if "?" in next_url else "?"
+    return redirect(f"{next_url}{sep}skip_auto=1#invoice-list")
+
+
+@app.route("/invoices/bulk_download", methods=["POST"])
+def invoices_bulk_download():
+    if session.get("role") != "admin":
+        return redirect("/")
+    tr = t()
+    raw_nums = request.form.getlist("invoice_numbers[]") or request.form.getlist("invoice_numbers")
+    next_url = request.form.get("next", "/invoices").strip()
+    if not next_url.startswith("/invoices"):
+        next_url = "/invoices"
+
+    conn = get_conn()
+    valid = _validate_invoice_numbers(conn, raw_nums)
+    if not valid:
+        conn.close()
+        flash(tr.get("bulk_no_selection", "No invoices selected."), "error")
+        return redirect(next_url)
+
+    tmp = tempfile.NamedTemporaryFile(prefix="luxmann_invoices_", suffix=".zip", delete=False)
+    tmp_path = tmp.name
+    tmp.close()
+
+    skipped = []
+    try:
+        with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            for inv_num in valid:
+                pdf_bytes, fname = _build_invoice_pdf_for_email(conn, inv_num)
+                if not pdf_bytes:
+                    skipped.append(inv_num)
+                    continue
+                zf.writestr(fname, pdf_bytes)
+    except Exception as e:
+        conn.close()
+        try: os.remove(tmp_path)
+        except Exception: pass
+        flash(f"ZIP error: {e.__class__.__name__}: {str(e)[:200]}", "error")
+        return redirect(next_url)
+    conn.close()
+
+    @after_this_request
+    def _cleanup(response):
+        try: os.remove(tmp_path)
+        except Exception: pass
+        return response
+
+    stamp = lux_now().strftime("%Y%m%d_%H%M")
+    return send_file(
+        tmp_path,
+        as_attachment=True,
+        download_name=f"factures_{stamp}_{len(valid) - len(skipped)}.zip",
+        mimetype="application/zip",
+    )
 
 
 @app.route("/invoices/settings", methods=["POST"])
