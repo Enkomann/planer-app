@@ -8911,8 +8911,9 @@ def invoices_manual():
           padding:18px 22px; background:{{ '#1d1d1f' if dark else '#f1f5f9' }}; }
 .mi-brand { font-size:22px; font-weight:800; color:{{ '#e2e8f0' if dark else '#1e293b' }}; }
 .mi-brand span { background:#ffd429; color:#111; border-radius:6px; padding:2px 6px; }
-.mi-body { max-width:1100px; margin:28px auto; padding:0 24px; display:grid;
-           grid-template-columns:1fr 340px; gap:24px; }
+/* Single-column layout — saved items moved to the modal popup,
+   right sidebar removed per user request. */
+.mi-body { max-width:780px; margin:28px auto; padding:0 24px; display:block; }
 .mi-main {}
 .mi-sidebar {}
 .mi-card { background:{{ '#1d1d1f' if dark else '#ffffff' }}; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; border-radius:10px; padding:18px; margin-bottom:16px; }
@@ -9102,65 +9103,7 @@ def invoices_manual():
     </form><!-- /miForm — closed before sidebar to avoid nested forms -->
 
       <!-- RIGHT: sidebar — template forms are standalone; primary save buttons are inside miForm above -->
-      <div class="mi-sidebar">
-
-        <!-- Articles sauvegardés -->
-        <div class="mi-card">
-          <h3>📂 {{ tr.get("mi_saved_items","Articles sauvegardés") }}</h3>
-          <div id="tplList">
-            {% for tpl in templates_list if not tpl.archived %}
-            <div class="tpl-item">
-              <div style="flex:1;font-size:13px;">
-                <div style="font-weight:600;">{{ tpl.designation }}</div>
-                <div style="font-size:11px;color:{{ '#94a3b8' if dark else '#64748b' }};">
-                  {{ "%.2f"|format(tpl.amount) }} € · {{ tr.get("mi_vat_short","TVA") }} {{ tpl.vat }}%
-                </div>
-              </div>
-              <button type="button" class="tpl-use"
-                      onclick="useTemplate({{ tpl.designation|tojson }}, {{ tpl.amount }}, {{ tpl.vat }})">
-                {{ tr.get("mi_use_item","+ Utiliser") }}
-              </button>
-              <form method="post" action="/invoices/manual" style="display:inline;">
-                <input type="hidden" name="action" value="delete_template">
-                <input type="hidden" name="tpl_id" value="{{ tpl.id }}">
-                <button type="submit" class="tpl-del"
-                        onclick='return confirm({{ tr.get("mi_delete_template_confirm","Supprimer ce modèle ?")|tojson }});'>🗑</button>
-              </form>
-            </div>
-            {% else %}
-            <div style="font-size:13px;color:{{ '#94a3b8' if dark else '#64748b' }};">{{ tr.get("mi_no_templates","Aucun modèle sauvegardé.") }}</div>
-            {% endfor %}
-          </div>
-
-          <!-- Save new template -->
-          <details style="margin-top:14px;">
-            <summary style="cursor:pointer;font-size:13px;color:{{ '#93c5fd' if dark else '#1f4f82' }};font-weight:600;">
-              {{ tr.get("mi_save_template_btn","+ Sauvegarder un modèle") }}
-            </summary>
-            <div style="margin-top:10px;">
-              <form method="post" action="/invoices/manual">
-                <input type="hidden" name="action" value="save_template">
-                <label class="mi-label">{{ tr.get("mi_designation","Désignation") }}</label>
-                <textarea class="mi-textarea" name="tpl_designation"
-                          style="min-height:55px;" required></textarea>
-                <label class="mi-label">{{ tr.get("mi_default_amount","Montant par défaut (€)") }}</label>
-                <input class="mi-input" type="number" step="0.01" name="tpl_amount" value="0">
-                <label class="mi-label">{{ tr.get("mi_default_vat","TVA par défaut (%)") }}</label>
-                <select class="mi-input" name="tpl_vat" style="padding:6px 10px;">
-                  <option value="17">17%</option>
-                  <option value="8">8%</option>
-                  <option value="3">3%</option>
-                  <option value="0">0%</option>
-                </select>
-                <button type="submit" class="mi-add-btn" style="margin-top:10px;">
-                  💾 {{ tr.get("mi_save_template","Sauvegarder le modèle") }}
-                </button>
-              </form>
-            </div>
-          </details>
-        </div>
-
-      </div><!-- /mi-sidebar -->
+      <!-- Right sidebar removed — saved items live in the modal popup now -->
   </div><!-- /mi-body -->
 </div>
 
@@ -9172,8 +9115,7 @@ def invoices_manual():
       <button class="si-close" type="button" onclick="closeSavedItemsModal()">×</button>
     </div>
     <div class="si-search-row">
-      <input id="siSearch" type="search" placeholder="{{ tr.get('mi_modal_search','Rechercher par désignation ou montant') }}" oninput="renderSavedItems()">
-      <button type="button" onclick="renderSavedItems()">{{ tr.get("search_btn","Rechercher") }}</button>
+      <input id="siSearch" type="search" placeholder="{{ tr.get('mi_modal_search','Rechercher par désignation ou montant') }}" oninput="renderSavedItems()" autocomplete="off">
     </div>
     <div class="si-tabs">
       <button class="si-tab active" data-tab="recent"   type="button" onclick="setSiTab('recent')">📋 {{ tr.get("mi_modal_recent","Éléments récents") }}</button>
