@@ -3340,8 +3340,8 @@ def build_manual_invoice_pdf(draft, settings):
         ("VALIGN",      (0, 0),         (-1, -1),         "TOP"),
         # Merge left cell across the two Total HT / TVA rows
         ("SPAN",        (0, n_thtt),    (0, n_tvat)),
-        # Highlight the TOTAL TTC amount cell
-        ("BACKGROUND",  (1, n_total),   (1, n_total),     colors.whitesmoke),
+        # Highlight the TOTAL TTC row (BOTH label and amount cells)
+        ("BACKGROUND",  (0, n_total),   (-1, n_total),    colors.whitesmoke),
     ]
     # Single-item case (auto-converted or one-line manual): keep the body row
     # at the same 4.2cm minimum height as the auto invoice so the layout
@@ -9014,10 +9014,23 @@ function autoGrow(el){
   el.style.height = (el.scrollHeight + 2) + 'px';
 }
 
+function _inheritVatFromFirstItem(){
+  // When user adds a new item via the "+" button, inherit the VAT rate
+  // of the existing first item so a deduction line on an 8% invoice
+  // doesn't silently default to 17% (which would mix rates and force
+  // the PDF/preview to drop the "TVA 8.0%" label).
+  var firstVat = document.querySelector('.mi-item-row .mi-vat');
+  if (firstVat) {
+    var v = parseFloat(firstVat.value);
+    if (!isNaN(v)) return v;
+  }
+  return 17;  // bare-form default (no items yet)
+}
+
 function addItem(desig, amt, vat){
   desig = desig || '';
   amt   = (amt !== undefined) ? amt : '';
-  vat   = (vat !== undefined) ? vat : 17;
+  if (vat === undefined) vat = _inheritVatFromFirstItem();
   // Pick initial row count based on content so long imported items
   // (e.g. converted auto-invoice service title with date list) render
   // fully on first paint without needing manual scrolling.
