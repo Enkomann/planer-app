@@ -710,13 +710,6 @@ MODULE_TRANSLATIONS = {
         "mi_add_item": "+ Dodaj stavku",
         "mi_payment_conditions": "Uslovi placanja",
         "mi_saved_items": "Sacuvane stavke",
-        "mi_use_item": "+ Koristi",
-        "mi_delete_template_confirm": "Obrisati ovaj sablon?",
-        "mi_no_templates": "Nema sacuvanih sablona.",
-        "mi_save_template_btn": "+ Sacuvaj sablon",
-        "mi_default_amount": "Podrazumijevani iznos (EUR)",
-        "mi_default_vat": "Podrazumijevana TVA (%)",
-        "mi_save_template": "Sacuvaj sablon",
         "mi_save_invoice": "Sacuvaj fakturu",
         "mi_save_pdf": "Sacuvaj + PDF",
         "mi_designation_placeholder": "Opis usluge...",
@@ -832,13 +825,6 @@ MODULE_TRANSLATIONS = {
         "mi_add_item": "+ Add item",
         "mi_payment_conditions": "Payment conditions",
         "mi_saved_items": "Saved items",
-        "mi_use_item": "+ Use",
-        "mi_delete_template_confirm": "Delete this template?",
-        "mi_no_templates": "No saved templates.",
-        "mi_save_template_btn": "+ Save template",
-        "mi_default_amount": "Default amount (EUR)",
-        "mi_default_vat": "Default VAT (%)",
-        "mi_save_template": "Save template",
         "mi_save_invoice": "Save invoice",
         "mi_save_pdf": "Save + PDF",
         "mi_designation_placeholder": "Description of service...",
@@ -942,13 +928,6 @@ MODULE_TRANSLATIONS = {
         "mi_add_item": "+ Ajouter un article",
         "mi_payment_conditions": "Conditions et modalités de paiement",
         "mi_saved_items": "Articles sauvegardés",
-        "mi_use_item": "+ Utiliser",
-        "mi_delete_template_confirm": "Supprimer ce modèle ?",
-        "mi_no_templates": "Aucun modèle sauvegardé.",
-        "mi_save_template_btn": "+ Sauvegarder un modèle",
-        "mi_default_amount": "Montant par défaut (€)",
-        "mi_default_vat": "TVA par défaut (%)",
-        "mi_save_template": "Sauvegarder le modèle",
         "mi_save_invoice": "Sauvegarder la facture",
         "mi_save_pdf": "Sauvegarder + PDF",
         "mi_designation_placeholder": "Désignation de la prestation...",
@@ -1040,13 +1019,6 @@ MODULE_TRANSLATIONS = {
         "mi_add_item": "+ Position hinzufuegen",
         "mi_payment_conditions": "Zahlungsbedingungen",
         "mi_saved_items": "Gespeicherte Positionen",
-        "mi_use_item": "+ Verwenden",
-        "mi_delete_template_confirm": "Diese Vorlage loeschen?",
-        "mi_no_templates": "Keine gespeicherten Vorlagen.",
-        "mi_save_template_btn": "+ Vorlage speichern",
-        "mi_default_amount": "Standardbetrag (EUR)",
-        "mi_default_vat": "Standard-MwSt (%)",
-        "mi_save_template": "Vorlage speichern",
         "mi_save_invoice": "Rechnung speichern",
         "mi_save_pdf": "Speichern + PDF",
         "mi_designation_placeholder": "Leistungsbeschreibung...",
@@ -1150,13 +1122,6 @@ MODULE_TRANSLATIONS = {
         "mi_add_item": "+ Adicionar artigo",
         "mi_payment_conditions": "Condicoes de pagamento",
         "mi_saved_items": "Artigos guardados",
-        "mi_use_item": "+ Usar",
-        "mi_delete_template_confirm": "Eliminar este modelo?",
-        "mi_no_templates": "Sem modelos guardados.",
-        "mi_save_template_btn": "+ Guardar modelo",
-        "mi_default_amount": "Montante predefinido (EUR)",
-        "mi_default_vat": "IVA predefinido (%)",
-        "mi_save_template": "Guardar modelo",
         "mi_save_invoice": "Guardar fatura",
         "mi_save_pdf": "Guardar + PDF",
         "mi_designation_placeholder": "Descricao do servico...",
@@ -8915,7 +8880,6 @@ def invoices_manual():
    right sidebar removed per user request. */
 .mi-body { max-width:780px; margin:28px auto; padding:0 24px; display:block; }
 .mi-main {}
-.mi-sidebar {}
 .mi-card { background:{{ '#1d1d1f' if dark else '#ffffff' }}; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; border-radius:10px; padding:18px; margin-bottom:16px; }
 .mi-card h3 { margin:0 0 12px; font-size:14px; color:{{ '#ffd429' if dark else '#b45309' }}; text-transform:uppercase;
               letter-spacing:.05em; }
@@ -8947,12 +8911,6 @@ def invoices_manual():
 .mi-pdf-btn  { width:100%; padding:13px; background:#3b82f6; color:white;
                border:none; border-radius:8px; cursor:pointer; font-size:16px;
                font-weight:700; margin-top:8px; }
-.tpl-item { display:flex; align-items:center; gap:8px; padding:7px 0;
-            border-bottom:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; }
-.tpl-use  { background:#1f4f82; color:white; border:none; border-radius:5px;
-            padding:4px 10px; cursor:pointer; font-size:12px; }
-.tpl-del  { background:#ef4444; color:white; border:none; border-radius:5px;
-            padding:4px 8px; cursor:pointer; font-size:12px; }
 .mi-number-box { background:{{ '#0f0f10' if dark else '#f1f5f9' }}; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; border-radius:8px; padding:10px 14px;
                  font-size:22px; font-weight:800; color:{{ '#ffd429' if dark else '#b45309' }}; margin-bottom:6px; }
 @media (max-width:760px){
@@ -8978,9 +8936,6 @@ def invoices_manual():
                        border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};
                        background:{{ '#0f0f10' if dark else '#ffffff' }};
                        color:{{ '#e2e8f0' if dark else '#0f172a' }}; }
-.si-search-row button { background:{{ '#374151' if dark else '#1f4f82' }};
-                        color:#fff; border:none; padding:9px 16px;
-                        border-radius:8px; font-weight:700; cursor:pointer; }
 .si-tabs { display:flex; gap:6px; padding:8px 18px;
            background:{{ '#191919' if dark else '#f8fafc' }};
            border-bottom:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; }
