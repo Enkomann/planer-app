@@ -7289,7 +7289,7 @@ def invoices():
         .invoice-panel h1, .invoice-panel h2, .invoice-panel h3, .invoice-panel h4 { color:{{ '#e2e8f0' if dark else '#1e293b' }} !important; }
         .invoice-tabs { display:flex; gap:6px; flex-wrap:wrap; margin:14px 0 22px; }
         .invoice-tab { padding:12px 16px; background:{{ '#222225' if dark else '#cbd5e1' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }}; border-radius:8px 8px 0 0; font-weight:bold; text-decoration:none; }
-        .invoice-tab.active { background:{{ '#2c2c30' if dark else '#94a3b8' }}; color:white; }
+        .invoice-tab.active { background:{{ '#2c2c30' if dark else '#1f4f82' }}; color:white; }
         .pill { display:inline-block; margin-left:6px; padding:2px 8px; border-radius:999px; font-size:12px; color:#111; background:#e5e7eb; }
         .pill.red { background:#fb7185; color:white; } .pill.green { background:#34d399; }
         .invoice-table { width:100%; border-collapse:collapse; color:{{ '#e2e8f0' if dark else '#1e293b' }}; }
@@ -7616,7 +7616,7 @@ def invoices_client():
         .invoice-panel h1, .invoice-panel h2, .invoice-panel h3 { color:{{ '#e2e8f0' if dark else '#1e293b' }} !important; }
         .doc-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px; }
         .doc-tab { background:{{ '#222225' if dark else '#cbd5e1' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }}; padding:12px 16px; border-radius:8px 8px 0 0; font-weight:bold; text-decoration:none; }
-        .doc-tab.active { background:{{ '#191919' if dark else '#94a3b8' }}; color:white; }
+        .doc-tab.active { background:{{ '#191919' if dark else '#1f4f82' }}; color:white; }
         .invoice-table { width:100%; border-collapse:collapse; color:{{ '#e2e8f0' if dark else '#1e293b' }}; }
         .invoice-table th, .invoice-table td { padding:14px 10px; border-bottom:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; text-align:left; }
         .invoice-table th { text-transform:uppercase; font-size:13px; color:{{ '#94a3b8' if dark else '#475569' }}; }
@@ -7779,7 +7779,7 @@ def invoices_view():
         .viewer-panel { max-width:1280px; margin:0 auto; background:{{ '#191919' if dark else '#f8fafc' }}; border-radius:8px; padding:22px 30px; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; }
         .doc-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:0; }
         .doc-tab { background:{{ '#222225' if dark else '#cbd5e1' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }}; padding:12px 16px; border-radius:8px 8px 0 0; font-weight:bold; text-decoration:none; }
-        .doc-tab.active { background:{{ '#191919' if dark else '#94a3b8' }}; color:white; }
+        .doc-tab.active { background:{{ '#191919' if dark else '#1f4f82' }}; color:white; }
         .toolbar { display:flex; flex-wrap:wrap; gap:4px; margin:22px 0 0; }
         .tool { background:{{ '#2c2c30' if dark else '#64748b' }}; color:white; border-radius:8px 8px 0 0; padding:12px 16px; font-weight:bold; text-decoration:none; }
         .tool.active { background:{{ '#e2e8f0' if dark else '#ffffff' }}; color:#111; }
@@ -8395,7 +8395,7 @@ def invoices_manual():
             <div class="tpl-item">
               <div style="flex:1;font-size:13px;">
                 <div style="font-weight:600;">{{ tpl.designation }}</div>
-                <div style="font-size:11px;color:#9ca3af;">
+                <div style="font-size:11px;color:{{ '#94a3b8' if dark else '#64748b' }};">
                   {{ "%.2f"|format(tpl.amount) }} € · {{ tr.get("mi_vat_short","TVA") }} {{ tpl.vat }}%
                 </div>
               </div>
@@ -8411,13 +8411,13 @@ def invoices_manual():
               </form>
             </div>
             {% else %}
-            <div style="font-size:13px;color:#6b7280;">{{ tr.get("mi_no_templates","Aucun modèle sauvegardé.") }}</div>
+            <div style="font-size:13px;color:{{ '#94a3b8' if dark else '#64748b' }};">{{ tr.get("mi_no_templates","Aucun modèle sauvegardé.") }}</div>
             {% endfor %}
           </div>
 
           <!-- Save new template -->
           <details style="margin-top:14px;">
-            <summary style="cursor:pointer;font-size:13px;color:#93c5fd;">
+            <summary style="cursor:pointer;font-size:13px;color:{{ '#93c5fd' if dark else '#1f4f82' }};font-weight:600;">
               {{ tr.get("mi_save_template_btn","+ Sauvegarder un modèle") }}
             </summary>
             <div style="margin-top:10px;">
