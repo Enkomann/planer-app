@@ -7379,12 +7379,12 @@ def invoices():
                     </td>
                     <td>
                       {% if row.source == 'manual' %}
-                        <a href="/invoices/manual/pdf?invoice_number={{ row.invoice_number }}" style="color:#93c5fd;">PDF</a>
+                        <a href="/invoices/manual/pdf?invoice_number={{ row.invoice_number }}" style="color:{{ '#93c5fd' if dark else '#1f4f82' }};font-weight:600;text-decoration:underline;">PDF</a>
                       {% else %}
-                        <a href="/invoices/download?invoice_number={{ row.invoice_number }}&client={{ row.client|urlencode }}&date_from={{ row.date_from }}&date_to={{ row.date_to }}&invoice_date={{ row.invoice_date }}" style="color:#93c5fd;">PDF</a>
+                        <a href="/invoices/download?invoice_number={{ row.invoice_number }}&client={{ row.client|urlencode }}&date_from={{ row.date_from }}&date_to={{ row.date_to }}&invoice_date={{ row.invoice_date }}" style="color:{{ '#93c5fd' if dark else '#1f4f82' }};font-weight:600;text-decoration:underline;">PDF</a>
                       {% endif %}
                     </td>
-                    <td><a href="/invoices/delete?invoice_number={{ row.invoice_number }}" onclick="return confirm('Obrisati fakturu?');" style="color:#fb7185;">{{ tr["delete"] }}</a></td>
+                    <td><a href="/invoices/delete?invoice_number={{ row.invoice_number }}" onclick="return confirm('Obrisati fakturu?');" style="color:{{ '#fb7185' if dark else '#dc2626' }};font-weight:600;">{{ tr["delete"] }}</a></td>
                 </tr>
                 {% endfor %}
             </table>
