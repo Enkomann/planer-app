@@ -7336,17 +7336,39 @@ def invoices():
     settings = get_invoice_settings(conn)
     profiles = get_invoice_profiles(conn)
     skip_auto = request.args.get("skip_auto") == "1"
-    if not request.args.get("q") and not skip_auto:
+    # Skip auto-generation when user is browsing/searching/filtering or
+    # navigating pages — only the bare default landing should trigger it.
+    if (not request.args.get("q") and not request.args.get("status")
+            and not request.args.get("page") and not skip_auto):
         _generate_invoices(conn, date_from, date_to, invoice_date)
     rows = fetch_invoice_records_for_work_period(conn, date_from, date_to, invoice_date)
     conn.close()
     profiles_json = json.dumps(profiles)
-    # Stats are based on the FULL filtered set (not just current page)
+
+    # ── Server-side filtering (must run BEFORE pagination) ─────────────
+    q = (request.args.get("q", "") or "").strip().lower()
+    status = (request.args.get("status", "all") or "all").strip().lower()
+    if status not in ("all", "paid", "unpaid"):
+        status = "all"
+    if q:
+        rows = [r for r in rows
+                if q in (r.get("client") or "").lower()
+                or q in str(r.get("invoice_number") or "").lower()]
+    rows_filtered = rows
+    if status == "paid":
+        rows_filtered = [r for r in rows if r.get("paid")]
+    elif status == "unpaid":
+        rows_filtered = [r for r in rows if not r.get("paid")]
+
+    # Stats: global counts for paid/unpaid tabs (always full picture for the
+    # period filter so the badges don't shrink as the user narrows results).
     paid_rows = [r for r in rows if r.get("paid")]
     unpaid_rows = [r for r in rows if not r.get("paid")]
     total_paid = sum(r["total"] for r in paid_rows)
     total_unpaid = sum(r["total"] for r in unpaid_rows)
     total_all = sum(r["total"] for r in rows)
+    # paginate the (q + status) filtered set
+    rows = rows_filtered
 
     # ── Pagination ─────────────────────────────────────────────────────
     PER_PAGE = 30
@@ -7384,6 +7406,17 @@ def invoices():
         a = dict(_qs_args); a["page"] = str(p)
         return "/invoices?" + urllib.parse.urlencode(a) + "#invoice-list"
     page_link = _page_link
+
+    # Status-tab links: preserve everything but reset page back to 1
+    # so user doesn't land on an out-of-range page after narrowing the set.
+    _status_args = {k: v for k, v in request.args.items()
+                    if k not in ("status", "page")}
+    def _status_link(s):
+        a = dict(_status_args)
+        if s != "all":
+            a["status"] = s
+        return "/invoices?" + urllib.parse.urlencode(a) + "#invoice-list"
+    status_link = _status_link
     return render_template_string(BASE_STYLE + header_html() + """
     <style>
         .invoice-shell { background:{{ '#161618' if dark else '#ffffff' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }}; border-radius:10px; padding:0 0 22px 0; overflow:hidden; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; }
@@ -7448,9 +7481,9 @@ def invoices():
             </form>
 
             <div class="invoice-tabs">
-                <a class="invoice-tab active" href="#">{{ tr["total_invoices"] }} <span class="pill">{{ rows|length }}</span></a>
-                <a class="invoice-tab" href="#" onclick="filterInvoiceStatus('unpaid', this);return false;">{{ tr["unpaid"] }} <span class="pill red">{{ unpaid_rows|length }}</span></a>
-                <a class="invoice-tab" href="#" onclick="filterInvoiceStatus('paid', this);return false;">{{ tr["paid"] }} <span class="pill green">{{ paid_rows|length }}</span></a>
+                <a class="invoice-tab {% if status == 'all' %}active{% endif %}" href="{{ status_link('all') }}">{{ tr["total_invoices"] }} <span class="pill">{{ paid_rows|length + unpaid_rows|length }}</span></a>
+                <a class="invoice-tab {% if status == 'unpaid' %}active{% endif %}" href="{{ status_link('unpaid') }}">{{ tr["unpaid"] }} <span class="pill red">{{ unpaid_rows|length }}</span></a>
+                <a class="invoice-tab {% if status == 'paid' %}active{% endif %}" href="{{ status_link('paid') }}">{{ tr["paid"] }} <span class="pill green">{{ paid_rows|length }}</span></a>
                 <a class="invoice-tab" href="/invoices/quote">{{ tr["quote"] }}</a>
                 <a class="invoice-tab" href="/invoices/manual" style="background:#22c55e;color:#111;">✏️ {{ tr.get("mi_title","Facture manuelle") }}</a>
             </div>
@@ -7528,7 +7561,7 @@ def invoices():
                         <a href="/invoices/download?invoice_number={{ row.invoice_number }}&client={{ row.client|urlencode }}&date_from={{ row.date_from }}&date_to={{ row.date_to }}&invoice_date={{ row.invoice_date }}" style="color:{{ '#93c5fd' if dark else '#1f4f82' }};font-weight:600;text-decoration:underline;">PDF</a>
                       {% endif %}
                     </td>
-                    <td><a href="/invoices/delete?invoice_number={{ row.invoice_number }}" onclick='return confirm({{ tr.get("invoice_delete_confirm","Obrisati ovu fakturu?")|tojson }});' style="color:{{ '#fb7185' if dark else '#dc2626' }};font-weight:600;">{{ tr["delete"] }}</a></td>
+                    <td><a href="/invoices/delete?invoice_number={{ row.invoice_number }}&next={{ ('/invoices?' ~ request.query_string.decode())|urlencode }}" onclick='return confirm({{ tr.get("invoice_delete_confirm","Obrisati ovu fakturu?")|tojson }});' style="color:{{ '#fb7185' if dark else '#dc2626' }};font-weight:600;">{{ tr["delete"] }}</a></td>
                 </tr>
                 {% endfor %}
             </table>
@@ -7608,21 +7641,15 @@ def invoices():
     </div>
     <script>
     var invoiceProfiles = {{ profiles_json|safe }};
+    // Search + paid/unpaid tabs are server-side now (pagination-aware).
+    // Client-side filter only handles bulk-aware hide of any DOM rows
+    // that the search input might want to dim while the user types.
     var currentInvoiceStatus = "all";
-    function filterInvoiceStatus(status, el){
-        currentInvoiceStatus = status;
-        document.querySelectorAll('.invoice-tab').forEach(function(tab){tab.classList.remove('active');});
-        if(el){el.classList.add('active');}
-        filterInvoiceRows();
-    }
     function filterInvoiceRows(){
-        var queryInput = document.getElementById('invoiceDashboardSearch');
-        var query = queryInput ? queryInput.value.trim().toLowerCase() : "";
+        // No-op: kept as a hook for bulkUpdate() called below.
         document.querySelectorAll('.invoice-row').forEach(function(row){
-            var paid = row.getAttribute('data-paid') === '1';
-            var statusOk = currentInvoiceStatus === 'all' || (currentInvoiceStatus === 'paid' && paid) || (currentInvoiceStatus === 'unpaid' && !paid);
-            var textOk = !query || (row.getAttribute('data-search') || '').indexOf(query) !== -1;
-            row.style.display = statusOk && textOk ? '' : 'none';
+            var statusOk = true;
+            var textOk = true;
             // uncheck hidden rows so they cannot accidentally be submitted
             if (row.style.display === 'none') {
                 var cb = row.querySelector('.invoice-select');
@@ -7695,8 +7722,8 @@ def invoices():
         document.getElementById('invoiceHourlyRate').value = profile.hourly_rate || 0;
     }
     document.addEventListener('DOMContentLoaded', function(){
-        var search = document.getElementById('invoiceDashboardSearch');
-        if(search){search.addEventListener('input', filterInvoiceRows); filterInvoiceRows();}
+        // Search submits via the GET form; no live filter (server paginates)
+
         // Bulk selection wiring
         var selAll = document.getElementById('bulkSelectAll');
         if (selAll) selAll.addEventListener('change', function(){ bulkToggleAll(this); });
@@ -7739,6 +7766,7 @@ def invoices():
          rows=rows, page_records=page_records,
          current_page=current_page, total_pages=total_pages, total_records=total_records,
          start=start, pages_to_show=pages_to_show, page_link=page_link,
+         status=status, status_link=status_link, q=q,
          paid_rows=paid_rows, unpaid_rows=unpaid_rows, total_paid=total_paid,
          total_unpaid=total_unpaid, total_all=total_all, format_date=format_date,
          date_from=date_from, date_to=date_to, invoice_date=invoice_date)
@@ -8833,6 +8861,7 @@ def invoices_delete():
     if session.get("role") != "admin":
         return redirect("/")
     invoice_number = request.args.get("invoice_number", "").strip()
+    next_url = (request.args.get("next", "") or "").strip()
     redirect_args = {"skip_auto": "1"}
     if invoice_number:
         conn = get_conn(); c = conn.cursor()
@@ -8850,6 +8879,13 @@ def invoices_delete():
         c.execute("DELETE FROM manual_invoice_drafts WHERE invoice_number = ?", (invoice_number,))
         c.execute("DELETE FROM invoice_records WHERE invoice_number = ?", (invoice_number,))
         conn.commit(); conn.close()
+    # Preserve user's page/filter/search if 'next' came from /invoices.
+    # Append skip_auto=1 so we don't regenerate on the redirect.
+    if next_url.startswith("/invoices"):
+        sep = "&" if "?" in next_url else "?"
+        # Replace any existing page reference is unnecessary — we just append
+        # skip_auto and let the existing page=N stay; clamp will fix overshoot.
+        return redirect(f"{next_url}{sep}skip_auto=1#invoice-list")
     return redirect("/invoices?" + urllib.parse.urlencode(redirect_args) + "#invoice-list")
 
 
