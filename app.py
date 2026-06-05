@@ -2886,14 +2886,14 @@ def build_invoice_pdf(row, settings, invoice_date, date_from, date_to, document_
     invoice_table = Table([
         [Paragraph("<b>D\u00c9SIGNATION</b>", normal), Paragraph("<b>MONTANT</b>", normal)],
         [Paragraph("<br/>".join(detail_lines), normal), Paragraph(f"{row['amount']:.2f}", normal)],
-        ["", Paragraph(f"Total HT&nbsp;&nbsp;&nbsp; {row['amount']:.2f}", normal)],
-        ["", Paragraph(f"TVA {row['vat_rate']*100:.1f}%&nbsp;&nbsp;&nbsp; {row['vat_amount']:.2f}", normal)],
+        [Paragraph("Total HT", normal), Paragraph(f"{row['amount']:.2f}", normal)],
+        [Paragraph(f"TVA {row['vat_rate']*100:.1f}%", normal), Paragraph(f"{row['vat_amount']:.2f}", normal)],
         [Paragraph("<b>TOTAL TTC</b>", styles["Heading2"]), Paragraph(f"<b>{row['total']:.2f} \u20ac</b>", styles["Heading2"])],
     ], colWidths=[12.8*cm, 4.7*cm])
     invoice_table.setStyle(TableStyle([
         ("GRID", (0,0), (-1,-1), 0.5, colors.grey), ("BACKGROUND", (0,0), (-1,0), colors.whitesmoke),
         ("ALIGN", (1,1), (1,-1), "RIGHT"), ("VALIGN", (0,0), (-1,-1), "TOP"),
-        ("SPAN", (0,2), (0,3)), ("BACKGROUND", (1,4), (1,4), colors.whitesmoke),
+        ("ALIGN", (0,2), (0,4), "RIGHT"), ("BACKGROUND", (1,4), (1,4), colors.whitesmoke),
         ("MINROWHEIGHT", (0,1), (-1,1), 4.2*cm),
     ]))
     elements += [invoice_table, Spacer(1, 90)]
@@ -3327,8 +3327,8 @@ def build_manual_invoice_pdf(draft, settings):
     n_total    = n_body_end + 3
 
     table_data += [
-        ["", Paragraph(f"Total HT&nbsp;&nbsp;&nbsp; {total_ht:.2f}", normal)],
-        ["", Paragraph(f"{vat_label}&nbsp;&nbsp;&nbsp; {total_vat:.2f}", normal)],
+        [Paragraph("Total HT", normal), Paragraph(f"{total_ht:.2f}", normal)],
+        [Paragraph(vat_label, normal), Paragraph(f"{total_vat:.2f}", normal)],
         [Paragraph("<b>TOTAL TTC</b>", styles["Heading2"]),
          Paragraph(f"<b>{total_ttc:.2f} €</b>", styles["Heading2"])],
     ]
@@ -3338,8 +3338,8 @@ def build_manual_invoice_pdf(draft, settings):
         ("BACKGROUND",  (0, 0),         (-1, 0),          colors.whitesmoke),
         ("ALIGN",       (1, 1),         (1, -1),          "RIGHT"),
         ("VALIGN",      (0, 0),         (-1, -1),         "TOP"),
-        # Merge left cell across the two Total HT / TVA rows
-        ("SPAN",        (0, n_thtt),    (0, n_tvat)),
+        # Totals labels sit in the left column, aligned next to the amount block.
+        ("ALIGN",       (0, n_thtt),    (0, n_total),     "RIGHT"),
         # Match the auto invoice model: only the final amount cell is shaded.
         ("BACKGROUND",  (1, n_total),   (1, n_total),     colors.whitesmoke),
     ]
