@@ -1326,6 +1326,7 @@ INVOICE_TRANSLATIONS = {
     "client_statement_pdf": "Stanje racuna klijenta PDF",
     "no_invoices_period": "Nema faktura za izabrani period.",
     "invoice_not_found": "Faktura nije pronadjena.",
+    "invoice_delete_confirm": "Obrisati ovu fakturu?",
     "send_email": "Posalji emailom",
     "email_to": "Primalac",
     "subject": "Naslov",
@@ -1380,6 +1381,7 @@ INVOICE_TRANSLATIONS["en"] = {
     "client_statement_pdf": "Client statement PDF",
     "no_invoices_period": "No invoices for the selected period.",
     "invoice_not_found": "Invoice not found.",
+    "invoice_delete_confirm": "Delete this invoice?",
     "send_email": "Send by email",
     "email_to": "Recipient",
     "subject": "Subject",
@@ -1433,6 +1435,7 @@ INVOICE_TRANSLATIONS["fr"] = {
     "client_statement_pdf": "Releve de compte client PDF",
     "no_invoices_period": "Aucune facture pour la periode selectionnee.",
     "invoice_not_found": "Facture introuvable.",
+    "invoice_delete_confirm": "Supprimer cette facture ?",
     "send_email": "Envoyer par email",
     "email_to": "Destinataire",
     "subject": "Objet",
@@ -1486,6 +1489,7 @@ INVOICE_TRANSLATIONS["de"] = {
     "client_statement_pdf": "Kundenkontoauszug PDF",
     "no_invoices_period": "Keine Rechnungen fuer den gewaehlten Zeitraum.",
     "invoice_not_found": "Rechnung nicht gefunden.",
+    "invoice_delete_confirm": "Diese Rechnung loeschen?",
     "send_email": "Per E-Mail senden",
     "email_to": "Empfaenger",
     "subject": "Betreff",
@@ -1539,6 +1543,7 @@ INVOICE_TRANSLATIONS["pt"] = {
     "client_statement_pdf": "Extrato de cliente PDF",
     "no_invoices_period": "Sem faturas para o periodo selecionado.",
     "invoice_not_found": "Fatura nao encontrada.",
+    "invoice_delete_confirm": "Eliminar esta fatura?",
     "send_email": "Enviar por email",
     "email_to": "Destinatario",
     "subject": "Assunto",
@@ -7384,7 +7389,7 @@ def invoices():
                         <a href="/invoices/download?invoice_number={{ row.invoice_number }}&client={{ row.client|urlencode }}&date_from={{ row.date_from }}&date_to={{ row.date_to }}&invoice_date={{ row.invoice_date }}" style="color:{{ '#93c5fd' if dark else '#1f4f82' }};font-weight:600;text-decoration:underline;">PDF</a>
                       {% endif %}
                     </td>
-                    <td><a href="/invoices/delete?invoice_number={{ row.invoice_number }}" onclick='return confirm({{ tr.get("doc_delete_confirm","Obrisati fakturu?")|tojson }});' style="color:{{ '#fb7185' if dark else '#dc2626' }};font-weight:600;">{{ tr["delete"] }}</a></td>
+                    <td><a href="/invoices/delete?invoice_number={{ row.invoice_number }}" onclick='return confirm({{ tr.get("invoice_delete_confirm","Obrisati ovu fakturu?")|tojson }});' style="color:{{ '#fb7185' if dark else '#dc2626' }};font-weight:600;">{{ tr["delete"] }}</a></td>
                 </tr>
                 {% endfor %}
             </table>
@@ -7801,7 +7806,7 @@ def invoices_view():
                 <a class="tool" href="/invoices/devis_pdf?invoice_number={{ row.invoice_number }}">{{ tr["quote"] }}</a>
                 {% endif %}
                 <a class="tool" href="{{ edit_url }}">{{ tr.get("edit","Modifier") }}</a>
-                <a class="tool" href="/invoices/delete?invoice_number={{ row.invoice_number }}" onclick="return confirm({{ (tr.get('doc_delete_confirm','Obrisati fakturu?'))|tojson }});">{{ tr.get("delete","Supprimer") }}</a>
+                <a class="tool" href="/invoices/delete?invoice_number={{ row.invoice_number }}" onclick='return confirm({{ tr.get("invoice_delete_confirm","Obrisati ovu fakturu?")|tojson }});'>{{ tr.get("delete","Supprimer") }}</a>
                 <a class="tool pay" href="{{ paid_url }}">{{ tr["mark_unpaid"] if record.paid else tr["mark_paid"] }}</a>
                 <a class="tool" style="background:{{ '#16a34a' if record.sent else '#ef4444' }};" href="{{ sent_url }}">{{ tr["mark_unsent"] if record.sent else tr["mark_sent"] }}</a>
                 <a class="tool" style="background:#0ea5e9;" href="/invoices/email?invoice_number={{ row.invoice_number }}">✉ {{ tr.get("send_email","Envoyer") }}</a>
