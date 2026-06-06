@@ -9193,7 +9193,46 @@ function addItem(desig, amt, vat){
   recalc();
 }
 
-function useTemplate(desig, amt, vat){ addItem(desig, amt, vat); }
+function useTemplate(desig, amt, vat){
+  // If there's already an EMPTY item row (designation blank), reuse it
+  // instead of creating a new one — otherwise picking a saved item from
+  // the modal would leave a stray empty row above the imported one.
+  var rows = document.querySelectorAll('.mi-item-row');
+  var target = null;
+  for (var i = 0; i < rows.length; i++) {
+    var dt = rows[i].querySelector('.mi-desig');
+    if (dt && !String(dt.value || '').trim()) { target = rows[i]; break; }
+  }
+  if (!target) {
+    addItem(desig, amt, vat);
+    return;
+  }
+  // Fill the existing empty row in place
+  var d = target.querySelector('.mi-desig');
+  var a = target.querySelector('.mi-amt');
+  var v = target.querySelector('.mi-vat');
+  if (d) { d.value = String(desig || ''); autoGrow(d); }
+  if (a) {
+    var amtNum = (amt === '' || amt === undefined || amt === null) ? '' : Number(amt);
+    a.value = (amtNum === '' || isNaN(amtNum)) ? '' : amtNum.toFixed(2);
+  }
+  if (v && vat !== undefined && vat !== null) {
+    var vatStr = String(parseFloat(vat));
+    // If the saved rate isn't in the dropdown yet, inject it before "+ Add"
+    var has = Array.prototype.some.call(v.options, function(o){ return o.value === vatStr; });
+    if (!has) {
+      var addOpt = v.querySelector('option[value="__add__"]');
+      var newOpt = document.createElement('option');
+      newOpt.value = vatStr;
+      newOpt.textContent = (Number.isInteger(parseFloat(vat)) ? parseFloat(vat)
+                                                              : parseFloat(vat).toFixed(2).replace(/\.?0+$/, '')) + '%';
+      v.insertBefore(newOpt, addOpt);
+    }
+    v.value = vatStr;
+    v.dataset.prev = vatStr;
+  }
+  recalc();
+}
 
 // VAT dropdown — "+ Add custom rate" sentinel handler
 function onVatChange(sel){
