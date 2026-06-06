@@ -1609,6 +1609,7 @@ INVOICE_TRANSLATIONS = {
     "email_scheduled_for": "Zakazano za",
     "email_planned_for": "Zakazano za",
     "email_cancel_scheduled": "Otkazi zakazano slanje",
+    "email_selected_schedule": "Izabrano",
     "email_schedule_pick_first": "Prvo odaberi datum slanja prije nego zakazes.",
     "email_drafted": "Nacrt je sacuvan.",
     "email_test_ok": "Test email poslat.",
@@ -1695,6 +1696,7 @@ INVOICE_TRANSLATIONS["en"] = {
     "email_scheduled_for": "Scheduled for",
     "email_planned_for": "Scheduled for",
     "email_cancel_scheduled": "Cancel scheduled send",
+    "email_selected_schedule": "Selected",
     "email_schedule_pick_first": "Pick a date first before scheduling.",
     "email_drafted": "Draft saved.",
     "email_test_ok": "Test email sent.",
@@ -1780,6 +1782,7 @@ INVOICE_TRANSLATIONS["fr"] = {
     "email_scheduled_for": "Programme pour",
     "email_planned_for": "Planifie pour",
     "email_cancel_scheduled": "Annuler l'envoi programme",
+    "email_selected_schedule": "Selectionne",
     "email_schedule_pick_first": "Choisis une date avant de programmer.",
     "email_drafted": "Brouillon enregistre.",
     "email_test_ok": "Email de test envoye.",
@@ -1865,6 +1868,7 @@ INVOICE_TRANSLATIONS["de"] = {
     "email_scheduled_for": "Geplant fuer",
     "email_planned_for": "Geplant fuer",
     "email_cancel_scheduled": "Geplantes Senden abbrechen",
+    "email_selected_schedule": "Ausgewaehlt",
     "email_schedule_pick_first": "Waehle zuerst ein Datum, bevor du planst.",
     "email_drafted": "Entwurf gespeichert.",
     "email_test_ok": "Test-E-Mail gesendet.",
@@ -1950,6 +1954,7 @@ INVOICE_TRANSLATIONS["pt"] = {
     "email_scheduled_for": "Agendado para",
     "email_planned_for": "Agendado para",
     "email_cancel_scheduled": "Cancelar envio agendado",
+    "email_selected_schedule": "Selecionado",
     "email_schedule_pick_first": "Escolhe uma data antes de agendar.",
     "email_drafted": "Rascunho guardado.",
     "email_test_ok": "Email de teste enviado.",
@@ -10860,13 +10865,13 @@ def invoices_email():
                 {{ tr.get("email_tomorrow","Tomorrow") }} 10:00
               </button>
               <button type="button" class="em-sl-chip em-sl-pick" id="emSlPickBtn"
-                      data-base="{{ tr.get('email_select_date','Pick a date') }}">
+                      data-base="📅 {{ tr.get('email_select_date','Pick a date') }}">
                 📅 {{ tr.get("email_select_date","Pick a date") }}
               </button>
             </div>
             <div class="em-sl-selected" id="emSlSelectedBadge" hidden>
               <span id="emSlSelectedText"></span>
-              <small>{{ tr.get("schedule","Zakaži") }}</small>
+              <small>{{ tr.get("email_selected_schedule","Selected") }}</small>
             </div>
             <div class="em-sl-summary" id="emSlSummary" hidden>
               <span id="emSlSummaryText"></span>
@@ -11033,17 +11038,26 @@ def invoices_email():
         function setSchedule(d, preset){
           current = d;
           hidden.value = fmtHidden(d);
-          var human = fmtHuman(d);
-          var planned = TXT.planned_for + " " + human;
-          sumText.textContent = "✓ " + planned;
-          summary.hidden = false;
+          // Single source of truth for the human-friendly label —
+          // same formatter as the notice chip so panel + chip read
+          // identically (e.g. "juin 6, 16:13" in FR).
+          var pretty = fmtNotice(d);
+          var planned = TXT.planned_for + " " + pretty;
           warn.hidden = true;
           paintChipFromPreset(preset || "custom");
+          // The .em-sl-summary line is redundant with the new blue
+          // .em-sl-selected badge — keep it permanently hidden but
+          // leave the DOM in place in case we want it back later.
+          summary.hidden = true;
           if (selectedBadge && selectedText) {
             selectedText.textContent = planned;
             selectedBadge.hidden = false;
           }
-          if (pickBtn) pickBtn.textContent = human;
+          // Only the custom-date chip should reflect the picked
+          // datetime in its label. Quick presets (Today 18:00 /
+          // Tomorrow 10:00) keep their own static text so users can
+          // tell which preset is active at a glance.
+          if (pickBtn && preset === "custom") pickBtn.textContent = pretty;
           // Header label gets the time appended: "Send later (16:30)"
           if (header) {
             header.textContent = headerBase + " (" +
@@ -11051,7 +11065,7 @@ def invoices_email():
           }
           // Localized notice chip near subject/body
           if (notice) {
-            noticeText.textContent = TXT.planned_for + " " + fmtNotice(d);
+            noticeText.textContent = planned;
             notice.hidden = false;
           }
           // Red "Cancel scheduled send" row replaces the small ✕
@@ -11063,6 +11077,8 @@ def invoices_email():
           summary.hidden = true;
           chips.forEach(function(b){ b.classList.remove("active"); });
           pickBtn.classList.remove("active");
+          // Restore the original "📅 Pick a date" label (with emoji)
+          // from the data-base attribute captured at boot.
           if (pickBtn) pickBtn.textContent = pickBase;
           if (selectedBadge) selectedBadge.hidden = true;
           if (header) header.textContent = headerBase;
