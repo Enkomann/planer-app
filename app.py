@@ -220,6 +220,59 @@ DEFAULT_REMINDER_BODY = {
            "{company_name}"),
 }
 
+# Bulk reminders (multiple unpaid invoices for one client) get a separate
+# subject/body so the text reads naturally — it uses {invoice_count} and
+# {total_due} instead of a single {invoice_number}/{invoice_date}.
+DEFAULT_REMINDER_BULK_SUBJECT = {
+    "fr":  "Rappel — factures impayées",
+    "en":  "Reminder — unpaid invoices",
+    "bos": "Podsjetnik — neplaćene fakture",
+    "de":  "Mahnung — unbezahlte Rechnungen",
+    "pt":  "Aviso — faturas em dívida",
+}
+DEFAULT_REMINDER_BULK_BODY = {
+    "fr": ("Madame, Monsieur,\n\n"
+           "Sauf erreur de notre part, nous constatons que {invoice_count} facture(s) "
+           "reste(nt) impayée(s) à ce jour, pour un montant total de {total_due}.\n\n"
+           "Le détail des factures concernées figure dans le PDF joint.\n\n"
+           "Nous vous remercions de bien vouloir procéder au règlement dans les meilleurs délais.\n"
+           "Si les paiements ont déjà été effectués, veuillez considérer ce courrier comme nul et non avenu.\n\n"
+           "Avec nos remerciements anticipés,\n"
+           "{company_name}"),
+    "en": ("Dear Customer,\n\n"
+           "Unless there is an error on our part, we note that {invoice_count} invoice(s) "
+           "remain unpaid as of today, for a total amount of {total_due}.\n\n"
+           "Details of the invoices are listed in the attached PDF.\n\n"
+           "We kindly ask you to settle the payment at your earliest convenience.\n"
+           "If payments have already been made, please disregard this notice.\n\n"
+           "Best regards,\n"
+           "{company_name}"),
+    "bos": ("Poštovani,\n\n"
+            "Ukoliko nije došlo do propusta s naše strane, {invoice_count} faktura/e "
+            "ostaje/u neplaćena/e do današnjeg dana, u ukupnom iznosu od {total_due}.\n\n"
+            "Detalji faktura nalaze se u priloženom PDF dokumentu.\n\n"
+            "Molimo Vas da izmirite navedene iznose u najkraćem mogućem roku.\n"
+            "Ako su plaćanja već izvršena, molimo Vas da ovaj dopis smatrate bespredmetnim.\n\n"
+            "Srdačan pozdrav,\n"
+            "{company_name}"),
+    "de": ("Sehr geehrte Damen und Herren,\n\n"
+           "Sofern uns kein Versehen unterlaufen ist, stellen wir fest, dass {invoice_count} "
+           "Rechnung(en) bis heute unbeglichen ist/sind, im Gesamtbetrag von {total_due}.\n\n"
+           "Die Details der betroffenen Rechnungen finden Sie in der angehängten PDF.\n\n"
+           "Wir bitten Sie höflich, die Beträge schnellstmöglich zu überweisen.\n"
+           "Sollten Sie bereits gezahlt haben, betrachten Sie dieses Schreiben bitte als gegenstandslos.\n\n"
+           "Mit freundlichen Grüßen,\n"
+           "{company_name}"),
+    "pt": ("Caro(a) Cliente,\n\n"
+           "Salvo erro da nossa parte, verificamos que {invoice_count} fatura(s) "
+           "permanece(m) por liquidar até hoje, num valor total de {total_due}.\n\n"
+           "Os detalhes das faturas constam do PDF em anexo.\n\n"
+           "Solicitamos a regularização dos pagamentos o mais brevemente possível.\n"
+           "Caso os pagamentos já tenham sido efetuados, considere este aviso sem efeito.\n\n"
+           "Com os melhores cumprimentos,\n"
+           "{company_name}"),
+}
+
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -1495,6 +1548,7 @@ INVOICE_TRANSLATIONS = {
     "send_reminder_email": "Poslati podsjetnik emailom",
     "download_reminder": "Podsjetnik PDF",
     "reminder_no_unpaid": "Nema neplacenih faktura za podsjetnik.",
+    "reminder_send_now_only": "Podsjetnici se mogu samo odmah poslati.",
     "bulk_selected": "odabrano",
     "select_all": "Odaberi sve",
     "download_selected_pdf": "Preuzmi PDF (ZIP)",
@@ -1567,6 +1621,7 @@ INVOICE_TRANSLATIONS["en"] = {
     "send_reminder_email": "Send reminder by email",
     "download_reminder": "Reminder PDF",
     "reminder_no_unpaid": "No unpaid invoices to remind about.",
+    "reminder_send_now_only": "Reminders can only be sent immediately.",
     "bulk_selected": "selected",
     "select_all": "Select all",
     "download_selected_pdf": "Download PDF (ZIP)",
@@ -1638,6 +1693,7 @@ INVOICE_TRANSLATIONS["fr"] = {
     "send_reminder_email": "Envoyer rappel par email",
     "download_reminder": "Rappel PDF",
     "reminder_no_unpaid": "Aucune facture impayée pour le rappel.",
+    "reminder_send_now_only": "Les rappels ne peuvent qu'être envoyés immédiatement.",
     "bulk_selected": "selectionnees",
     "select_all": "Tout selectionner",
     "download_selected_pdf": "Telecharger PDF (ZIP)",
@@ -1709,6 +1765,7 @@ INVOICE_TRANSLATIONS["de"] = {
     "send_reminder_email": "Mahnung per E-Mail senden",
     "download_reminder": "Mahnung PDF",
     "reminder_no_unpaid": "Keine unbezahlten Rechnungen fuer eine Mahnung.",
+    "reminder_send_now_only": "Mahnungen koennen nur sofort gesendet werden.",
     "bulk_selected": "ausgewaehlt",
     "select_all": "Alle auswaehlen",
     "download_selected_pdf": "PDF herunterladen (ZIP)",
@@ -1780,6 +1837,7 @@ INVOICE_TRANSLATIONS["pt"] = {
     "send_reminder_email": "Enviar aviso por email",
     "download_reminder": "Aviso PDF",
     "reminder_no_unpaid": "Sem faturas em divida para enviar aviso.",
+    "reminder_send_now_only": "Avisos so podem ser enviados imediatamente.",
     "bulk_selected": "selecionadas",
     "select_all": "Selecionar todas",
     "download_selected_pdf": "Descarregar PDF (ZIP)",
@@ -10236,15 +10294,29 @@ def invoices_email():
     if lang not in ("fr", "en", "bos", "de", "pt"):
         lang = "fr"
 
-    if is_reminder:
-        # Use the reminder defaults, with substitution context filled from
-        # either the single invoice or the first (most recent) unpaid one.
+    if is_reminder and is_bulk:
+        # Bulk reminder: aggregated context across all unpaid invoices.
+        # 'unpaid' was already loaded above.
+        total_due = sum(float(r.get("total") or 0) for r in unpaid)
+        ctx = _invoice_email_context(conn, rec[0])
+        ctx.update({
+            "invoice_count":   str(len(unpaid)),
+            "total_due":       f"{total_due:.2f} EUR",
+            # keep {invoice_number} as the most recent one so it still renders
+            # but the bulk-specific template will use {invoice_count} instead
+        })
+        subject_tpl = DEFAULT_REMINDER_BULK_SUBJECT.get(lang, DEFAULT_REMINDER_BULK_SUBJECT["fr"])
+        body_tpl    = DEFAULT_REMINDER_BULK_BODY.get(lang,    DEFAULT_REMINDER_BULK_BODY["fr"])
+        unpaid_count = len(unpaid)
+    elif is_reminder:
         subject_tpl = DEFAULT_REMINDER_SUBJECT.get(lang, DEFAULT_REMINDER_SUBJECT["fr"])
         body_tpl    = DEFAULT_REMINDER_BODY.get(lang,    DEFAULT_REMINDER_BODY["fr"])
         ctx = _invoice_email_context(conn, rec[0])
+        unpaid_count = 0
     else:
         subject_tpl, body_tpl = _get_invoice_email_template(conn, lang)
         ctx = _invoice_email_context(conn, invoice_number)
+        unpaid_count = 0
     subject = _render_email_template(subject_tpl, ctx)
     body    = _render_email_template(body_tpl, ctx)
     conn.close()
@@ -10321,20 +10393,25 @@ def invoices_email():
             <code>{invoice_month}</code> <code>{invoice_date}</code>
             <code>{total_ttc}</code> <code>{company_name}</code>
             <code>{company_address}</code> <code>{company_phone}</code>
+            {% if is_bulk %}<code>{invoice_count}</code> <code>{total_due}</code>{% endif %}
           </div>
 
           <div class="em-pdf">📎 {{ pdf_name }} ({{ tr.get("pdf_attached","PDF prilog") }})</div>
 
+          {% if not is_reminder %}
           <label class="em-label">{{ tr.get("schedule_at","Zakaži za (opcionalno)") }}</label>
           <input class="em-input" type="datetime-local" name="scheduled_at" value="">
+          {% endif %}
 
           <div class="em-actions">
             <button class="em-btn primary"  name="action" value="send_now"
                     {% if not smtp_ready %}disabled title="SMTP not configured" style="opacity:.5;cursor:not-allowed;"{% endif %}>📤 {{ tr.get("send_now","Pošalji odmah") }}</button>
+            {% if not is_reminder %}
             <button class="em-btn sched"    name="action" value="schedule"
                     {% if not smtp_ready %}disabled title="SMTP not configured" style="opacity:.5;cursor:not-allowed;"{% endif %}>⏰ {{ tr.get("schedule","Zakaži") }}</button>
             <button class="em-btn draft"    name="action" value="draft">💾 {{ tr.get("save_draft","Sačuvaj nacrt") }}</button>
-            <a class="em-btn" href="/invoices/view?invoice_number={{ invoice_number }}" style="background:#6b7280;color:white;text-decoration:none;text-align:center;line-height:24px;">{{ tr["back"] }}</a>
+            {% endif %}
+            <a class="em-btn" href="{% if is_bulk %}/invoices/client?client={{ bulk_client|urlencode }}{% else %}/invoices/view?invoice_number={{ invoice_number }}{% endif %}" style="background:#6b7280;color:white;text-decoration:none;text-align:center;line-height:24px;">{{ tr["back"] }}</a>
           </div>
         </form>
 
@@ -10346,8 +10423,7 @@ def invoices_email():
     """, tr=tr, dark=dark, rec=rec, invoice_number=invoice_number, recipient=recipient,
          subject=subject, body=body, smtp_ready=smtp_ready,
          is_reminder=is_reminder, is_bulk=is_bulk, bulk_client=bulk_client,
-         email_type=email_type,
-         unpaid_count=(len(_unpaid_invoices_for_client(get_conn(), bulk_client)) if is_bulk else 0),
+         email_type=email_type, unpaid_count=unpaid_count,
          pdf_name=(f"rappel_{invoice_number or bulk_client}.pdf"
                    if is_reminder
                    else f"{invoice_number}-facture.pdf"))
@@ -10391,6 +10467,15 @@ def invoices_email_send():
     if action in ("send_now", "schedule") and not (SMTP_HOST and SMTP_FROM):
         flash("SMTP not configured. Saved as draft.", "error")
         action = "draft"
+
+    # Reminders can only be sent immediately — the queue table has no
+    # email_type/client columns, so a scheduled reminder would later be
+    # rebuilt as a plain invoice PDF (and bulk reminders have no
+    # invoice_number to look up at all).
+    if is_reminder and action != "send_now":
+        flash(tr.get("reminder_send_now_only",
+                     "Podsjetnici se mogu samo odmah poslati."), "error")
+        action = "send_now"
 
     cc_list  = _split_email_list(cc_raw)
     bcc_list = _split_email_list(bcc_raw)
