@@ -1607,6 +1607,8 @@ INVOICE_TRANSLATIONS = {
     "email_clear": "Ocisti",
     "email_set": "Postavi",
     "email_scheduled_for": "Zakazano za",
+    "email_planned_for": "Zakazano za",
+    "email_cancel_scheduled": "Otkazi zakazano slanje",
     "email_schedule_pick_first": "Prvo odaberi datum slanja prije nego zakazes.",
     "email_drafted": "Nacrt je sacuvan.",
     "email_test_ok": "Test email poslat.",
@@ -1691,6 +1693,8 @@ INVOICE_TRANSLATIONS["en"] = {
     "email_clear": "Clear",
     "email_set": "Set",
     "email_scheduled_for": "Scheduled for",
+    "email_planned_for": "Scheduled for",
+    "email_cancel_scheduled": "Cancel scheduled send",
     "email_schedule_pick_first": "Pick a date first before scheduling.",
     "email_drafted": "Draft saved.",
     "email_test_ok": "Test email sent.",
@@ -1774,6 +1778,8 @@ INVOICE_TRANSLATIONS["fr"] = {
     "email_clear": "Effacer",
     "email_set": "Definir",
     "email_scheduled_for": "Programme pour",
+    "email_planned_for": "Planifie pour",
+    "email_cancel_scheduled": "Annuler l'envoi programme",
     "email_schedule_pick_first": "Choisis une date avant de programmer.",
     "email_drafted": "Brouillon enregistre.",
     "email_test_ok": "Email de test envoye.",
@@ -1857,6 +1863,8 @@ INVOICE_TRANSLATIONS["de"] = {
     "email_clear": "Loeschen",
     "email_set": "Uebernehmen",
     "email_scheduled_for": "Geplant fuer",
+    "email_planned_for": "Geplant fuer",
+    "email_cancel_scheduled": "Geplantes Senden abbrechen",
     "email_schedule_pick_first": "Waehle zuerst ein Datum, bevor du planst.",
     "email_drafted": "Entwurf gespeichert.",
     "email_test_ok": "Test-E-Mail gesendet.",
@@ -1940,6 +1948,8 @@ INVOICE_TRANSLATIONS["pt"] = {
     "email_clear": "Limpar",
     "email_set": "Definir",
     "email_scheduled_for": "Agendado para",
+    "email_planned_for": "Agendado para",
+    "email_cancel_scheduled": "Cancelar envio agendado",
     "email_schedule_pick_first": "Escolhe uma data antes de agendar.",
     "email_drafted": "Rascunho guardado.",
     "email_test_ok": "Email de teste enviado.",
@@ -10724,6 +10734,45 @@ def invoices_email():
                             font-family:inherit; }
       .em-sl-mfoot .clear { background:#6b7280; color:#ffffff; }
       .em-sl-mfoot .set   { background:#2563eb; color:#ffffff; }
+
+      /* ── Scheduled notice chip (near subject/body) ──────────── */
+      .em-notice-chip { display:inline-flex; align-items:center; gap:8px;
+                        margin:14px 0 0; padding:8px 14px; border-radius:999px;
+                        background:#2563eb; color:#ffffff;
+                        font-size:13px; font-weight:600; }
+      .em-notice-chip .em-notice-x { background:rgba(255,255,255,.18);
+                                     border:none; color:#ffffff; cursor:pointer;
+                                     border-radius:999px; width:20px; height:20px;
+                                     display:inline-flex; align-items:center;
+                                     justify-content:center; font-size:12px;
+                                     line-height:1; padding:0; }
+      .em-notice-chip .em-notice-x:hover { background:rgba(255,255,255,.28); }
+
+      /* ── Cancel scheduled send (red row in panel) ───────────── */
+      .em-sl-cancel { margin-top:10px; padding:10px 14px; border-radius:10px;
+                      border:1px solid #dc2626; background:transparent;
+                      color:#dc2626; font-size:13px; font-weight:700;
+                      cursor:pointer; width:100%; font-family:inherit; }
+      .em-sl-cancel:hover { background:rgba(220,38,38,.10); }
+
+      /* ── Custom time dropdown (15-min slots) ────────────────── */
+      .em-sl-time { position:relative; }
+      .em-sl-tdrop { position:absolute; left:0; right:0; top:100%;
+                     margin-top:4px; max-height:170px; overflow-y:auto;
+                     background:{{ '#161618' if dark else '#ffffff' }};
+                     color:{{ '#e2e8f0' if dark else '#0f172a' }};
+                     border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};
+                     border-radius:10px; z-index:10;
+                     box-shadow:0 8px 24px rgba(0,0,0,.25);
+                     display:none; padding:4px; }
+      .em-sl-tdrop.open { display:block; }
+      .em-sl-tdrop button { display:block; width:100%; text-align:left;
+                            padding:8px 12px; border:none; background:transparent;
+                            color:inherit; font-size:13px; font-family:inherit;
+                            border-radius:6px; cursor:pointer; }
+      .em-sl-tdrop button:hover,
+      .em-sl-tdrop button.current { background:{{ '#2c2c30' if dark else '#e0e7ff' }}; }
+      .em-sl-tdrop button.current { font-weight:700; color:#2563eb; }
     </style>
     <div class="em-shell">
       {% with msgs = get_flashed_messages(with_categories=true) %}
@@ -10764,6 +10813,15 @@ def invoices_email():
             </div>
           </div>
 
+          {% if not is_reminder %}
+          <div class="em-notice-chip" id="emScheduledNotice" hidden>
+            <span>✈</span>
+            <span id="emScheduledNoticeText"></span>
+            <button type="button" class="em-notice-x" id="emScheduledNoticeX"
+                    aria-label="{{ tr.get('email_cancel_scheduled','Cancel scheduled send') }}">✕</button>
+          </div>
+          {% endif %}
+
           <label class="em-label">{{ tr.get("subject","Naslov") }}</label>
           <input class="em-input" type="text" name="subject" value="{{ subject }}" required>
 
@@ -10783,7 +10841,10 @@ def invoices_email():
 
           {% if not is_reminder %}
           <div class="em-sl-panel" id="emSlPanel">
-            <label class="em-label" style="margin-top:0;">⏰ {{ tr.get("email_send_later","Send later") }}</label>
+            <label class="em-label" style="margin-top:0;" id="emSlHeader"
+                   data-base="⏰ {{ tr.get('email_send_later','Send later') }}">
+              ⏰ {{ tr.get("email_send_later","Send later") }}
+            </label>
             <div class="em-sl-row">
               <button type="button" class="em-sl-chip" data-preset="today18">
                 {{ tr.get("email_today","Today") }} 18:00
@@ -10803,6 +10864,9 @@ def invoices_email():
             <div class="em-sl-warn" id="emSlWarn" hidden>
               ⚠ {{ tr.get("email_schedule_pick_first","Pick a date first before scheduling.") }}
             </div>
+            <button type="button" class="em-sl-cancel" id="emSlCancelBtn" hidden>
+              ✕ {{ tr.get("email_cancel_scheduled","Cancel scheduled send") }}
+            </button>
             <input type="hidden" name="scheduled_at" id="scheduledAt" value="">
           </div>
           {% endif %}
@@ -10837,7 +10901,9 @@ def invoices_email():
           <div class="em-sl-grid" id="emSlGrid"></div>
           <div class="em-sl-time">
             <label for="emSlTime">{{ tr.get("email_time","Time") }}</label>
-            <input type="time" id="emSlTime" step="60">
+            <input type="time" id="emSlTime" step="60" autocomplete="off">
+            <div class="em-sl-tdrop" id="emSlTimeDrop" role="listbox"
+                 aria-label="{{ tr.get('email_time','Time') }}"></div>
           </div>
           <div class="em-sl-mfoot">
             <button type="button" class="clear" id="emSlModalClear">
@@ -10855,6 +10921,7 @@ def invoices_email():
         var LANG_LOCALE = {{ lang_locale|tojson }};
         var TXT = {
           scheduled_for: {{ (tr.get("email_scheduled_for","Scheduled for"))|tojson }},
+          planned_for:   {{ (tr.get("email_planned_for","Scheduled for"))|tojson }},
           today:         {{ (tr.get("email_today","Today"))|tojson }},
           tomorrow:      {{ (tr.get("email_tomorrow","Tomorrow"))|tojson }}
         };
@@ -10901,22 +10968,37 @@ def invoices_email():
 
         var panel    = document.getElementById("emSlPanel");
         if (!panel) return;
-        var hidden   = document.getElementById("scheduledAt");
-        var summary  = document.getElementById("emSlSummary");
-        var sumText  = document.getElementById("emSlSummaryText");
-        var clearX   = document.getElementById("emSlClearBtn");
-        var warn     = document.getElementById("emSlWarn");
-        var chips    = panel.querySelectorAll(".em-sl-chip[data-preset]");
-        var pickBtn  = document.getElementById("emSlPickBtn");
-        var overlay  = document.getElementById("emSlOverlay");
-        var modal    = document.getElementById("emSlModal");
-        var monthLbl = document.getElementById("emSlMonthLabel");
-        var grid     = document.getElementById("emSlGrid");
-        var timeIn   = document.getElementById("emSlTime");
-        var prevBtn  = document.getElementById("emSlPrev");
-        var nextBtn  = document.getElementById("emSlNext");
-        var setBtn   = document.getElementById("emSlModalSet");
-        var clrBtn   = document.getElementById("emSlModalClear");
+        var hidden     = document.getElementById("scheduledAt");
+        var header     = document.getElementById("emSlHeader");
+        var headerBase = (header && header.getAttribute("data-base")) || "";
+        var summary    = document.getElementById("emSlSummary");
+        var sumText    = document.getElementById("emSlSummaryText");
+        var clearX     = document.getElementById("emSlClearBtn");
+        var cancelBtn  = document.getElementById("emSlCancelBtn");
+        var warn       = document.getElementById("emSlWarn");
+        var chips      = panel.querySelectorAll(".em-sl-chip[data-preset]");
+        var pickBtn    = document.getElementById("emSlPickBtn");
+        var notice     = document.getElementById("emScheduledNotice");
+        var noticeText = document.getElementById("emScheduledNoticeText");
+        var noticeX    = document.getElementById("emScheduledNoticeX");
+        var overlay    = document.getElementById("emSlOverlay");
+        var modal      = document.getElementById("emSlModal");
+        var monthLbl   = document.getElementById("emSlMonthLabel");
+        var grid       = document.getElementById("emSlGrid");
+        var timeIn     = document.getElementById("emSlTime");
+        var timeDrop   = document.getElementById("emSlTimeDrop");
+        var prevBtn    = document.getElementById("emSlPrev");
+        var nextBtn    = document.getElementById("emSlNext");
+        var setBtn     = document.getElementById("emSlModalSet");
+        var clrBtn     = document.getElementById("emSlModalClear");
+
+        // Spark-style "month-day, HH:MM" — uses Intl so labels are
+        // localized per session language (e.g. FR "juin 6, 16:13").
+        function fmtNotice(d){
+          var df = new Intl.DateTimeFormat(LANG_LOCALE,
+                                           {month:"long", day:"numeric"});
+          return df.format(d) + ", " + pad2(d.getHours()) + ":" + pad2(d.getMinutes());
+        }
 
         var current = null;          // current Date | null
         var viewY, viewM;            // currently displayed month
@@ -10935,6 +11017,18 @@ def invoices_email():
           summary.hidden = false;
           warn.hidden = true;
           paintChipFromPreset(preset || "custom");
+          // Header label gets the time appended: "Send later (16:30)"
+          if (header) {
+            header.textContent = headerBase + " (" +
+                                 pad2(d.getHours()) + ":" + pad2(d.getMinutes()) + ")";
+          }
+          // Localized notice chip near subject/body
+          if (notice) {
+            noticeText.textContent = TXT.planned_for + " " + fmtNotice(d);
+            notice.hidden = false;
+          }
+          // Red "Cancel scheduled send" row replaces the small ✕
+          if (cancelBtn) cancelBtn.hidden = false;
         }
         function clearSchedule(){
           current = null;
@@ -10942,6 +11036,10 @@ def invoices_email():
           summary.hidden = true;
           chips.forEach(function(b){ b.classList.remove("active"); });
           pickBtn.classList.remove("active");
+          if (header) header.textContent = headerBase;
+          if (notice) notice.hidden = true;
+          if (cancelBtn) cancelBtn.hidden = true;
+          if (warn) warn.hidden = true;
         }
 
         // Quick-preset buttons
@@ -10961,6 +11059,67 @@ def invoices_email():
           });
         });
         clearX.addEventListener("click", clearSchedule);
+        if (cancelBtn) cancelBtn.addEventListener("click", clearSchedule);
+        if (noticeX)   noticeX.addEventListener("click", clearSchedule);
+
+        // ── Custom time dropdown (15-min slots) ──────────────────
+        // Browsers style <input type="time"> very differently and many
+        // mobile UAs offer no dropdown at all. Render our own list
+        // anchored under the input, seeded around the currently picked
+        // time so the most likely choice is one click away.
+        function renderTimeDrop(){
+          if (!timeDrop) return;
+          timeDrop.innerHTML = "";
+          var base = new Date();
+          var v = (timeIn.value || "").split(":");
+          if (v.length === 2) {
+            base.setHours(parseInt(v[0],10)||0, parseInt(v[1],10)||0, 0, 0);
+          } else {
+            base = roundUp15(new Date());
+          }
+          // Start one slot before the current value so user can scroll back
+          // a bit; show 20 slots forward = 5 hours of options.
+          base.setMinutes(base.getMinutes() - 15);
+          for (var i=0; i<20; i++){
+            var t = new Date(base);
+            t.setMinutes(t.getMinutes() + i*15);
+            var hh = pad2(t.getHours()), mm = pad2(t.getMinutes());
+            var label = hh + ":" + mm;
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.setAttribute("role", "option");
+            btn.textContent = label;
+            if (label === timeIn.value) btn.classList.add("current");
+            btn.addEventListener("click", function(lbl){
+              return function(){
+                timeIn.value = lbl;
+                closeTimeDrop();
+              };
+            }(label));
+            timeDrop.appendChild(btn);
+          }
+        }
+        function openTimeDrop(){
+          renderTimeDrop();
+          timeDrop.classList.add("open");
+          // Scroll the .current option into view if any
+          var cur = timeDrop.querySelector("button.current");
+          if (cur) cur.scrollIntoView({block:"center"});
+        }
+        function closeTimeDrop(){ if (timeDrop) timeDrop.classList.remove("open"); }
+        if (timeIn && timeDrop) {
+          timeIn.addEventListener("focus", openTimeDrop);
+          timeIn.addEventListener("click", openTimeDrop);
+          // Re-render whenever user types — keeps the highlighted .current
+          // option in sync without closing the dropdown.
+          timeIn.addEventListener("input", renderTimeDrop);
+          document.addEventListener("click", function(e){
+            if (!timeDrop.classList.contains("open")) return;
+            if (e.target === timeIn) return;
+            if (timeDrop.contains(e.target)) return;
+            closeTimeDrop();
+          });
+        }
 
         // Modal calendar
         function renderGrid(){
@@ -11022,7 +11181,10 @@ def invoices_email():
           // focus first interactive element for keyboard users
           setTimeout(function(){ prevBtn.focus(); }, 0);
         }
-        function closeModal(){ overlay.classList.remove("open"); }
+        function closeModal(){
+          overlay.classList.remove("open");
+          closeTimeDrop();
+        }
 
         pickBtn.addEventListener("click", openModal);
         prevBtn.addEventListener("click", function(){
@@ -11054,7 +11216,12 @@ def invoices_email():
           if (e.target === overlay) closeModal();
         });
         document.addEventListener("keydown", function(e){
-          if (e.key === "Escape" && overlay.classList.contains("open")) closeModal();
+          if (e.key !== "Escape") return;
+          if (timeDrop && timeDrop.classList.contains("open")) {
+            closeTimeDrop();
+            return;
+          }
+          if (overlay.classList.contains("open")) closeModal();
         });
 
         // Form submit guard: block schedule click without a date.
