@@ -8150,9 +8150,8 @@ def invoices():
         _generate_invoices(conn, date_from, date_to, invoice_date)
     rows = fetch_invoice_records_for_work_period(conn, date_from, date_to, invoice_date)
     conn.close()
-    # profiles_json|safe used to be the JS payload — replaced with
-    # |tojson in the template so escaping is Jinja-controlled and XSS
-    # safe for any future field that contains a quote.
+    # NOTE: profiles is serialized in the template with Jinja tojson.
+    # Avoid prebuilt JSON strings in script contexts.
 
     # ── Server-side filtering (must run BEFORE pagination) ─────────────
     q = (request.args.get("q", "") or "").strip().lower()
@@ -8349,11 +8348,11 @@ def invoices():
                     <td>{{ format_date(row.invoice_date) }}</td>
                     <td>
                         <span class="payment-label {{ 'paid-text' if row.paid else 'unpaid-text' }}">{{ tr["paid"] if row.paid else tr["unpaid"] }}</span><br>
-                        <a class="ajax-invoice-toggle" data-kind="paid" data-paid-label="{{ tr['paid'] }}" data-unpaid-label="{{ tr['unpaid'] }}" data-mark-paid="{{ tr['mark_paid'] }}" data-mark-unpaid="{{ tr['mark_unpaid'] }}" href="/invoices/mark_paid?invoice_number={{ row.invoice_number }}&paid={{ 0 if row.paid else 1 }}&client={{ row.client|urlencode }}&date_from={{ row.date_from }}&date_to={{ row.date_to }}&invoice_date={{ row.invoice_date }}&amount={{ row.amount }}&vat_amount={{ row.vat_amount }}&total={{ row.total }}&ajax=1" style="color:{{ '#93c5fd' if dark else '#1f4f82' }};font-size:12px;text-decoration:underline;">{{ tr["mark_unpaid"] if row.paid else tr["mark_paid"] }}</a>
+                        <button type="button" class="ajax-invoice-toggle" data-kind="paid" data-action="/invoices/mark_paid" data-paid-label="{{ tr['paid'] }}" data-unpaid-label="{{ tr['unpaid'] }}" data-mark-paid="{{ tr['mark_paid'] }}" data-mark-unpaid="{{ tr['mark_unpaid'] }}" data-fields='{{ {"invoice_number":row.invoice_number,"paid":(0 if row.paid else 1),"client":row.client,"date_from":row.date_from,"date_to":row.date_to,"invoice_date":row.invoice_date,"amount":row.amount,"vat_amount":row.vat_amount,"total":row.total,"ajax":"1"}|tojson }}' style="color:{{ '#93c5fd' if dark else '#1f4f82' }};font-size:12px;text-decoration:underline;background:none;border:none;cursor:pointer;font-family:inherit;padding:0;">{{ tr["mark_unpaid"] if row.paid else tr["mark_paid"] }}</button>
                     </td>
                     <td>
                         <span class="sent-badge {{ 'sent' if row.sent else 'unsent' }}">{{ tr["sent_yes"] if row.sent else tr["sent_no"] }}</span><br>
-                        <a class="ajax-invoice-toggle" data-kind="sent" data-sent-label="{{ tr['sent_yes'] }}" data-unsent-label="{{ tr['sent_no'] }}" data-mark-sent="{{ tr['mark_sent'] }}" data-mark-unsent="{{ tr['mark_unsent'] }}" href="/invoices/mark_sent?invoice_number={{ row.invoice_number }}&sent={{ 0 if row.sent else 1 }}&ajax=1" style="color:{{ '#93c5fd' if dark else '#1f4f82' }};font-size:12px;text-decoration:underline;">{{ tr["mark_unsent"] if row.sent else tr["mark_sent"] }}</a>
+                        <button type="button" class="ajax-invoice-toggle" data-kind="sent" data-action="/invoices/mark_sent" data-sent-label="{{ tr['sent_yes'] }}" data-unsent-label="{{ tr['sent_no'] }}" data-mark-sent="{{ tr['mark_sent'] }}" data-mark-unsent="{{ tr['mark_unsent'] }}" data-fields='{{ {"invoice_number":row.invoice_number,"sent":(0 if row.sent else 1),"ajax":"1"}|tojson }}' style="color:{{ '#93c5fd' if dark else '#1f4f82' }};font-size:12px;text-decoration:underline;background:none;border:none;cursor:pointer;font-family:inherit;padding:0;">{{ tr["mark_unsent"] if row.sent else tr["mark_sent"] }}</button>
                     </td>
                     <td><b>{{ "%.2f"|format(row.total) }} EUR</b></td>
                     <td>
@@ -8528,58 +8527,76 @@ def invoices():
         // AJAX would leave a now-stale row visible in the wrong tab. When
         // filtering is active, reload to let the server re-render the page.
         var SERVER_STATUS_FILTER = {{ ('paid' if status == 'paid' else ('unpaid' if status == 'unpaid' else ''))|tojson }};
-        document.querySelectorAll('.ajax-invoice-toggle').forEach(function(link){
-            link.addEventListener('click', function(event){
+        document.querySelectorAll('.ajax-invoice-toggle').forEach(function(btn){
+            btn.addEventListener('click', function(event){
                 event.preventDefault();
-                var row = link.closest('.invoice-row');
-                // mark_paid/mark_sent are POST-only now. Repackage the
-                // URL's query string into FormData so the backend sees
-                // the same fields it used to read from request.args.
-                var url = new URL(link.href, window.location.origin);
-                var fd  = new FormData();
-                url.searchParams.forEach(function(v,k){ fd.append(k,v); });
+                var row    = btn.closest('.invoice-row');
+                var action = btn.dataset.action;
+                // data-fields is a JSON dict of the form payload — no
+                // GET href to parse, no params in the URL bar. Backend
+                // is POST-only so this is the only safe transport.
+                var fields;
+                try { fields = JSON.parse(btn.dataset.fields || "{}"); }
+                catch(e){ fields = {}; }
+                function buildFD(){
+                    var fd = new FormData();
+                    Object.keys(fields).forEach(function(k){
+                        fd.append(k, fields[k]);
+                    });
+                    // Future-proof: include a CSRF meta token when
+                    // the app grows one; harmless when it is absent.
+                    var meta = document.querySelector('meta[name="csrf-token"]');
+                    if(meta && meta.content){ fd.append('csrf_token', meta.content); }
+                    return fd;
+                }
                 function fallbackPost(){
-                    // AJAX failed → resubmit the same params via a real
-                    // POST form so the user gets a normal page reload
-                    // with whatever flash/redirect the handler does.
                     var f = document.createElement('form');
                     f.method = 'post';
-                    f.action = url.pathname;
-                    url.searchParams.forEach(function(v,k){
+                    f.action = action;
+                    Object.keys(fields).forEach(function(k){
                         if(k === 'ajax') return;
                         var i = document.createElement('input');
-                        i.type = 'hidden'; i.name = k; i.value = v;
+                        i.type = 'hidden'; i.name = k; i.value = fields[k];
                         f.appendChild(i);
                     });
+                    var meta = document.querySelector('meta[name="csrf-token"]');
+                    if(meta && meta.content){
+                        var csrf = document.createElement('input');
+                        csrf.type = 'hidden';
+                        csrf.name = 'csrf_token';
+                        csrf.value = meta.content;
+                        f.appendChild(csrf);
+                    }
                     document.body.appendChild(f); f.submit();
                 }
-                fetch(url.pathname, {method:"POST", body:fd,
-                                     headers:{'X-Requested-With':'fetch'}})
+                fetch(action, {method:"POST", body:buildFD(),
+                               headers:{'X-Requested-With':'fetch'}})
                     .then(function(resp){ return resp.json(); })
                     .then(function(data){
                         if(!data.ok){ fallbackPost(); return; }
-                        // Paid toggle changed the row's eligibility for the
-                        // active server status filter → reload current URL
-                        // so pagination + counts stay correct.
-                        if(link.dataset.kind === 'paid' && SERVER_STATUS_FILTER){
+                        if(btn.dataset.kind === 'paid' && SERVER_STATUS_FILTER){
                             window.location.reload();
                             return;
                         }
-                        if(link.dataset.kind === 'sent'){
+                        if(btn.dataset.kind === 'sent'){
                             var badge = row.querySelector('.sent-badge');
-                            badge.textContent = data.sent ? link.dataset.sentLabel : link.dataset.unsentLabel;
-                            badge.classList.toggle('sent', data.sent);
+                            badge.textContent = data.sent ? btn.dataset.sentLabel : btn.dataset.unsentLabel;
+                            badge.classList.toggle('sent',   data.sent);
                             badge.classList.toggle('unsent', !data.sent);
-                            link.textContent = data.sent ? link.dataset.markUnsent : link.dataset.markSent;
-                            link.href = link.href.replace(/sent=[01]/, 'sent=' + (data.sent ? '0' : '1'));
-                        } else if(link.dataset.kind === 'paid'){
+                            btn.textContent = data.sent ? btn.dataset.markUnsent : btn.dataset.markSent;
+                            // Flip the next-click intent so a second
+                            // press undoes the action.
+                            fields.sent = data.sent ? 0 : 1;
+                            btn.dataset.fields = JSON.stringify(fields);
+                        } else if(btn.dataset.kind === 'paid'){
                             var label = row.querySelector('.payment-label');
-                            label.textContent = data.paid ? link.dataset.paidLabel : link.dataset.unpaidLabel;
-                            label.classList.toggle('paid-text', data.paid);
+                            label.textContent = data.paid ? btn.dataset.paidLabel : btn.dataset.unpaidLabel;
+                            label.classList.toggle('paid-text',   data.paid);
                             label.classList.toggle('unpaid-text', !data.paid);
                             row.setAttribute('data-paid', data.paid ? '1' : '0');
-                            link.textContent = data.paid ? link.dataset.markUnpaid : link.dataset.markPaid;
-                            link.href = link.href.replace(/paid=[01]/, 'paid=' + (data.paid ? '0' : '1'));
+                            btn.textContent = data.paid ? btn.dataset.markUnpaid : btn.dataset.markPaid;
+                            fields.paid = data.paid ? 0 : 1;
+                            btn.dataset.fields = JSON.stringify(fields);
                         }
                     })
                     .catch(function(){ fallbackPost(); });
