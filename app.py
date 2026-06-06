@@ -82,6 +82,144 @@ DEFAULT_EMAIL_TEMPLATES = [
     for lang in ("fr", "en", "bos", "de", "pt")
 ]
 
+# ── Payment-reminder PDF strings (one block per language) ─────────────────
+REMINDER_PDF_STRINGS = {
+    "fr": {
+        "doc_title":  "RAPPEL",
+        "to":         "Destinataire",
+        "date_label": "Date du rappel",
+        "greeting":   "Madame, Monsieur,",
+        "body_intro": ("Sauf erreur ou omission de notre part, nous constatons que la (les) "
+                       "facture(s) ci-dessous reste(nt) impayée(s) à ce jour."),
+        "col_number": "Facture n°",
+        "col_date":   "Date",
+        "col_amount": "Montant TTC",
+        "total_due":  "Total dû",
+        "body_pay_request": ("Nous vous remercions de bien vouloir procéder au règlement "
+                              "dans les meilleurs délais."),
+        "body_already_paid": ("Si le paiement a déjà été effectué, veuillez considérer "
+                                "ce courrier comme nul et non avenu."),
+        "closing":    "Avec nos remerciements anticipés, nous vous prions d'agréer nos salutations distinguées.",
+        "payment_block_title": "Modalités de paiement",
+    },
+    "en": {
+        "doc_title":  "REMINDER",
+        "to":         "To",
+        "date_label": "Reminder date",
+        "greeting":   "Dear Customer,",
+        "body_intro": ("Unless there is an error on our part, we note that the following invoice(s) "
+                       "remain(s) unpaid as of today."),
+        "col_number": "Invoice no.",
+        "col_date":   "Date",
+        "col_amount": "Amount (incl. VAT)",
+        "total_due":  "Total due",
+        "body_pay_request": "We kindly ask you to settle the payment at your earliest convenience.",
+        "body_already_paid": "If payment has already been made, please disregard this notice.",
+        "closing":    "Thank you in advance. Yours sincerely,",
+        "payment_block_title": "Payment instructions",
+    },
+    "bos": {
+        "doc_title":  "PODSJETNIK",
+        "to":         "Primalac",
+        "date_label": "Datum podsjetnika",
+        "greeting":   "Poštovani,",
+        "body_intro": ("Ukoliko nije došlo do propusta s naše strane, primjećujemo da sljedeća "
+                       "faktura/e ostaje/u neplaćena/e do današnjeg datuma."),
+        "col_number": "Faktura br.",
+        "col_date":   "Datum",
+        "col_amount": "Iznos sa TVA",
+        "total_due":  "Ukupno duguje",
+        "body_pay_request": "Molimo Vas da izmirite navedeni iznos u najkraćem mogućem roku.",
+        "body_already_paid": "Ako je plaćanje već izvršeno, molimo Vas da ovaj dopis smatrate bespredmetnim.",
+        "closing":    "Unaprijed zahvaljujemo i šaljemo srdačan pozdrav,",
+        "payment_block_title": "Uslovi plaćanja",
+    },
+    "de": {
+        "doc_title":  "MAHNUNG",
+        "to":         "Empfänger",
+        "date_label": "Datum",
+        "greeting":   "Sehr geehrte Damen und Herren,",
+        "body_intro": ("Sofern uns kein Versehen unterlaufen ist, stellen wir fest, dass die "
+                       "folgende(n) Rechnung(en) bis heute unbeglichen ist/sind."),
+        "col_number": "Rechnung Nr.",
+        "col_date":   "Datum",
+        "col_amount": "Betrag inkl. MwSt",
+        "total_due":  "Gesamtbetrag offen",
+        "body_pay_request": "Wir bitten Sie höflich, den Betrag schnellstmöglich zu überweisen.",
+        "body_already_paid": "Sollten Sie bereits gezahlt haben, betrachten Sie dieses Schreiben bitte als gegenstandslos.",
+        "closing":    "Mit freundlichen Grüßen,",
+        "payment_block_title": "Zahlungshinweise",
+    },
+    "pt": {
+        "doc_title":  "AVISO DE COBRANÇA",
+        "to":         "Destinatário",
+        "date_label": "Data",
+        "greeting":   "Caro(a) Cliente,",
+        "body_intro": ("Salvo erro da nossa parte, verificamos que a(s) seguinte(s) fatura(s) "
+                       "permanece(m) por liquidar até à data de hoje."),
+        "col_number": "Fatura n.º",
+        "col_date":   "Data",
+        "col_amount": "Valor c/ IVA",
+        "total_due":  "Total em dívida",
+        "body_pay_request": "Solicitamos a regularização do pagamento o mais brevemente possível.",
+        "body_already_paid": "Caso o pagamento já tenha sido efetuado, considere este aviso sem efeito.",
+        "closing":    "Com os melhores cumprimentos,",
+        "payment_block_title": "Condições de pagamento",
+    },
+}
+
+# Default reminder-email templates seeded on init (one per language).
+DEFAULT_REMINDER_SUBJECT = {
+    "fr":  "Rappel de paiement — Facture {invoice_number}",
+    "en":  "Payment reminder — Invoice {invoice_number}",
+    "bos": "Podsjetnik za plaćanje — Faktura {invoice_number}",
+    "de":  "Zahlungserinnerung — Rechnung {invoice_number}",
+    "pt":  "Aviso de cobrança — Fatura {invoice_number}",
+}
+DEFAULT_REMINDER_BODY = {
+    "fr": ("Madame, Monsieur,\n\n"
+           "Sauf erreur de notre part, nous constatons que la facture n° {invoice_number} "
+           "du {invoice_date}, d'un montant de {total_ttc}, reste impayée à ce jour.\n\n"
+           "Nous vous remercions de bien vouloir procéder au règlement dans les meilleurs délais.\n"
+           "Si le paiement a déjà été effectué, veuillez considérer ce courrier comme nul et non avenu.\n\n"
+           "Vous trouverez ci-joint le rappel détaillé au format PDF.\n\n"
+           "Avec nos remerciements anticipés,\n"
+           "{company_name}"),
+    "en": ("Dear Customer,\n\n"
+           "Unless there is an error on our part, we note that invoice no. {invoice_number} "
+           "dated {invoice_date}, in the amount of {total_ttc}, remains unpaid.\n\n"
+           "We kindly ask you to settle the payment at your earliest convenience.\n"
+           "If payment has already been made, please disregard this notice.\n\n"
+           "Please find the detailed reminder attached as PDF.\n\n"
+           "Best regards,\n"
+           "{company_name}"),
+    "bos": ("Poštovani,\n\n"
+            "Ukoliko nije došlo do propusta s naše strane, faktura br. {invoice_number} "
+            "od {invoice_date} u iznosu od {total_ttc} ostaje neplaćena do današnjeg dana.\n\n"
+            "Molimo Vas da izmirite navedeni iznos u najkraćem mogućem roku.\n"
+            "Ako je plaćanje već izvršeno, molimo Vas da ovaj dopis smatrate bespredmetnim.\n\n"
+            "U prilogu šaljemo detaljan podsjetnik u PDF formatu.\n\n"
+            "Srdačan pozdrav,\n"
+            "{company_name}"),
+    "de": ("Sehr geehrte Damen und Herren,\n\n"
+           "Sofern uns kein Versehen unterlaufen ist, stellen wir fest, dass die Rechnung "
+           "Nr. {invoice_number} vom {invoice_date} über den Betrag von {total_ttc} "
+           "bis heute unbeglichen ist.\n\n"
+           "Wir bitten Sie höflich, den Betrag schnellstmöglich zu überweisen.\n"
+           "Sollten Sie bereits gezahlt haben, betrachten Sie dieses Schreiben bitte als gegenstandslos.\n\n"
+           "Die detaillierte Mahnung finden Sie als PDF im Anhang.\n\n"
+           "Mit freundlichen Grüßen,\n"
+           "{company_name}"),
+    "pt": ("Caro(a) Cliente,\n\n"
+           "Salvo erro da nossa parte, verificamos que a fatura n.º {invoice_number} de "
+           "{invoice_date}, no valor de {total_ttc}, permanece por liquidar.\n\n"
+           "Solicitamos a regularização do pagamento o mais brevemente possível.\n"
+           "Caso o pagamento já tenha sido efetuado, considere este aviso sem efeito.\n\n"
+           "Em anexo encontrará o aviso detalhado em PDF.\n\n"
+           "Com os melhores cumprimentos,\n"
+           "{company_name}"),
+}
+
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -1353,6 +1491,10 @@ INVOICE_TRANSLATIONS = {
     "no_invoices_period": "Nema faktura za izabrani period.",
     "invoice_not_found": "Faktura nije pronadjena.",
     "invoice_delete_confirm": "Obrisati ovu fakturu?",
+    "send_reminder": "Podsjetnik",
+    "send_reminder_email": "Poslati podsjetnik emailom",
+    "download_reminder": "Podsjetnik PDF",
+    "reminder_no_unpaid": "Nema neplacenih faktura za podsjetnik.",
     "bulk_selected": "odabrano",
     "select_all": "Odaberi sve",
     "download_selected_pdf": "Preuzmi PDF (ZIP)",
@@ -1421,6 +1563,10 @@ INVOICE_TRANSLATIONS["en"] = {
     "no_invoices_period": "No invoices for the selected period.",
     "invoice_not_found": "Invoice not found.",
     "invoice_delete_confirm": "Delete this invoice?",
+    "send_reminder": "Reminder",
+    "send_reminder_email": "Send reminder by email",
+    "download_reminder": "Reminder PDF",
+    "reminder_no_unpaid": "No unpaid invoices to remind about.",
     "bulk_selected": "selected",
     "select_all": "Select all",
     "download_selected_pdf": "Download PDF (ZIP)",
@@ -1488,6 +1634,10 @@ INVOICE_TRANSLATIONS["fr"] = {
     "no_invoices_period": "Aucune facture pour la periode selectionnee.",
     "invoice_not_found": "Facture introuvable.",
     "invoice_delete_confirm": "Supprimer cette facture ?",
+    "send_reminder": "Rappel",
+    "send_reminder_email": "Envoyer rappel par email",
+    "download_reminder": "Rappel PDF",
+    "reminder_no_unpaid": "Aucune facture impayée pour le rappel.",
     "bulk_selected": "selectionnees",
     "select_all": "Tout selectionner",
     "download_selected_pdf": "Telecharger PDF (ZIP)",
@@ -1555,6 +1705,10 @@ INVOICE_TRANSLATIONS["de"] = {
     "no_invoices_period": "Keine Rechnungen fuer den gewaehlten Zeitraum.",
     "invoice_not_found": "Rechnung nicht gefunden.",
     "invoice_delete_confirm": "Diese Rechnung loeschen?",
+    "send_reminder": "Mahnung",
+    "send_reminder_email": "Mahnung per E-Mail senden",
+    "download_reminder": "Mahnung PDF",
+    "reminder_no_unpaid": "Keine unbezahlten Rechnungen fuer eine Mahnung.",
     "bulk_selected": "ausgewaehlt",
     "select_all": "Alle auswaehlen",
     "download_selected_pdf": "PDF herunterladen (ZIP)",
@@ -1622,6 +1776,10 @@ INVOICE_TRANSLATIONS["pt"] = {
     "no_invoices_period": "Sem faturas para o periodo selecionado.",
     "invoice_not_found": "Fatura nao encontrada.",
     "invoice_delete_confirm": "Eliminar esta fatura?",
+    "send_reminder": "Aviso",
+    "send_reminder_email": "Enviar aviso por email",
+    "download_reminder": "Aviso PDF",
+    "reminder_no_unpaid": "Sem faturas em divida para enviar aviso.",
     "bulk_selected": "selecionadas",
     "select_all": "Selecionar todas",
     "download_selected_pdf": "Descarregar PDF (ZIP)",
@@ -3393,6 +3551,172 @@ def build_manual_invoice_pdf(draft, settings):
         Paragraph("<b>Conditions et modalités de paiement</b>", normal),
         Paragraph(_invoice_payment_terms_html(settings, draft.get("payment_terms")), normal),
     ]
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+
+def _unpaid_invoices_for_client(conn, client_name):
+    """Return list of unpaid invoice_records dicts for a client, newest first."""
+    c = conn.cursor()
+    rows = c.execute(
+        "SELECT invoice_number, client_name, date_from, date_to, invoice_date, "
+        "amount, vat_amount, total, paid, paid_date, COALESCE(sent,0), "
+        "COALESCE(sent_date,''), COALESCE(source,'auto') "
+        "FROM invoice_records "
+        "WHERE client_name = ? AND COALESCE(deleted,0)=0 AND COALESCE(paid,0)=0 "
+        "ORDER BY invoice_date DESC, CAST(invoice_number AS INTEGER) DESC",
+        (client_name,),
+    ).fetchall()
+    return [invoice_record_to_dict(r) for r in rows]
+
+
+def _reminder_address_block(record):
+    """Best-effort client address block: prefer manual_invoice_drafts.client_address,
+    fall back to client_invoice_profiles.custom_address, else the bare client name."""
+    return record.get("_client_address_html") or (record.get("client") or "-")
+
+
+def build_reminder_pdf(records, settings, language="fr"):
+    """Render a payment-reminder PDF covering one or more unpaid invoices.
+
+    Args:
+      records  – list of invoice_record dicts (must all be the SAME client)
+      settings – invoice_settings row
+      language – ISO short ('fr'|'en'|'bos'|'de'|'pt') to pick translated body
+
+    Returns a BytesIO buffer.
+    """
+    if not records:
+        return None
+    client = records[0]["client"] or "-"
+    address_html = records[0].get("_client_address_html") or ""
+    today = lux_now().strftime("%Y-%m-%d")
+
+    buffer = io.BytesIO()
+    doc = pdf_doc(buffer, f"RAPPEL {client[:40]} {today}",
+                  pagesize=A4, rightMargin=1.5*cm, leftMargin=1.5*cm,
+                  topMargin=1.5*cm, bottomMargin=1.5*cm)
+    styles = getSampleStyleSheet()
+    template_colors = {"orange": "#ff7a2f", "blue": "#1f4f82", "green": "#2f7d32"}
+    accent = template_colors.get(settings.get("invoice_template", "orange"), "#ff7a2f")
+    normal = styles["Normal"]
+
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.enums import TA_LEFT, TA_RIGHT
+    title_left = ParagraphStyle(name="ReminderTitleLeft", parent=styles["Title"],
+                                alignment=TA_LEFT, textColor=colors.white)
+    title_right = ParagraphStyle(name="ReminderTitleRight", parent=styles["Title"],
+                                 alignment=TA_RIGHT, textColor=colors.white)
+
+    # ── Localised strings ─────────────────────────────────────────────────
+    L = REMINDER_PDF_STRINGS.get(language, REMINDER_PDF_STRINGS["fr"])
+
+    # ── Header bar ────────────────────────────────────────────────────────
+    header = Table([[
+        Paragraph(f"<b>{settings.get('company_name','')}</b>", title_left),
+        Paragraph(f"<b>{L['doc_title']}</b>", title_right),
+    ]], colWidths=[12.5*cm, 5*cm])
+    header.setStyle(TableStyle([
+        ("BACKGROUND",   (0,0), (-1,-1), colors.HexColor(accent)),
+        ("VALIGN",       (0,0), (-1,-1), "MIDDLE"),
+        ("LEFTPADDING",  (0,0), (-1,-1), 8),
+        ("RIGHTPADDING", (0,0), (-1,-1), 8),
+    ]))
+    elements = [header, Spacer(1, 18)]
+
+    # ── Company info + logo ───────────────────────────────────────────────
+    co_lines = [settings.get("company_address", "").replace("\n", "<br/>")]
+    if settings.get("company_phone"):
+        co_lines.append(f"Tel: {settings['company_phone']}")
+    if settings.get("company_email"):
+        co_lines.append(settings["company_email"])
+    logo_cell = (Image("static/logo.png", width=4.5*cm, height=2.4*cm)
+                 if os.path.exists("static/logo.png") else "")
+    co_tbl = Table(
+        [[Paragraph("<br/>".join([x for x in co_lines if x]), normal), logo_cell]],
+        colWidths=[10*cm, 7.5*cm],
+    )
+    co_tbl.setStyle(TableStyle([
+        ("ALIGN",  (1,0), (1,0),   "RIGHT"),
+        ("VALIGN", (0,0), (-1,-1), "TOP"),
+    ]))
+    elements += [co_tbl, Spacer(1, 30)]
+
+    # ── Client + date ─────────────────────────────────────────────────────
+    addr_html = (address_html or "-").replace("\n", "<br/>")
+    billing = Paragraph(
+        f"<b>{L['to']}</b><br/>{client}<br/>{addr_html}", normal
+    )
+    meta = Paragraph(
+        f"<b>{L['date_label']}</b>&nbsp;&nbsp;&nbsp; {format_date(today)}", normal
+    )
+    elements += [
+        Table([[billing, meta]], colWidths=[10*cm, 7.5*cm],
+              style=[("ALIGN",(1,0),(1,0),"RIGHT"), ("VALIGN",(0,0),(-1,-1),"TOP")]),
+        Spacer(1, 22),
+    ]
+
+    # ── Greeting + body intro ─────────────────────────────────────────────
+    elements += [
+        Paragraph(L["greeting"], normal),
+        Spacer(1, 8),
+        Paragraph(L["body_intro"], normal),
+        Spacer(1, 14),
+    ]
+
+    # ── Table of unpaid invoices ──────────────────────────────────────────
+    table_data = [[
+        Paragraph(f"<b>{L['col_number']}</b>", normal),
+        Paragraph(f"<b>{L['col_date']}</b>",   normal),
+        Paragraph(f"<b>{L['col_amount']}</b>", normal),
+    ]]
+    grand_total = 0.0
+    for r in records:
+        amt = float(r.get("total") or 0)
+        grand_total += amt
+        table_data.append([
+            Paragraph(str(r.get("invoice_number","")), normal),
+            Paragraph(format_date(r.get("invoice_date","")), normal),
+            Paragraph(f"{amt:.2f} €", normal),
+        ])
+    table_data.append([
+        Paragraph(f"<b>{L['total_due']}</b>", styles["Heading3"]),
+        "",
+        Paragraph(f"<b>{grand_total:.2f} €</b>", styles["Heading3"]),
+    ])
+    n_total_row = len(table_data) - 1
+    invoice_tbl = Table(table_data, colWidths=[5*cm, 5*cm, 7.5*cm])
+    invoice_tbl.setStyle(TableStyle([
+        ("GRID",        (0,0), (-1,-1),         0.5, colors.grey),
+        ("BACKGROUND",  (0,0), (-1,0),          colors.whitesmoke),
+        ("ALIGN",       (2,1), (2,-1),          "RIGHT"),
+        ("VALIGN",      (0,0), (-1,-1),         "TOP"),
+        ("SPAN",        (0, n_total_row), (1, n_total_row)),
+        ("ALIGN",       (0, n_total_row), (0, n_total_row), "LEFT"),
+        ("BACKGROUND",  (0, n_total_row), (-1, n_total_row), colors.whitesmoke),
+        ("FONTNAME",    (0, n_total_row), (-1, n_total_row), "Helvetica-Bold"),
+    ]))
+    elements += [invoice_tbl, Spacer(1, 22)]
+
+    # ── Closing paragraphs ────────────────────────────────────────────────
+    elements += [
+        Paragraph(L["body_pay_request"], normal),
+        Spacer(1, 8),
+        Paragraph(L["body_already_paid"], normal),
+        Spacer(1, 14),
+        Paragraph(L["closing"], normal),
+        Spacer(1, 4),
+        Paragraph(f"<b>{settings.get('company_name','') or '-'}</b>", normal),
+        Spacer(1, 28),
+    ]
+
+    # ── Payment instructions block (bank info from settings) ──────────────
+    elements += [
+        Paragraph(f"<b>{L['payment_block_title']}</b>", normal),
+        Paragraph(_invoice_payment_terms_html(settings), normal),
+    ]
+
     doc.build(elements)
     buffer.seek(0)
     return buffer
@@ -8075,7 +8399,13 @@ def invoices_client():
                 <h2 style="margin:0;color:white;">📁 {{ tr.get("client_documents_of","Documents de") }} {{ client }}
                     <span style="background:#111;border-radius:999px;padding:2px 10px;font-size:13px;margin-left:6px;">{{ rows|length }}</span>
                 </h2>
-                <a href="/invoices/client_statement?client={{ client|urlencode }}&date_from={{ date_from|urlencode }}&date_to={{ date_to|urlencode }}&status={{ status|urlencode }}&doc={{ doc_filter|urlencode }}" style="background:{{ '#1d4ed8' if dark else '#1f4f82' }};color:white;padding:10px 14px;border-radius:6px;text-decoration:none;font-weight:600;">📄 {{ tr.get("client_statement_pdf","Releve de compte client PDF") }}</a>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <a href="/invoices/client_statement?client={{ client|urlencode }}&date_from={{ date_from|urlencode }}&date_to={{ date_to|urlencode }}&status={{ status|urlencode }}&doc={{ doc_filter|urlencode }}" style="background:{{ '#1d4ed8' if dark else '#1f4f82' }};color:white;padding:10px 14px;border-radius:6px;text-decoration:none;font-weight:600;">📄 {{ tr.get("client_statement_pdf","Releve de compte client PDF") }}</a>
+                  {% if total_unpaid > 0 %}
+                  <a href="/invoices/reminder?client={{ client|urlencode }}" style="background:#f97316;color:white;padding:10px 14px;border-radius:6px;text-decoration:none;font-weight:600;">⬇ {{ tr.get("download_reminder","Rappel PDF") }}</a>
+                  <a href="/invoices/email?client={{ client|urlencode }}&type=reminder" style="background:#fb923c;color:white;padding:10px 14px;border-radius:6px;text-decoration:none;font-weight:600;">📮 {{ tr.get("send_reminder_email","Poslati Rappel emailom") }}</a>
+                  {% endif %}
+                </div>
             </div>
             <form class="filters" method="get" action="/invoices/client">
                 <input type="hidden" name="client" value="{{ client }}">
@@ -8321,6 +8651,10 @@ def invoices_view():
                 <a class="tool pay" href="{{ paid_url }}">{{ tr["mark_unpaid"] if record.paid else tr["mark_paid"] }}</a>
                 <a class="tool send-toggle" href="{{ sent_url }}">{{ tr["mark_unsent"] if record.sent else tr["mark_sent"] }}</a>
                 <a class="tool email-btn" href="/invoices/email?invoice_number={{ row.invoice_number }}">✉ {{ tr.get("send_email","Envoyer") }}</a>
+                {% if not record.paid %}
+                <a class="tool" style="background:#f97316;color:white;border-color:transparent;" href="/invoices/email?invoice_number={{ row.invoice_number }}&type=reminder">📮 {{ tr.get("send_reminder","Rappel") }}</a>
+                <a class="tool" style="background:#fb923c;color:white;border-color:transparent;" href="/invoices/reminder?invoice_number={{ row.invoice_number }}">⬇ {{ tr.get("download_reminder","Rappel PDF") }}</a>
+                {% endif %}
                 <a class="tool dl" href="{{ download_url }}">⬇ {{ tr.get("download","Telecharger") }}</a>
                 <span class="ip-status-pill {{ 'paid' if record.paid else 'unpaid' }}">
                   {% if record.paid %}● {{ tr["paid"] }}{% else %}○ {{ tr["unpaid"] }}{% endif %}
@@ -9741,38 +10075,176 @@ def _get_invoice_email_template(conn, lang):
     return (row[0] if row else "", row[1] if row else "")
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+#  REMINDER (RAPPEL) — PDF + email composer for unpaid invoices
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _load_reminder_records(conn, invoice_number=None, client_name=None):
+    """Resolve a list of unpaid invoice records for the reminder.
+    - invoice_number → single record (regardless of paid state, so an admin
+      can still send a 'final notice' on a paid one if needed)
+    - client_name    → all UNPAID invoices for that client
+    Adds the best-effort client_address to each row for the PDF header.
+    """
+    c = conn.cursor()
+    records = []
+    if invoice_number:
+        r = c.execute(
+            "SELECT invoice_number, client_name, date_from, date_to, invoice_date, "
+            "amount, vat_amount, total, paid, paid_date, COALESCE(sent,0), "
+            "COALESCE(sent_date,''), COALESCE(source,'auto') "
+            "FROM invoice_records WHERE invoice_number=? AND COALESCE(deleted,0)=0",
+            (invoice_number,),
+        ).fetchone()
+        if r:
+            records = [invoice_record_to_dict(r)]
+    elif client_name:
+        records = _unpaid_invoices_for_client(conn, client_name)
+    # Pull a client_address from the manual draft (if any) or client profile
+    if records:
+        client = records[0].get("client", "")
+        addr = ""
+        manual = c.execute(
+            "SELECT client_address FROM manual_invoice_drafts "
+            "WHERE LOWER(client_name)=LOWER(?) ORDER BY id DESC LIMIT 1",
+            (client,),
+        ).fetchone()
+        if manual and manual[0]:
+            addr = manual[0]
+        else:
+            prof = c.execute(
+                "SELECT custom_address FROM client_invoice_profiles WHERE client_name=?",
+                (client,),
+            ).fetchone()
+            if prof and prof[0]:
+                addr = prof[0]
+        for rec in records:
+            rec["_client_address_html"] = addr
+    return records
+
+
+@app.route("/invoices/reminder")
+def invoices_reminder_pdf():
+    """Download the reminder PDF.
+    Query options:
+      ?invoice_number=X  — single invoice
+      ?client=NAME       — all UNPAID invoices for that client (consolidated)
+    """
+    if session.get("role") != "admin":
+        return redirect("/")
+    tr = t()
+    inv_num = request.args.get("invoice_number", "").strip()
+    client  = request.args.get("client", "").strip()
+    lang    = (session.get("lang") or "fr")
+    if lang not in REMINDER_PDF_STRINGS:
+        lang = "fr"
+
+    conn = get_conn()
+    records = _load_reminder_records(
+        conn, invoice_number=inv_num or None, client_name=client or None
+    )
+    settings = get_invoice_settings(conn)
+    conn.close()
+    if not records:
+        flash(tr.get("reminder_no_unpaid",
+                     "Nema neplaćenih faktura za podsjetnik."), "error")
+        return redirect(request.referrer or "/invoices")
+
+    pdf = build_reminder_pdf(records, settings, language=lang)
+    fname_client = re.sub(r"[^A-Za-z0-9_-]+", "_",
+                          (records[0].get("client") or "").strip())[:40] or "client"
+    stamp = lux_now().strftime("%Y%m%d")
+    download_name = f"rappel_{fname_client}_{stamp}.pdf"
+    return send_file(pdf, as_attachment=True,
+                     download_name=download_name, mimetype="application/pdf")
+
+
+@app.route("/invoices/reminder/preview")
+def invoices_reminder_preview_pdf():
+    """Same as /invoices/reminder but inline (for iframe / preview)."""
+    if session.get("role") != "admin":
+        return redirect("/")
+    inv_num = request.args.get("invoice_number", "").strip()
+    client  = request.args.get("client", "").strip()
+    lang    = (session.get("lang") or "fr")
+    if lang not in REMINDER_PDF_STRINGS:
+        lang = "fr"
+    conn = get_conn()
+    records = _load_reminder_records(
+        conn, invoice_number=inv_num or None, client_name=client or None
+    )
+    settings = get_invoice_settings(conn)
+    conn.close()
+    if not records:
+        return redirect("/invoices")
+    pdf = build_reminder_pdf(records, settings, language=lang)
+    return send_file(pdf, as_attachment=False,
+                     download_name="rappel.pdf", mimetype="application/pdf")
+
+
 @app.route("/invoices/email", methods=["GET"])
 def invoices_email():
     if session.get("role") != "admin":
         return redirect("/")
     tr = t(); dark = get_theme() == "dark"
     invoice_number = request.args.get("invoice_number", "").strip()
-    if not invoice_number:
+    bulk_client    = request.args.get("client", "").strip()
+    email_type     = (request.args.get("type", "invoice") or "invoice").strip()
+    if email_type not in ("invoice", "reminder"):
+        email_type = "invoice"
+    is_reminder = (email_type == "reminder")
+    is_bulk = bool(bulk_client) and not invoice_number
+    if not invoice_number and not is_bulk:
         return redirect("/invoices")
 
     conn = get_conn(); c = conn.cursor()
-    rec = c.execute("""
-        SELECT invoice_number, client_name, date_from, date_to, invoice_date,
-               amount, vat_amount, total, COALESCE(sent,0), COALESCE(sent_date,''), COALESCE(source,'auto')
-        FROM invoice_records WHERE invoice_number=? AND COALESCE(deleted,0)=0
-    """, (invoice_number,)).fetchone()
-    if not rec:
-        conn.close()
-        flash(tr.get("invoice_not_found", "Faktura nije pronadjena."), "error")
-        return redirect("/invoices")
+
+    if is_bulk:
+        # Bulk reminder for all unpaid invoices of a client
+        unpaid = _unpaid_invoices_for_client(conn, bulk_client)
+        if not unpaid:
+            conn.close()
+            flash(tr.get("reminder_no_unpaid",
+                          "Nema neplaćenih faktura za podsjetnik."), "error")
+            return redirect(request.referrer or "/invoices")
+        first = unpaid[0]
+        rec = (first["invoice_number"], first["client"], first["date_from"],
+               first["date_to"], first["invoice_date"], first["amount"],
+               first["vat_amount"], first["total"], 0 if first["sent"] is False else 1,
+               first.get("sent_date",""), first.get("source","auto"))
+        client_for_lookup = bulk_client
+    else:
+        rec = c.execute("""
+            SELECT invoice_number, client_name, date_from, date_to, invoice_date,
+                   amount, vat_amount, total, COALESCE(sent,0), COALESCE(sent_date,''), COALESCE(source,'auto')
+            FROM invoice_records WHERE invoice_number=? AND COALESCE(deleted,0)=0
+        """, (invoice_number,)).fetchone()
+        if not rec:
+            conn.close()
+            flash(tr.get("invoice_not_found", "Faktura nije pronadjena."), "error")
+            return redirect("/invoices")
+        client_for_lookup = rec[1]
 
     # Pre-fill recipient from client profile if available
     prof = c.execute(
         "SELECT email FROM client_invoice_profiles WHERE client_name=?",
-        (rec[1],)
+        (client_for_lookup,)
     ).fetchone()
     recipient = (prof[0] if prof else "") or ""
 
     lang = session.get("lang", "fr")
     if lang not in ("fr", "en", "bos", "de", "pt"):
         lang = "fr"
-    subject_tpl, body_tpl = _get_invoice_email_template(conn, lang)
-    ctx = _invoice_email_context(conn, invoice_number)
+
+    if is_reminder:
+        # Use the reminder defaults, with substitution context filled from
+        # either the single invoice or the first (most recent) unpaid one.
+        subject_tpl = DEFAULT_REMINDER_SUBJECT.get(lang, DEFAULT_REMINDER_SUBJECT["fr"])
+        body_tpl    = DEFAULT_REMINDER_BODY.get(lang,    DEFAULT_REMINDER_BODY["fr"])
+        ctx = _invoice_email_context(conn, rec[0])
+    else:
+        subject_tpl, body_tpl = _get_invoice_email_template(conn, lang)
+        ctx = _invoice_email_context(conn, invoice_number)
     subject = _render_email_template(subject_tpl, ctx)
     body    = _render_email_template(body_tpl, ctx)
     conn.close()
@@ -9805,10 +10277,14 @@ def invoices_email():
       {% endfor %}
       {% endwith %}
       <div class="em-card">
-        <h2>✉ {{ tr.get("send_email","Poslati fakturu emailom") }}</h2>
+        <h2>{% if is_reminder %}📮 {{ tr.get("send_reminder","Poslati podsjetnik") }}{% else %}✉ {{ tr.get("send_email","Poslati fakturu emailom") }}{% endif %}</h2>
         <div class="em-meta">
-          {{ tr.get("invoice_number","Numéro") }} <b>{{ rec[0] }}</b> ·
-          {{ rec[1] }} · {{ "%.2f"|format(rec[7]) }} EUR
+          {% if is_bulk %}
+            <b>{{ bulk_client }}</b> — {{ tr.get("unpaid","Nije placena") }}: {{ unpaid_count }}
+          {% else %}
+            {{ tr.get("invoice_number","Numéro") }} <b>{{ rec[0] }}</b> ·
+            {{ rec[1] }} · {{ "%.2f"|format(rec[7]) }} EUR
+          {% endif %}
         </div>
         {% if not smtp_ready %}
         <div class="em-warn">⚠ SMTP nije konfigurisan. Postavi SMTP_HOST i SMTP_FROM u Render env vars.</div>
@@ -9816,6 +10292,8 @@ def invoices_email():
 
         <form method="post" action="/invoices/email/send">
           <input type="hidden" name="invoice_number" value="{{ invoice_number }}">
+          <input type="hidden" name="email_type" value="{{ email_type }}">
+          {% if is_bulk %}<input type="hidden" name="client" value="{{ bulk_client }}">{% endif %}
 
           <label class="em-label">{{ tr.get("email_to","Primalac") }} <span style="color:#ef4444;">*</span></label>
           <input class="em-input" type="email" name="recipient" value="{{ recipient }}" required>
@@ -9867,7 +10345,12 @@ def invoices_email():
     </div>
     """, tr=tr, dark=dark, rec=rec, invoice_number=invoice_number, recipient=recipient,
          subject=subject, body=body, smtp_ready=smtp_ready,
-         pdf_name=f"{invoice_number}-facture.pdf")
+         is_reminder=is_reminder, is_bulk=is_bulk, bulk_client=bulk_client,
+         email_type=email_type,
+         unpaid_count=(len(_unpaid_invoices_for_client(get_conn(), bulk_client)) if is_bulk else 0),
+         pdf_name=(f"rappel_{invoice_number or bulk_client}.pdf"
+                   if is_reminder
+                   else f"{invoice_number}-facture.pdf"))
 
 
 @app.route("/invoices/email/send", methods=["POST"])
@@ -9876,6 +10359,11 @@ def invoices_email_send():
         return redirect("/")
     tr = t()
     invoice_number = request.form.get("invoice_number", "").strip()
+    bulk_client    = request.form.get("client", "").strip()
+    email_type     = (request.form.get("email_type", "invoice") or "invoice").strip()
+    if email_type not in ("invoice", "reminder"):
+        email_type = "invoice"
+    is_reminder = (email_type == "reminder")
     action         = request.form.get("action", "draft").strip()
     recipient      = request.form.get("recipient", "").strip()
     cc_raw         = request.form.get("cc", "").strip()
@@ -9884,12 +10372,19 @@ def invoices_email_send():
     body           = request.form.get("body", "").strip()
     scheduled_at   = request.form.get("scheduled_at", "").strip()
 
-    if not invoice_number:
+    if not invoice_number and not bulk_client:
         return redirect("/invoices")
+
+    def _back_url():
+        if invoice_number:
+            return (f"/invoices/email?invoice_number={urllib.parse.quote(invoice_number)}"
+                    + (f"&type={email_type}" if is_reminder else ""))
+        return (f"/invoices/email?client={urllib.parse.quote(bulk_client)}"
+                + (f"&type={email_type}" if is_reminder else ""))
 
     if not _is_valid_email(recipient):
         flash(tr.get("invalid_email", "Neispravna email adresa."), "error")
-        return redirect(f"/invoices/email?invoice_number={urllib.parse.quote(invoice_number)}")
+        return redirect(_back_url())
 
     # Server-side enforce: send_now / schedule require SMTP config.
     # draft is always allowed since it doesn't touch SMTP.
@@ -9904,20 +10399,41 @@ def invoices_email_send():
     conn = get_conn(); c = conn.cursor()
 
     if action == "send_now":
-        pdf_bytes, pdf_name = _build_invoice_pdf_for_email(conn, invoice_number)
+        if is_reminder:
+            settings = get_invoice_settings(conn)
+            lang_for_pdf = session.get("lang", "fr")
+            if lang_for_pdf not in REMINDER_PDF_STRINGS:
+                lang_for_pdf = "fr"
+            records = _load_reminder_records(
+                conn, invoice_number=invoice_number or None,
+                client_name=bulk_client or None,
+            )
+            if not records:
+                conn.close()
+                flash(tr.get("reminder_no_unpaid",
+                              "Nema neplaćenih faktura za podsjetnik."), "error")
+                return redirect(_back_url())
+            buf = build_reminder_pdf(records, settings, language=lang_for_pdf)
+            pdf_bytes = buf.getvalue() if buf else None
+            safe_who = re.sub(r"[^A-Za-z0-9_-]+", "_",
+                              (records[0].get("client") or ""))[:40] or "client"
+            pdf_name = f"rappel_{safe_who}_{lux_now().strftime('%Y%m%d')}.pdf"
+        else:
+            pdf_bytes, pdf_name = _build_invoice_pdf_for_email(conn, invoice_number)
         if not pdf_bytes:
             conn.close()
             flash(tr.get("invoice_not_found", "Faktura nije pronadjena."), "error")
-            return redirect(f"/invoices/email?invoice_number={urllib.parse.quote(invoice_number)}")
+            return redirect(_back_url())
         ok, err = _smtp_send(recipient, subject, body, pdf_bytes, pdf_name,
                              cc=cc_list, bcc=bcc_list)
         c.execute("""
             INSERT INTO invoice_email_logs
                 (invoice_number, recipient, subject, status, error, sent_at)
             VALUES (?,?,?,?,?,?)
-        """, (invoice_number, recipient, subject,
+        """, (invoice_number or bulk_client, recipient, subject,
               "sent" if ok else "failed", err if not ok else "", now_str))
-        if ok:
+        # Only mark invoice 'sent' for real invoice emails, not reminders
+        if ok and invoice_number and not is_reminder:
             c.execute(
                 "UPDATE invoice_records SET sent=1, sent_date=? WHERE invoice_number=?",
                 (lux_now().strftime("%Y-%m-%d"), invoice_number)
@@ -9925,9 +10441,11 @@ def invoices_email_send():
         conn.commit(); conn.close()
         if ok:
             flash(tr.get("email_sent_ok", "Email poslat."), "ok")
-            return redirect(f"/invoices/view?invoice_number={urllib.parse.quote(invoice_number)}")
+            if invoice_number:
+                return redirect(f"/invoices/view?invoice_number={urllib.parse.quote(invoice_number)}")
+            return redirect(f"/invoices/client?client={urllib.parse.quote(bulk_client)}")
         flash(tr.get("email_send_failed", "Slanje nije uspjelo") + ": " + (err or "?"), "error")
-        return redirect(f"/invoices/email?invoice_number={urllib.parse.quote(invoice_number)}")
+        return redirect(_back_url())
 
     # schedule or draft → insert queue row
     status = "scheduled" if action == "schedule" and scheduled_at else "draft"
