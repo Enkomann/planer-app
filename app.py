@@ -11057,11 +11057,19 @@ def invoices_email():
           if (e.key === "Escape" && overlay.classList.contains("open")) closeModal();
         });
 
-        // Form submit guard: block schedule click without a date
+        // Form submit guard: block schedule click without a date.
+        // e.submitter is the modern path (Chrome, Firefox, Safari 15.4+).
+        // Older Safari leaves submitter undefined → we track the last
+        // clicked action button manually so the inline warning still
+        // fires there. The backend has the same guard as a final net.
         var form = panel.closest("form");
         if (form) {
+          var lastSubmitter = null;
+          form.querySelectorAll('button[name="action"]').forEach(function(b){
+            b.addEventListener("click", function(){ lastSubmitter = b; });
+          });
           form.addEventListener("submit", function(e){
-            var s = e.submitter;
+            var s = e.submitter || lastSubmitter;
             if (s && s.name === "action" && s.value === "schedule" && !hidden.value) {
               e.preventDefault();
               warn.hidden = false;
@@ -11139,6 +11147,17 @@ def invoices_email_send():
             return redirect(_back_url())
         flash(tr.get("smtp_not_configured_drafted", "SMTP not configured. Saved as draft."), "error")
         action = "draft"
+
+    # Backend guard: schedule without a scheduled_at would silently fall
+    # through to draft on line 11216 ("scheduled" if action == "schedule"
+    # and scheduled_at else "draft"). The JS guard catches this in modern
+    # browsers via e.submitter, but a missing submitter (older Safari,
+    # direct POST, automation) would let a "Schedule" click become a
+    # nameless draft. Belt-and-suspenders: refuse here too.
+    if action == "schedule" and not scheduled_at:
+        flash(tr.get("email_schedule_pick_first",
+                     "Pick a date first before scheduling."), "error")
+        return redirect(_back_url())
 
     cc_list  = _split_email_list(cc_raw)
     bcc_list = _split_email_list(bcc_raw)
