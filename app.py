@@ -10251,6 +10251,11 @@ def invoices_email():
     if email_type not in ("invoice", "reminder"):
         email_type = "invoice"
     is_reminder = (email_type == "reminder")
+    # Bulk (client-only) mode is reminder-specific: a regular invoice email
+    # has nothing to attach without an invoice_number. Drop the client param
+    # if someone hits the page with ?client=X&type=invoice.
+    if bulk_client and not is_reminder:
+        bulk_client = ""
     is_bulk = bool(bulk_client) and not invoice_number
     if not invoice_number and not is_bulk:
         return redirect("/invoices")
@@ -10440,6 +10445,10 @@ def invoices_email_send():
     if email_type not in ("invoice", "reminder"):
         email_type = "invoice"
     is_reminder = (email_type == "reminder")
+    # Same rule as the GET composer: client-only submission makes sense
+    # only for reminders. Drop a stray client= on a plain invoice POST.
+    if bulk_client and not is_reminder:
+        bulk_client = ""
     action         = request.form.get("action", "draft").strip()
     recipient      = request.form.get("recipient", "").strip()
     cc_raw         = request.form.get("cc", "").strip()
@@ -10462,20 +10471,25 @@ def invoices_email_send():
         flash(tr.get("invalid_email", "Neispravna email adresa."), "error")
         return redirect(_back_url())
 
-    # Server-side enforce: send_now / schedule require SMTP config.
-    # draft is always allowed since it doesn't touch SMTP.
-    if action in ("send_now", "schedule") and not (SMTP_HOST and SMTP_FROM):
-        flash("SMTP not configured. Saved as draft.", "error")
-        action = "draft"
-
-    # Reminders can only be sent immediately — the queue table has no
-    # email_type/client columns, so a scheduled reminder would later be
-    # rebuilt as a plain invoice PDF (and bulk reminders have no
-    # invoice_number to look up at all).
+    # Reminders are send_now-only (queue schema has no email_type/client).
+    # Run this BEFORE the SMTP-downgrade check so a missing SMTP cleanly
+    # surfaces "SMTP not configured" instead of trying to send and logging
+    # a generic failure.
     if is_reminder and action != "send_now":
         flash(tr.get("reminder_send_now_only",
                      "Podsjetnici se mogu samo odmah poslati."), "error")
         action = "send_now"
+
+    # Server-side enforce: send_now / schedule require SMTP config.
+    # For reminders we can only send_now → if SMTP is missing, flash and
+    # bail out instead of silently downgrading to draft (a reminder draft
+    # would be misleading, and the queue can't handle it anyway).
+    if action in ("send_now", "schedule") and not (SMTP_HOST and SMTP_FROM):
+        if is_reminder:
+            flash("SMTP not configured.", "error")
+            return redirect(_back_url())
+        flash("SMTP not configured. Saved as draft.", "error")
+        action = "draft"
 
     cc_list  = _split_email_list(cc_raw)
     bcc_list = _split_email_list(bcc_raw)
