@@ -3448,8 +3448,13 @@ def _smtp_send(to_addrs, subject, body, pdf_bytes=None, pdf_name="facture.pdf",
     #   - only EMAIL_ARCHIVE_BCC was refused → the customer email is fine;
     #     just warn so the admin can fix their archive mailbox.
     if refused:
+        # Email addresses are case-insensitive in practice (domain always,
+        # mailbox by convention on every mainstream server). Normalize on
+        # both sides so a server that bounces back "Client@Example.COM"
+        # for our "client@example.com" still triggers the hard-fail path.
+        real_set = {x.lower() for x in (list(valid_to) + list(cc))}
         real_refused = {a: refused[a] for a in refused
-                        if a in valid_to or a in cc}
+                        if (a or "").lower() in real_set}
         if real_refused:
             return False, f"Recipient refused: {real_refused}", info
         # Only the archive BCC bounced — surface it in logs but still
