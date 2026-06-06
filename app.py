@@ -1549,6 +1549,8 @@ INVOICE_TRANSLATIONS = {
     "download_reminder": "Podsjetnik PDF",
     "reminder_no_unpaid": "Nema neplacenih faktura za podsjetnik.",
     "reminder_send_now_only": "Podsjetnici se mogu samo odmah poslati.",
+    "smtp_not_configured": "SMTP nije konfigurisan.",
+    "smtp_not_configured_drafted": "SMTP nije konfigurisan. Sacuvano kao nacrt.",
     "bulk_selected": "odabrano",
     "select_all": "Odaberi sve",
     "download_selected_pdf": "Preuzmi PDF (ZIP)",
@@ -1622,6 +1624,8 @@ INVOICE_TRANSLATIONS["en"] = {
     "download_reminder": "Reminder PDF",
     "reminder_no_unpaid": "No unpaid invoices to remind about.",
     "reminder_send_now_only": "Reminders can only be sent immediately.",
+    "smtp_not_configured": "SMTP not configured.",
+    "smtp_not_configured_drafted": "SMTP not configured. Saved as draft.",
     "bulk_selected": "selected",
     "select_all": "Select all",
     "download_selected_pdf": "Download PDF (ZIP)",
@@ -1694,6 +1698,8 @@ INVOICE_TRANSLATIONS["fr"] = {
     "download_reminder": "Rappel PDF",
     "reminder_no_unpaid": "Aucune facture impayée pour le rappel.",
     "reminder_send_now_only": "Les rappels ne peuvent qu'être envoyés immédiatement.",
+    "smtp_not_configured": "SMTP non configuré.",
+    "smtp_not_configured_drafted": "SMTP non configuré. Enregistré comme brouillon.",
     "bulk_selected": "selectionnees",
     "select_all": "Tout selectionner",
     "download_selected_pdf": "Telecharger PDF (ZIP)",
@@ -1766,6 +1772,8 @@ INVOICE_TRANSLATIONS["de"] = {
     "download_reminder": "Mahnung PDF",
     "reminder_no_unpaid": "Keine unbezahlten Rechnungen fuer eine Mahnung.",
     "reminder_send_now_only": "Mahnungen koennen nur sofort gesendet werden.",
+    "smtp_not_configured": "SMTP nicht konfiguriert.",
+    "smtp_not_configured_drafted": "SMTP nicht konfiguriert. Als Entwurf gespeichert.",
     "bulk_selected": "ausgewaehlt",
     "select_all": "Alle auswaehlen",
     "download_selected_pdf": "PDF herunterladen (ZIP)",
@@ -1838,6 +1846,8 @@ INVOICE_TRANSLATIONS["pt"] = {
     "download_reminder": "Aviso PDF",
     "reminder_no_unpaid": "Sem faturas em divida para enviar aviso.",
     "reminder_send_now_only": "Avisos so podem ser enviados imediatamente.",
+    "smtp_not_configured": "SMTP nao configurado.",
+    "smtp_not_configured_drafted": "SMTP nao configurado. Guardado como rascunho.",
     "bulk_selected": "selecionadas",
     "select_all": "Selecionar todas",
     "download_selected_pdf": "Descarregar PDF (ZIP)",
@@ -10486,9 +10496,9 @@ def invoices_email_send():
     # would be misleading, and the queue can't handle it anyway).
     if action in ("send_now", "schedule") and not (SMTP_HOST and SMTP_FROM):
         if is_reminder:
-            flash("SMTP not configured.", "error")
+            flash(tr.get("smtp_not_configured", "SMTP not configured."), "error")
             return redirect(_back_url())
-        flash("SMTP not configured. Saved as draft.", "error")
+        flash(tr.get("smtp_not_configured_drafted", "SMTP not configured. Saved as draft."), "error")
         action = "draft"
 
     cc_list  = _split_email_list(cc_raw)
@@ -10570,7 +10580,7 @@ def invoices_email_test():
         return redirect("/")
     tr = t()
     if not (SMTP_HOST and SMTP_FROM):
-        flash("SMTP not configured.", "error")
+        flash(tr.get("smtp_not_configured", "SMTP not configured."), "error")
         return redirect("/invoices")
     ok, err = _smtp_send(
         SMTP_FROM,
