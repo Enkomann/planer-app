@@ -10670,6 +10670,7 @@ def invoices_email():
       .em-sl-panel { margin-top:16px; padding:14px; border-radius:12px;
                      background:{{ '#0f0f10' if dark else '#f8fafc' }};
                      border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; }
+      .em-sl-panel [hidden], .em-notice-chip[hidden] { display:none !important; }
       .em-sl-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
       .em-sl-chip { padding:8px 14px; border-radius:999px;
                     border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};
@@ -10682,6 +10683,12 @@ def invoices_email():
       .em-sl-summary { margin-top:10px; font-size:13px; font-weight:600;
                        color:{{ '#86efac' if dark else '#16a34a' }};
                        min-height:18px; display:flex; align-items:center; gap:8px; }
+      .em-sl-selected { margin-top:10px; padding:9px 12px; border-radius:10px;
+                        background:#2563eb; color:#ffffff; font-size:13px;
+                        font-weight:700; display:flex; align-items:center;
+                        justify-content:space-between; gap:8px;
+                        box-shadow:0 6px 18px rgba(37,99,235,.22); }
+      .em-sl-selected small { opacity:.85; font-weight:600; }
       .em-sl-clearx { background:transparent; border:none; cursor:pointer;
                       color:{{ '#94a3b8' if dark else '#64748b' }};
                       font-size:14px; padding:2px 6px; border-radius:4px; }
@@ -10852,9 +10859,14 @@ def invoices_email():
               <button type="button" class="em-sl-chip" data-preset="tomorrow10">
                 {{ tr.get("email_tomorrow","Tomorrow") }} 10:00
               </button>
-              <button type="button" class="em-sl-chip em-sl-pick" id="emSlPickBtn">
+              <button type="button" class="em-sl-chip em-sl-pick" id="emSlPickBtn"
+                      data-base="{{ tr.get('email_select_date','Pick a date') }}">
                 📅 {{ tr.get("email_select_date","Pick a date") }}
               </button>
+            </div>
+            <div class="em-sl-selected" id="emSlSelectedBadge" hidden>
+              <span id="emSlSelectedText"></span>
+              <small>{{ tr.get("schedule","Zakaži") }}</small>
             </div>
             <div class="em-sl-summary" id="emSlSummary" hidden>
               <span id="emSlSummaryText"></span>
@@ -10985,6 +10997,10 @@ def invoices_email():
         var notice     = document.getElementById("emScheduledNotice");
         var noticeText = document.getElementById("emScheduledNoticeText");
         var noticeX    = document.getElementById("emScheduledNoticeX");
+        var selectedBadge = document.getElementById("emSlSelectedBadge");
+        var selectedText  = document.getElementById("emSlSelectedText");
+        var pickBase      = (pickBtn && pickBtn.getAttribute("data-base")) ||
+                            (pickBtn ? pickBtn.textContent : "");
         var overlay    = document.getElementById("emSlOverlay");
         var modal      = document.getElementById("emSlModal");
         var monthLbl   = document.getElementById("emSlMonthLabel");
@@ -11017,10 +11033,17 @@ def invoices_email():
         function setSchedule(d, preset){
           current = d;
           hidden.value = fmtHidden(d);
-          sumText.textContent = TXT.scheduled_for + " " + fmtHuman(d);
+          var human = fmtHuman(d);
+          var planned = TXT.planned_for + " " + human;
+          sumText.textContent = "✓ " + planned;
           summary.hidden = false;
           warn.hidden = true;
           paintChipFromPreset(preset || "custom");
+          if (selectedBadge && selectedText) {
+            selectedText.textContent = planned;
+            selectedBadge.hidden = false;
+          }
+          if (pickBtn) pickBtn.textContent = human;
           // Header label gets the time appended: "Send later (16:30)"
           if (header) {
             header.textContent = headerBase + " (" +
@@ -11040,6 +11063,8 @@ def invoices_email():
           summary.hidden = true;
           chips.forEach(function(b){ b.classList.remove("active"); });
           pickBtn.classList.remove("active");
+          if (pickBtn) pickBtn.textContent = pickBase;
+          if (selectedBadge) selectedBadge.hidden = true;
           if (header) header.textContent = headerBase;
           if (notice) notice.hidden = true;
           if (cancelBtn) cancelBtn.hidden = true;
