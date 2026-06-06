@@ -1599,6 +1599,15 @@ INVOICE_TRANSLATIONS = {
     "email_sent_ok": "Email poslat.",
     "email_send_failed": "Slanje nije uspjelo",
     "email_scheduled": "Email je zakazan.",
+    "email_send_later": "Posalji kasnije",
+    "email_today": "Danas",
+    "email_tomorrow": "Sutra",
+    "email_select_date": "Izaberi datum",
+    "email_time": "Vrijeme",
+    "email_clear": "Ocisti",
+    "email_set": "Postavi",
+    "email_scheduled_for": "Zakazano za",
+    "email_schedule_pick_first": "Prvo odaberi datum slanja prije nego zakazes.",
     "email_drafted": "Nacrt je sacuvan.",
     "email_test_ok": "Test email poslat.",
     "email_test_fail": "Test SMTP nije uspio",
@@ -1674,6 +1683,15 @@ INVOICE_TRANSLATIONS["en"] = {
     "email_sent_ok": "Email sent.",
     "email_send_failed": "Send failed",
     "email_scheduled": "Email scheduled.",
+    "email_send_later": "Send later",
+    "email_today": "Today",
+    "email_tomorrow": "Tomorrow",
+    "email_select_date": "Pick a date",
+    "email_time": "Time",
+    "email_clear": "Clear",
+    "email_set": "Set",
+    "email_scheduled_for": "Scheduled for",
+    "email_schedule_pick_first": "Pick a date first before scheduling.",
     "email_drafted": "Draft saved.",
     "email_test_ok": "Test email sent.",
     "email_test_fail": "SMTP test failed",
@@ -1748,6 +1766,15 @@ INVOICE_TRANSLATIONS["fr"] = {
     "email_sent_ok": "Email envoye.",
     "email_send_failed": "L'envoi a echoue",
     "email_scheduled": "Email planifie.",
+    "email_send_later": "Envoyer plus tard",
+    "email_today": "Aujourd'hui",
+    "email_tomorrow": "Demain",
+    "email_select_date": "Choisir une date",
+    "email_time": "Heure",
+    "email_clear": "Effacer",
+    "email_set": "Definir",
+    "email_scheduled_for": "Programme pour",
+    "email_schedule_pick_first": "Choisis une date avant de programmer.",
     "email_drafted": "Brouillon enregistre.",
     "email_test_ok": "Email de test envoye.",
     "email_test_fail": "Echec du test SMTP",
@@ -1822,6 +1849,15 @@ INVOICE_TRANSLATIONS["de"] = {
     "email_sent_ok": "E-Mail gesendet.",
     "email_send_failed": "Senden fehlgeschlagen",
     "email_scheduled": "E-Mail geplant.",
+    "email_send_later": "Spaeter senden",
+    "email_today": "Heute",
+    "email_tomorrow": "Morgen",
+    "email_select_date": "Datum waehlen",
+    "email_time": "Uhrzeit",
+    "email_clear": "Loeschen",
+    "email_set": "Uebernehmen",
+    "email_scheduled_for": "Geplant fuer",
+    "email_schedule_pick_first": "Waehle zuerst ein Datum, bevor du planst.",
     "email_drafted": "Entwurf gespeichert.",
     "email_test_ok": "Test-E-Mail gesendet.",
     "email_test_fail": "SMTP-Test fehlgeschlagen",
@@ -1896,6 +1932,15 @@ INVOICE_TRANSLATIONS["pt"] = {
     "email_sent_ok": "Email enviado.",
     "email_send_failed": "Falha no envio",
     "email_scheduled": "Email agendado.",
+    "email_send_later": "Enviar mais tarde",
+    "email_today": "Hoje",
+    "email_tomorrow": "Amanha",
+    "email_select_date": "Escolher data",
+    "email_time": "Hora",
+    "email_clear": "Limpar",
+    "email_set": "Definir",
+    "email_scheduled_for": "Agendado para",
+    "email_schedule_pick_first": "Escolhe uma data antes de agendar.",
     "email_drafted": "Rascunho guardado.",
     "email_test_ok": "Email de teste enviado.",
     "email_test_fail": "Falha no teste SMTP",
@@ -10581,6 +10626,15 @@ def invoices_email():
     body    = _render_email_template(body_tpl, ctx)
     conn.close()
 
+    # BCP-47 locale for the JS calendar's Intl.DateTimeFormat (month label
+    # and weekday initials). Keep the mapping conservative so the calendar
+    # always renders in the user's UI language even if some Intl data is
+    # missing — falling back to fr-FR matches the historical default.
+    lang_locale = {
+        "bos": "bs-BA", "en": "en-US", "fr": "fr-FR",
+        "de":  "de-DE", "pt": "pt-PT",
+    }.get(lang, "fr-FR")
+
     smtp_ready = bool(SMTP_HOST and SMTP_FROM)
     return render_template_string(BASE_STYLE + header_html() + """
     <style>
@@ -10601,6 +10655,75 @@ def invoices_email():
       .em-btn.test    { background:#f59e0b; color:white; }
       .em-warn { padding:10px 14px; border-radius:8px; background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-size:13px; margin-bottom:14px; }
       .em-vars { font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }}; padding:8px 12px; background:{{ '#0f0f10' if dark else '#f8fafc' }}; border-radius:8px; border:1px dashed {{ '#2c2c30' if dark else '#e2e8f0' }}; }
+
+      /* ── Spark-style "Send later" panel ──────────────────────── */
+      .em-sl-panel { margin-top:16px; padding:14px; border-radius:12px;
+                     background:{{ '#0f0f10' if dark else '#f8fafc' }};
+                     border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; }
+      .em-sl-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+      .em-sl-chip { padding:8px 14px; border-radius:999px;
+                    border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};
+                    background:{{ '#1d1d1f' if dark else '#ffffff' }};
+                    color:{{ '#e2e8f0' if dark else '#0f172a' }};
+                    font-weight:600; font-size:13px; cursor:pointer;
+                    transition:background .15s, border-color .15s, color .15s; }
+      .em-sl-chip:hover { border-color:#2563eb; }
+      .em-sl-chip.active { background:#2563eb; color:#ffffff; border-color:#2563eb; }
+      .em-sl-summary { margin-top:10px; font-size:13px; font-weight:600;
+                       color:{{ '#86efac' if dark else '#16a34a' }};
+                       min-height:18px; display:flex; align-items:center; gap:8px; }
+      .em-sl-clearx { background:transparent; border:none; cursor:pointer;
+                      color:{{ '#94a3b8' if dark else '#64748b' }};
+                      font-size:14px; padding:2px 6px; border-radius:4px; }
+      .em-sl-clearx:hover { background:{{ '#2c2c30' if dark else '#e2e8f0' }}; }
+      .em-sl-warn { margin-top:10px; padding:8px 12px; border-radius:8px;
+                    background:#fef3c7; color:#92400e; font-size:13px; font-weight:600;
+                    border:1px solid #fde68a; }
+
+      /* ── Calendar modal ─────────────────────────────────────── */
+      .em-sl-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5);
+                       display:none; align-items:center; justify-content:center;
+                       z-index:9999; padding:16px; }
+      .em-sl-overlay.open { display:flex; }
+      .em-sl-modal { background:{{ '#161618' if dark else '#ffffff' }};
+                     color:{{ '#e2e8f0' if dark else '#0f172a' }};
+                     border-radius:16px; padding:18px; width:340px; max-width:92vw;
+                     box-shadow:0 20px 50px rgba(0,0,0,.4);
+                     border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; }
+      .em-sl-mhdr { display:flex; justify-content:space-between; align-items:center;
+                    margin-bottom:12px; font-weight:700; font-size:15px; }
+      .em-sl-mhdr button { background:transparent; border:none;
+                           color:{{ '#e2e8f0' if dark else '#0f172a' }};
+                           font-size:18px; cursor:pointer; padding:4px 10px;
+                           border-radius:6px; }
+      .em-sl-mhdr button:hover { background:{{ '#2c2c30' if dark else '#f1f5f9' }}; }
+      .em-sl-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px;
+                    font-size:13px; }
+      .em-sl-grid .dow { color:{{ '#94a3b8' if dark else '#64748b' }};
+                         padding:6px 0; text-align:center; font-weight:700;
+                         font-size:11px; text-transform:uppercase; letter-spacing:.5px; }
+      .em-sl-grid .day { padding:9px 0; text-align:center; border-radius:8px;
+                         cursor:pointer; user-select:none; }
+      .em-sl-grid .day:hover { background:{{ '#2c2c30' if dark else '#e0e7ff' }}; }
+      .em-sl-grid .day.muted { color:{{ '#475569' if dark else '#cbd5e1' }}; }
+      .em-sl-grid .day.today { box-shadow:inset 0 0 0 1px #2563eb; font-weight:700; }
+      .em-sl-grid .day.selected { background:#2563eb; color:#ffffff; font-weight:700; }
+      .em-sl-grid .day.disabled { color:{{ '#475569' if dark else '#cbd5e1' }};
+                                  cursor:not-allowed; }
+      .em-sl-grid .day.disabled:hover { background:transparent; }
+      .em-sl-time { margin-top:14px; display:flex; align-items:center; gap:10px;
+                    font-size:13px; font-weight:600; }
+      .em-sl-time input { flex:1; padding:8px 10px; border-radius:8px;
+                          border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};
+                          background:{{ '#0f0f10' if dark else '#ffffff' }};
+                          color:{{ '#e2e8f0' if dark else '#0f172a' }};
+                          font-size:14px; font-family:inherit; }
+      .em-sl-mfoot { display:flex; gap:8px; margin-top:14px; }
+      .em-sl-mfoot button { flex:1; padding:10px; border-radius:8px; border:none;
+                            font-weight:700; font-size:13px; cursor:pointer;
+                            font-family:inherit; }
+      .em-sl-mfoot .clear { background:#6b7280; color:#ffffff; }
+      .em-sl-mfoot .set   { background:#2563eb; color:#ffffff; }
     </style>
     <div class="em-shell">
       {% with msgs = get_flashed_messages(with_categories=true) %}
@@ -10659,8 +10782,29 @@ def invoices_email():
           <div class="em-pdf">📎 {{ pdf_name }} ({{ tr.get("pdf_attached","PDF prilog") }})</div>
 
           {% if not is_reminder %}
-          <label class="em-label">{{ tr.get("schedule_at","Zakaži za (opcionalno)") }}</label>
-          <input class="em-input" type="datetime-local" name="scheduled_at" value="">
+          <div class="em-sl-panel" id="emSlPanel">
+            <label class="em-label" style="margin-top:0;">⏰ {{ tr.get("email_send_later","Send later") }}</label>
+            <div class="em-sl-row">
+              <button type="button" class="em-sl-chip" data-preset="today18">
+                {{ tr.get("email_today","Today") }} 18:00
+              </button>
+              <button type="button" class="em-sl-chip" data-preset="tomorrow10">
+                {{ tr.get("email_tomorrow","Tomorrow") }} 10:00
+              </button>
+              <button type="button" class="em-sl-chip em-sl-pick" id="emSlPickBtn">
+                📅 {{ tr.get("email_select_date","Pick a date") }}
+              </button>
+            </div>
+            <div class="em-sl-summary" id="emSlSummary" hidden>
+              <span id="emSlSummaryText"></span>
+              <button type="button" class="em-sl-clearx" id="emSlClearBtn"
+                      aria-label="{{ tr.get('email_clear','Clear') }}">✕</button>
+            </div>
+            <div class="em-sl-warn" id="emSlWarn" hidden>
+              ⚠ {{ tr.get("email_schedule_pick_first","Pick a date first before scheduling.") }}
+            </div>
+            <input type="hidden" name="scheduled_at" id="scheduledAt" value="">
+          </div>
           {% endif %}
 
           <div class="em-actions">
@@ -10679,11 +10823,261 @@ def invoices_email():
           <button class="em-btn test">🧪 {{ tr.get("test_smtp","Test SMTP (na SMTP_FROM)") }}</button>
         </form>
       </div>
+
+      {% if not is_reminder %}
+      <!-- Calendar modal (Spark-style date/time picker) -->
+      <div class="em-sl-overlay" id="emSlOverlay" role="dialog" aria-modal="true"
+           aria-labelledby="emSlMonthLabel">
+        <div class="em-sl-modal" id="emSlModal">
+          <div class="em-sl-mhdr">
+            <button type="button" id="emSlPrev" aria-label="prev">‹</button>
+            <span id="emSlMonthLabel"></span>
+            <button type="button" id="emSlNext" aria-label="next">›</button>
+          </div>
+          <div class="em-sl-grid" id="emSlGrid"></div>
+          <div class="em-sl-time">
+            <label for="emSlTime">{{ tr.get("email_time","Time") }}</label>
+            <input type="time" id="emSlTime" step="60">
+          </div>
+          <div class="em-sl-mfoot">
+            <button type="button" class="clear" id="emSlModalClear">
+              {{ tr.get("email_clear","Clear") }}
+            </button>
+            <button type="button" class="set" id="emSlModalSet">
+              {{ tr.get("email_set","Set") }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <script>
+      (function(){
+        var LANG_LOCALE = {{ lang_locale|tojson }};
+        var TXT = {
+          scheduled_for: {{ (tr.get("email_scheduled_for","Scheduled for"))|tojson }},
+          today:         {{ (tr.get("email_today","Today"))|tojson }},
+          tomorrow:      {{ (tr.get("email_tomorrow","Tomorrow"))|tojson }}
+        };
+        // Monday-first day-of-week initials, localized via Intl
+        function dowInitials() {
+          var out = [];
+          // pick a reference Monday and walk forward 7 days
+          var ref = new Date(2024, 0, 1); // Mon 2024-01-01
+          var fmt = new Intl.DateTimeFormat(LANG_LOCALE, {weekday:"short"});
+          for (var i=0; i<7; i++){
+            var d = new Date(ref); d.setDate(ref.getDate()+i);
+            out.push(fmt.format(d).slice(0,3));
+          }
+          return out;
+        }
+        function monthLabel(y, m) {
+          var fmt = new Intl.DateTimeFormat(LANG_LOCALE, {month:"long", year:"numeric"});
+          return fmt.format(new Date(y, m, 1));
+        }
+        function pad2(n){ return (n<10?"0":"")+n; }
+        function fmtHidden(d){
+          return d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate())+
+                 "T"+pad2(d.getHours())+":"+pad2(d.getMinutes());
+        }
+        function fmtHuman(d){
+          return pad2(d.getDate())+"/"+pad2(d.getMonth()+1)+"/"+d.getFullYear()+
+                 " "+pad2(d.getHours())+":"+pad2(d.getMinutes());
+        }
+        function startOfToday(){
+          var d = new Date(); d.setHours(0,0,0,0); return d;
+        }
+        function sameDay(a, b){
+          return a.getFullYear()===b.getFullYear() &&
+                 a.getMonth()===b.getMonth() &&
+                 a.getDate()===b.getDate();
+        }
+        function roundUp15(d){
+          var m = d.getMinutes();
+          var add = (15 - (m % 15)) % 15;
+          if (add === 0) add = 15;
+          d.setMinutes(m + add, 0, 0);
+          return d;
+        }
+
+        var panel    = document.getElementById("emSlPanel");
+        if (!panel) return;
+        var hidden   = document.getElementById("scheduledAt");
+        var summary  = document.getElementById("emSlSummary");
+        var sumText  = document.getElementById("emSlSummaryText");
+        var clearX   = document.getElementById("emSlClearBtn");
+        var warn     = document.getElementById("emSlWarn");
+        var chips    = panel.querySelectorAll(".em-sl-chip[data-preset]");
+        var pickBtn  = document.getElementById("emSlPickBtn");
+        var overlay  = document.getElementById("emSlOverlay");
+        var modal    = document.getElementById("emSlModal");
+        var monthLbl = document.getElementById("emSlMonthLabel");
+        var grid     = document.getElementById("emSlGrid");
+        var timeIn   = document.getElementById("emSlTime");
+        var prevBtn  = document.getElementById("emSlPrev");
+        var nextBtn  = document.getElementById("emSlNext");
+        var setBtn   = document.getElementById("emSlModalSet");
+        var clrBtn   = document.getElementById("emSlModalClear");
+
+        var current = null;          // current Date | null
+        var viewY, viewM;            // currently displayed month
+        var picked = null;           // tentative date in modal
+
+        function paintChipFromPreset(preset){
+          chips.forEach(function(b){
+            b.classList.toggle("active", b.getAttribute("data-preset") === preset);
+          });
+          pickBtn.classList.toggle("active", preset === "custom");
+        }
+        function setSchedule(d, preset){
+          current = d;
+          hidden.value = fmtHidden(d);
+          sumText.textContent = TXT.scheduled_for + " " + fmtHuman(d);
+          summary.hidden = false;
+          warn.hidden = true;
+          paintChipFromPreset(preset || "custom");
+        }
+        function clearSchedule(){
+          current = null;
+          hidden.value = "";
+          summary.hidden = true;
+          chips.forEach(function(b){ b.classList.remove("active"); });
+          pickBtn.classList.remove("active");
+        }
+
+        // Quick-preset buttons
+        chips.forEach(function(btn){
+          btn.addEventListener("click", function(){
+            var preset = btn.getAttribute("data-preset");
+            var d = new Date();
+            if (preset === "today18") {
+              // If already past 18:00, slide to tomorrow at 18:00.
+              if (d.getHours() >= 18) d.setDate(d.getDate()+1);
+              d.setHours(18, 0, 0, 0);
+            } else if (preset === "tomorrow10") {
+              d.setDate(d.getDate()+1);
+              d.setHours(10, 0, 0, 0);
+            }
+            setSchedule(d, preset);
+          });
+        });
+        clearX.addEventListener("click", clearSchedule);
+
+        // Modal calendar
+        function renderGrid(){
+          monthLbl.textContent = monthLabel(viewY, viewM);
+          grid.innerHTML = "";
+          var dows = dowInitials();
+          dows.forEach(function(t){
+            var el = document.createElement("div");
+            el.className = "dow"; el.textContent = t; grid.appendChild(el);
+          });
+          var first = new Date(viewY, viewM, 1);
+          // Monday-first offset
+          var lead = (first.getDay() + 6) % 7;
+          var prevMonthLast = new Date(viewY, viewM, 0).getDate();
+          var daysInMonth = new Date(viewY, viewM+1, 0).getDate();
+          var today = startOfToday();
+
+          // leading muted days from previous month
+          for (var i=lead-1; i>=0; i--){
+            var d = new Date(viewY, viewM-1, prevMonthLast-i);
+            grid.appendChild(makeDay(d, true));
+          }
+          for (var dd=1; dd<=daysInMonth; dd++){
+            grid.appendChild(makeDay(new Date(viewY, viewM, dd), false));
+          }
+          // trailing muted days to fill 6 rows × 7 cols = 42 cells
+          var totalCells = lead + daysInMonth;
+          var trail = (7 - (totalCells % 7)) % 7;
+          for (var k=1; k<=trail; k++){
+            grid.appendChild(makeDay(new Date(viewY, viewM+1, k), true));
+          }
+          function makeDay(d, muted){
+            var el = document.createElement("div");
+            el.className = "day" + (muted ? " muted" : "");
+            el.textContent = d.getDate();
+            var dayMidnight = new Date(d); dayMidnight.setHours(0,0,0,0);
+            if (dayMidnight < today) {
+              el.classList.add("disabled");
+            } else {
+              el.addEventListener("click", function(){
+                picked = new Date(d);
+                renderGrid(); // re-render to update .selected
+              });
+            }
+            if (sameDay(d, new Date())) el.classList.add("today");
+            if (picked && sameDay(d, picked)) el.classList.add("selected");
+            return el;
+          }
+        }
+        function openModal(){
+          var seed = current || new Date();
+          viewY = seed.getFullYear();
+          viewM = seed.getMonth();
+          picked = current ? new Date(current) : null;
+          var t = current || roundUp15(new Date());
+          timeIn.value = pad2(t.getHours())+":"+pad2(t.getMinutes());
+          renderGrid();
+          overlay.classList.add("open");
+          // focus first interactive element for keyboard users
+          setTimeout(function(){ prevBtn.focus(); }, 0);
+        }
+        function closeModal(){ overlay.classList.remove("open"); }
+
+        pickBtn.addEventListener("click", openModal);
+        prevBtn.addEventListener("click", function(){
+          if (viewM === 0) { viewM = 11; viewY -= 1; } else { viewM -= 1; }
+          renderGrid();
+        });
+        nextBtn.addEventListener("click", function(){
+          if (viewM === 11) { viewM = 0; viewY += 1; } else { viewM += 1; }
+          renderGrid();
+        });
+        setBtn.addEventListener("click", function(){
+          if (!picked) { closeModal(); return; }
+          var parts = (timeIn.value || "10:00").split(":");
+          var d = new Date(picked);
+          d.setHours(parseInt(parts[0]||"10",10), parseInt(parts[1]||"0",10), 0, 0);
+          var now = new Date();
+          if (d <= now) {
+            // refuse past datetimes; snap to next 15 min from now
+            d = roundUp15(new Date());
+          }
+          setSchedule(d, "custom");
+          closeModal();
+        });
+        clrBtn.addEventListener("click", function(){
+          clearSchedule();
+          closeModal();
+        });
+        overlay.addEventListener("click", function(e){
+          if (e.target === overlay) closeModal();
+        });
+        document.addEventListener("keydown", function(e){
+          if (e.key === "Escape" && overlay.classList.contains("open")) closeModal();
+        });
+
+        // Form submit guard: block schedule click without a date
+        var form = panel.closest("form");
+        if (form) {
+          form.addEventListener("submit", function(e){
+            var s = e.submitter;
+            if (s && s.name === "action" && s.value === "schedule" && !hidden.value) {
+              e.preventDefault();
+              warn.hidden = false;
+              panel.scrollIntoView({behavior:"smooth", block:"center"});
+            }
+          });
+        }
+      })();
+      </script>
+      {% endif %}
     </div>
     """, tr=tr, dark=dark, rec=rec, invoice_number=invoice_number, recipient=recipient,
          subject=subject, body=body, smtp_ready=smtp_ready,
          is_reminder=is_reminder, is_bulk=is_bulk, bulk_client=bulk_client,
          email_type=email_type, unpaid_count=unpaid_count,
+         lang_locale=lang_locale,
          pdf_name=(f"rappel_{invoice_number or bulk_client}.pdf"
                    if is_reminder
                    else f"{invoice_number}-facture.pdf"))
