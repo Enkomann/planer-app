@@ -3407,13 +3407,14 @@ def _smtp_send(to_addrs, subject, body, pdf_bytes=None, pdf_name="facture.pdf",
     all_rcpts = list(dict.fromkeys(valid_to + list(cc) + list(bcc)))
     info = {"message_id": msg_id}
 
+    refused = {}
     try:
         if SMTP_USE_SSL or SMTP_PORT == 465:
             ctx = ssl.create_default_context()
             with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, context=ctx, timeout=30) as s:
                 if SMTP_USER:
                     s.login(SMTP_USER, SMTP_PASSWORD)
-                s.send_message(msg, from_addr=SMTP_FROM, to_addrs=all_rcpts)
+                refused = s.send_message(msg, from_addr=SMTP_FROM, to_addrs=all_rcpts) or {}
         else:
             with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30) as s:
                 s.ehlo()
@@ -3430,13 +3431,36 @@ def _smtp_send(to_addrs, subject, body, pdf_bytes=None, pdf_name="facture.pdf",
                                        f"(at your own risk). Detail: {str(e)[:120]}"), info
                 if SMTP_USER:
                     s.login(SMTP_USER, SMTP_PASSWORD)
-                s.send_message(msg, from_addr=SMTP_FROM, to_addrs=all_rcpts)
+                refused = s.send_message(msg, from_addr=SMTP_FROM, to_addrs=all_rcpts) or {}
     except smtplib.SMTPException as e:
         return False, f"SMTP error: {e.__class__.__name__}: {str(e)[:900]}", info
     except (OSError, ssl.SSLError) as e:
         return False, f"Network/SSL error: {e.__class__.__name__}: {str(e)[:900]}", info
     except Exception as e:
         return False, f"{e.__class__.__name__}: {str(e)[:900]}", info
+
+    # send_message() returns a dict {addr: (code, msg)} of recipients the
+    # server refused even though the SMTP transaction itself succeeded.
+    # With EMAIL_ARCHIVE_BCC in the mix we MUST distinguish:
+    #   - a real recipient was refused  → this is a failed send, do NOT
+    #     mark the invoice as sent and do NOT write a Sent-folder copy
+    #     claiming we sent something the client never received.
+    #   - only EMAIL_ARCHIVE_BCC was refused → the customer email is fine;
+    #     just warn so the admin can fix their archive mailbox.
+    if refused:
+        real_refused = {a: refused[a] for a in refused
+                        if a in valid_to or a in cc}
+        if real_refused:
+            return False, f"Recipient refused: {real_refused}", info
+        # Only the archive BCC bounced — surface it in logs but still
+        # treat the send to the client as successful.
+        try:
+            app.logger.warning(
+                "EMAIL_ARCHIVE_BCC refused by server (send still OK): %s",
+                refused,
+            )
+        except Exception:
+            pass
 
     # Success — serialize the raw MIME ONCE so callers can hand it to
     # _imap_append_sent() without rebuilding the message.
