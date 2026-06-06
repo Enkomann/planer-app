@@ -10901,7 +10901,11 @@ def invoices_email():
           <div class="em-sl-grid" id="emSlGrid"></div>
           <div class="em-sl-time">
             <label for="emSlTime">{{ tr.get("email_time","Time") }}</label>
-            <input type="time" id="emSlTime" step="60" autocomplete="off">
+            <input type="text" id="emSlTime" autocomplete="off" readonly
+                   inputmode="numeric" pattern="[0-9]{2}:[0-9]{2}"
+                   placeholder="HH:MM" aria-haspopup="listbox"
+                   aria-controls="emSlTimeDrop"
+                   style="cursor:pointer;">
             <div class="em-sl-tdrop" id="emSlTimeDrop" role="listbox"
                  aria-label="{{ tr.get('email_time','Time') }}"></div>
           </div>
@@ -11108,11 +11112,12 @@ def invoices_email():
         }
         function closeTimeDrop(){ if (timeDrop) timeDrop.classList.remove("open"); }
         if (timeIn && timeDrop) {
+          // Input is readonly + type="text" so iOS/Safari won't pop the
+          // native time picker over our custom dropdown. Custom dropdown
+          // is the only way to change the value, so no input/keyboard
+          // typing listener is needed.
           timeIn.addEventListener("focus", openTimeDrop);
           timeIn.addEventListener("click", openTimeDrop);
-          // Re-render whenever user types — keeps the highlighted .current
-          // option in sync without closing the dropdown.
-          timeIn.addEventListener("input", renderTimeDrop);
           document.addEventListener("click", function(e){
             if (!timeDrop.classList.contains("open")) return;
             if (e.target === timeIn) return;
