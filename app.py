@@ -1610,6 +1610,10 @@ INVOICE_TRANSLATIONS = {
     "email_planned_for": "Zakazano za",
     "email_cancel_scheduled": "Otkazi zakazano slanje",
     "email_selected_schedule": "Izabrano",
+    "shift_delete_confirm": "Obrisati ovu smjenu?",
+    "user_delete_confirm": "Obrisati ovog korisnika?",
+    "client_delete_confirm": "Obrisati ovog klijenta?",
+    "absence_delete_confirm": "Obrisati ovo odsustvo?",
     "email_schedule_pick_first": "Prvo odaberi datum slanja prije nego zakazes.",
     "email_drafted": "Nacrt je sacuvan.",
     "email_test_ok": "Test email poslat.",
@@ -1697,6 +1701,10 @@ INVOICE_TRANSLATIONS["en"] = {
     "email_planned_for": "Scheduled for",
     "email_cancel_scheduled": "Cancel scheduled send",
     "email_selected_schedule": "Selected",
+    "shift_delete_confirm": "Delete this shift?",
+    "user_delete_confirm": "Delete this user?",
+    "client_delete_confirm": "Delete this client?",
+    "absence_delete_confirm": "Delete this absence?",
     "email_schedule_pick_first": "Pick a date first before scheduling.",
     "email_drafted": "Draft saved.",
     "email_test_ok": "Test email sent.",
@@ -1783,6 +1791,10 @@ INVOICE_TRANSLATIONS["fr"] = {
     "email_planned_for": "Planifie pour",
     "email_cancel_scheduled": "Annuler l'envoi programme",
     "email_selected_schedule": "Selectionne",
+    "shift_delete_confirm": "Supprimer ce service ?",
+    "user_delete_confirm": "Supprimer cet utilisateur ?",
+    "client_delete_confirm": "Supprimer ce client ?",
+    "absence_delete_confirm": "Supprimer cette absence ?",
     "email_schedule_pick_first": "Choisis une date avant de programmer.",
     "email_drafted": "Brouillon enregistre.",
     "email_test_ok": "Email de test envoye.",
@@ -1869,6 +1881,10 @@ INVOICE_TRANSLATIONS["de"] = {
     "email_planned_for": "Geplant fuer",
     "email_cancel_scheduled": "Geplantes Senden abbrechen",
     "email_selected_schedule": "Ausgewaehlt",
+    "shift_delete_confirm": "Diese Schicht loeschen?",
+    "user_delete_confirm": "Diesen Benutzer loeschen?",
+    "client_delete_confirm": "Diesen Kunden loeschen?",
+    "absence_delete_confirm": "Diese Abwesenheit loeschen?",
     "email_schedule_pick_first": "Waehle zuerst ein Datum, bevor du planst.",
     "email_drafted": "Entwurf gespeichert.",
     "email_test_ok": "Test-E-Mail gesendet.",
@@ -1955,6 +1971,10 @@ INVOICE_TRANSLATIONS["pt"] = {
     "email_planned_for": "Agendado para",
     "email_cancel_scheduled": "Cancelar envio agendado",
     "email_selected_schedule": "Selecionado",
+    "shift_delete_confirm": "Eliminar este turno?",
+    "user_delete_confirm": "Eliminar este utilizador?",
+    "client_delete_confirm": "Eliminar este cliente?",
+    "absence_delete_confirm": "Eliminar esta ausencia?",
     "email_schedule_pick_first": "Escolhe uma data antes de agendar.",
     "email_drafted": "Rascunho guardado.",
     "email_test_ok": "Email de teste enviado.",
@@ -4459,6 +4479,14 @@ BASE_STYLE = """
     .muted { color: {{ '#9ca3af' if dark else '#64748b' }}; font-size:14px; }
     .status-badge { color:white; padding:4px 8px; border-radius:6px; font-size:12px; font-weight:bold; margin-left:8px; }
     .action-link, .mini-link { display:inline-flex; align-items:center; justify-content:center; text-decoration:none; margin:2px 2px 0; font-weight:bold; font-size:12px; padding:5px 8px; border-radius:6px; min-height:28px; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+    /* Buttons styled as action/delete/mini links: reset UA chrome so they
+       look identical to the surrounding <a> links. Needed because we
+       converted destructive GET <a> tags into <form method="post"> +
+       <button> to stop prefetch/CSRF from flipping state. */
+    button.action-link, button.mini-link, button.delete-link, .inline-delete-form button {
+        border:none; cursor:pointer; font-family:inherit; line-height:normal;
+    }
+    .inline-delete-form { display:inline; margin:0; padding:0; }
     .edit-link { color: {{ '#93c5fd' if dark else '#1f4f82' }}; background:{{ 'rgba(147,197,253,0.12)' if dark else 'rgba(31,79,130,0.08)' }}; }
     .delete-link { color:#ef4444; background:rgba(239,68,68,0.08); }
     .copy-link { color:#16a34a; background:rgba(22,163,74,0.08); }
@@ -6232,7 +6260,7 @@ def index():
                 <input name="note" placeholder="{{ tr['note'] }}"><button>{{ tr["add_absence"] }}</button>
             </form>
             <h4>{{ tr["active_absences"] }}</h4>
-            {% for a in absences[:8] %}<div class="user-row"><b>{{ a[1] }}</b> - {{ tr.get(a[2], a[2]) }}<br><small>{{ format_date(a[3]) }} - {{ format_date(a[4]) }} {{ a[5] }}</small><a class="delete-link" href="/delete_absence/{{ a[0] }}">{{ tr["delete"] }}</a></div>{% endfor %}
+            {% for a in absences[:8] %}<div class="user-row"><b>{{ a[1] }}</b> - {{ tr.get(a[2], a[2]) }}<br><small>{{ format_date(a[3]) }} - {{ format_date(a[4]) }} {{ a[5] }}</small><form class="inline-delete-form" method="post" action="/delete_absence/{{ a[0] }}" onsubmit='return confirm({{ tr.get("absence_delete_confirm","Delete this absence?")|tojson }});'><button type="submit" class="delete-link">{{ tr["delete"] }}</button></form></div>{% endfor %}
         </div>
         {% endif %}
 
@@ -6280,11 +6308,7 @@ def index():
         {% for week_start_key, week_shifts in weeks_grouped.items() %}
             {% set week_end_key = (datetime.strptime(week_start_key, "%Y-%m-%d") + timedelta(days=6)).strftime("%Y-%m-%d") %}
             <div class="card" style="padding:12px;"><h3 style="border-bottom:2px solid #1f4f82; padding-bottom:8px; margin-top:0;">{{ format_date(week_start_key) }} - {{ format_date(week_end_key) }}</h3>
-            {% for s in week_shifts %}{% set auto_status = get_auto_status(s[3], s[4]) %}<div class="shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="border-left:6px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }}"><b>{{ format_date(s[3]) }}</b> | {{ s[4] }}<span class="status-badge" style="background:{{ status_colors.get(auto_status, '#6b7280') }};">{{ get_status_label(auto_status, tr) }}</span><br><br><b>{{ tr["team"] }}:</b> {{ s[1] }}<br><b>{{ tr["pdf_client"] }}:</b> {{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}{% if is_admin %}<a class="action-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a><a class="action-link delete-link"
-   href="/delete_shift/{{ s[0] }}"
-   onclick="return confirm('Da li ste sigurni?');">
-   {{ tr["delete"] }}
-</a><a class="action-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>{% endif %}</div>{% endfor %}</div>
+            {% for s in week_shifts %}{% set auto_status = get_auto_status(s[3], s[4]) %}<div class="shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="border-left:6px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }}"><b>{{ format_date(s[3]) }}</b> | {{ s[4] }}<span class="status-badge" style="background:{{ status_colors.get(auto_status, '#6b7280') }};">{{ get_status_label(auto_status, tr) }}</span><br><br><b>{{ tr["team"] }}:</b> {{ s[1] }}<br><b>{{ tr["pdf_client"] }}:</b> {{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}{% if is_admin %}<a class="action-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a><form class="inline-delete-form" method="post" action="/delete_shift/{{ s[0] }}" onsubmit='return confirm({{ tr.get("shift_delete_confirm","Delete this shift?")|tojson }});'><button type="submit" class="action-link delete-link">{{ tr["delete"] }}</button></form><a class="action-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>{% endif %}</div>{% endfor %}</div>
         {% endfor %}
         </div>
         <a class="week-link" href="/week">{{ tr["week_calendar"] }}</a>{% if session.get('role') == 'admin' %}<a class="week-link" href="/month">{{ tr["month_calendar"] }}</a>{% endif %}<a class="week-link" href="/route_optimizer">{{ tr["route_optimizer"] }}</a><a class="pdf-link" href="/export_pdf{% if request.args.get('date') %}?date={{ request.args.get('date') }}{% endif %}" target="_blank">{{ tr["pdf"] }}</a>
@@ -6322,7 +6346,7 @@ def index():
               <b>{{ tr["team"] }}:</b> {{ s[1] }}<br>
               <b>{{ tr["pdf_client"] }}:</b> {{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}
               <a class="action-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a>
-              <a class="action-link delete-link" href="/delete_shift/{{ s[0] }}" onclick="return confirm('Da li ste sigurni?');">{{ tr["delete"] }}</a>
+              <form class="inline-delete-form" method="post" action="/delete_shift/{{ s[0] }}" onsubmit='return confirm({{ tr.get("shift_delete_confirm","Delete this shift?")|tojson }});'><button type="submit" class="action-link delete-link">{{ tr["delete"] }}</button></form>
               <a class="action-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>
             </div>
             {% endfor %}
@@ -6368,9 +6392,12 @@ function filterClientOptions(inputId, selectId){
 }
 
 document.addEventListener('DOMContentLoaded', function(){
+    // Legacy safety net: most delete-link anchors are now <form>+<button>
+    // with onsubmit confirm, but this hook covers any remaining <a> just
+    // in case (and is harmless when there are none).
     document.querySelectorAll('a.delete-link').forEach(function(link){
         link.addEventListener('click', function(e){
-            var ok = confirm('Da li ste sigurni da želite obrisati?');
+            var ok = confirm({{ tr.get("shift_delete_confirm","Delete this?")|tojson }});
             if(!ok){ e.preventDefault(); return false; }
         });
     });
@@ -6394,7 +6421,7 @@ def copy_shift(id):
     return redirect(request.referrer or "/month")
 
 
-@app.route("/paste_shift/<date>")
+@app.route("/paste_shift/<date>", methods=["POST"])
 def paste_shift(date):
     if "user" not in session or session.get("role") != "admin":
         return redirect("/")
@@ -6484,7 +6511,7 @@ def add_absence():
     return redirect("/")
 
 
-@app.route("/delete_absence/<int:id>")
+@app.route("/delete_absence/<int:id>", methods=["POST"])
 def delete_absence(id):
     if session.get("role") != "admin":
         return redirect("/")
@@ -6678,7 +6705,7 @@ def week_view():
                 <a class="week-day-heading" href="{% if is_admin %}javascript:void(0){% else %}/?selected_date={{ day }}{% endif %}" {% if is_admin %}onclick="openHolidayModal('{{ day }}')"{% endif %}>{{ day_names[loop.index0] }}<br>{{ format_date(day) }}</a>
                 {% if is_admin %}<div class="day-menu-wrapper" style="position:absolute;top:4px;right:4px;"><button onclick="toggleDayMenu(this)" title="{{ tr['add_shift'] }}" style="background:none;border:none;font-size:20px;font-weight:bold;cursor:pointer;padding:2px 5px;line-height:1;width:auto;margin:0;color:{% if dark %}#4ade80{% else %}#1f4f82{% endif %};opacity:{% if dark %}0.9{% else %}0.7{% endif %};" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='{% if dark %}0.9{% else %}0.7{% endif %}'">+</button><div class="day-mini-menu" style="display:none;position:absolute;right:0;top:28px;z-index:300;min-width:155px;border-radius:8px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,0.18);background:{% if dark %}#1d1d1f{% else %}white{% endif %};border:1px solid {% if dark %}#2c2c30{% else %}#dbeafe{% endif %};"><a href="javascript:void(0)" onclick="openAddShiftModal('{{ day }}')" style="display:block;padding:10px 15px;text-decoration:none;color:{% if dark %}#93c5fd{% else %}#1f4f82{% endif %};font-size:13px;font-weight:600;white-space:nowrap;" onmouseover="this.style.background='{% if dark %}#2c2c30{% else %}#eef4ff{% endif %}'" onmouseout="this.style.background='transparent'">+ {{ tr['add_shift'] }}</a></div></div>{% endif %}
                 {% if holiday_name %}<small class="holiday-note">{{ holiday_name }}</small>{% endif %}
-                {% for s in shifts %}{% if s[3] == day %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="--shift-accent:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#7aa7df') }};"><b>{{ s[1] }}</b><br>{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}<br>{{ s[4] }}{% if is_admin %}<div style="display:flex;flex-wrap:nowrap;gap:2px;margin-top:4px;"><a class="mini-link edit-link" style="flex:1;min-width:0;padding:3px 4px;font-size:11px;justify-content:center;" href="javascript:void(0)" data-eid="{{ s[0] }}" data-ew="{{ s[1]|e }}" data-ecl="{{ s[2]|e }}" data-edt="{{ s[3]|e }}" data-etm="{{ s[4]|e }}" data-est="{{ s[5]|e }}" onclick="openEditModalW(this)">{{ tr["edit"] }}</a><a class="mini-link delete-link" style="flex:1;min-width:0;padding:3px 4px;font-size:11px;justify-content:center;" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a><a class="mini-link copy-link" style="flex:1;min-width:0;padding:3px 4px;font-size:11px;justify-content:center;" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a></div>{% endif %}</div>{% endif %}{% endfor %}
+                {% for s in shifts %}{% if s[3] == day %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="--shift-accent:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#7aa7df') }};"><b>{{ s[1] }}</b><br>{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}<br>{{ s[4] }}{% if is_admin %}<div style="display:flex;flex-wrap:nowrap;gap:2px;margin-top:4px;"><a class="mini-link edit-link" style="flex:1;min-width:0;padding:3px 4px;font-size:11px;justify-content:center;" href="javascript:void(0)" data-eid="{{ s[0] }}" data-ew="{{ s[1]|e }}" data-ecl="{{ s[2]|e }}" data-edt="{{ s[3]|e }}" data-etm="{{ s[4]|e }}" data-est="{{ s[5]|e }}" onclick="openEditModalW(this)">{{ tr["edit"] }}</a><form class="inline-delete-form" style="flex:1;min-width:0;" method="post" action="/delete_shift/{{ s[0] }}" onsubmit='return confirm({{ tr.get("shift_delete_confirm","Delete this shift?")|tojson }});'><button type="submit" class="mini-link delete-link" style="width:100%;padding:3px 4px;font-size:11px;justify-content:center;">{{ tr["delete"] }}</button></form><a class="mini-link copy-link" style="flex:1;min-width:0;padding:3px 4px;font-size:11px;justify-content:center;" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a></div>{% endif %}</div>{% endif %}{% endfor %}
             </div>
         {% endfor %}
     </div>
@@ -6847,9 +6874,9 @@ def month_view():
         {% for week in month_days %}{% for day in week %}{% set daystr = day.strftime('%Y-%m-%d') %}{% set holiday_name = holidays_map.get(daystr) %}
             <div class="card calendar-day-card {% if holiday_name %}holiday-soft{% endif %} {% if day.weekday() >= 5 %}weekend-soft{% endif %}" style="min-height:120px; position:relative;" ondragover="allowDrop(event)" ondragleave="clearDrop(event)" ondrop="dropShift(event, '{{ daystr }}')">
                 {% if is_admin %}<div class="day-menu-wrapper" style="position:absolute;top:4px;right:4px;"><button onclick="toggleDayMenu(this)" title="{{ tr['add_shift'] }}" style="background:none;border:none;font-size:20px;font-weight:bold;cursor:pointer;padding:2px 5px;line-height:1;width:auto;margin:0;color:{% if dark %}#4ade80{% else %}#1f4f82{% endif %};opacity:{% if dark %}0.9{% else %}0.7{% endif %};" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='{% if dark %}0.9{% else %}0.7{% endif %}'">+</button><div class="day-mini-menu" style="display:none;position:absolute;right:0;top:28px;z-index:300;min-width:155px;border-radius:8px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,0.18);background:{% if dark %}#1d1d1f{% else %}white{% endif %};border:1px solid {% if dark %}#2c2c30{% else %}#dbeafe{% endif %};"><a href="javascript:void(0)" onclick="openAddShiftModal('{{ daystr }}')" style="display:block;padding:10px 15px;text-decoration:none;color:{% if dark %}#93c5fd{% else %}#1f4f82{% endif %};font-size:13px;font-weight:600;white-space:nowrap;" onmouseover="this.style.background='{% if dark %}#2c2c30{% else %}#eef4ff{% endif %}'" onmouseout="this.style.background='transparent'">+ {{ tr['add_shift'] }}</a></div></div>{% endif %}
-                <div style="font-weight:bold; margin-bottom:8px;"><a class="month-day-date" data-short="{{ day.strftime('%d') }}" href="{% if is_admin %}javascript:void(0){% else %}/?selected_date={{ daystr }}{% endif %}" {% if is_admin %}onclick="openHolidayModal('{{ daystr }}')"{% endif %} style="{% if day.weekday() >= 5 %}color:#ef4444;{% endif %}">{{ day.strftime('%d/%m/%Y') }}</a>{% if is_admin and copied_shift_id %}<br><a style="display:inline-block;margin-top:6px;padding:4px 7px;border-radius:6px;background:#16a34a;color:white!important;font-size:11px;" href="/paste_shift/{{ daystr }}">{{ tr["paste"] }}</a>{% endif %}</div>
+                <div style="font-weight:bold; margin-bottom:8px;"><a class="month-day-date" data-short="{{ day.strftime('%d') }}" href="{% if is_admin %}javascript:void(0){% else %}/?selected_date={{ daystr }}{% endif %}" {% if is_admin %}onclick="openHolidayModal('{{ daystr }}')"{% endif %} style="{% if day.weekday() >= 5 %}color:#ef4444;{% endif %}">{{ day.strftime('%d/%m/%Y') }}</a>{% if is_admin and copied_shift_id %}<br><form class="inline-delete-form" method="post" action="/paste_shift/{{ daystr }}" style="display:inline-block;margin-top:6px;"><button type="submit" style="padding:4px 7px;border-radius:6px;background:#16a34a;color:white;font-size:11px;border:none;cursor:pointer;font-family:inherit;">{{ tr["paste"] }}</button></form>{% endif %}</div>
                 {% if holiday_name %}<small class="holiday-note">{{ holiday_name }}</small>{% endif %}
-                {% for s in shifts_by_date.get(daystr, []) %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="--shift-accent:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#7aa7df') }};" data-w="{{ s[1]|e }}" data-c="{{ s[2]|e }}" data-city="{{ client_cities.get(s[2], '')|e }}" data-t="{{ s[4]|e }}"><b>{{ s[1] }}</b><br>{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}<br>{{ s[4] }}{% if is_admin %}<br><a class="mini-link edit-link" href="javascript:void(0)" data-eid="{{ s[0] }}" data-ew="{{ s[1]|e }}" data-ecl="{{ s[2]|e }}" data-edt="{{ s[3]|e }}" data-etm="{{ s[4]|e }}" data-est="{{ s[5]|e }}" onclick="openEditModalM(this)">{{ tr["edit"] }}</a><a class="mini-link delete-link" href="/delete_shift/{{ s[0] }}">{{ tr["delete"] }}</a><a class="mini-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>{% endif %}</div>{% endfor %}
+                {% for s in shifts_by_date.get(daystr, []) %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="--shift-accent:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#7aa7df') }};" data-w="{{ s[1]|e }}" data-c="{{ s[2]|e }}" data-city="{{ client_cities.get(s[2], '')|e }}" data-t="{{ s[4]|e }}"><b>{{ s[1] }}</b><br>{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}<br>{{ s[4] }}{% if is_admin %}<br><a class="mini-link edit-link" href="javascript:void(0)" data-eid="{{ s[0] }}" data-ew="{{ s[1]|e }}" data-ecl="{{ s[2]|e }}" data-edt="{{ s[3]|e }}" data-etm="{{ s[4]|e }}" data-est="{{ s[5]|e }}" onclick="openEditModalM(this)">{{ tr["edit"] }}</a><form class="inline-delete-form" method="post" action="/delete_shift/{{ s[0] }}" onsubmit='return confirm({{ tr.get("shift_delete_confirm","Delete this shift?")|tojson }});'><button type="submit" class="mini-link delete-link">{{ tr["delete"] }}</button></form><a class="mini-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>{% endif %}</div>{% endfor %}
             </div>
         {% endfor %}{% endfor %}
     </div>
@@ -6927,7 +6954,7 @@ def month_view():
     function toggleDayMenu(btn){var menu=btn.nextElementSibling;document.querySelectorAll('.day-mini-menu').forEach(function(m){if(m!==menu)m.style.display='none';});menu.style.display=menu.style.display==='none'?'block':'none';}
     document.addEventListener('click',function(e){if(!e.target.closest('.day-menu-wrapper')&&!e.target.closest('#addShiftModal .modal-card')){document.querySelectorAll('.day-mini-menu').forEach(function(m){m.style.display='none';});}});
     document.addEventListener('DOMContentLoaded',function(){
-      document.querySelectorAll('a.delete-link').forEach(function(link){link.addEventListener('click',function(e){if(!confirm('Da li ste sigurni da želite obrisati?')){e.preventDefault();return false;}});});
+      document.querySelectorAll('a.delete-link').forEach(function(link){link.addEventListener('click',function(e){if(!confirm({{ tr.get("shift_delete_confirm","Delete this?")|tojson }})){e.preventDefault();return false;}});});
       var CD=[{% for cl in clients %}{"name":{{cl[0]|tojson}},"addr":{{(cl[1] or '')|tojson}}}{% if not loop.last %},{% endif %}{% endfor %}];
       initClientSearch('csInputMonth','csHiddenMonth','csListMonth',CD);
       /* Shorten date display to just day number on small screens */
@@ -8123,7 +8150,9 @@ def invoices():
         _generate_invoices(conn, date_from, date_to, invoice_date)
     rows = fetch_invoice_records_for_work_period(conn, date_from, date_to, invoice_date)
     conn.close()
-    profiles_json = json.dumps(profiles)
+    # profiles_json|safe used to be the JS payload — replaced with
+    # |tojson in the template so escaping is Jinja-controlled and XSS
+    # safe for any future field that contains a quote.
 
     # ── Server-side filtering (must run BEFORE pagination) ─────────────
     q = (request.args.get("q", "") or "").strip().lower()
@@ -8341,7 +8370,7 @@ def invoices():
                         <a href="/invoices/download?invoice_number={{ row.invoice_number }}&client={{ row.client|urlencode }}&date_from={{ row.date_from }}&date_to={{ row.date_to }}&invoice_date={{ row.invoice_date }}" style="color:{{ '#93c5fd' if dark else '#1f4f82' }};font-weight:600;text-decoration:underline;">PDF</a>
                       {% endif %}
                     </td>
-                    <td><a href="/invoices/delete?invoice_number={{ row.invoice_number }}&next={{ ('/invoices?' ~ request.query_string.decode())|urlencode }}" onclick='return confirm({{ tr.get("invoice_delete_confirm","Obrisati ovu fakturu?")|tojson }});' style="color:{{ '#fb7185' if dark else '#dc2626' }};font-weight:600;">{{ tr["delete"] }}</a></td>
+                    <td><form method="post" action="/invoices/delete" style="display:inline;margin:0;" onsubmit='return confirm({{ tr.get("invoice_delete_confirm","Obrisati ovu fakturu?")|tojson }});'><input type="hidden" name="invoice_number" value="{{ row.invoice_number }}"><input type="hidden" name="next" value="/invoices?{{ request.query_string.decode() }}"><button type="submit" style="background:none;border:none;padding:0;cursor:pointer;color:{{ '#fb7185' if dark else '#dc2626' }};font-weight:600;font-family:inherit;font-size:inherit;text-decoration:underline;">{{ tr["delete"] }}</button></form></td>
                 </tr>
                 {% endfor %}
             </table>
@@ -8420,7 +8449,7 @@ def invoices():
         </form>
     </div>
     <script>
-    var invoiceProfiles = {{ profiles_json|safe }};
+    var invoiceProfiles = {{ profiles|tojson }};
     // Search + paid/unpaid tabs are server-side now (pagination-aware).
     /* ── Bulk selection UI ───────────────────────────────────────── */
     function bulkUpdate(){
@@ -8503,10 +8532,32 @@ def invoices():
             link.addEventListener('click', function(event){
                 event.preventDefault();
                 var row = link.closest('.invoice-row');
-                fetch(link.href, {headers:{'X-Requested-With':'fetch'}})
+                // mark_paid/mark_sent are POST-only now. Repackage the
+                // URL's query string into FormData so the backend sees
+                // the same fields it used to read from request.args.
+                var url = new URL(link.href, window.location.origin);
+                var fd  = new FormData();
+                url.searchParams.forEach(function(v,k){ fd.append(k,v); });
+                function fallbackPost(){
+                    // AJAX failed → resubmit the same params via a real
+                    // POST form so the user gets a normal page reload
+                    // with whatever flash/redirect the handler does.
+                    var f = document.createElement('form');
+                    f.method = 'post';
+                    f.action = url.pathname;
+                    url.searchParams.forEach(function(v,k){
+                        if(k === 'ajax') return;
+                        var i = document.createElement('input');
+                        i.type = 'hidden'; i.name = k; i.value = v;
+                        f.appendChild(i);
+                    });
+                    document.body.appendChild(f); f.submit();
+                }
+                fetch(url.pathname, {method:"POST", body:fd,
+                                     headers:{'X-Requested-With':'fetch'}})
                     .then(function(resp){ return resp.json(); })
                     .then(function(data){
-                        if(!data.ok){ window.location.href = link.href.replace('&ajax=1', ''); return; }
+                        if(!data.ok){ fallbackPost(); return; }
                         // Paid toggle changed the row's eligibility for the
                         // active server status filter → reload current URL
                         // so pagination + counts stay correct.
@@ -8531,12 +8582,12 @@ def invoices():
                             link.href = link.href.replace(/paid=[01]/, 'paid=' + (data.paid ? '0' : '1'));
                         }
                     })
-                    .catch(function(){ window.location.href = link.href.replace('&ajax=1', ''); });
+                    .catch(function(){ fallbackPost(); });
             });
         });
     });
     </script>
-    """, tr=tr, dark=dark, settings=settings, profiles=profiles, profiles_json=profiles_json,
+    """, tr=tr, dark=dark, settings=settings, profiles=profiles,
          rows=rows, page_records=page_records,
          current_page=current_page, total_pages=total_pages, total_records=total_records,
          start=start, pages_to_show=pages_to_show, page_link=page_link,
@@ -8812,8 +8863,28 @@ def invoices_view():
         download_url = f"/invoices/download?invoice_number={urllib.parse.quote(invoice_number)}&client={urllib.parse.quote(row['client'])}&date_from={record['date_from']}&date_to={record['date_to']}&invoice_date={record['invoice_date']}"
         edit_url     = "/invoices#invoice-profiles"   # auto invoices edit via settings panel
 
-    paid_url = f"/invoices/mark_paid?invoice_number={urllib.parse.quote(invoice_number)}&paid={0 if record['paid'] else 1}&client={urllib.parse.quote(row['client'])}&date_from={record.get('date_from','')}&date_to={record.get('date_to','')}&invoice_date={record.get('invoice_date','')}&amount={row['amount']}&vat_amount={row['vat_amount']}&total={row['total']}&next={urllib.parse.quote('/invoices/view?invoice_number=' + invoice_number)}"
-    sent_url = f"/invoices/mark_sent?invoice_number={urllib.parse.quote(invoice_number)}&sent={0 if record.get('sent') else 1}&next={urllib.parse.quote('/invoices/view?invoice_number=' + invoice_number)}"
+    # Mark paid/sent now go through POST forms instead of GET links so a
+    # stray prefetch or third-party rel=preconnect can't silently flip
+    # invoice state. The template builds <form> + hidden inputs from these
+    # dicts; the same data used to live in URL query params.
+    next_back = f"/invoices/view?invoice_number={invoice_number}"
+    paid_fields = {
+        "invoice_number": invoice_number,
+        "paid":           "0" if record['paid'] else "1",
+        "client":         row['client'],
+        "date_from":      record.get('date_from', ''),
+        "date_to":        record.get('date_to', ''),
+        "invoice_date":   record.get('invoice_date', ''),
+        "amount":         row['amount'],
+        "vat_amount":     row['vat_amount'],
+        "total":          row['total'],
+        "next":           next_back,
+    }
+    sent_fields = {
+        "invoice_number": invoice_number,
+        "sent":           "0" if record.get('sent') else "1",
+        "next":           next_back,
+    }
 
     # Build HTML preview context (shared data with PDF builders)
     conn2 = get_conn()
@@ -8861,6 +8932,7 @@ def invoices_view():
         /* Toolbar buttons row */
         .toolbar { display:flex; flex-wrap:wrap; gap:4px; padding:14px 14px 0; background:{{ '#191919' if dark else '#ffffff' }}; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; border-bottom:none; border-radius:0; }
         .tool { background:{{ '#2c2c30' if dark else '#f1f5f9' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }}; border-radius:8px 8px 0 0; padding:10px 14px; font-weight:700; text-decoration:none; font-size:13px; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; border-bottom:none; }
+        button.tool { font-family:inherit; cursor:pointer; line-height:normal; }
         .tool.active { background:{{ '#0f0f10' if dark else '#1f4f82' }}; color:white; }
         .tool.pay { background:{{ '#16a34a' if record.paid else '#ef4444' }}; color:white; border-color:transparent; }
         .tool.send-toggle { background:{{ '#16a34a' if record.sent else '#ef4444' }}; color:white; border-color:transparent; }
@@ -8957,9 +9029,18 @@ def invoices_view():
                 <a class="tool" href="/invoices/devis_pdf?invoice_number={{ row.invoice_number }}">{{ tr["quote"] }}</a>
                 {% endif %}
                 <a class="tool" href="{{ edit_url }}">{{ tr.get("edit","Modifier") }}</a>
-                <a class="tool" href="/invoices/delete?invoice_number={{ row.invoice_number }}" onclick='return confirm({{ tr.get("invoice_delete_confirm","Obrisati ovu fakturu?")|tojson }});'>{{ tr.get("delete","Supprimer") }}</a>
-                <a class="tool pay" href="{{ paid_url }}">{{ tr["mark_unpaid"] if record.paid else tr["mark_paid"] }}</a>
-                <a class="tool send-toggle" href="{{ sent_url }}">{{ tr["mark_unsent"] if record.sent else tr["mark_sent"] }}</a>
+                <form method="post" action="/invoices/delete" style="display:inline;margin:0;" onsubmit='return confirm({{ tr.get("invoice_delete_confirm","Obrisati ovu fakturu?")|tojson }});'>
+                  <input type="hidden" name="invoice_number" value="{{ row.invoice_number }}">
+                  <button type="submit" class="tool">{{ tr.get("delete","Supprimer") }}</button>
+                </form>
+                <form method="post" action="/invoices/mark_paid" style="display:inline;margin:0;">
+                  {% for k, v in paid_fields.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+                  <button type="submit" class="tool pay">{{ tr["mark_unpaid"] if record.paid else tr["mark_paid"] }}</button>
+                </form>
+                <form method="post" action="/invoices/mark_sent" style="display:inline;margin:0;">
+                  {% for k, v in sent_fields.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+                  <button type="submit" class="tool send-toggle">{{ tr["mark_unsent"] if record.sent else tr["mark_sent"] }}</button>
+                </form>
                 <a class="tool email-btn" href="/invoices/email?invoice_number={{ row.invoice_number }}">✉ {{ tr.get("send_email","Envoyer") }}</a>
                 {% if not record.paid %}
                 <a class="tool" style="background:#f97316;color:white;border-color:transparent;" href="/invoices/email?invoice_number={{ row.invoice_number }}&type=reminder">📮 {{ tr.get("send_reminder","Rappel") }}</a>
@@ -9108,7 +9189,8 @@ Tel: {{ view_ctx.company_phone }}{% endif %}{% if view_ctx.company_email %}
         </div>
     </div>
     """, tr=tr, dark=dark, row=row, record=record, view_ctx=view_ctx,
-         pdf_url=pdf_url, download_url=download_url, paid_url=paid_url, sent_url=sent_url,
+         pdf_url=pdf_url, download_url=download_url,
+         paid_fields=paid_fields, sent_fields=sent_fields,
          is_manual=is_manual, edit_url=edit_url, email_logs=email_logs)
 
 
@@ -9249,7 +9331,7 @@ def invoices_quote():
         pdf = build_quote_pdf(data, settings)
         filename = safe_pdf_name(data["quote_number"], data["client_name"])
         return send_file(pdf, as_attachment=True, download_name=f"{filename}.pdf", mimetype="application/pdf")
-    profiles_json = json.dumps(profiles)
+    # profiles is serialized via |tojson in the template (XSS-safe).
     return render_template_string(BASE_STYLE + header_html() + """
     <div class="card" style="max-width:820px;margin:auto;">
         <h2>{{ tr["quote"] }}</h2>
@@ -9295,7 +9377,7 @@ def invoices_quote():
         <br><a class="back-button" href="/invoices">{{ tr["back"] }}</a>
     </div>
     <script>
-    var quoteProfiles = {{ profiles_json|safe }};
+    var quoteProfiles = {{ profiles|tojson }};
     function fillQuoteClient(){
         var name = document.getElementById('quoteClientSearch').value;
         var profile = quoteProfiles.find(function(p){ return p.client === name; });
@@ -9305,7 +9387,7 @@ def invoices_quote():
         document.getElementById('quoteClientEmail').value = profile.email || "";
     }
     </script>
-    """, tr=tr, dark=dark, profiles=profiles, profiles_json=profiles_json, today=lux_now().strftime("%Y-%m-%d"), now_code=lux_now().strftime("%Y%m%d"))
+    """, tr=tr, dark=dark, profiles=profiles, today=lux_now().strftime("%Y-%m-%d"), now_code=lux_now().strftime("%Y%m%d"))
 
 
 @app.route("/invoices/manual", methods=["GET", "POST"])
@@ -10156,12 +10238,12 @@ def invoices_devis_pdf():
     return send_file(pdf, as_attachment=True, download_name=f"{filename}.pdf", mimetype="application/pdf")
 
 
-@app.route("/invoices/delete")
+@app.route("/invoices/delete", methods=["POST"])
 def invoices_delete():
     if session.get("role") != "admin":
         return redirect("/")
-    invoice_number = request.args.get("invoice_number", "").strip()
-    next_url = (request.args.get("next", "") or "").strip()
+    invoice_number = request.form.get("invoice_number", "").strip()
+    next_url = (request.form.get("next", "") or "").strip()
     redirect_args = {"skip_auto": "1"}
     if invoice_number:
         conn = get_conn(); c = conn.cursor()
@@ -10375,17 +10457,18 @@ def invoices_profile():
     return redirect("/invoices")
 
 
-@app.route("/invoices/mark_paid")
+@app.route("/invoices/mark_paid", methods=["POST"])
 def invoices_mark_paid():
     if session.get("role") != "admin":
         return redirect("/")
-    invoice_no = request.args.get("invoice_number", "").strip()
-    paid = 1 if request.args.get("paid", "0") == "1" else 0
-    date_from = request.args.get("date_from", "").strip()
-    date_to = request.args.get("date_to", "").strip()
-    invoice_date = request.args.get("invoice_date", "").strip()
-    client = request.args.get("client", "").strip()
-    next_url = request.args.get("next", "").strip()
+    f = request.form
+    invoice_no   = f.get("invoice_number", "").strip()
+    paid         = 1 if f.get("paid", "0") == "1" else 0
+    date_from    = f.get("date_from", "").strip()
+    date_to      = f.get("date_to", "").strip()
+    invoice_date = f.get("invoice_date", "").strip()
+    client       = f.get("client", "").strip()
+    next_url     = f.get("next", "").strip()
     if invoice_no:
         conn = get_conn(); c = conn.cursor()
         c.execute("""
@@ -10396,32 +10479,33 @@ def invoices_mark_paid():
             vat_amount = excluded.vat_amount, total = excluded.total, paid = excluded.paid, paid_date = excluded.paid_date
         """, (
             invoice_no, client, date_from, date_to, invoice_date,
-            request.args.get("amount", 0) or 0, request.args.get("vat_amount", 0) or 0, request.args.get("total", 0) or 0,
+            f.get("amount", 0) or 0, f.get("vat_amount", 0) or 0, f.get("total", 0) or 0,
             paid, lux_now().strftime("%Y-%m-%d") if paid else "",
         ))
         conn.commit(); conn.close()
-    if request.args.get("ajax") == "1":
+    if f.get("ajax") == "1":
         return {"ok": True, "paid": bool(paid)}
     if next_url.startswith("/invoices"):
         return redirect(next_url)
     return redirect(f"/invoices?date_from={urllib.parse.quote(date_from)}&date_to={urllib.parse.quote(date_to)}&invoice_date={urllib.parse.quote(invoice_date)}")
 
 
-@app.route("/invoices/mark_sent")
+@app.route("/invoices/mark_sent", methods=["POST"])
 def invoices_mark_sent():
     if session.get("role") != "admin":
         return redirect("/")
-    invoice_no = request.args.get("invoice_number", "").strip()
-    sent = 1 if request.args.get("sent", "0") == "1" else 0
+    f = request.form
+    invoice_no = f.get("invoice_number", "").strip()
+    sent = 1 if f.get("sent", "0") == "1" else 0
     if invoice_no:
         conn = get_conn(); c = conn.cursor()
         c.execute("UPDATE invoice_records SET sent = ?, sent_date = ? WHERE invoice_number = ?", (
             sent, lux_now().strftime("%Y-%m-%d") if sent else "", invoice_no,
         ))
         conn.commit(); conn.close()
-    if request.args.get("ajax") == "1":
+    if f.get("ajax") == "1":
         return {"ok": True, "sent": bool(sent)}
-    next_url = request.args.get("next", "").strip()
+    next_url = f.get("next", "").strip()
     if next_url.startswith("/invoices"):
         return redirect(next_url)
     return redirect(request.referrer or "/invoices")
@@ -11867,17 +11951,17 @@ def add_user():
         conn.commit(); conn.close()
     return redirect("/admin")
 
-@app.route("/delete_worker/<path:name>")
+@app.route("/delete_worker/<path:name>", methods=["POST"])
 def delete_worker(name):
     if session.get("role") != "admin" or name == "admin": return redirect("/")
     conn = get_conn(); c = conn.cursor(); c.execute("DELETE FROM workers WHERE name = ?", (name,)); c.execute("DELETE FROM worker_colors WHERE worker_name = ?", (name,)); conn.commit(); conn.close(); return redirect("/workers")
 
-@app.route("/delete_client/<path:name>")
+@app.route("/delete_client/<path:name>", methods=["POST"])
 def delete_client(name):
     if session.get("role") != "admin": return redirect("/")
     conn = get_conn(); c = conn.cursor(); c.execute("DELETE FROM clients WHERE name = ?", (name,)); conn.commit(); conn.close(); return redirect("/clients")
 
-@app.route("/delete_shift/<int:id>")
+@app.route("/delete_shift/<int:id>", methods=["POST"])
 def delete_shift(id):
     if session.get("role") != "admin": return redirect("/")
     conn = get_conn(); c = conn.cursor(); c.execute("DELETE FROM shifts WHERE id = ?", (id,)); conn.commit(); conn.close(); return redirect(request.referrer or "/")
@@ -11995,9 +12079,10 @@ def workers_page():
             </div>
             <div class="worker-actions">
                 <a href="/edit_worker/{{ w[0]|urlencode }}">{{ tr["edit"] }}</a>
-                <a href="/delete_worker/{{ w[0]|urlencode }}"
-                   onclick='return confirm({{ (tr.get("delete_worker_confirm","Obrisati radnika") ~ " " ~ w[0] ~ "?")|tojson }})'
-                   style="color:#dc2626;border:1px solid #fecaca;background:#fff1f2;">{{ tr["delete"] }}</a>
+                <form class="inline-delete-form" method="post" action="/delete_worker/{{ w[0]|urlencode }}"
+                      onsubmit='return confirm({{ (tr.get("delete_worker_confirm","Obrisati radnika") ~ " " ~ w[0] ~ "?")|tojson }})'>
+                  <button type="submit" style="color:#dc2626;border:1px solid #fecaca;background:#fff1f2;cursor:pointer;font-family:inherit;padding:5px 8px;border-radius:6px;font-weight:bold;font-size:12px;">{{ tr["delete"] }}</button>
+                </form>
             </div>
         </div>
         {% endif %}
@@ -12134,9 +12219,10 @@ def admin_page():
         <div class="admin-user-row">
           <div><b>{{ u[1] }}</b> <span style="font-size:12px;opacity:0.6;">({{ u[2] }})</span></div>
           {% if u[1] != 'admin' %}
-          <a class="delete-link" href="/delete_user/{{ u[0] }}"
-             onclick="return confirm('Obrisati korisnika {{ u[1] }}?')"
-             style="width:auto;padding:4px 10px;font-size:12px;">{{ tr["delete"] }}</a>
+          <form class="inline-delete-form" method="post" action="/delete_user/{{ u[0] }}"
+                onsubmit='return confirm({{ tr.get("user_delete_confirm","Delete this user?")|tojson }})'>
+            <button type="submit" class="delete-link" style="width:auto;padding:4px 10px;font-size:12px;">{{ tr["delete"] }}</button>
+          </form>
           {% endif %}
         </div>
         {% endfor %}
@@ -12201,9 +12287,10 @@ def clients_page():
         {% if cl[1] %}<div class="client-card-addr">📍 {{ cl[1] }}</div>{% endif %}
         <div class="client-card-actions">
           <a href="/edit_client/{{ cl[0]|urlencode }}">{{ tr["edit"] }}</a>
-          <a href="/delete_client/{{ cl[0]|urlencode }}"
-             onclick="return confirm('Obrisati klijenta: {{ cl[0] }}?')"
-             style="color:#dc2626;border:1px solid #fecaca;background:#fff1f2;">{{ tr["delete"] }}</a>
+          <form class="inline-delete-form" method="post" action="/delete_client/{{ cl[0]|urlencode }}"
+                onsubmit='return confirm({{ tr.get("client_delete_confirm","Delete this client?")|tojson }})'>
+            <button type="submit" style="color:#dc2626;border:1px solid #fecaca;background:#fff1f2;cursor:pointer;font-family:inherit;padding:5px 8px;border-radius:6px;font-weight:bold;font-size:12px;">{{ tr["delete"] }}</button>
+          </form>
         </div>
       </div>
       {% endfor %}
@@ -13369,7 +13456,7 @@ function toggleSalType(idx, type) {
      split_workers=split_workers, parse_shift_hours=parse_shift_hours)
 
 
-@app.route("/delete_user/<int:user_id>")
+@app.route("/delete_user/<int:user_id>", methods=["POST"])
 def delete_user(user_id):
     if session.get("role") != "admin": return redirect("/")
     conn = get_conn(); c = conn.cursor(); user = c.execute("SELECT username FROM users WHERE id = ?", (user_id,)).fetchone()
