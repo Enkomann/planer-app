@@ -19,8 +19,10 @@ import urllib.request
 import unicodedata
 import smtplib
 import ssl
+import imaplib
+import hashlib
 from email.message import EmailMessage
-from email.utils import formataddr, parseaddr
+from email.utils import formataddr, parseaddr, make_msgid
 from datetime import datetime, timedelta, date as dt_date
 try:
     from zoneinfo import ZoneInfo
@@ -46,6 +48,25 @@ SMTP_PASSWORD  = os.environ.get("SMTP_PASSWORD", "")    # never log this
 SMTP_FROM      = os.environ.get("SMTP_FROM", "").strip() or SMTP_USER
 SMTP_FROM_NAME = os.environ.get("SMTP_FROM_NAME", "Luxmann Services").strip()
 EMAIL_SCHEDULER_SECRET = os.environ.get("EMAIL_SCHEDULER_SECRET", "").strip()
+
+# ── IMAP archive ("Save copy to Sent folder") ──────────────────────────────
+# Pure SMTP never puts a copy into the mailbox's Sent folder — that folder
+# lives on IMAP and only IMAP clients write to it. If these are configured
+# we APPEND a copy of every successfully sent email into IMAP_SENT_FOLDER,
+# so the admin sees outgoing messages in Outlook / webmail just like
+# manually composed ones. Failure to APPEND never fails the SMTP send.
+IMAP_HOST        = os.environ.get("IMAP_HOST", "").strip()
+try:
+    IMAP_PORT    = int((os.environ.get("IMAP_PORT", "") or "993").strip())
+except (TypeError, ValueError):
+    IMAP_PORT    = 993
+IMAP_USER        = os.environ.get("IMAP_USER", "").strip() or SMTP_USER
+IMAP_PASSWORD    = os.environ.get("IMAP_PASSWORD", "") or SMTP_PASSWORD
+IMAP_SENT_FOLDER = (os.environ.get("IMAP_SENT_FOLDER", "").strip() or "Sent")
+# Belt-and-suspenders: optional silent Bcc to a fixed mailbox on every
+# outbound email. Independent of IMAP — useful as a fallback archive when
+# IMAP is unreachable or the server's Sent-folder name differs.
+EMAIL_ARCHIVE_BCC = os.environ.get("EMAIL_ARCHIVE_BCC", "").strip()
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -3326,18 +3347,37 @@ def _email_body_to_html(body):
 
 def _smtp_send(to_addrs, subject, body, pdf_bytes=None, pdf_name="facture.pdf",
                cc=None, bcc=None):
-    """Send an email via configured SMTP. Returns (ok, error_string)."""
-    if not SMTP_HOST or not SMTP_FROM:
-        return False, "SMTP not configured (SMTP_HOST / SMTP_FROM missing)"
+    """Send an email via configured SMTP.
 
-    cc = cc or []
-    bcc = bcc or []
+    Returns ``(ok, error_string, info)`` where ``info`` is a dict carrying
+    forensic metadata about the attempt:
+
+      - ``message_id``  : the stable RFC 2822 Message-ID we stamped on the
+                          email before sending. Always present (even on
+                          failure) so callers can log it for traceability.
+      - ``raw``         : the raw MIME bytes of the sent message, suitable
+                          for IMAP APPEND into the Sent folder. Present
+                          only on successful SMTP send.
+    """
+    if not SMTP_HOST or not SMTP_FROM:
+        return False, "SMTP not configured (SMTP_HOST / SMTP_FROM missing)", {}
+
+    cc = list(cc or [])
+    bcc = list(bcc or [])
     if isinstance(to_addrs, str):
         to_addrs = [to_addrs]
 
     valid_to = [a for a in to_addrs if _is_valid_email(a)]
     if not valid_to:
-        return False, "No valid recipient address"
+        return False, "No valid recipient address", {}
+
+    # Fallback archive: BCC every outbound to the configured archive
+    # mailbox. Independent of IMAP — even if IMAP append fails (wrong
+    # folder name, blocked port, etc.) we still get a copy in our inbox.
+    if EMAIL_ARCHIVE_BCC and _is_valid_email(EMAIL_ARCHIVE_BCC) \
+            and EMAIL_ARCHIVE_BCC not in bcc and EMAIL_ARCHIVE_BCC not in cc \
+            and EMAIL_ARCHIVE_BCC not in valid_to:
+        bcc.append(EMAIL_ARCHIVE_BCC)
 
     msg = EmailMessage()
     from_addr = formataddr((SMTP_FROM_NAME or "", SMTP_FROM))
@@ -3347,6 +3387,15 @@ def _smtp_send(to_addrs, subject, body, pdf_bytes=None, pdf_name="facture.pdf",
     if cc:
         msg["Cc"] = ", ".join(cc)
     msg["Subject"] = subject or "(no subject)"
+    # Stamp a stable Message-ID BEFORE send so the queue/log row and the
+    # message that actually left the server can be cross-referenced later
+    # (e.g. when looking at the IMAP Sent folder or chasing a bounce).
+    try:
+        msgid_domain = SMTP_FROM.split("@", 1)[1] if "@" in SMTP_FROM else "planer.local"
+    except Exception:
+        msgid_domain = "planer.local"
+    msg_id = make_msgid(domain=msgid_domain)
+    msg["Message-ID"] = msg_id
     msg.set_content(body or "")
     if body:
         msg.add_alternative(_email_body_to_html(body), subtype="html")
@@ -3356,6 +3405,7 @@ def _smtp_send(to_addrs, subject, body, pdf_bytes=None, pdf_name="facture.pdf",
                            filename=pdf_name)
 
     all_rcpts = list(dict.fromkeys(valid_to + list(cc) + list(bcc)))
+    info = {"message_id": msg_id}
 
     try:
         if SMTP_USE_SSL or SMTP_PORT == 465:
@@ -3377,16 +3427,72 @@ def _smtp_send(to_addrs, subject, body, pdf_bytes=None, pdf_name="facture.pdf",
                     if not SMTP_ALLOW_INSECURE:
                         return False, ("STARTTLS not available on this server. "
                                        "Set SMTP_ALLOW_INSECURE=1 to bypass "
-                                       f"(at your own risk). Detail: {str(e)[:120]}")
+                                       f"(at your own risk). Detail: {str(e)[:120]}"), info
                 if SMTP_USER:
                     s.login(SMTP_USER, SMTP_PASSWORD)
                 s.send_message(msg, from_addr=SMTP_FROM, to_addrs=all_rcpts)
     except smtplib.SMTPException as e:
-        return False, f"SMTP error: {e.__class__.__name__}: {str(e)[:900]}"
+        return False, f"SMTP error: {e.__class__.__name__}: {str(e)[:900]}", info
     except (OSError, ssl.SSLError) as e:
-        return False, f"Network/SSL error: {e.__class__.__name__}: {str(e)[:900]}"
+        return False, f"Network/SSL error: {e.__class__.__name__}: {str(e)[:900]}", info
     except Exception as e:
-        return False, f"{e.__class__.__name__}: {str(e)[:900]}"
+        return False, f"{e.__class__.__name__}: {str(e)[:900]}", info
+
+    # Success — serialize the raw MIME ONCE so callers can hand it to
+    # _imap_append_sent() without rebuilding the message.
+    try:
+        info["raw"] = bytes(msg)
+    except Exception:
+        # Some payloads (rare) can't be re-encoded as bytes() in one shot;
+        # fall back to as_string() which is always defined.
+        info["raw"] = msg.as_string().encode("utf-8", "replace")
+    return True, "", info
+
+
+def _imap_append_sent(raw_bytes):
+    """Best-effort: APPEND a sent message into the IMAP Sent folder.
+
+    SMTP send does NOT touch the mailbox's Sent folder; only an IMAP
+    client does. We piggy-back on the same mailbox credentials used by
+    SMTP and write the raw MIME there, so the admin sees outgoing mail
+    in Outlook / webmail just like manually composed messages.
+
+    Failure modes (no IMAP config, login fail, wrong folder name, network
+    drop, server returning NO/BAD) are ALL non-fatal: the SMTP send has
+    already succeeded and the user gets a clear ``imap_saved=0`` +
+    ``imap_error=...`` row in invoice_email_logs. Never raises.
+
+    Returns ``(ok, error_string)``.
+    """
+    if not (IMAP_HOST and IMAP_USER and IMAP_PASSWORD):
+        return False, "IMAP not configured"
+    if not raw_bytes:
+        return False, "no raw message bytes"
+    try:
+        with imaplib.IMAP4_SSL(IMAP_HOST, IMAP_PORT, timeout=30) as imap:
+            imap.login(IMAP_USER, IMAP_PASSWORD)
+            # \Seen so the archived copy doesn't show up as "new mail"
+            # in the admin's inbox view. date_time=None → server uses
+            # the current time as INTERNALDATE, which is what we want.
+            typ, data = imap.append(IMAP_SENT_FOLDER, r"(\Seen)", None, raw_bytes)
+            if typ != "OK":
+                detail = ""
+                try:
+                    detail = (data[0] if data else b"").decode("utf-8", "replace")
+                except Exception:
+                    pass
+                return False, f"IMAP APPEND not OK: {detail[:300]}"
+            try:
+                imap.logout()
+            except Exception:
+                # logout fail after a good APPEND is purely cosmetic
+                pass
+    except imaplib.IMAP4.error as e:
+        return False, f"IMAP error: {str(e)[:300]}"
+    except (OSError, ssl.SSLError) as e:
+        return False, f"IMAP network/SSL: {e.__class__.__name__}: {str(e)[:300]}"
+    except Exception as e:
+        return False, f"IMAP {e.__class__.__name__}: {str(e)[:300]}"
     return True, ""
 
 
@@ -4074,7 +4180,11 @@ def init_db():
             subject TEXT,
             status TEXT,
             error TEXT DEFAULT '',
-            sent_at TEXT DEFAULT ''
+            sent_at TEXT DEFAULT '',
+            message_id TEXT DEFAULT '',
+            attachment_sha256 TEXT DEFAULT '',
+            imap_saved INTEGER DEFAULT 0,
+            imap_error TEXT DEFAULT ''
         )
     """)
 
@@ -4115,6 +4225,20 @@ def init_db():
         queue_cols = [r[1] for r in c.execute("PRAGMA table_info(invoice_email_queue)").fetchall()]
         if "claimed_at" not in queue_cols:
             c.execute("ALTER TABLE invoice_email_queue ADD COLUMN claimed_at TEXT DEFAULT ''")
+    except Exception:
+        pass
+    # Migrate invoice_email_logs: add proof/archive columns (Message-ID,
+    # attachment hash, IMAP-archive flag/error) for the email-proof feature.
+    try:
+        log_cols = [r[1] for r in c.execute("PRAGMA table_info(invoice_email_logs)").fetchall()]
+        if "message_id" not in log_cols:
+            c.execute("ALTER TABLE invoice_email_logs ADD COLUMN message_id TEXT DEFAULT ''")
+        if "attachment_sha256" not in log_cols:
+            c.execute("ALTER TABLE invoice_email_logs ADD COLUMN attachment_sha256 TEXT DEFAULT ''")
+        if "imap_saved" not in log_cols:
+            c.execute("ALTER TABLE invoice_email_logs ADD COLUMN imap_saved INTEGER DEFAULT 0")
+        if "imap_error" not in log_cols:
+            c.execute("ALTER TABLE invoice_email_logs ADD COLUMN imap_error TEXT DEFAULT ''")
     except Exception:
         pass
     # Migrate manual_item_templates: add auto_saved / archived / last_used_at
@@ -8605,7 +8729,36 @@ def invoices_view():
     # Build HTML preview context (shared data with PDF builders)
     conn2 = get_conn()
     view_ctx = _invoice_view_context(conn2, record)
+    # Email proof / archive trail for this invoice — most recent first.
+    # We intentionally pull every column we know about so the UI can
+    # surface Message-ID and PDF hash as forensic evidence the email
+    # actually left the server and contained THIS exact attachment.
+    try:
+        log_rows = conn2.cursor().execute("""
+            SELECT recipient, subject, status, error, sent_at,
+                   COALESCE(message_id,''), COALESCE(attachment_sha256,''),
+                   COALESCE(imap_saved,0), COALESCE(imap_error,'')
+            FROM invoice_email_logs
+            WHERE invoice_number = ?
+            ORDER BY id DESC
+            LIMIT 20
+        """, (invoice_number,)).fetchall()
+    except Exception as _log_err:
+        # Don't 500 the viewer if logs table is mid-migration on a fresh DB
+        app.logger.warning("email log fetch failed: %s", _log_err)
+        log_rows = []
     conn2.close()
+    email_logs = [{
+        "recipient": r[0] or "",
+        "subject":   r[1] or "",
+        "status":    r[2] or "",
+        "error":     r[3] or "",
+        "sent_at":   r[4] or "",
+        "message_id":         r[5] or "",
+        "attachment_sha256":  r[6] or "",
+        "imap_saved": bool(r[7]),
+        "imap_error": r[8] or "",
+    } for r in log_rows]
 
     return render_template_string(BASE_STYLE + header_html() + """
     <style>
@@ -8800,11 +8953,74 @@ Tel: {{ view_ctx.company_phone }}{% endif %}{% if view_ctx.company_email %}
             </div>
 
             <a class="ip-download-cta" href="{{ download_url }}">⬇ {{ tr.get("download","Telecharger") }} PDF</a>
+
+            {% if email_logs %}
+            <section class="email-log-card" style="margin-top:18px;background:{{ '#191919' if dark else '#ffffff' }};border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};border-radius:10px;padding:14px 16px;">
+              <h3 style="margin:0 0 10px;font-size:15px;color:{{ '#e2e8f0' if dark else '#1e293b' }};">
+                📨 {{ tr.get("email_log_title","Trag slanja emaila") }}
+              </h3>
+              <div style="overflow-x:auto;">
+              <table style="width:100%;border-collapse:collapse;font-size:12px;color:{{ '#e2e8f0' if dark else '#1e293b' }};">
+                <thead>
+                  <tr style="text-align:left;border-bottom:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};">
+                    <th style="padding:6px 8px;">{{ tr.get("sent_at","Vrijeme") }}</th>
+                    <th style="padding:6px 8px;">{{ tr.get("recipient","Primalac") }}</th>
+                    <th style="padding:6px 8px;">{{ tr.get("status","Status") }}</th>
+                    <th style="padding:6px 8px;" title="{{ tr.get('email_log_mailbox_help','Kopija sacuvana u Sent folderu mailbox-a preko IMAP-a') }}">
+                      {{ tr.get("email_log_mailbox","Sacuvano u mailbox") }}
+                    </th>
+                    <th style="padding:6px 8px;" title="Message-ID">ID</th>
+                    <th style="padding:6px 8px;" title="SHA-256 PDF-a koji je poslan">{{ tr.get("email_log_pdf_hash","PDF hash") }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for lg in email_logs %}
+                  <tr style="border-bottom:1px solid {{ '#2c2c30' if dark else '#f1f5f9' }};">
+                    <td style="padding:6px 8px;white-space:nowrap;">{{ lg.sent_at }}</td>
+                    <td style="padding:6px 8px;">{{ lg.recipient }}</td>
+                    <td style="padding:6px 8px;">
+                      {% if lg.status == 'sent' %}
+                        <span style="color:#16a34a;font-weight:700;">✓ {{ lg.status }}</span>
+                      {% else %}
+                        <span style="color:#dc2626;font-weight:700;" title="{{ lg.error }}">✗ {{ lg.status }}</span>
+                      {% endif %}
+                    </td>
+                    <td style="padding:6px 8px;">
+                      {% if lg.status == 'sent' %}
+                        {% if lg.imap_saved %}
+                          <span style="color:#16a34a;font-weight:700;">✓ {{ tr.get("yes","da") }}</span>
+                        {% else %}
+                          <span style="color:#b45309;font-weight:700;" title="{{ lg.imap_error }}">✗ {{ tr.get("no","ne") }}</span>
+                        {% endif %}
+                      {% else %}
+                        <span style="color:{{ '#9ca3af' if dark else '#6b7280' }};">—</span>
+                      {% endif %}
+                    </td>
+                    <td style="padding:6px 8px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;color:{{ '#9ca3af' if dark else '#6b7280' }};">
+                      {% if lg.message_id %}
+                        <span title="{{ lg.message_id }}">{{ lg.message_id[:24] }}…</span>
+                      {% else %}—{% endif %}
+                    </td>
+                    <td style="padding:6px 8px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;color:{{ '#9ca3af' if dark else '#6b7280' }};">
+                      {% if lg.attachment_sha256 %}
+                        <span title="{{ lg.attachment_sha256 }}">{{ lg.attachment_sha256[:16] }}…</span>
+                      {% else %}—{% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              </div>
+              <p style="margin:10px 0 0;font-size:11px;color:{{ '#9ca3af' if dark else '#6b7280' }};">
+                {{ tr.get("email_log_footnote","Message-ID i SHA-256 PDF-a su forenzicki dokaz da je tacno ovaj email i tacno ova faktura prosli kroz SMTP server.") }}
+              </p>
+            </section>
+            {% endif %}
         </div>
     </div>
     """, tr=tr, dark=dark, row=row, record=record, view_ctx=view_ctx,
          pdf_url=pdf_url, download_url=download_url, paid_url=paid_url, sent_url=sent_url,
-         is_manual=is_manual, edit_url=edit_url)
+         is_manual=is_manual, edit_url=edit_url, email_logs=email_logs)
 
 
 @app.route("/invoices/preview_pdf")
@@ -10533,14 +10749,31 @@ def invoices_email_send():
             conn.close()
             flash(tr.get("invoice_not_found", "Faktura nije pronadjena."), "error")
             return redirect(_back_url())
-        ok, err = _smtp_send(recipient, subject, body, pdf_bytes, pdf_name,
-                             cc=cc_list, bcc=bcc_list)
+        ok, err, send_info = _smtp_send(recipient, subject, body, pdf_bytes, pdf_name,
+                                        cc=cc_list, bcc=bcc_list)
+        msg_id = send_info.get("message_id", "") if send_info else ""
+        pdf_sha = hashlib.sha256(pdf_bytes).hexdigest() if pdf_bytes else ""
+        imap_saved = 0
+        imap_error = ""
+        # Only attempt IMAP archive on successful SMTP send — appending a
+        # never-sent message into Sent would be misleading proof.
+        if ok and send_info and send_info.get("raw"):
+            iok, ierr = _imap_append_sent(send_info["raw"])
+            imap_saved = 1 if iok else 0
+            if not iok:
+                imap_error = ierr
+                app.logger.warning(
+                    "IMAP APPEND failed for %s: %s",
+                    invoice_number or bulk_client, ierr
+                )
         c.execute("""
             INSERT INTO invoice_email_logs
-                (invoice_number, recipient, subject, status, error, sent_at)
-            VALUES (?,?,?,?,?,?)
+                (invoice_number, recipient, subject, status, error, sent_at,
+                 message_id, attachment_sha256, imap_saved, imap_error)
+            VALUES (?,?,?,?,?,?,?,?,?,?)
         """, (invoice_number or bulk_client, recipient, subject,
-              "sent" if ok else "failed", err if not ok else "", now_str))
+              "sent" if ok else "failed", err if not ok else "", now_str,
+              msg_id, pdf_sha, imap_saved, imap_error))
         # Only mark invoice 'sent' for real invoice emails, not reminders
         if ok and invoice_number and not is_reminder:
             c.execute(
@@ -10582,11 +10815,13 @@ def invoices_email_test():
     if not (SMTP_HOST and SMTP_FROM):
         flash(tr.get("smtp_not_configured", "SMTP not configured."), "error")
         return redirect("/invoices")
-    ok, err = _smtp_send(
+    ok, err, _send_info = _smtp_send(
         SMTP_FROM,
         "Luxmann SMTP test",
         "This is a test email from your Luxmann Planner instance. SMTP works.",
     )
+    # Test pings don't need IMAP archiving — we're just checking SMTP works
+    # and the user can verify the test message landed in their inbox.
     if ok:
         flash(tr.get("email_test_ok", f"Test email poslat na {SMTP_FROM}"), "ok")
     else:
@@ -10659,17 +10894,33 @@ def task_send_scheduled_emails():
                 fail_count += 1
                 processed += 1
                 continue
-            ok, err = _smtp_send(rcpt, subj, bdy, pdf_bytes, pdf_name,
-                                 cc=cc_list, bcc=bcc_list)
+            ok, err, send_info = _smtp_send(rcpt, subj, bdy, pdf_bytes, pdf_name,
+                                            cc=cc_list, bcc=bcc_list)
+            msg_id = send_info.get("message_id", "") if send_info else ""
+            pdf_sha = hashlib.sha256(pdf_bytes).hexdigest() if pdf_bytes else ""
+            imap_saved = 0
+            imap_error = ""
+            # Mirror the interactive send_now path: archive only on success,
+            # never let an IMAP hiccup re-fail an otherwise-sent queue row.
+            if ok and send_info and send_info.get("raw"):
+                iok, ierr = _imap_append_sent(send_info["raw"])
+                imap_saved = 1 if iok else 0
+                if not iok:
+                    imap_error = ierr
+                    app.logger.warning(
+                        "IMAP APPEND failed for queued %s: %s", inv_num, ierr
+                    )
             c.execute("""
                 UPDATE invoice_email_queue SET status=?, error=?, sent_at=? WHERE id=?
             """, ("sent" if ok else "failed", err if not ok else "", now_str, qid))
             c.execute("""
                 INSERT INTO invoice_email_logs
-                    (invoice_number, recipient, subject, status, error, sent_at)
-                VALUES (?,?,?,?,?,?)
+                    (invoice_number, recipient, subject, status, error, sent_at,
+                     message_id, attachment_sha256, imap_saved, imap_error)
+                VALUES (?,?,?,?,?,?,?,?,?,?)
             """, (inv_num, rcpt, subj, "sent" if ok else "failed",
-                  err if not ok else "", now_str))
+                  err if not ok else "", now_str,
+                  msg_id, pdf_sha, imap_saved, imap_error))
             if ok:
                 c.execute("UPDATE invoice_records SET sent=1, sent_date=? WHERE invoice_number=?",
                           (lux_now().strftime("%Y-%m-%d"), inv_num))
