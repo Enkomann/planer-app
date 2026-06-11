@@ -731,6 +731,16 @@ TRANSLATIONS["bos"].update({
     "leave_reject": "Odbij", "leave_no_requests": "Nema zahtjeva",
     "archive": "Arhiva", "shifts": "smjena", "shift_singular": "smjena",
     "inv_gen_ok": "{n} faktura generisano", "inv_gen_exists": "{n} već postoji za ovaj period",
+    "inv_gen_preview_title": "Pregled prije generisanja faktura",
+    "inv_gen_will_generate": "Bice generisano",
+    "inv_gen_exact_skip": "Vec postoji (preskoci)",
+    "inv_gen_overlap_warn": "Preklapanje sa postojecom fakturom",
+    "inv_gen_overlap_block": "Nije generisano zbog preklapanja",
+    "inv_gen_confirm": "Potvrdi generisanje",
+    "inv_gen_force": "Generisi ipak (sa preklapanjima)",
+    "inv_gen_cancel": "Odustani",
+    "inv_gen_nothing_to_do": "Nema klijenata za generisanje u ovom periodu.",
+    "inv_gen_overlap_msg": "Za ovog klijenta vec postoji faktura ciji se period preklapa sa izabranim.",
     "inv_gen_no_rate": "Bez postavljene cijene", "inv_gen_empty": "Nema smjena ili klijenata sa postavljenom cijenom.",
     "inv_gen_failed": "Nije uspjelo upisivanje",
     "inv_convert_banner": "Uređuješ automatski generisanu fakturu br. {num} — sačuvaj da pretvoriš u ručnu fakturu.",
@@ -755,6 +765,16 @@ TRANSLATIONS["en"].update({
     "leave_reject": "Reject", "leave_no_requests": "No requests",
     "archive": "Archive", "shifts": "shifts", "shift_singular": "shift",
     "inv_gen_ok": "{n} invoices generated", "inv_gen_exists": "{n} already exist for this period",
+    "inv_gen_preview_title": "Review before generating invoices",
+    "inv_gen_will_generate": "Will be generated",
+    "inv_gen_exact_skip": "Already exists (skipped)",
+    "inv_gen_overlap_warn": "Overlaps with existing invoice",
+    "inv_gen_overlap_block": "Blocked due to overlap",
+    "inv_gen_confirm": "Confirm generation",
+    "inv_gen_force": "Generate anyway (including overlaps)",
+    "inv_gen_cancel": "Cancel",
+    "inv_gen_nothing_to_do": "No clients to generate for this period.",
+    "inv_gen_overlap_msg": "This client already has an invoice whose period overlaps with the selected one.",
     "inv_gen_no_rate": "No rate set", "inv_gen_empty": "No shifts or clients with a rate in this period.",
     "inv_gen_failed": "Could not save",
     "inv_convert_banner": "Editing auto-generated invoice #{num} — save to convert it to a manual invoice.",
@@ -779,6 +799,16 @@ TRANSLATIONS["fr"].update({
     "leave_reject": "Refuser", "leave_no_requests": "Aucune demande",
     "archive": "Archives", "shifts": "interventions", "shift_singular": "intervention",
     "inv_gen_ok": "{n} factures generees", "inv_gen_exists": "{n} existent deja pour cette periode",
+    "inv_gen_preview_title": "Apercu avant generation des factures",
+    "inv_gen_will_generate": "Sera genere",
+    "inv_gen_exact_skip": "Existe deja (ignore)",
+    "inv_gen_overlap_warn": "Chevauchement avec une facture existante",
+    "inv_gen_overlap_block": "Non genere a cause du chevauchement",
+    "inv_gen_confirm": "Confirmer la generation",
+    "inv_gen_force": "Generer quand meme (avec chevauchements)",
+    "inv_gen_cancel": "Annuler",
+    "inv_gen_nothing_to_do": "Aucun client a generer pour cette periode.",
+    "inv_gen_overlap_msg": "Ce client a deja une facture dont la periode chevauche celle selectionnee.",
     "inv_gen_no_rate": "Tarif non defini", "inv_gen_empty": "Aucune prestation ou tarif client absent.",
     "inv_gen_failed": "Enregistrement impossible",
     "inv_convert_banner": "Modification facture auto n°{num} — sauvegarder pour convertir en facture manuelle.",
@@ -803,6 +833,16 @@ TRANSLATIONS["de"].update({
     "leave_reject": "Ablehnen", "leave_no_requests": "Keine Antraege",
     "archive": "Archiv", "shifts": "Schichten", "shift_singular": "Schicht",
     "inv_gen_ok": "{n} Rechnungen erstellt", "inv_gen_exists": "{n} bereits vorhanden fuer diesen Zeitraum",
+    "inv_gen_preview_title": "Ueberpruefung vor der Rechnungserstellung",
+    "inv_gen_will_generate": "Wird erstellt",
+    "inv_gen_exact_skip": "Bereits vorhanden (uebersprungen)",
+    "inv_gen_overlap_warn": "Ueberschneidung mit vorhandener Rechnung",
+    "inv_gen_overlap_block": "Wegen Ueberschneidung nicht erstellt",
+    "inv_gen_confirm": "Erstellung bestaetigen",
+    "inv_gen_force": "Trotzdem erstellen (mit Ueberschneidungen)",
+    "inv_gen_cancel": "Abbrechen",
+    "inv_gen_nothing_to_do": "Keine Kunden fuer diesen Zeitraum zu erstellen.",
+    "inv_gen_overlap_msg": "Fuer diesen Kunden existiert bereits eine Rechnung, deren Zeitraum sich mit dem gewaehlten ueberschneidet.",
     "inv_gen_no_rate": "Kein Tarif festgelegt", "inv_gen_empty": "Keine Schichten oder Tarife fuer diesen Zeitraum.",
     "inv_gen_failed": "Speichern nicht moeglich",
     "inv_convert_banner": "Auto-Rechnung Nr. {num} bearbeiten — speichern zum Umwandeln in manuelle Rechnung.",
@@ -827,6 +867,16 @@ TRANSLATIONS["pt"].update({
     "leave_reject": "Recusar", "leave_no_requests": "Sem pedidos",
     "archive": "Arquivo", "shifts": "turnos", "shift_singular": "turno",
     "inv_gen_ok": "{n} faturas geradas", "inv_gen_exists": "{n} ja existem para este periodo",
+    "inv_gen_preview_title": "Pre-visualizacao antes de gerar faturas",
+    "inv_gen_will_generate": "Sera gerada",
+    "inv_gen_exact_skip": "Ja existe (ignorada)",
+    "inv_gen_overlap_warn": "Sobreposicao com fatura existente",
+    "inv_gen_overlap_block": "Nao gerada devido a sobreposicao",
+    "inv_gen_confirm": "Confirmar geracao",
+    "inv_gen_force": "Gerar mesmo assim (com sobreposicoes)",
+    "inv_gen_cancel": "Cancelar",
+    "inv_gen_nothing_to_do": "Sem clientes para gerar neste periodo.",
+    "inv_gen_overlap_msg": "Este cliente ja tem uma fatura cujo periodo se sobrepoe ao selecionado.",
     "inv_gen_no_rate": "Tarifa nao definida", "inv_gen_empty": "Sem servicos ou tarifas definidas para este periodo.",
     "inv_gen_failed": "Nao foi possivel guardar",
     "inv_convert_banner": "A editar fatura automatica n.°{num} — guarde para converter em fatura manual.",
@@ -8634,14 +8684,109 @@ def invoices():
          date_from=date_from, date_to=date_to, invoice_date=invoice_date)
 
 
-def _generate_invoices(conn, date_from, date_to, invoice_date):
+def _find_overlapping_auto_invoice(c, client_name, date_from, date_to):
+    """Return (invoice_number, date_from, date_to) of an existing auto
+    invoice for this client whose period overlaps with the given one
+    (standard interval overlap: A.from <= B.to AND A.to >= B.from),
+    EXCLUDING exact matches. None if no such row.
+
+    Exact matches are handled separately by the caller — they are a
+    silent skip case, while genuine overlaps are a warn-and-block case
+    that requires explicit admin override.
+    """
+    return c.execute(
+        "SELECT invoice_number, date_from, date_to FROM invoice_records "
+        "WHERE client_name=? AND COALESCE(deleted,0)=0 "
+        "AND COALESCE(source,'auto')='auto' "
+        "AND date_from <= ? AND date_to >= ? "
+        "AND NOT (date_from=? AND date_to=?) "
+        "ORDER BY date_from DESC LIMIT 1",
+        (client_name, date_to, date_from, date_from, date_to)
+    ).fetchone()
+
+
+def _classify_generation_targets(conn, date_from, date_to):
+    """Pre-flight classification for the generate-invoices preview.
+
+    Buckets every client with shifts in the requested period into one
+    of four lists so the admin can review what's about to happen
+    BEFORE any DB write:
+
+      will_generate  — has shifts, has rate, no overlapping invoice
+      exact_match    — already has an auto invoice with the same
+                       (date_from, date_to) pair → safe silent skip
+      overlapping    — has an auto invoice whose period overlaps but
+                       isn't exact → warn + block unless force=True
+      no_rate        — hourly_rate is 0 → cannot price the invoice
+
+    Read-only — no INSERTs happen here. This is the data model the
+    preview template renders from.
+    """
+    c = conn.cursor()
+    settings = get_invoice_settings(conn)
+    raw_rows = build_invoice_rows(conn, date_from, date_to, None, settings)
+    will_generate, exact_match, overlapping, no_rate = [], [], [], []
+    for row in raw_rows:
+        if row.get("hourly_rate", 0) == 0:
+            no_rate.append({"client": row["client"]})
+            continue
+        exact = c.execute(
+            "SELECT invoice_number FROM invoice_records "
+            "WHERE client_name=? AND date_from=? AND date_to=? "
+            "AND COALESCE(deleted,0)=0 AND COALESCE(source,'auto')='auto'",
+            (row["client"], date_from, date_to)
+        ).fetchone()
+        if exact:
+            exact_match.append({
+                "client":         row["client"],
+                "invoice_number": exact[0],
+            })
+            continue
+        overlap = _find_overlapping_auto_invoice(c, row["client"], date_from, date_to)
+        if overlap:
+            overlapping.append({
+                "client":           row["client"],
+                "amount":           row.get("amount", 0),
+                "vat_amount":       row.get("vat_amount", 0),
+                "total":            row.get("total", 0),
+                "existing_invoice": overlap[0],
+                "existing_from":    overlap[1],
+                "existing_to":      overlap[2],
+            })
+            continue
+        will_generate.append({
+            "client":     row["client"],
+            "amount":     row.get("amount", 0),
+            "vat_amount": row.get("vat_amount", 0),
+            "total":      row.get("total", 0),
+        })
+    return {
+        "will_generate": will_generate,
+        "exact_match":   exact_match,
+        "overlapping":   overlapping,
+        "no_rate":       no_rate,
+    }
+
+
+def _generate_invoices(conn, date_from, date_to, invoice_date, force=False):
     """Insert new invoice records for clients with shifts in the period.
-    Skips clients/periods that already have a record. Returns (generated, skipped_exists, no_rate_clients, failed_clients, error_message)."""
+
+    Always skips clients with an exact-match existing auto invoice.
+    By default ALSO skips clients whose period merely overlaps an
+    existing auto invoice — that case is blocked at the app layer to
+    prevent accidental near-duplicates (e.g. admin off-by-one on
+    date_to). Pass force=True to override and generate for overlapping
+    clients too (exact matches stay skipped — the unique index would
+    reject them at the DB layer anyway).
+
+    Returns (generated, skipped_exists, skipped_overlap, no_rate_clients,
+             failed_clients, error_message)."""
     c = conn.cursor()
     settings = get_invoice_settings(conn)
     raw_rows = build_invoice_rows(conn, date_from, date_to, None, settings)
     generated = 0
     skipped_exists = 0
+    skipped_overlap = 0
     no_rate_clients = []
     failed_clients = []
     attempted_clients = []
@@ -8662,6 +8807,16 @@ def _generate_invoices(conn, date_from, date_to, invoice_date):
             if existing:
                 skipped_exists += 1
                 continue
+            if not force:
+                # Overlap guard at write time (not just preview) so a
+                # malicious / stale POST that bypasses the preview can't
+                # silently create near-duplicates.
+                overlap = _find_overlapping_auto_invoice(
+                    c, row["client"], date_from, date_to
+                )
+                if overlap:
+                    skipped_overlap += 1
+                    continue
             inv_num = next_invoice_number(conn)
             c.execute("""INSERT INTO invoice_records
                 (invoice_number, client_name, date_from, date_to, invoice_date,
@@ -8675,29 +8830,193 @@ def _generate_invoices(conn, date_from, date_to, invoice_date):
         conn.rollback()
         app.logger.warning("_generate_invoices error: %s", e)
         failed_clients = [name for name in attempted_clients if name not in no_rate_clients]
-        return 0, 0, no_rate_clients, failed_clients, str(e)
-    return generated, skipped_exists, no_rate_clients, failed_clients, ""
+        return 0, 0, 0, no_rate_clients, failed_clients, str(e)
+    return generated, skipped_exists, skipped_overlap, no_rate_clients, failed_clients, ""
 
 
 @app.route("/invoices/generate", methods=["POST"])
 def invoices_generate():
     if session.get("role") != "admin":
         return redirect("/")
-    tr = t()
-    date_from = request.form.get("date_from", "").strip()
-    date_to = request.form.get("date_to", "").strip()
+    tr = t(); dark = get_theme() == "dark"
+    date_from    = request.form.get("date_from", "").strip()
+    date_to      = request.form.get("date_to", "").strip()
     invoice_date = request.form.get("invoice_date", lux_now().strftime("%Y-%m-%d")).strip()
+    action       = (request.form.get("gen_action", "preview") or "preview").strip()
     if not date_from or not date_to:
         flash(tr.get("generate_invoice", "Generiši fakturu") + ": datum nedostaje.", "error")
         return redirect("/invoices")
+
+    # ── Step 1: preview (default) ─────────────────────────────────────
+    # Read-only classification of every client with shifts in the
+    # period. Admin reviews 4 buckets and chooses Confirm (safe) or
+    # Force (include overlaps) — nothing is written yet.
+    if action == "preview":
+        conn = get_conn()
+        buckets = _classify_generation_targets(conn, date_from, date_to)
+        conn.close()
+        # Nothing to do at all → flash and skip the preview page.
+        if not (buckets["will_generate"] or buckets["overlapping"]
+                or buckets["exact_match"] or buckets["no_rate"]):
+            flash(tr.get("inv_gen_nothing_to_do",
+                         "Nema klijenata za generisanje u ovom periodu."), "error")
+            return redirect(f"/invoices?date_from={date_from}&date_to={date_to}"
+                            f"&invoice_date={invoice_date}#invoice-list")
+        return render_template_string(BASE_STYLE + header_html() + """
+        <style>
+          .gp-shell { max-width:980px; margin:24px auto; padding:0 16px; }
+          .gp-card { background:{{ '#161618' if dark else '#ffffff' }}; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; border-radius:14px; padding:22px; box-shadow:0 4px 14px rgba(0,0,0,.08); }
+          .gp-meta { font-size:13px; color:{{ '#94a3b8' if dark else '#64748b' }}; margin:6px 0 18px; }
+          .gp-section { margin-top:18px; }
+          .gp-section h3 { margin:0 0 8px; font-size:14px; }
+          .gp-table { width:100%; border-collapse:collapse; font-size:13px; }
+          .gp-table th, .gp-table td { padding:8px 10px; border-bottom:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; text-align:left; vertical-align:top; color:{{ '#e2e8f0' if dark else '#1e293b' }}; }
+          .gp-table th { font-weight:700; color:{{ '#94a3b8' if dark else '#64748b' }}; font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+          .gp-pill { display:inline-block; padding:2px 10px; border-radius:999px; font-size:11px; font-weight:700; margin-left:8px; }
+          .gp-pill.ok      { background:#16a34a; color:white; }
+          .gp-pill.skip    { background:#6b7280; color:white; }
+          .gp-pill.warn    { background:#f59e0b; color:#111; }
+          .gp-pill.nor     { background:#9ca3af; color:#111; }
+          .gp-note { font-size:13px; padding:10px 14px; border-radius:10px; margin-bottom:14px; }
+          .gp-note.warn { background:rgba(245,158,11,.15); color:{{ '#fcd34d' if dark else '#92400e' }}; border:1px solid #f59e0b; }
+          .gp-amount { text-align:right; font-variant-numeric:tabular-nums; }
+          .gp-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:22px; }
+          .gp-btn { flex:1; min-width:180px; padding:12px; border-radius:10px; border:none; cursor:pointer; font-weight:700; font-size:14px; font-family:inherit; }
+          .gp-btn.primary { background:#16a34a; color:white; }
+          .gp-btn.force   { background:#dc2626; color:white; }
+          .gp-btn.cancel  { background:#6b7280; color:white; text-decoration:none; text-align:center; line-height:24px; }
+        </style>
+        <div class="gp-shell">
+          <div class="gp-card">
+            <h2>📋 {{ tr.get("inv_gen_preview_title","Pregled prije generisanja faktura") }}</h2>
+            <div class="gp-meta">
+              {{ date_from }} → {{ date_to }} · {{ tr.get("invoice_date","Datum fakture") }}: {{ invoice_date }}
+            </div>
+
+            {% if overlapping %}
+            <div class="gp-note warn">
+              ⚠ {{ tr.get("inv_gen_overlap_msg","Za ovog klijenta vec postoji faktura ciji se period preklapa sa izabranim.") }}
+            </div>
+            {% endif %}
+
+            {% if will_generate %}
+            <div class="gp-section">
+              <h3>✓ {{ tr.get("inv_gen_will_generate","Bice generisano") }}
+                <span class="gp-pill ok">{{ will_generate|length }}</span></h3>
+              <table class="gp-table"><thead><tr>
+                <th>{{ tr.get("client","Klijent") }}</th>
+                <th class="gp-amount">{{ tr.get("amount","Iznos") }}</th>
+                <th class="gp-amount">{{ tr.get("amount_total","Ukupno") }}</th>
+              </tr></thead><tbody>
+                {% for r in will_generate %}
+                <tr>
+                  <td>{{ r.client }}</td>
+                  <td class="gp-amount">{{ "%.2f"|format(r.amount or 0) }} €</td>
+                  <td class="gp-amount">{{ "%.2f"|format(r.total or 0) }} €</td>
+                </tr>
+                {% endfor %}
+              </tbody></table>
+            </div>
+            {% endif %}
+
+            {% if overlapping %}
+            <div class="gp-section">
+              <h3>⚠ {{ tr.get("inv_gen_overlap_warn","Preklapanje sa postojecom fakturom") }}
+                <span class="gp-pill warn">{{ overlapping|length }}</span></h3>
+              <table class="gp-table"><thead><tr>
+                <th>{{ tr.get("client","Klijent") }}</th>
+                <th>{{ tr.get("inv_gen_overlap_block","Postojeca faktura") }}</th>
+                <th class="gp-amount">{{ tr.get("amount_total","Ukupno") }}</th>
+              </tr></thead><tbody>
+                {% for r in overlapping %}
+                <tr>
+                  <td>{{ r.client }}</td>
+                  <td><b>#{{ r.existing_invoice }}</b><br>
+                      <small>{{ r.existing_from }} → {{ r.existing_to }}</small></td>
+                  <td class="gp-amount">{{ "%.2f"|format(r.total or 0) }} €</td>
+                </tr>
+                {% endfor %}
+              </tbody></table>
+            </div>
+            {% endif %}
+
+            {% if exact_match %}
+            <div class="gp-section">
+              <h3>= {{ tr.get("inv_gen_exact_skip","Vec postoji (preskoci)") }}
+                <span class="gp-pill skip">{{ exact_match|length }}</span></h3>
+              <table class="gp-table"><thead><tr>
+                <th>{{ tr.get("client","Klijent") }}</th>
+                <th>{{ tr.get("invoice_number","Broj fakture") }}</th>
+              </tr></thead><tbody>
+                {% for r in exact_match %}
+                <tr><td>{{ r.client }}</td><td>#{{ r.invoice_number }}</td></tr>
+                {% endfor %}
+              </tbody></table>
+            </div>
+            {% endif %}
+
+            {% if no_rate %}
+            <div class="gp-section">
+              <h3>∅ {{ tr.get("inv_gen_no_rate","Bez postavljene cijene") }}
+                <span class="gp-pill nor">{{ no_rate|length }}</span></h3>
+              <table class="gp-table"><tbody>
+                {% for r in no_rate %}
+                <tr><td>{{ r.client }}</td></tr>
+                {% endfor %}
+              </tbody></table>
+            </div>
+            {% endif %}
+
+            <form method="post" action="/invoices/generate" class="gp-actions">
+              <input type="hidden" name="date_from"    value="{{ date_from }}">
+              <input type="hidden" name="date_to"      value="{{ date_to }}">
+              <input type="hidden" name="invoice_date" value="{{ invoice_date }}">
+
+              {% if will_generate %}
+              <button type="submit" name="gen_action" value="confirm" class="gp-btn primary">
+                ✓ {{ tr.get("inv_gen_confirm","Potvrdi generisanje") }}
+                ({{ will_generate|length }})
+              </button>
+              {% endif %}
+
+              {% if overlapping %}
+              <button type="submit" name="gen_action" value="force" class="gp-btn force"
+                      onclick='return confirm({{ tr.get("inv_gen_overlap_msg","Za ovog klijenta vec postoji faktura ciji se period preklapa.")|tojson }});'>
+                ⚠ {{ tr.get("inv_gen_force","Generisi ipak (sa preklapanjima)") }}
+                ({{ (will_generate|length) + (overlapping|length) }})
+              </button>
+              {% endif %}
+
+              <a class="gp-btn cancel"
+                 href="/invoices?date_from={{ date_from }}&date_to={{ date_to }}&invoice_date={{ invoice_date }}&skip_auto=1#invoice-list">
+                {{ tr.get("inv_gen_cancel","Odustani") }}
+              </a>
+            </form>
+          </div>
+        </div>
+        """, tr=tr, dark=dark,
+             date_from=date_from, date_to=date_to, invoice_date=invoice_date,
+             will_generate=buckets["will_generate"],
+             exact_match=buckets["exact_match"],
+             overlapping=buckets["overlapping"],
+             no_rate=buckets["no_rate"])
+
+    # ── Step 2: confirm or force ──────────────────────────────────────
+    force = (action == "force")
     conn = get_conn()
-    generated, skipped_exists, no_rate_clients, failed_clients, error_message = _generate_invoices(conn, date_from, date_to, invoice_date)
+    (generated, skipped_exists, skipped_overlap,
+     no_rate_clients, failed_clients, error_message) = _generate_invoices(
+         conn, date_from, date_to, invoice_date, force=force
+     )
     conn.close()
     parts = []
     if generated:
         parts.append(tr.get("inv_gen_ok", "{n} faktura generisano").replace("{n}", str(generated)))
     if skipped_exists:
         parts.append(tr.get("inv_gen_exists", "{n} već postoji za ovaj period").replace("{n}", str(skipped_exists)))
+    if skipped_overlap:
+        parts.append(tr.get("inv_gen_overlap_block", "Nije generisano zbog preklapanja")
+                     + ": " + str(skipped_overlap))
     if not parts:
         parts.append(tr.get("inv_gen_empty", "Nema smjena u odabranom periodu."))
     if no_rate_clients:
@@ -8706,7 +9025,8 @@ def invoices_generate():
         parts.append(tr.get("inv_gen_failed", "Nije uspjelo upisivanje") + ": " + ", ".join(failed_clients))
     if error_message:
         parts.append("DB: " + error_message[:180])
-    flash("; ".join(parts), "error" if generated == 0 and (failed_clients or not skipped_exists) else "ok")
+    flash("; ".join(parts),
+          "error" if generated == 0 and (failed_clients or not skipped_exists) else "ok")
     return redirect(f"/invoices?date_from={date_from}&date_to={date_to}&invoice_date={invoice_date}#invoice-list")
 
 
