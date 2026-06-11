@@ -8758,9 +8758,9 @@ def invoices_client():
     </style>
     <div class="invoice-shell">
         <div class="doc-tabs">
-            <a class="doc-tab" href="/invoices">{{ tr.get("my_documents","Mes documents") }}</a>
-            <a class="doc-tab" href="/invoices#invoice-profiles">{{ tr.get("my_clients","Mes clients") }}</a>
-            <a class="doc-tab" href="/invoices">{{ tr.get("my_reports","Mes rapports") }}</a>
+            <a class="doc-tab" href="/documents">{{ tr.get("my_documents","Mes documents") }}</a>
+            <a class="doc-tab" href="/clients">{{ tr.get("my_clients","Mes clients") }}</a>
+            <a class="doc-tab" href="/invoices/export_options?type=list">{{ tr.get("my_reports","Mes rapports") }}</a>
             <span class="doc-tab active">📁 {{ client }} <a href="/invoices" style="color:white;margin-left:8px;text-decoration:none;">×</a></span>
         </div>
         <div class="invoice-panel">
@@ -9059,9 +9059,9 @@ def invoices_view():
     </style>
     <div class="viewer-shell">
         <div class="doc-tabs">
-            <a class="doc-tab" href="/invoices">{{ tr.get("my_documents","Mes documents") }}</a>
-            <a class="doc-tab" href="/invoices#invoice-profiles">{{ tr.get("my_clients","Mes clients") }}</a>
-            <a class="doc-tab" href="/invoices">{{ tr.get("my_reports","Mes rapports") }}</a>
+            <a class="doc-tab" href="/documents">{{ tr.get("my_documents","Mes documents") }}</a>
+            <a class="doc-tab" href="/clients">{{ tr.get("my_clients","Mes clients") }}</a>
+            <a class="doc-tab" href="/invoices/export_options?type=list">{{ tr.get("my_reports","Mes rapports") }}</a>
             <a class="doc-tab" href="/invoices/client?client={{ row.client|urlencode }}">📁 {{ row.client }}</a>
             <span class="doc-tab active">{{ row.invoice_number }} <a href="/invoices/client?client={{ row.client|urlencode }}" style="color:inherit;margin-left:8px;text-decoration:none;opacity:.6;">×</a></span>
         </div>
