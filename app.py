@@ -9003,10 +9003,16 @@ def invoices_view():
         .ip-client-addr { white-space:pre-line; }
 
         .ip-table { width:100%; border-collapse:collapse; margin:20px 0 0; }
-        .ip-table th, .ip-table td { padding:12px 14px; text-align:left; border-bottom:1px solid #e5e7eb; vertical-align:top; font-size:13px; }
+        .ip-table th, .ip-table td { padding:12px 14px; text-align:left; border-bottom:1px solid #e5e7eb; vertical-align:top; font-size:13px; color:#111827; }
         .ip-table thead th { background:#f3f4f6; color:#374151; font-weight:700; text-transform:uppercase; font-size:12px; letter-spacing:0.04em; }
         .ip-table .ip-amount-col { text-align:right; min-width:140px; }
-        .ip-table .ip-desig { white-space:pre-line; }
+        /* Force dark text on the white invoice paper even when the page is
+           in dark theme — without this the dark-theme body color (#e5e7eb)
+           was cascading down to the tbody rows in some browsers and
+           rendering "Désignation" lines as nearly-invisible light gray on
+           the otherwise-white invoice preview. */
+        .ip-table .ip-desig { white-space:pre-line; color:#111827; }
+        .ip-table tbody td { color:#111827; }
         .ip-totals td { padding:8px 14px; }
         .ip-total-label { text-align:right; color:#374151; }
         .ip-total-amount { text-align:right; font-weight:600; min-width:140px; }
