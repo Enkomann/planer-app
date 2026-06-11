@@ -741,6 +741,7 @@ TRANSLATIONS["bos"].update({
     "inv_gen_cancel": "Odustani",
     "inv_gen_nothing_to_do": "Nema klijenata za generisanje u ovom periodu.",
     "inv_gen_overlap_msg": "Za ovog klijenta vec postoji faktura ciji se period preklapa sa izabranim.",
+    "inv_gen_force_confirm": "Stvarno generisati fakture iako postoji preklapanje perioda?",
     "inv_gen_no_rate": "Bez postavljene cijene", "inv_gen_empty": "Nema smjena ili klijenata sa postavljenom cijenom.",
     "inv_gen_failed": "Nije uspjelo upisivanje",
     "inv_convert_banner": "Uređuješ automatski generisanu fakturu br. {num} — sačuvaj da pretvoriš u ručnu fakturu.",
@@ -775,6 +776,7 @@ TRANSLATIONS["en"].update({
     "inv_gen_cancel": "Cancel",
     "inv_gen_nothing_to_do": "No clients to generate for this period.",
     "inv_gen_overlap_msg": "This client already has an invoice whose period overlaps with the selected one.",
+    "inv_gen_force_confirm": "Really generate invoices despite the overlapping period?",
     "inv_gen_no_rate": "No rate set", "inv_gen_empty": "No shifts or clients with a rate in this period.",
     "inv_gen_failed": "Could not save",
     "inv_convert_banner": "Editing auto-generated invoice #{num} — save to convert it to a manual invoice.",
@@ -809,6 +811,7 @@ TRANSLATIONS["fr"].update({
     "inv_gen_cancel": "Annuler",
     "inv_gen_nothing_to_do": "Aucun client a generer pour cette periode.",
     "inv_gen_overlap_msg": "Ce client a deja une facture dont la periode chevauche celle selectionnee.",
+    "inv_gen_force_confirm": "Generer quand meme les factures malgre le chevauchement de periode ?",
     "inv_gen_no_rate": "Tarif non defini", "inv_gen_empty": "Aucune prestation ou tarif client absent.",
     "inv_gen_failed": "Enregistrement impossible",
     "inv_convert_banner": "Modification facture auto n°{num} — sauvegarder pour convertir en facture manuelle.",
@@ -843,6 +846,7 @@ TRANSLATIONS["de"].update({
     "inv_gen_cancel": "Abbrechen",
     "inv_gen_nothing_to_do": "Keine Kunden fuer diesen Zeitraum zu erstellen.",
     "inv_gen_overlap_msg": "Fuer diesen Kunden existiert bereits eine Rechnung, deren Zeitraum sich mit dem gewaehlten ueberschneidet.",
+    "inv_gen_force_confirm": "Rechnungen trotz Zeitraum-Ueberschneidung wirklich erstellen?",
     "inv_gen_no_rate": "Kein Tarif festgelegt", "inv_gen_empty": "Keine Schichten oder Tarife fuer diesen Zeitraum.",
     "inv_gen_failed": "Speichern nicht moeglich",
     "inv_convert_banner": "Auto-Rechnung Nr. {num} bearbeiten — speichern zum Umwandeln in manuelle Rechnung.",
@@ -877,6 +881,7 @@ TRANSLATIONS["pt"].update({
     "inv_gen_cancel": "Cancelar",
     "inv_gen_nothing_to_do": "Sem clientes para gerar neste periodo.",
     "inv_gen_overlap_msg": "Este cliente ja tem uma fatura cujo periodo se sobrepoe ao selecionado.",
+    "inv_gen_force_confirm": "Realmente gerar faturas apesar da sobreposicao de periodo?",
     "inv_gen_no_rate": "Tarifa nao definida", "inv_gen_empty": "Sem servicos ou tarifas definidas para este periodo.",
     "inv_gen_failed": "Nao foi possivel guardar",
     "inv_convert_banner": "A editar fatura automatica n.°{num} — guarde para converter em fatura manual.",
@@ -8212,12 +8217,12 @@ def invoices():
     conn = get_conn()
     settings = get_invoice_settings(conn)
     profiles = get_invoice_profiles(conn)
-    skip_auto = request.args.get("skip_auto") == "1"
-    # Skip auto-generation when user is browsing/searching/filtering or
-    # navigating pages — only the bare default landing should trigger it.
-    if (not request.args.get("q") and not request.args.get("status")
-            and not request.args.get("page") and not skip_auto):
-        _generate_invoices(conn, date_from, date_to, invoice_date)
+    # Silent GET auto-generate disabled (Codex review of 044dae5, P2).
+    # Even though the overlap guard in _generate_invoices now blocks
+    # near-duplicates at write time, a GET to /invoices with arbitrary
+    # date_from/date_to would still bypass the preview/confirm UI and
+    # write rows without admin review. Generation must go through the
+    # explicit POST /invoices/generate flow with the preview step.
     rows = fetch_invoice_records_for_work_period(conn, date_from, date_to, invoice_date)
     conn.close()
     # NOTE: profiles is serialized in the template with Jinja tojson.
@@ -8800,8 +8805,16 @@ def _generate_invoices(conn, date_from, date_to, invoice_date, force=False):
                 no_rate_clients.append(row["client"])
                 continue
             attempted_clients.append(row["client"])
+            # Match the preview classifier: restrict the exact-match
+            # skip to auto invoices, so a manual invoice that happens
+            # to share (client, date_from, date_to) doesn't get
+            # misreported here as "already exists" when the preview
+            # said "will be generated".
             existing = c.execute(
-                "SELECT invoice_number FROM invoice_records WHERE client_name=? AND date_from=? AND date_to=? AND COALESCE(deleted,0)=0",
+                "SELECT invoice_number FROM invoice_records "
+                "WHERE client_name=? AND date_from=? AND date_to=? "
+                "AND COALESCE(deleted,0)=0 "
+                "AND COALESCE(source,'auto')='auto'",
                 (row["client"], date_from, date_to)
             ).fetchone()
             if existing:
@@ -8981,7 +8994,7 @@ def invoices_generate():
 
               {% if overlapping %}
               <button type="submit" name="gen_action" value="force" class="gp-btn force"
-                      onclick='return confirm({{ tr.get("inv_gen_overlap_msg","Za ovog klijenta vec postoji faktura ciji se period preklapa.")|tojson }});'>
+                      onclick='return confirm({{ tr.get("inv_gen_force_confirm","Really generate invoices despite the overlapping period?")|tojson }});'>
                 ⚠ {{ tr.get("inv_gen_force","Generisi ipak (sa preklapanjima)") }}
                 ({{ (will_generate|length) + (overlapping|length) }})
               </button>
