@@ -3045,13 +3045,33 @@ def fetch_invoice_records(conn, date_from=None, date_to=None, client=None, statu
 
 def fetch_invoice_records_for_work_period(conn, date_from, date_to, invoice_date=None):
     c = conn.cursor()
+    # Auto invoices carry a date_from..date_to work period and are matched
+    # exactly on that pair. Manual invoices have NO work period — only an
+    # invoice_date — so the old "date_from = ? AND date_to = ?" filter
+    # silently dropped any manual whose dates didn't coincide with the
+    # listing's work period. Bug symptom: admin saved a manual invoice
+    # (invoice_records row + next_invoice_number bumped) but it never
+    # appeared on /invoices because the default listing filters by last
+    # month while the manual was dated today.
+    #
+    # Fix: keep the strict work-period match for auto invoices, and OR-in
+    # manual invoices whose invoice_date matches either the listing's
+    # invoice_date filter or falls inside the work-period range. The
+    # fallback below still covers the all-empty case.
+    inv_match = invoice_date or ""
     query = """
         SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date, COALESCE(sent, 0), COALESCE(sent_date, ''), COALESCE(source, 'auto')
         FROM invoice_records
-        WHERE COALESCE(deleted, 0) = 0 AND date_from = ? AND date_to = ?
+        WHERE COALESCE(deleted, 0) = 0
+          AND (
+            (date_from = ? AND date_to = ?)
+            OR (COALESCE(source, 'auto') = 'manual'
+                AND (invoice_date = ?
+                     OR (invoice_date >= ? AND invoice_date <= ?)))
+          )
         ORDER BY CAST(invoice_number AS INTEGER) DESC, invoice_date DESC
     """
-    rows = [invoice_record_to_dict(row) for row in c.execute(query, (date_from, date_to)).fetchall()]
+    rows = [invoice_record_to_dict(row) for row in c.execute(query, (date_from, date_to, inv_match, date_from, date_to)).fetchall()]
     if rows or not invoice_date:
         return rows
     fallback_query = """
