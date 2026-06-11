@@ -9003,7 +9003,7 @@ def invoices_view():
         .ip-client-addr { white-space:pre-line; }
 
         .ip-table { width:100%; border-collapse:collapse; margin:20px 0 0; }
-        .ip-table th, .ip-table td { padding:12px 14px; text-align:left; border-bottom:1px solid #e5e7eb; vertical-align:top; font-size:13px; color:#111827; }
+        .ip-table th, .ip-table td { padding:12px 14px; text-align:left; border-bottom:1px solid #e5e7eb; vertical-align:top; font-size:13px; }
         .ip-table thead th { background:#f3f4f6; color:#374151; font-weight:700; text-transform:uppercase; font-size:12px; letter-spacing:0.04em; }
         .ip-table .ip-amount-col { text-align:right; min-width:140px; }
         /* Force dark text on the white invoice paper even when the page is
