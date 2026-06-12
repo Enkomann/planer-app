@@ -4491,6 +4491,20 @@ def init_db():
     ]:
         if _col not in client_cols:
             c.execute(f"ALTER TABLE clients ADD COLUMN {_col} {_ddl}")
+    # One-time cleanup: prior to 415c8ed, delete_client() removed the
+    # clients row but left client_invoice_profiles in place. Any row in
+    # client_invoice_profiles whose client_name no longer exists in
+    # clients is an orphan from that era — sweep them out so a future
+    # admin re-adding the same client name doesn't silently inherit
+    # the old rate / custom_address / client_type. Idempotent.
+    try:
+        c.execute(
+            "DELETE FROM client_invoice_profiles "
+            "WHERE client_name NOT IN (SELECT name FROM clients)"
+        )
+    except Exception as _orphan_err:
+        app.logger.warning("client_invoice_profiles orphan cleanup failed: %s",
+                           _orphan_err)
     invoice_cols = [row[1] for row in c.execute("PRAGMA table_info(invoice_settings)").fetchall()]
     for col_name, col_type in [
         ("company_name", "TEXT DEFAULT ''"), ("company_address", "TEXT DEFAULT ''"),
