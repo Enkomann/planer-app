@@ -12510,8 +12510,18 @@ def delete_worker(name):
 
 @app.route("/delete_client/<path:name>", methods=["POST"])
 def delete_client(name):
-    if session.get("role") != "admin": return redirect("/")
-    conn = get_conn(); c = conn.cursor(); c.execute("DELETE FROM clients WHERE name = ?", (name,)); conn.commit(); conn.close(); return redirect("/clients")
+    if session.get("role") != "admin":
+        return redirect("/")
+    conn = get_conn(); c = conn.cursor()
+    c.execute("DELETE FROM clients WHERE name = ?", (name,))
+    # Also remove the matching invoice profile so a later re-add of the
+    # same client name doesn't inherit a stale email / hourly_rate /
+    # custom_address from the previous incarnation. Without this an
+    # admin who deletes "ACME" and re-adds "ACME" two months later
+    # would see ACME's old email auto-populated in the email composer.
+    c.execute("DELETE FROM client_invoice_profiles WHERE client_name = ?", (name,))
+    conn.commit(); conn.close()
+    return redirect("/clients")
 
 @app.route("/delete_shift/<int:id>", methods=["POST"])
 def delete_shift(id):
@@ -12793,16 +12803,17 @@ def add_client():
             "VALUES (?,?,?,?,?,?,?,?)",
             (name, address, phone, email, csigned, cfrom, cto, notes),
         )
-        # Write-through: keep client_invoice_profiles.email in sync so the
-        # email-sending pipeline (which reads from there) picks up the
-        # new address without an extra step.
-        if email:
-            c.execute(
-                "INSERT INTO client_invoice_profiles (client_name, email) "
-                "VALUES (?, ?) ON CONFLICT(client_name) DO UPDATE SET "
-                "email = excluded.email",
-                (name, email),
-            )
+        # Write-through: keep client_invoice_profiles.email in sync so
+        # the email-sending pipeline (which reads from there) picks up
+        # the new address. Always upsert — even when email is empty —
+        # so a re-add of a previously-deleted client doesn't inherit
+        # a stale profile email.
+        c.execute(
+            "INSERT INTO client_invoice_profiles (client_name, email) "
+            "VALUES (?, ?) ON CONFLICT(client_name) DO UPDATE SET "
+            "email = excluded.email",
+            (name, email),
+        )
         conn.commit(); conn.close()
     return redirect("/clients")
 
@@ -13110,12 +13121,10 @@ def client_detail(name):
         btn.textContent = '✓';
         setTimeout(function(){ btn.classList.remove('copied'); btn.textContent = prev; }, 1200);
       }
-      function cdCopy(text, btn){
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(text).then(function(){ cdFlash(btn); });
-          return;
-        }
-        // Fallback for non-HTTPS / older browsers
+      function cdLegacyCopy(text, btn){
+        // Fallback for non-HTTPS / older browsers / Clipboard API
+        // rejections (some Safari versions reject writeText when the
+        // page isn't focused or the gesture chain is broken).
         var ta = document.createElement('textarea');
         ta.value = text;
         ta.style.position='fixed'; ta.style.opacity='0';
@@ -13123,6 +13132,16 @@ def client_detail(name):
         ta.select();
         try { document.execCommand('copy'); cdFlash(btn); } catch(e){}
         document.body.removeChild(ta);
+      }
+      function cdCopy(text, btn){
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(
+            function(){ cdFlash(btn); },
+            function(){ cdLegacyCopy(text, btn); }
+          );
+          return;
+        }
+        cdLegacyCopy(text, btn);
       }
       document.querySelectorAll('.cd-copy, .cd-btn.label').forEach(function(btn){
         btn.addEventListener('click', function(){
