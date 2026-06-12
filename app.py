@@ -13039,20 +13039,30 @@ def client_detail(name):
                   border-radius:14px; padding:22px;
                   color:{{ '#e2e8f0' if dark else '#1e293b' }};
                   box-shadow:0 4px 14px rgba(0,0,0,.08); }
-      .cd-row { display:flex; align-items:center; gap:8px;
+      /* 3-col grid: fixed label width + value (min-width:0 so long
+         text wraps instead of pushing siblings to zero width) + auto
+         copy button. Switched off flex because the global BASE_STYLE
+         button { width:100% } rule was stretching .cd-copy to fill
+         the row and squeezing the value down to one character per
+         line (vertical text bug). */
+      .cd-row { display:grid; grid-template-columns:140px minmax(0,1fr) auto;
+                align-items:center; gap:10px;
                 padding:10px 12px; border-radius:10px;
                 background:{{ '#0f0f10' if dark else '#f8fafc' }};
                 border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};
                 margin-top:10px; }
+      .cd-row.multiline { align-items:start; }
       .cd-row .cd-label { font-size:11px; font-weight:700;
                           color:{{ '#94a3b8' if dark else '#64748b' }};
-                          text-transform:uppercase; letter-spacing:.04em;
-                          width:140px; flex-shrink:0; }
-      .cd-row .cd-value { flex:1; font-size:14px; word-break:break-word;
+                          text-transform:uppercase; letter-spacing:.04em; }
+      .cd-row .cd-value { min-width:0; font-size:14px;
+                          overflow-wrap:break-word; word-break:normal;
                           white-space:pre-wrap; }
       .cd-row .cd-value.empty { color:{{ '#475569' if dark else '#94a3b8' }};
                                 font-style:italic; }
-      .cd-copy { background:transparent; border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};
+      .cd-copy { width:auto; min-width:40px; flex:0 0 auto;
+                 background:transparent;
+                 border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};
                  color:{{ '#e2e8f0' if dark else '#1e293b' }};
                  border-radius:8px; padding:6px 10px; cursor:pointer;
                  font-size:12px; font-family:inherit;
@@ -13078,7 +13088,7 @@ def client_detail(name):
         </div>
 
         <div class="cd-section-title">{{ tr.get("contact","Kontakt") }}</div>
-        <div class="cd-row">
+        <div class="cd-row multiline">
           <div class="cd-label">{{ tr.get("address","Adresa") }}</div>
           <div class="cd-value {% if not client.address %}empty{% endif %}"
                id="cdF_address">{{ client.address or "—" }}</div>
@@ -13125,7 +13135,8 @@ def client_detail(name):
 
         {% if client.notes %}
         <div class="cd-section-title">📝 {{ tr.get("notes","Napomena") }}</div>
-        <div class="cd-row">
+        <div class="cd-row multiline">
+          <div class="cd-label">📝</div>
           <div class="cd-value">{{ client.notes }}</div>
           <button type="button" class="cd-copy" data-copy-text="{{ client.notes }}">📋</button>
         </div>
