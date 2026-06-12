@@ -4498,13 +4498,28 @@ def init_db():
     # admin re-adding the same client name doesn't silently inherit
     # the old rate / custom_address / client_type. Idempotent.
     try:
+        # NOT EXISTS instead of NOT IN: NULL-safe (a stray
+        # clients.name=NULL would turn NOT IN into UNKNOWN and skip
+        # every row), and the planner picks the same join path on
+        # both SQLite and PostgreSQL.
         c.execute(
             "DELETE FROM client_invoice_profiles "
-            "WHERE client_name NOT IN (SELECT name FROM clients)"
+            "WHERE NOT EXISTS ("
+            "  SELECT 1 FROM clients "
+            "  WHERE clients.name = client_invoice_profiles.client_name"
+            ")"
         )
     except Exception as _orphan_err:
         app.logger.warning("client_invoice_profiles orphan cleanup failed: %s",
                            _orphan_err)
+        # PostgreSQL leaves the transaction in an aborted state after
+        # any SQL error; subsequent migrations in this init_db() would
+        # then fail on "current transaction is aborted". Roll back so
+        # the rest of init_db() can proceed cleanly.
+        try:
+            conn.rollback()
+        except Exception:
+            pass
     invoice_cols = [row[1] for row in c.execute("PRAGMA table_info(invoice_settings)").fetchall()]
     for col_name, col_type in [
         ("company_name", "TEXT DEFAULT ''"), ("company_address", "TEXT DEFAULT ''"),
