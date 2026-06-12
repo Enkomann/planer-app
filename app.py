@@ -8252,8 +8252,23 @@ def invoices():
     # Listing filter — separate from the generation period. Empty by
     # default → show every saved invoice. Admin can narrow the list
     # explicitly by passing list_date_from / list_date_to.
-    list_date_from = (request.args.get("list_date_from", "") or "").strip()
-    list_date_to   = (request.args.get("list_date_to",   "") or "").strip()
+    # invoice_date is stored as TEXT 'YYYY-MM-DD' so SQL comparisons
+    # are lexicographic — junk like ?list_date_from=abc wouldn't crash
+    # but it would silently match nothing. Reject anything that isn't
+    # a real ISO date so the UI never shows a "weird empty list" from
+    # a typo in the URL bar.
+    def _valid_iso_date(s):
+        if not s:
+            return False
+        try:
+            datetime.strptime(s, "%Y-%m-%d")
+            return True
+        except (TypeError, ValueError):
+            return False
+    _raw_lfrom = (request.args.get("list_date_from", "") or "").strip()
+    _raw_lto   = (request.args.get("list_date_to",   "") or "").strip()
+    list_date_from = _raw_lfrom if _valid_iso_date(_raw_lfrom) else ""
+    list_date_to   = _raw_lto   if _valid_iso_date(_raw_lto)   else ""
     conn = get_conn()
     settings = get_invoice_settings(conn)
     profiles = get_invoice_profiles(conn)
@@ -8341,6 +8356,17 @@ def invoices():
             a["status"] = s
         return "/invoices?" + urllib.parse.urlencode(a) + "#invoice-list"
     status_link = _status_link
+
+    # "Clear list filter" chip: drop list_date_from/list_date_to and
+    # page (would otherwise resolve to an out-of-range page after the
+    # set widens), but preserve status + q so the admin doesn't lose
+    # an unrelated narrowing they had applied.
+    _clear_args = {k: v for k, v in request.args.items()
+                   if k not in ("list_date_from", "list_date_to", "page")}
+    clear_list_filter_link = (
+        "/invoices?" + urllib.parse.urlencode(_clear_args) + "#invoice-list"
+        if _clear_args else "/invoices#invoice-list"
+    )
     return render_template_string(BASE_STYLE + header_html() + """
     <style>
         .invoice-shell { background:{{ '#161618' if dark else '#ffffff' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }}; border-radius:10px; padding:0 0 22px 0; overflow:hidden; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; }
@@ -8424,7 +8450,7 @@ def invoices():
               {% if status and status != 'all' %}<input type="hidden" name="status" value="{{ status }}">{% endif %}
               <button type="submit" style="padding:7px 14px;border-radius:6px;border:none;background:#1f4f82;color:white;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">🔎 {{ tr.get("filter_list","Filtriraj listu") }}</button>
               {% if list_date_from or list_date_to %}
-              <a href="{{ status_link(status) }}" style="padding:7px 12px;border-radius:6px;background:#6b7280;color:white;font-weight:700;font-size:13px;text-decoration:none;line-height:24px;">✕ {{ tr.get("clear_filter","Ocisti filter") }}</a>
+              <a href="{{ clear_list_filter_link }}" style="padding:7px 12px;border-radius:6px;background:#6b7280;color:white;font-weight:700;font-size:13px;text-decoration:none;line-height:24px;">✕ {{ tr.get("clear_filter","Ocisti filter") }}</a>
               {% endif %}
               <div style="flex:1;"></div>
               <small style="color:{{ '#94a3b8' if dark else '#64748b' }};align-self:center;">
@@ -8760,7 +8786,8 @@ def invoices():
          paid_rows=paid_rows, unpaid_rows=unpaid_rows, total_paid=total_paid,
          total_unpaid=total_unpaid, total_all=total_all, format_date=format_date,
          date_from=date_from, date_to=date_to, invoice_date=invoice_date,
-         list_date_from=list_date_from, list_date_to=list_date_to)
+         list_date_from=list_date_from, list_date_to=list_date_to,
+         clear_list_filter_link=clear_list_filter_link)
 
 
 def _find_overlapping_auto_invoice(c, client_name, date_from, date_to):
