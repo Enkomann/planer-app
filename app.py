@@ -13068,6 +13068,16 @@ def client_detail(name):
                  font-size:12px; font-family:inherit;
                  white-space:nowrap; }
       .cd-copy:hover { background:{{ '#2c2c30' if dark else '#e0e7ff' }}; }
+      /* Narrow viewports: 140px uppercase label is too greedy alongside a
+         long address/email. Stack label above value, keep copy button
+         pinned to the right edge of the value row. */
+      @media (max-width:520px) {
+        .cd-card { padding:16px; }
+        .cd-row  { grid-template-columns:minmax(0,1fr) auto; }
+        .cd-row .cd-label { grid-column:1 / -1; margin-bottom:2px; }
+        .cd-row .cd-value { grid-column:1; }
+        .cd-copy          { grid-column:2; grid-row:2; align-self:start; }
+      }
       .cd-copy.copied { background:#16a34a; color:white; border-color:#16a34a; }
       .cd-actions { display:flex; gap:10px; margin-top:18px; flex-wrap:wrap; }
       .cd-btn { padding:11px 16px; border-radius:10px; border:none;
