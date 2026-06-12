@@ -743,6 +743,17 @@ TRANSLATIONS["bos"].update({
     "inv_gen_overlap_msg": "Za ovog klijenta vec postoji faktura ciji se period preklapa sa izabranim.",
     "inv_gen_force_confirm": "Stvarno generisati fakture iako postoji preklapanje perioda?",
     "list_from": "Lista od",
+    "phone": "Telefon",
+    "contract_signed": "Ugovor potpisan",
+    "contract_from": "Ugovor od",
+    "contract_to": "Ugovor do",
+    "contact": "Kontakt",
+    "contract": "Ugovor",
+    "notes": "Napomena",
+    "details": "Detalji",
+    "client_details": "Detalji klijenta",
+    "copy_mailing_label": "Kopiraj naljepnicu za kovertu",
+    "client_not_found": "Klijent nije pronadjen.",
     "list_to": "do",
     "filter_list": "Filtriraj listu",
     "clear_filter": "Ocisti filter",
@@ -784,6 +795,17 @@ TRANSLATIONS["en"].update({
     "inv_gen_overlap_msg": "This client already has an invoice whose period overlaps with the selected one.",
     "inv_gen_force_confirm": "Really generate invoices despite the overlapping period?",
     "list_from": "List from",
+    "phone": "Phone",
+    "contract_signed": "Contract signed",
+    "contract_from": "Contract from",
+    "contract_to": "Contract to",
+    "contact": "Contact",
+    "contract": "Contract",
+    "notes": "Notes",
+    "details": "Details",
+    "client_details": "Client details",
+    "copy_mailing_label": "Copy mailing label",
+    "client_not_found": "Client not found.",
     "list_to": "to",
     "filter_list": "Filter list",
     "clear_filter": "Clear filter",
@@ -825,6 +847,17 @@ TRANSLATIONS["fr"].update({
     "inv_gen_overlap_msg": "Ce client a deja une facture dont la periode chevauche celle selectionnee.",
     "inv_gen_force_confirm": "Generer quand meme les factures malgre le chevauchement de periode ?",
     "list_from": "Lister du",
+    "phone": "Telephone",
+    "contract_signed": "Contrat signe",
+    "contract_from": "Contrat du",
+    "contract_to": "Contrat au",
+    "contact": "Contact",
+    "contract": "Contrat",
+    "notes": "Notes",
+    "details": "Details",
+    "client_details": "Details du client",
+    "copy_mailing_label": "Copier l'etiquette d'envoi",
+    "client_not_found": "Client introuvable.",
     "list_to": "au",
     "filter_list": "Filtrer la liste",
     "clear_filter": "Effacer le filtre",
@@ -866,6 +899,17 @@ TRANSLATIONS["de"].update({
     "inv_gen_overlap_msg": "Fuer diesen Kunden existiert bereits eine Rechnung, deren Zeitraum sich mit dem gewaehlten ueberschneidet.",
     "inv_gen_force_confirm": "Rechnungen trotz Zeitraum-Ueberschneidung wirklich erstellen?",
     "list_from": "Liste von",
+    "phone": "Telefon",
+    "contract_signed": "Vertrag unterzeichnet",
+    "contract_from": "Vertrag von",
+    "contract_to": "Vertrag bis",
+    "contact": "Kontakt",
+    "contract": "Vertrag",
+    "notes": "Notizen",
+    "details": "Details",
+    "client_details": "Kundendetails",
+    "copy_mailing_label": "Versandetikett kopieren",
+    "client_not_found": "Kunde nicht gefunden.",
     "list_to": "bis",
     "filter_list": "Liste filtern",
     "clear_filter": "Filter loeschen",
@@ -907,6 +951,17 @@ TRANSLATIONS["pt"].update({
     "inv_gen_overlap_msg": "Este cliente ja tem uma fatura cujo periodo se sobrepoe ao selecionado.",
     "inv_gen_force_confirm": "Realmente gerar faturas apesar da sobreposicao de periodo?",
     "list_from": "Lista de",
+    "phone": "Telefone",
+    "contract_signed": "Contrato assinado",
+    "contract_from": "Contrato de",
+    "contract_to": "Contrato ate",
+    "contact": "Contacto",
+    "contract": "Contrato",
+    "notes": "Notas",
+    "details": "Detalhes",
+    "client_details": "Detalhes do cliente",
+    "copy_mailing_label": "Copiar etiqueta de envio",
+    "client_not_found": "Cliente nao encontrado.",
     "list_to": "ate",
     "filter_list": "Filtrar lista",
     "clear_filter": "Limpar filtro",
@@ -4176,7 +4231,13 @@ def init_db():
         CREATE TABLE IF NOT EXISTS clients (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT UNIQUE,
-            address TEXT DEFAULT ''
+            address TEXT DEFAULT '',
+            phone TEXT DEFAULT '',
+            email TEXT DEFAULT '',
+            contract_signed_at TEXT DEFAULT '',
+            contract_from TEXT DEFAULT '',
+            contract_to TEXT DEFAULT '',
+            notes TEXT DEFAULT ''
         )
     """)
     c.execute("""
@@ -4416,6 +4477,20 @@ def init_db():
     client_cols = [row[1] for row in c.execute("PRAGMA table_info(clients)").fetchall()]
     if "address" not in client_cols:
         c.execute("ALTER TABLE clients ADD COLUMN address TEXT DEFAULT ''")
+    # Extended contact + contract fields (phone, email, contract dates).
+    # email lives here as the source of truth; client_invoice_profiles.email
+    # is still populated for invoice email sending via write-through so the
+    # email-sending code path doesn't have to change.
+    for _col, _ddl in [
+        ("phone",              "TEXT DEFAULT ''"),
+        ("email",              "TEXT DEFAULT ''"),
+        ("contract_signed_at", "TEXT DEFAULT ''"),
+        ("contract_from",      "TEXT DEFAULT ''"),
+        ("contract_to",        "TEXT DEFAULT ''"),
+        ("notes",              "TEXT DEFAULT ''"),
+    ]:
+        if _col not in client_cols:
+            c.execute(f"ALTER TABLE clients ADD COLUMN {_col} {_ddl}")
     invoice_cols = [row[1] for row in c.execute("PRAGMA table_info(invoice_settings)").fetchall()]
     for col_name, col_type in [
         ("company_name", "TEXT DEFAULT ''"), ("company_address", "TEXT DEFAULT ''"),
@@ -12460,15 +12535,134 @@ def edit_worker(name):
 
 @app.route("/edit_client/<path:name>", methods=["GET", "POST"])
 def edit_client(name):
-    if session.get("role") != "admin": return redirect("/")
-    tr = t(); dark = get_theme() == "dark"; conn = get_conn(); c = conn.cursor()
+    if session.get("role") != "admin":
+        return redirect("/")
+    tr = t(); dark = get_theme() == "dark"
+    conn = get_conn(); c = conn.cursor()
     if request.method == "POST":
-        new_name = request.form["name"].strip(); address = request.form["address"].strip()
-        if new_name: c.execute("UPDATE clients SET name = ?, address = ? WHERE name = ?", (new_name, address, name)); c.execute("UPDATE shifts SET client = ? WHERE client = ?", (new_name, name))
-        conn.commit(); conn.close(); return redirect("/clients")
-    client = c.execute("SELECT name, address FROM clients WHERE name = ?", (name,)).fetchone(); conn.close()
-    if not client: return redirect("/clients")
-    return render_template_string(BASE_STYLE + """<div class="card" style="max-width:500px;margin:auto;"><h2>{{ tr["clients"] }} - {{ tr["edit"] }}</h2><form method="post"><input name="name" value="{{ client[0] }}" required><input name="address" value="{{ client[1] }}" placeholder="{{ tr['address'] }}" required><button>{{ tr["save"] }}</button></form><br><a class="back-button" href="/clients">{{ tr["back"] }}</a></div>""", tr=tr, client=client, dark=dark)
+        f = request.form
+        new_name = f.get("name", "").strip()
+        address  = f.get("address", "").strip()
+        phone    = f.get("phone", "").strip()
+        email    = f.get("email", "").strip()
+        csigned  = f.get("contract_signed_at", "").strip()
+        cfrom    = f.get("contract_from", "").strip()
+        cto      = f.get("contract_to", "").strip()
+        notes    = f.get("notes", "").strip()
+        if new_name:
+            c.execute(
+                "UPDATE clients SET name=?, address=?, phone=?, email=?, "
+                "contract_signed_at=?, contract_from=?, contract_to=?, notes=? "
+                "WHERE name=?",
+                (new_name, address, phone, email, csigned, cfrom, cto, notes, name),
+            )
+            # Cascade rename through any related rows so the new display
+            # name is the single source of truth across shifts and the
+            # invoice profile.
+            if new_name != name:
+                c.execute("UPDATE shifts SET client=? WHERE client=?", (new_name, name))
+                c.execute(
+                    "UPDATE client_invoice_profiles SET client_name=? WHERE client_name=?",
+                    (new_name, name),
+                )
+            # Write-through email to invoice profile so the email-sending
+            # path keeps working unchanged.
+            c.execute(
+                "INSERT INTO client_invoice_profiles (client_name, email) "
+                "VALUES (?, ?) ON CONFLICT(client_name) DO UPDATE SET "
+                "email = excluded.email",
+                (new_name, email),
+            )
+        conn.commit(); conn.close()
+        return redirect("/clients/view/" + urllib.parse.quote(new_name or name))
+    row = c.execute(
+        "SELECT name, address, COALESCE(phone,''), COALESCE(email,''), "
+        "COALESCE(contract_signed_at,''), COALESCE(contract_from,''), "
+        "COALESCE(contract_to,''), COALESCE(notes,'') "
+        "FROM clients WHERE name = ?", (name,)
+    ).fetchone()
+    conn.close()
+    if not row:
+        return redirect("/clients")
+    client = {
+        "name": row[0], "address": row[1], "phone": row[2], "email": row[3],
+        "contract_signed_at": row[4], "contract_from": row[5],
+        "contract_to": row[6], "notes": row[7],
+    }
+    return render_template_string(BASE_STYLE + header_html() + """
+    <style>
+      .cf-card { max-width:640px; margin:24px auto; background:{{ '#161618' if dark else 'white' }};
+                 color:{{ '#e2e8f0' if dark else '#1e293b' }};
+                 border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};
+                 border-radius:14px; padding:22px;
+                 box-shadow:0 4px 14px rgba(0,0,0,.08); }
+      .cf-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+      .cf-label { display:block; font-size:12px; font-weight:700;
+                  color:{{ '#94a3b8' if dark else '#64748b' }}; margin:14px 0 4px; }
+      .cf-input, .cf-textarea {
+        width:100%; padding:10px 12px; border-radius:8px;
+        border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};
+        background:{{ '#0f0f10' if dark else '#fff' }};
+        color:{{ '#e2e8f0' if dark else '#0f172a' }};
+        font-size:14px; box-sizing:border-box; font-family:inherit; }
+      .cf-textarea { min-height:80px; resize:vertical; }
+      .cf-actions { display:flex; gap:10px; margin-top:18px; flex-wrap:wrap; }
+      .cf-btn { flex:1; min-width:140px; padding:11px; border-radius:10px;
+                border:none; cursor:pointer; font-weight:700; font-size:14px;
+                font-family:inherit; }
+      .cf-btn.primary { background:#16a34a; color:white; }
+      .cf-btn.cancel  { background:#6b7280; color:white; text-decoration:none;
+                        text-align:center; line-height:24px; }
+    </style>
+    <div class="cf-card">
+      <h2>🏢 {{ tr.get("clients","Klijenti") }} — {{ tr.get("edit","Uredi") }}</h2>
+      <form method="post">
+        <label class="cf-label">{{ tr.get("client_name","Naziv klijenta") }} *</label>
+        <input class="cf-input" name="name" value="{{ client.name }}" required>
+
+        <label class="cf-label">{{ tr.get("address","Adresa") }} *</label>
+        <textarea class="cf-textarea" name="address" required>{{ client.address }}</textarea>
+
+        <div class="cf-row">
+          <div>
+            <label class="cf-label">📞 {{ tr.get("phone","Telefon") }}</label>
+            <input class="cf-input" name="phone" value="{{ client.phone }}">
+          </div>
+          <div>
+            <label class="cf-label">✉ Email</label>
+            <input class="cf-input" type="email" name="email" value="{{ client.email }}">
+          </div>
+        </div>
+
+        <div class="cf-row">
+          <div>
+            <label class="cf-label">📅 {{ tr.get("contract_signed","Ugovor potpisan") }}</label>
+            <input class="cf-input" type="date" name="contract_signed_at" value="{{ client.contract_signed_at }}">
+          </div>
+          <div></div>
+        </div>
+
+        <div class="cf-row">
+          <div>
+            <label class="cf-label">{{ tr.get("contract_from","Ugovor od") }}</label>
+            <input class="cf-input" type="date" name="contract_from" value="{{ client.contract_from }}">
+          </div>
+          <div>
+            <label class="cf-label">{{ tr.get("contract_to","Ugovor do") }}</label>
+            <input class="cf-input" type="date" name="contract_to" value="{{ client.contract_to }}">
+          </div>
+        </div>
+
+        <label class="cf-label">📝 {{ tr.get("notes","Napomena") }}</label>
+        <textarea class="cf-textarea" name="notes">{{ client.notes }}</textarea>
+
+        <div class="cf-actions">
+          <button type="submit" class="cf-btn primary">💾 {{ tr.get("save","Sacuvaj") }}</button>
+          <a class="cf-btn cancel" href="/clients">{{ tr.get("back","Nazad") }}</a>
+        </div>
+      </form>
+    </div>
+    """, tr=tr, dark=dark, client=client)
 
 @app.route("/edit_shift/<int:id>", methods=["GET", "POST"])
 def edit_shift(id):
@@ -12579,10 +12773,37 @@ def add_worker():
 
 @app.route("/add_client", methods=["POST"])
 def add_client():
-    if session.get("role") != "admin": return redirect("/")
-    name = request.form["client_name"].strip(); address = request.form.get("address", "").strip()
+    if session.get("role") != "admin":
+        return redirect("/")
+    f = request.form
+    name    = f.get("client_name", "").strip()
+    address = f.get("address", "").strip()
+    phone   = f.get("phone", "").strip()
+    email   = f.get("email", "").strip()
+    csigned = f.get("contract_signed_at", "").strip()
+    cfrom   = f.get("contract_from", "").strip()
+    cto     = f.get("contract_to", "").strip()
+    notes   = f.get("notes", "").strip()
     if name and address:
-        conn = get_conn(); c = conn.cursor(); c.execute("INSERT OR IGNORE INTO clients (name, address) VALUES (?, ?)", (name, address)); conn.commit(); conn.close()
+        conn = get_conn(); c = conn.cursor()
+        c.execute(
+            "INSERT OR IGNORE INTO clients "
+            "(name, address, phone, email, contract_signed_at, "
+            " contract_from, contract_to, notes) "
+            "VALUES (?,?,?,?,?,?,?,?)",
+            (name, address, phone, email, csigned, cfrom, cto, notes),
+        )
+        # Write-through: keep client_invoice_profiles.email in sync so the
+        # email-sending pipeline (which reads from there) picks up the
+        # new address without an extra step.
+        if email:
+            c.execute(
+                "INSERT INTO client_invoice_profiles (client_name, email) "
+                "VALUES (?, ?) ON CONFLICT(client_name) DO UPDATE SET "
+                "email = excluded.email",
+                (name, email),
+            )
+        conn.commit(); conn.close()
     return redirect("/clients")
 
 @app.route("/add_shift", methods=["POST"])
@@ -12725,12 +12946,209 @@ def admin_page():
     """, tr=tr, dark=dark, db_users=db_users, workers=workers, worker_colors=worker_colors)
 
 
+@app.route("/clients/view/<path:name>")
+def client_detail(name):
+    """Read-only client detail view with copy-to-clipboard helpers.
+
+    Several clients have no email — the admin sends invoices by post.
+    The copy buttons next to each field make it one click to paste
+    the address into a printable envelope label.
+    """
+    if session.get("role") != "admin":
+        return redirect("/")
+    tr = t(); dark = get_theme() == "dark"
+    conn = get_conn(); c = conn.cursor()
+    row = c.execute(
+        "SELECT name, COALESCE(address,''), COALESCE(phone,''), "
+        "COALESCE(email,''), COALESCE(contract_signed_at,''), "
+        "COALESCE(contract_from,''), COALESCE(contract_to,''), "
+        "COALESCE(notes,'') "
+        "FROM clients WHERE name=?", (name,)
+    ).fetchone()
+    # Pull the invoice profile email as a fallback — older clients only
+    # have it there, not on the new clients.email column.
+    prof_email = ""
+    if row:
+        p = c.execute(
+            "SELECT COALESCE(email,'') FROM client_invoice_profiles "
+            "WHERE client_name=?", (row[0],)
+        ).fetchone()
+        if p:
+            prof_email = p[0] or ""
+    conn.close()
+    if not row:
+        flash(tr.get("client_not_found", "Klijent nije pronadjen."), "error")
+        return redirect("/clients")
+    client = {
+        "name": row[0], "address": row[1], "phone": row[2],
+        "email": row[3] or prof_email,
+        "contract_signed_at": row[4], "contract_from": row[5],
+        "contract_to": row[6], "notes": row[7],
+    }
+    # Compact mailing-label block — joined for the "copy whole label"
+    # button so the admin can paste straight into the envelope template.
+    mailing_parts = [client["name"]]
+    if client["address"]:
+        mailing_parts.append(client["address"])
+    mailing_label = "\n".join(mailing_parts)
+    return render_template_string(BASE_STYLE + header_html() + """
+    <style>
+      .cd-shell { max-width:720px; margin:24px auto; padding:0 16px; }
+      .cd-card  { background:{{ '#161618' if dark else '#ffffff' }};
+                  border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};
+                  border-radius:14px; padding:22px;
+                  color:{{ '#e2e8f0' if dark else '#1e293b' }};
+                  box-shadow:0 4px 14px rgba(0,0,0,.08); }
+      .cd-row { display:flex; align-items:center; gap:8px;
+                padding:10px 12px; border-radius:10px;
+                background:{{ '#0f0f10' if dark else '#f8fafc' }};
+                border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};
+                margin-top:10px; }
+      .cd-row .cd-label { font-size:11px; font-weight:700;
+                          color:{{ '#94a3b8' if dark else '#64748b' }};
+                          text-transform:uppercase; letter-spacing:.04em;
+                          width:140px; flex-shrink:0; }
+      .cd-row .cd-value { flex:1; font-size:14px; word-break:break-word;
+                          white-space:pre-wrap; }
+      .cd-row .cd-value.empty { color:{{ '#475569' if dark else '#94a3b8' }};
+                                font-style:italic; }
+      .cd-copy { background:transparent; border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};
+                 color:{{ '#e2e8f0' if dark else '#1e293b' }};
+                 border-radius:8px; padding:6px 10px; cursor:pointer;
+                 font-size:12px; font-family:inherit;
+                 white-space:nowrap; }
+      .cd-copy:hover { background:{{ '#2c2c30' if dark else '#e0e7ff' }}; }
+      .cd-copy.copied { background:#16a34a; color:white; border-color:#16a34a; }
+      .cd-actions { display:flex; gap:10px; margin-top:18px; flex-wrap:wrap; }
+      .cd-btn { padding:11px 16px; border-radius:10px; border:none;
+                cursor:pointer; font-weight:700; font-size:14px;
+                font-family:inherit; text-decoration:none; line-height:24px; }
+      .cd-btn.edit { background:#2563eb; color:white; }
+      .cd-btn.back { background:#6b7280; color:white; }
+      .cd-btn.label { background:#16a34a; color:white; }
+      .cd-section-title { margin:18px 0 4px; font-size:13px; font-weight:700;
+                          color:{{ '#94a3b8' if dark else '#64748b' }};
+                          text-transform:uppercase; letter-spacing:.04em; }
+    </style>
+    <div class="cd-shell">
+      <div class="cd-card">
+        <h2 style="margin:0 0 6px;">🏢 {{ client.name }}</h2>
+        <div style="font-size:13px;color:{{ '#94a3b8' if dark else '#64748b' }};margin-bottom:10px;">
+          {{ tr.get("client_details","Detalji klijenta") }}
+        </div>
+
+        <div class="cd-section-title">{{ tr.get("contact","Kontakt") }}</div>
+        <div class="cd-row">
+          <div class="cd-label">{{ tr.get("address","Adresa") }}</div>
+          <div class="cd-value {% if not client.address %}empty{% endif %}"
+               id="cdF_address">{{ client.address or "—" }}</div>
+          {% if client.address %}
+          <button type="button" class="cd-copy" data-copy-from="cdF_address">📋</button>
+          {% endif %}
+        </div>
+        <div class="cd-row">
+          <div class="cd-label">📞 {{ tr.get("phone","Telefon") }}</div>
+          <div class="cd-value {% if not client.phone %}empty{% endif %}"
+               id="cdF_phone">{{ client.phone or "—" }}</div>
+          {% if client.phone %}
+          <button type="button" class="cd-copy" data-copy-from="cdF_phone">📋</button>
+          {% endif %}
+        </div>
+        <div class="cd-row">
+          <div class="cd-label">✉ Email</div>
+          <div class="cd-value {% if not client.email %}empty{% endif %}"
+               id="cdF_email">{{ client.email or "—" }}</div>
+          {% if client.email %}
+          <button type="button" class="cd-copy" data-copy-from="cdF_email">📋</button>
+          {% endif %}
+        </div>
+
+        <div class="cd-section-title">{{ tr.get("contract","Ugovor") }}</div>
+        <div class="cd-row">
+          <div class="cd-label">📅 {{ tr.get("contract_signed","Potpisan") }}</div>
+          <div class="cd-value {% if not client.contract_signed_at %}empty{% endif %}">
+            {{ client.contract_signed_at or "—" }}
+          </div>
+        </div>
+        <div class="cd-row">
+          <div class="cd-label">{{ tr.get("contract_from","Od") }}</div>
+          <div class="cd-value {% if not client.contract_from %}empty{% endif %}">
+            {{ client.contract_from or "—" }}
+          </div>
+        </div>
+        <div class="cd-row">
+          <div class="cd-label">{{ tr.get("contract_to","Do") }}</div>
+          <div class="cd-value {% if not client.contract_to %}empty{% endif %}">
+            {{ client.contract_to or "—" }}
+          </div>
+        </div>
+
+        {% if client.notes %}
+        <div class="cd-section-title">📝 {{ tr.get("notes","Napomena") }}</div>
+        <div class="cd-row">
+          <div class="cd-value">{{ client.notes }}</div>
+          <button type="button" class="cd-copy" data-copy-text="{{ client.notes }}">📋</button>
+        </div>
+        {% endif %}
+
+        <div class="cd-actions">
+          <button type="button" class="cd-btn label"
+                  data-copy-text="{{ mailing_label }}">
+            📨 {{ tr.get("copy_mailing_label","Kopiraj naljepnicu za kovertu") }}
+          </button>
+          <a class="cd-btn edit" href="/edit_client/{{ client.name|urlencode }}">
+            ✏️ {{ tr.get("edit","Uredi") }}
+          </a>
+          <a class="cd-btn back" href="/clients">{{ tr.get("back","Nazad") }}</a>
+        </div>
+      </div>
+    </div>
+    <script>
+      function cdFlash(btn){
+        var prev = btn.textContent;
+        btn.classList.add('copied');
+        btn.textContent = '✓';
+        setTimeout(function(){ btn.classList.remove('copied'); btn.textContent = prev; }, 1200);
+      }
+      function cdCopy(text, btn){
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(function(){ cdFlash(btn); });
+          return;
+        }
+        // Fallback for non-HTTPS / older browsers
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position='fixed'; ta.style.opacity='0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); cdFlash(btn); } catch(e){}
+        document.body.removeChild(ta);
+      }
+      document.querySelectorAll('.cd-copy, .cd-btn.label').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          var t = btn.dataset.copyText;
+          if (!t) {
+            var src = document.getElementById(btn.dataset.copyFrom);
+            if (src) t = src.textContent.trim();
+          }
+          if (t) cdCopy(t, btn);
+        });
+      });
+    </script>
+    """, tr=tr, dark=dark, client=client, mailing_label=mailing_label)
+
+
 @app.route("/clients")
 def clients_page():
     if session.get("role") != "admin": return redirect("/")
     tr = t(); dark = get_theme() == "dark"
     conn = get_conn(); c = conn.cursor()
-    clients = c.execute("SELECT name, address FROM clients ORDER BY name").fetchall()
+    clients = c.execute(
+        "SELECT name, address, COALESCE(phone,''), COALESCE(email,''), "
+        "COALESCE(contract_signed_at,''), COALESCE(contract_from,''), "
+        "COALESCE(contract_to,'') "
+        "FROM clients ORDER BY name"
+    ).fetchall()
     conn.close()
     return render_template_string(BASE_STYLE + header_html() + """
     <style>
@@ -12753,6 +13171,15 @@ def clients_page():
       <form method="post" action="/add_client" style="display:flex;flex-direction:column;gap:8px;">
         <input name="client_name" placeholder="{{ tr['client_name'] }}" required>
         <input name="address" placeholder="{{ tr['address'] }}" required>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <input name="phone" placeholder="📞 {{ tr.get('phone','Telefon') }}">
+          <input name="email" type="email" placeholder="✉ Email">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+          <input name="contract_signed_at" type="date" title="{{ tr.get('contract_signed','Ugovor potpisan') }}">
+          <input name="contract_from"      type="date" title="{{ tr.get('contract_from','Ugovor od') }}">
+          <input name="contract_to"        type="date" title="{{ tr.get('contract_to','Ugovor do') }}">
+        </div>
         <button style="width:auto;align-self:flex-start;">{{ tr["add_client"] }}</button>
       </form>
     </div>
@@ -12760,9 +13187,14 @@ def clients_page():
     <div class="clients-grid">
       {% for cl in clients %}
       <div class="client-card">
-        <div class="client-card-name">🏢 {{ cl[0] }}</div>
+        <a class="client-card-name" href="/clients/view/{{ cl[0]|urlencode }}"
+           style="text-decoration:none;color:inherit;">🏢 {{ cl[0] }}</a>
         {% if cl[1] %}<div class="client-card-addr">📍 {{ cl[1] }}</div>{% endif %}
+        {% if cl[2] %}<div class="client-card-addr">📞 {{ cl[2] }}</div>{% endif %}
+        {% if cl[3] %}<div class="client-card-addr">✉ {{ cl[3] }}</div>{% endif %}
+        {% if cl[5] and cl[6] %}<div class="client-card-addr">📅 {{ cl[5] }} → {{ cl[6] }}</div>{% endif %}
         <div class="client-card-actions">
+          <a href="/clients/view/{{ cl[0]|urlencode }}">{{ tr.get("details","Detalji") }}</a>
           <a href="/edit_client/{{ cl[0]|urlencode }}">{{ tr["edit"] }}</a>
           <form class="inline-delete-form" method="post" action="/delete_client/{{ cl[0]|urlencode }}"
                 onsubmit='return confirm({{ tr.get("client_delete_confirm","Delete this client?")|tojson }})'>
