@@ -742,6 +742,12 @@ TRANSLATIONS["bos"].update({
     "inv_gen_nothing_to_do": "Nema klijenata za generisanje u ovom periodu.",
     "inv_gen_overlap_msg": "Za ovog klijenta vec postoji faktura ciji se period preklapa sa izabranim.",
     "inv_gen_force_confirm": "Stvarno generisati fakture iako postoji preklapanje perioda?",
+    "list_from": "Lista od",
+    "list_to": "do",
+    "filter_list": "Filtriraj listu",
+    "clear_filter": "Ocisti filter",
+    "filter_active": "Filter aktivan",
+    "showing_all": "Prikaz svih sacuvanih faktura",
     "inv_gen_no_rate": "Bez postavljene cijene", "inv_gen_empty": "Nema smjena ili klijenata sa postavljenom cijenom.",
     "inv_gen_failed": "Nije uspjelo upisivanje",
     "inv_convert_banner": "Uređuješ automatski generisanu fakturu br. {num} — sačuvaj da pretvoriš u ručnu fakturu.",
@@ -777,6 +783,12 @@ TRANSLATIONS["en"].update({
     "inv_gen_nothing_to_do": "No clients to generate for this period.",
     "inv_gen_overlap_msg": "This client already has an invoice whose period overlaps with the selected one.",
     "inv_gen_force_confirm": "Really generate invoices despite the overlapping period?",
+    "list_from": "List from",
+    "list_to": "to",
+    "filter_list": "Filter list",
+    "clear_filter": "Clear filter",
+    "filter_active": "Filter active",
+    "showing_all": "Showing all saved invoices",
     "inv_gen_no_rate": "No rate set", "inv_gen_empty": "No shifts or clients with a rate in this period.",
     "inv_gen_failed": "Could not save",
     "inv_convert_banner": "Editing auto-generated invoice #{num} — save to convert it to a manual invoice.",
@@ -812,6 +824,12 @@ TRANSLATIONS["fr"].update({
     "inv_gen_nothing_to_do": "Aucun client a generer pour cette periode.",
     "inv_gen_overlap_msg": "Ce client a deja une facture dont la periode chevauche celle selectionnee.",
     "inv_gen_force_confirm": "Generer quand meme les factures malgre le chevauchement de periode ?",
+    "list_from": "Lister du",
+    "list_to": "au",
+    "filter_list": "Filtrer la liste",
+    "clear_filter": "Effacer le filtre",
+    "filter_active": "Filtre actif",
+    "showing_all": "Toutes les factures enregistrees",
     "inv_gen_no_rate": "Tarif non defini", "inv_gen_empty": "Aucune prestation ou tarif client absent.",
     "inv_gen_failed": "Enregistrement impossible",
     "inv_convert_banner": "Modification facture auto n°{num} — sauvegarder pour convertir en facture manuelle.",
@@ -847,6 +865,12 @@ TRANSLATIONS["de"].update({
     "inv_gen_nothing_to_do": "Keine Kunden fuer diesen Zeitraum zu erstellen.",
     "inv_gen_overlap_msg": "Fuer diesen Kunden existiert bereits eine Rechnung, deren Zeitraum sich mit dem gewaehlten ueberschneidet.",
     "inv_gen_force_confirm": "Rechnungen trotz Zeitraum-Ueberschneidung wirklich erstellen?",
+    "list_from": "Liste von",
+    "list_to": "bis",
+    "filter_list": "Liste filtern",
+    "clear_filter": "Filter loeschen",
+    "filter_active": "Filter aktiv",
+    "showing_all": "Alle gespeicherten Rechnungen",
     "inv_gen_no_rate": "Kein Tarif festgelegt", "inv_gen_empty": "Keine Schichten oder Tarife fuer diesen Zeitraum.",
     "inv_gen_failed": "Speichern nicht moeglich",
     "inv_convert_banner": "Auto-Rechnung Nr. {num} bearbeiten — speichern zum Umwandeln in manuelle Rechnung.",
@@ -882,6 +906,12 @@ TRANSLATIONS["pt"].update({
     "inv_gen_nothing_to_do": "Sem clientes para gerar neste periodo.",
     "inv_gen_overlap_msg": "Este cliente ja tem uma fatura cujo periodo se sobrepoe ao selecionado.",
     "inv_gen_force_confirm": "Realmente gerar faturas apesar da sobreposicao de periodo?",
+    "list_from": "Lista de",
+    "list_to": "ate",
+    "filter_list": "Filtrar lista",
+    "clear_filter": "Limpar filtro",
+    "filter_active": "Filtro ativo",
+    "showing_all": "Todas as faturas guardadas",
     "inv_gen_no_rate": "Tarifa nao definida", "inv_gen_empty": "Sem servicos ou tarifas definidas para este periodo.",
     "inv_gen_failed": "Nao foi possivel guardar",
     "inv_convert_banner": "A editar fatura automatica n.°{num} — guarde para converter em fatura manual.",
@@ -8210,20 +8240,31 @@ def invoices():
     if session.get("role") != "admin":
         return redirect("/")
     tr = t(); dark = get_theme() == "dark"
+    # Generation form inputs — these drive the POST /invoices/generate
+    # work period and invoice_date. They do NOT filter the list anymore;
+    # the listing has its own list_date_from/list_date_to params for
+    # that. Otherwise a manual invoice dated today would silently
+    # disappear when the admin browses /invoices tomorrow.
     default_from, default_to = previous_month_range()
-    date_from = request.args.get("date_from", default_from).strip()
-    date_to = request.args.get("date_to", default_to).strip()
+    date_from    = request.args.get("date_from",    default_from).strip()
+    date_to      = request.args.get("date_to",      default_to).strip()
     invoice_date = request.args.get("invoice_date", lux_now().strftime("%Y-%m-%d")).strip()
+    # Listing filter — separate from the generation period. Empty by
+    # default → show every saved invoice. Admin can narrow the list
+    # explicitly by passing list_date_from / list_date_to.
+    list_date_from = (request.args.get("list_date_from", "") or "").strip()
+    list_date_to   = (request.args.get("list_date_to",   "") or "").strip()
     conn = get_conn()
     settings = get_invoice_settings(conn)
     profiles = get_invoice_profiles(conn)
-    # Silent GET auto-generate disabled (Codex review of 044dae5, P2).
-    # Even though the overlap guard in _generate_invoices now blocks
-    # near-duplicates at write time, a GET to /invoices with arbitrary
-    # date_from/date_to would still bypass the preview/confirm UI and
-    # write rows without admin review. Generation must go through the
-    # explicit POST /invoices/generate flow with the preview step.
-    rows = fetch_invoice_records_for_work_period(conn, date_from, date_to, invoice_date)
+    # Generation is POST-only since 742a60a — no silent GET writes.
+    rows = fetch_invoice_records(
+        conn,
+        date_from=list_date_from or None,
+        date_to=list_date_to or None,
+        client=None,
+        status="all",
+    )
     conn.close()
     # NOTE: profiles is serialized in the template with Jinja tojson.
     # Avoid prebuilt JSON strings in script contexts.
@@ -8361,6 +8402,38 @@ def invoices():
                 <div><label>{{ tr["date_to"] }}</label><input type="date" name="date_to" value="{{ date_to }}"></div>
                 <div><label>{{ tr["invoice_date"] }}</label><input type="date" name="invoice_date" value="{{ invoice_date }}"></div>
                 <div style="align-self:end;"><button style="background:#22c55e;color:#111;font-weight:800;">{{ tr["generate_invoice"] }}</button></div>
+            </form>
+
+            <!-- List filter — explicit, separate from generation period.
+                 Empty default = show every saved invoice. Manual invoices
+                 don't have a work period so they used to vanish when the
+                 generation date range moved — this lets the admin narrow
+                 the list when they want to, without ever silently
+                 hiding rows. -->
+            <form method="get" action="/invoices" style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin:6px 0 14px;padding:10px 12px;border-radius:10px;background:{{ '#0f0f10' if dark else '#f8fafc' }};border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};">
+              <div style="display:flex;flex-direction:column;gap:2px;">
+                <label style="font-size:11px;font-weight:700;color:{{ '#94a3b8' if dark else '#64748b' }};">{{ tr.get("list_from","Lista od") }}</label>
+                <input type="date" name="list_date_from" value="{{ list_date_from }}" style="padding:6px 8px;border-radius:6px;border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};background:{{ '#161618' if dark else 'white' }};color:{{ '#e2e8f0' if dark else '#0f172a' }};font-size:13px;">
+              </div>
+              <div style="display:flex;flex-direction:column;gap:2px;">
+                <label style="font-size:11px;font-weight:700;color:{{ '#94a3b8' if dark else '#64748b' }};">{{ tr.get("list_to","do") }}</label>
+                <input type="date" name="list_date_to"   value="{{ list_date_to }}"   style="padding:6px 8px;border-radius:6px;border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};background:{{ '#161618' if dark else 'white' }};color:{{ '#e2e8f0' if dark else '#0f172a' }};font-size:13px;">
+              </div>
+              {# preserve other params on filter submit #}
+              {% if q %}<input type="hidden" name="q" value="{{ q }}">{% endif %}
+              {% if status and status != 'all' %}<input type="hidden" name="status" value="{{ status }}">{% endif %}
+              <button type="submit" style="padding:7px 14px;border-radius:6px;border:none;background:#1f4f82;color:white;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">🔎 {{ tr.get("filter_list","Filtriraj listu") }}</button>
+              {% if list_date_from or list_date_to %}
+              <a href="{{ status_link(status) }}" style="padding:7px 12px;border-radius:6px;background:#6b7280;color:white;font-weight:700;font-size:13px;text-decoration:none;line-height:24px;">✕ {{ tr.get("clear_filter","Ocisti filter") }}</a>
+              {% endif %}
+              <div style="flex:1;"></div>
+              <small style="color:{{ '#94a3b8' if dark else '#64748b' }};align-self:center;">
+                {% if list_date_from or list_date_to %}
+                  {{ tr.get("filter_active","Filter aktivan") }}
+                {% else %}
+                  {{ tr.get("showing_all","Prikaz svih sacuvanih faktura") }}
+                {% endif %}
+              </small>
             </form>
 
             <div class="invoice-tabs">
@@ -8686,7 +8759,8 @@ def invoices():
          status=status, status_link=status_link, q=q,
          paid_rows=paid_rows, unpaid_rows=unpaid_rows, total_paid=total_paid,
          total_unpaid=total_unpaid, total_all=total_all, format_date=format_date,
-         date_from=date_from, date_to=date_to, invoice_date=invoice_date)
+         date_from=date_from, date_to=date_to, invoice_date=invoice_date,
+         list_date_from=list_date_from, list_date_to=list_date_to)
 
 
 def _find_overlapping_auto_invoice(c, client_name, date_from, date_to):
