@@ -4761,7 +4761,13 @@ BASE_STYLE = """
         display:inline-flex; width:40px; min-width:40px;
         margin:0; padding:0;
     }
-    .plan-shift-actions .inline-delete-form .psa-btn { width:40px !important; }
+    /* Let the form drive the delete button width (40px desktop,
+       42px touch) instead of hard-coding it here — otherwise the
+       child !important rule would beat the touch @media override
+       and the trash button would stay 40px on phones. */
+    .plan-shift-actions .inline-delete-form .psa-btn {
+        width:100% !important; min-width:100% !important;
+    }
     {% if not dark %}
     .plan-shift-actions .edit-link.psa-btn {
         background:#dbeafe !important; color:#1d4ed8 !important;
