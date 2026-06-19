@@ -4667,6 +4667,36 @@ BASE_STYLE = """
        layout (and inline-delete-form sibling) is unchanged. */
     .mini-actions { display:contents; }
     .mini-actions-toggle { display:none; }
+    /* Week-view shift action row: horizontal icon-only buttons with
+       guaranteed flex:1 sizing and clear light-theme chip colors so
+       the icons aren't washed out against the tinted shift tile. */
+    .week-shift-actions .wsa-btn {
+        flex:1; min-width:0;
+        display:flex !important; align-items:center; justify-content:center;
+        padding:6px 4px !important; margin:0 !important;
+        height:32px; min-height:32px !important;
+        font-size:16px; line-height:1;
+        border:1px solid transparent; border-radius:7px;
+        box-sizing:border-box;
+    }
+    {% if not dark %}
+    .week-shift-actions .edit-link.wsa-btn {
+        background:#dbeafe !important; color:#1d4ed8 !important;
+        border-color:#93c5fd !important;
+    }
+    .week-shift-actions .delete-link.wsa-btn {
+        background:#fee2e2 !important; color:#dc2626 !important;
+        border-color:#fca5a5 !important;
+    }
+    .week-shift-actions .copy-link.wsa-btn {
+        background:#dcfce7 !important; color:#15803d !important;
+        border-color:#86efac !important;
+    }
+    {% else %}
+    .week-shift-actions .edit-link.wsa-btn   { background:rgba(59,130,246,.18) !important; border-color:rgba(59,130,246,.35) !important; }
+    .week-shift-actions .delete-link.wsa-btn { background:rgba(239,68,68,.18)  !important; border-color:rgba(239,68,68,.35)  !important; }
+    .week-shift-actions .copy-link.wsa-btn   { background:rgba(34,197,94,.18)  !important; border-color:rgba(34,197,94,.35)  !important; }
+    {% endif %}
     .calendar-board { border-radius:16px; padding:10px; background:{{ '#0c0c0e' if dark else '#eef3fb' }}; border:1px solid {{ '#222225' if dark else '#dce5f2' }}; }
     .calendar-day-card { background:{{ '#141416' if dark else '#fbfcff' }} !important; border:1px solid {{ '#222225' if dark else '#dfe7f2' }}; border-radius:9px; box-shadow:0 1px 5px rgba(15,23,42,0.07) !important; }
     .week-day-heading {
@@ -7012,7 +7042,7 @@ def week_view():
                 <a class="week-day-heading" href="{% if is_admin %}javascript:void(0){% else %}/?selected_date={{ day }}{% endif %}" {% if is_admin %}onclick="openHolidayModal('{{ day }}')"{% endif %}>{{ day_names[loop.index0] }}<br>{{ format_date(day) }}</a>
                 {% if is_admin %}<div class="day-menu-wrapper" style="position:absolute;top:4px;right:4px;"><button onclick="toggleDayMenu(this)" title="{{ tr['add_shift'] }}" style="background:none;border:none;font-size:20px;font-weight:bold;cursor:pointer;padding:2px 5px;line-height:1;width:auto;margin:0;color:{% if dark %}#4ade80{% else %}#1f4f82{% endif %};opacity:{% if dark %}0.9{% else %}0.7{% endif %};" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='{% if dark %}0.9{% else %}0.7{% endif %}'">+</button><div class="day-mini-menu" style="display:none;position:absolute;right:0;top:28px;z-index:300;min-width:155px;border-radius:8px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,0.18);background:{% if dark %}#1d1d1f{% else %}white{% endif %};border:1px solid {% if dark %}#2c2c30{% else %}#dbeafe{% endif %};"><a href="javascript:void(0)" onclick="openAddShiftModal('{{ day }}')" style="display:block;padding:10px 15px;text-decoration:none;color:{% if dark %}#93c5fd{% else %}#1f4f82{% endif %};font-size:13px;font-weight:600;white-space:nowrap;" onmouseover="this.style.background='{% if dark %}#2c2c30{% else %}#eef4ff{% endif %}'" onmouseout="this.style.background='transparent'">+ {{ tr['add_shift'] }}</a></div></div>{% endif %}
                 {% if holiday_name %}<small class="holiday-note">{{ holiday_name }}</small>{% endif %}
-                {% for s in shifts %}{% if s[3] == day %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="--shift-accent:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#7aa7df') }};"><b>{{ s[1] }}</b><br>{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}<br>{{ s[4] }}{% if is_admin %}<div style="display:flex;flex-wrap:nowrap;gap:2px;margin-top:4px;"><a class="mini-link edit-link" style="flex:1;min-width:0;padding:3px 4px;font-size:11px;justify-content:center;" href="javascript:void(0)" data-eid="{{ s[0] }}" data-ew="{{ s[1]|e }}" data-ecl="{{ s[2]|e }}" data-edt="{{ s[3]|e }}" data-etm="{{ s[4]|e }}" data-est="{{ s[5]|e }}" onclick="openEditModalW(this)">{{ tr["edit"] }}</a><form class="inline-delete-form" style="flex:1;min-width:0;" method="post" action="/delete_shift/{{ s[0] }}" onsubmit='return confirm({{ tr.get("shift_delete_confirm","Delete this shift?")|tojson }});'><button type="submit" class="mini-link delete-link" style="width:100%;padding:3px 4px;font-size:11px;justify-content:center;">{{ tr["delete"] }}</button></form><a class="mini-link copy-link" style="flex:1;min-width:0;padding:3px 4px;font-size:11px;justify-content:center;" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a></div>{% endif %}</div>{% endif %}{% endfor %}
+                {% for s in shifts %}{% if s[3] == day %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="--shift-accent:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#7aa7df') }};"><b>{{ s[1] }}</b><br>{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}<br>{{ s[4] }}{% if is_admin %}<div class="week-shift-actions" style="display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;gap:4px;margin-top:6px;"><a class="mini-link edit-link wsa-btn" href="javascript:void(0)" data-eid="{{ s[0] }}" data-ew="{{ s[1]|e }}" data-ecl="{{ s[2]|e }}" data-edt="{{ s[3]|e }}" data-etm="{{ s[4]|e }}" data-est="{{ s[5]|e }}" onclick="openEditModalW(this)" title="{{ tr['edit'] }}" aria-label="{{ tr['edit'] }}">✏️</a><form class="inline-delete-form" style="flex:1;min-width:0;margin:0;" method="post" action="/delete_shift/{{ s[0] }}" onsubmit='return confirm({{ tr.get("shift_delete_confirm","Delete this shift?")|tojson }});'><button type="submit" class="mini-link delete-link wsa-btn" style="width:100%;" title="{{ tr['delete'] }}" aria-label="{{ tr['delete'] }}">🗑️</button></form><a class="mini-link copy-link wsa-btn" href="/copy_shift/{{ s[0] }}" title="{{ tr['copy'] }}" aria-label="{{ tr['copy'] }}">📋</a></div>{% endif %}</div>{% endif %}{% endfor %}
             </div>
         {% endfor %}
     </div>
