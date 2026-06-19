@@ -5045,6 +5045,16 @@ BASE_STYLE = """
             font-size:14px; line-height:1; cursor:pointer;
             font-family:inherit;
         }
+        /* When a popover is open, undo overflow:hidden on the two
+           ancestor containers so the absolute-positioned menu isn't
+           clipped at the day-tile edge. JS adds .actions-open to
+           both .mini-shift and .calendar-day-card on toggle. */
+        .month-grid .mini-shift.actions-open,
+        .month-grid .calendar-day-card.actions-open {
+            overflow:visible !important;
+            position:relative;
+            z-index:60;
+        }
         .month-grid .mini-actions.open {
             display:flex !important; flex-direction:column;
             position:absolute; right:4px; top:100%;
@@ -7036,18 +7046,33 @@ def week_view():
     function dragShift(ev, shiftId){ev.dataTransfer.setData('shift_id', shiftId);} function allowDrop(ev){ev.preventDefault();ev.currentTarget.classList.add('drop-target');} function clearDrop(ev){ev.currentTarget.classList.remove('drop-target');}
     function dropShift(ev, dateStr){ev.preventDefault();ev.currentTarget.classList.remove('drop-target');var shiftId=ev.dataTransfer.getData('shift_id');if(!shiftId)return;fetch('/move_shift',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'shift_id='+encodeURIComponent(shiftId)+'&date='+encodeURIComponent(dateStr)}).then(function(resp){if(resp.status===409){return resp.text().then(function(msg){showPlannerAlert(msg);});}window.location.reload();});}
     function toggleDayMenu(btn){var menu=btn.nextElementSibling;document.querySelectorAll('.day-mini-menu').forEach(function(m){if(m!==menu)m.style.display='none';});menu.style.display=menu.style.display==='none'?'block':'none';}
+    function _closeMiniActions(menu){
+      menu.classList.remove('open');
+      var ms = menu.closest('.mini-shift');
+      var dc = menu.closest('.calendar-day-card');
+      if (ms) ms.classList.remove('actions-open');
+      if (dc) dc.classList.remove('actions-open');
+    }
     function toggleMiniActions(btn){
       var menu = btn.nextElementSibling;
       if (!menu || !menu.classList.contains('mini-actions')) return;
       var willOpen = !menu.classList.contains('open');
       document.querySelectorAll('.mini-actions.open').forEach(function(m){
-        if (m !== menu) m.classList.remove('open');
+        if (m !== menu) _closeMiniActions(m);
       });
-      menu.classList.toggle('open', willOpen);
+      if (willOpen) {
+        menu.classList.add('open');
+        var ms = menu.closest('.mini-shift');
+        var dc = menu.closest('.calendar-day-card');
+        if (ms) ms.classList.add('actions-open');
+        if (dc) dc.classList.add('actions-open');
+      } else {
+        _closeMiniActions(menu);
+      }
     }
     document.addEventListener('click',function(e){if(!e.target.closest('.day-menu-wrapper')&&!e.target.closest('#addShiftModal .modal-card')){document.querySelectorAll('.day-mini-menu').forEach(function(m){m.style.display='none';});}
       if (!e.target.closest('.mini-actions-toggle') && !e.target.closest('.mini-actions.open')) {
-        document.querySelectorAll('.mini-actions.open').forEach(function(m){ m.classList.remove('open'); });
+        document.querySelectorAll('.mini-actions.open').forEach(function(m){ _closeMiniActions(m); });
       }
     });
     document.addEventListener('DOMContentLoaded',function(){
@@ -7219,18 +7244,33 @@ def month_view():
     function dragShift(ev, shiftId){ev.dataTransfer.setData('shift_id', shiftId);} function allowDrop(ev){ev.preventDefault();ev.currentTarget.classList.add('drop-target');} function clearDrop(ev){ev.currentTarget.classList.remove('drop-target');}
     function dropShift(ev, dateStr){ev.preventDefault();ev.currentTarget.classList.remove('drop-target');var shiftId=ev.dataTransfer.getData('shift_id');if(!shiftId)return;fetch('/move_shift',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'shift_id='+encodeURIComponent(shiftId)+'&date='+encodeURIComponent(dateStr)}).then(function(resp){if(resp.status===409){return resp.text().then(function(msg){showPlannerAlert(msg);});}window.location.reload();});}
     function toggleDayMenu(btn){var menu=btn.nextElementSibling;document.querySelectorAll('.day-mini-menu').forEach(function(m){if(m!==menu)m.style.display='none';});menu.style.display=menu.style.display==='none'?'block':'none';}
+    function _closeMiniActions(menu){
+      menu.classList.remove('open');
+      var ms = menu.closest('.mini-shift');
+      var dc = menu.closest('.calendar-day-card');
+      if (ms) ms.classList.remove('actions-open');
+      if (dc) dc.classList.remove('actions-open');
+    }
     function toggleMiniActions(btn){
       var menu = btn.nextElementSibling;
       if (!menu || !menu.classList.contains('mini-actions')) return;
       var willOpen = !menu.classList.contains('open');
       document.querySelectorAll('.mini-actions.open').forEach(function(m){
-        if (m !== menu) m.classList.remove('open');
+        if (m !== menu) _closeMiniActions(m);
       });
-      menu.classList.toggle('open', willOpen);
+      if (willOpen) {
+        menu.classList.add('open');
+        var ms = menu.closest('.mini-shift');
+        var dc = menu.closest('.calendar-day-card');
+        if (ms) ms.classList.add('actions-open');
+        if (dc) dc.classList.add('actions-open');
+      } else {
+        _closeMiniActions(menu);
+      }
     }
     document.addEventListener('click',function(e){if(!e.target.closest('.day-menu-wrapper')&&!e.target.closest('#addShiftModal .modal-card')){document.querySelectorAll('.day-mini-menu').forEach(function(m){m.style.display='none';});}
       if (!e.target.closest('.mini-actions-toggle') && !e.target.closest('.mini-actions.open')) {
-        document.querySelectorAll('.mini-actions.open').forEach(function(m){ m.classList.remove('open'); });
+        document.querySelectorAll('.mini-actions.open').forEach(function(m){ _closeMiniActions(m); });
       }
     });
     document.addEventListener('DOMContentLoaded',function(){
@@ -7240,17 +7280,43 @@ def month_view():
       /* Shorten date display to just day number on small screens */
       if(window.innerWidth<=600){
         document.querySelectorAll('a.month-day-date').forEach(function(a){var s=a.getAttribute('data-short');if(s)a.textContent=s;});
-        /* Compact mini-shift: radnik / 1. riječ klijenta / vrijeme */
+        /* Compact mini-shift: radnik / 1. riječ klijenta / vrijeme.
+           Build the summary with createElement + textContent so a
+           client name containing HTML can't break out into markup,
+           and preserve the admin .mini-actions-toggle / .mini-actions
+           children (otherwise the new ⋯ popover is wiped on every
+           mobile page load). */
         document.querySelectorAll('.month-grid .mini-shift').forEach(function(el){
-          var w=(el.getAttribute('data-w')||'').trim();
-          var c=el.getAttribute('data-c')||'';
-          var city=el.getAttribute('data-city')||'';
-          var t=el.getAttribute('data-t')||'';
-          var cHtml=c?(c+(city?' <span class="ms-city">'+city+'</span>':'')):'';
-          el.innerHTML=
-            (w?'<div class="ms-w">'+w+'</div>':'')+
-            (cHtml?'<div class="ms-c">'+cHtml+'</div>':'')+
-            (t?'<div class="ms-t">'+t+'</div>':'');
+          var w    = (el.getAttribute('data-w') || '').trim();
+          var c    = el.getAttribute('data-c')   || '';
+          var city = el.getAttribute('data-city')|| '';
+          var t    = el.getAttribute('data-t')   || '';
+          var toggle  = el.querySelector('.mini-actions-toggle');
+          var actions = el.querySelector('.mini-actions');
+          while (el.firstChild) el.removeChild(el.firstChild);
+          if (w) {
+            var dW = document.createElement('div');
+            dW.className = 'ms-w'; dW.textContent = w;
+            el.appendChild(dW);
+          }
+          if (c) {
+            var dC = document.createElement('div');
+            dC.className = 'ms-c'; dC.textContent = c;
+            if (city) {
+              var sCity = document.createElement('span');
+              sCity.className = 'ms-city';
+              sCity.textContent = ' ' + city;
+              dC.appendChild(sCity);
+            }
+            el.appendChild(dC);
+          }
+          if (t) {
+            var dT = document.createElement('div');
+            dT.className = 'ms-t'; dT.textContent = t;
+            el.appendChild(dT);
+          }
+          if (toggle)  el.appendChild(toggle);
+          if (actions) el.appendChild(actions);
         });
       }
     });
