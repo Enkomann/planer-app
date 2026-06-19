@@ -4679,6 +4679,12 @@ BASE_STYLE = """
         border:1px solid transparent; border-radius:7px;
         box-sizing:border-box;
     }
+    /* Touch viewports: 32px is fine for mouse hits but tight for
+       fingers. Lift to 40px (matches the .mini-link tablet rule the
+       wsa-btn !important previously pre-empted). */
+    @media (max-width:1024px) {
+        .week-shift-actions .wsa-btn { height:40px; min-height:40px !important; }
+    }
     {% if not dark %}
     .week-shift-actions .edit-link.wsa-btn {
         background:#dbeafe !important; color:#1d4ed8 !important;
