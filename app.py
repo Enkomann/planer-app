@@ -5061,13 +5061,31 @@ BASE_STYLE = """
         .month-grid .mini-actions.open {
             display:flex !important; flex-direction:row;
             align-items:center; gap:5px;
-            position:absolute; right:4px; top:100%;
+            /* Default: open toward the left (right:0) so the menu
+               doesn't push off the right edge. nth-child overrides
+               below flip the first three weekday columns to open
+               toward the right (left:0) so they don't fall off the
+               LEFT edge of a 360px phone — the popover is ~146px
+               wide and a day tile is ~50px, so it would otherwise
+               overflow whichever screen edge it's pinned to. */
+            position:absolute; right:0; left:auto; top:100%;
             min-width:auto; width:max-content; padding:5px;
             background:{{ '#1d1d1f' if dark else '#ffffff' }};
             border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};
             border-radius:10px;
             box-shadow:0 10px 24px rgba(0,0,0,.35);
             z-index:60;
+        }
+        .month-grid .calendar-day-card:nth-child(7n+1) .mini-actions.open,
+        .month-grid .calendar-day-card:nth-child(7n+2) .mini-actions.open,
+        .month-grid .calendar-day-card:nth-child(7n+3) .mini-actions.open {
+            left:0; right:auto;
+        }
+        .month-grid .calendar-day-card:nth-child(7n+4) .mini-actions.open,
+        .month-grid .calendar-day-card:nth-child(7n+5) .mini-actions.open,
+        .month-grid .calendar-day-card:nth-child(7n+6) .mini-actions.open,
+        .month-grid .calendar-day-card:nth-child(7n+7) .mini-actions.open {
+            left:auto; right:0;
         }
         /* Square equal-sized action buttons, side-by-side. */
         .month-grid .mini-actions.open .mini-link {
