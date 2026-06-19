@@ -753,6 +753,7 @@ TRANSLATIONS["bos"].update({
     "details": "Detalji",
     "client_details": "Detalji klijenta",
     "copy_mailing_label": "Kopiraj naljepnicu za kovertu",
+    "more_actions": "Vise akcija",
     "client_not_found": "Klijent nije pronadjen.",
     "list_to": "do",
     "filter_list": "Filtriraj listu",
@@ -805,6 +806,7 @@ TRANSLATIONS["en"].update({
     "details": "Details",
     "client_details": "Client details",
     "copy_mailing_label": "Copy mailing label",
+    "more_actions": "More actions",
     "client_not_found": "Client not found.",
     "list_to": "to",
     "filter_list": "Filter list",
@@ -857,6 +859,7 @@ TRANSLATIONS["fr"].update({
     "details": "Details",
     "client_details": "Details du client",
     "copy_mailing_label": "Copier l'etiquette d'envoi",
+    "more_actions": "Plus d'actions",
     "client_not_found": "Client introuvable.",
     "list_to": "au",
     "filter_list": "Filtrer la liste",
@@ -909,6 +912,7 @@ TRANSLATIONS["de"].update({
     "details": "Details",
     "client_details": "Kundendetails",
     "copy_mailing_label": "Versandetikett kopieren",
+    "more_actions": "Weitere Aktionen",
     "client_not_found": "Kunde nicht gefunden.",
     "list_to": "bis",
     "filter_list": "Liste filtern",
@@ -961,6 +965,7 @@ TRANSLATIONS["pt"].update({
     "details": "Detalhes",
     "client_details": "Detalhes do cliente",
     "copy_mailing_label": "Copiar etiqueta de envio",
+    "more_actions": "Mais acoes",
     "client_not_found": "Cliente nao encontrado.",
     "list_to": "ate",
     "filter_list": "Filtrar lista",
@@ -4656,7 +4661,12 @@ BASE_STYLE = """
     input, select, button { padding:10px; margin:6px 0; width:100%; box-sizing:border-box; border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }}; border-radius:8px; background: {{ '#1e1e20' if dark else 'white' }}; color: {{ '#e5e7eb' if dark else '#111827' }}; }
     button { background:#1f4f82; color:white; border:none; cursor:pointer; }
     .shift { background: {{ 'linear-gradient(135deg, #161618, #1e1e20)' if dark else 'linear-gradient(135deg, #ffffff, #f1f5f9)' }}; padding:14px; margin:12px 0; border-radius:12px; box-shadow:0 4px 14px rgba(0,0,0,0.06); }
-    .mini-shift { margin-top:6px; padding:6px; border-radius:8px; font-size:12px; background: {{ '#1e1e20' if dark else '#f8fafc' }}; }
+    .mini-shift { margin-top:6px; padding:6px; border-radius:8px; font-size:12px; background: {{ '#1e1e20' if dark else '#f8fafc' }}; position:relative; }
+    /* Default desktop/tablet: actions render inline, ⋯ toggle hidden.
+       display:contents flattens the wrapper so the existing inline
+       layout (and inline-delete-form sibling) is unchanged. */
+    .mini-actions { display:contents; }
+    .mini-actions-toggle { display:none; }
     .calendar-board { border-radius:16px; padding:10px; background:{{ '#0c0c0e' if dark else '#eef3fb' }}; border:1px solid {{ '#222225' if dark else '#dce5f2' }}; }
     .calendar-day-card { background:{{ '#141416' if dark else '#fbfcff' }} !important; border:1px solid {{ '#222225' if dark else '#dfe7f2' }}; border-radius:9px; box-shadow:0 1px 5px rgba(15,23,42,0.07) !important; }
     .week-day-heading {
@@ -4940,7 +4950,7 @@ BASE_STYLE = """
     /* Tablet 601–1024px */
     @media (min-width:601px) and (max-width:1024px) {
         .nav-link { padding:13px 12px; min-height:44px; display:flex; align-items:center; }
-        .mini-link { padding:6px 10px; min-height:32px; font-size:12px; }
+        .mini-link { padding:7px 11px; min-height:40px; font-size:13px; }
         .day-menu-wrapper button { min-width:34px; min-height:34px; padding:2px 6px !important; }
     }
 
@@ -5020,7 +5030,42 @@ BASE_STYLE = """
         .month-grid .mini-shift .ms-c { font-size:6px !important; }
         .month-grid .mini-shift .ms-city { font-size:5px !important; opacity:0.7; }
         .month-grid .mini-shift .ms-t { opacity:0.75; font-size:6px !important; }
-        .month-grid .mini-link { display:none !important; }
+        /* Mobile month grid: three icons can't fit in a ~50px-wide day
+           tile. Hide the inline action group by default and show a
+           single ⋯ toggle that opens a small popover with all three
+           actions stacked vertically. */
+        .month-grid .mini-actions:not(.open) { display:none !important; }
+        .month-grid .mini-actions-toggle {
+            display:inline-flex !important;
+            align-items:center; justify-content:center;
+            background:rgba(127,127,127,.18); border:none;
+            color:inherit; border-radius:6px;
+            min-width:26px; min-height:24px;
+            padding:1px 6px; margin-top:4px;
+            font-size:14px; line-height:1; cursor:pointer;
+            font-family:inherit;
+        }
+        .month-grid .mini-actions.open {
+            display:flex !important; flex-direction:column;
+            position:absolute; right:4px; top:100%;
+            min-width:120px; padding:4px;
+            background:{{ '#1d1d1f' if dark else '#ffffff' }};
+            border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};
+            border-radius:10px;
+            box-shadow:0 10px 24px rgba(0,0,0,.35);
+            z-index:60;
+        }
+        .month-grid .mini-actions.open .mini-link {
+            display:flex !important;
+            justify-content:flex-start !important;
+            align-items:center;
+            padding:10px 12px !important;
+            min-height:40px !important;
+            font-size:14px !important;
+            margin:2px 0 !important;
+            width:100%; box-sizing:border-box;
+        }
+        .month-grid .mini-actions.open .inline-delete-form { display:block; width:100%; }
         .month-grid .day-menu-wrapper { top:2px !important; right:2px !important; }
         .month-grid .day-menu-wrapper button { font-size:14px !important; padding:1px 3px !important; min-width:22px; min-height:22px; }
 
@@ -6991,7 +7036,20 @@ def week_view():
     function dragShift(ev, shiftId){ev.dataTransfer.setData('shift_id', shiftId);} function allowDrop(ev){ev.preventDefault();ev.currentTarget.classList.add('drop-target');} function clearDrop(ev){ev.currentTarget.classList.remove('drop-target');}
     function dropShift(ev, dateStr){ev.preventDefault();ev.currentTarget.classList.remove('drop-target');var shiftId=ev.dataTransfer.getData('shift_id');if(!shiftId)return;fetch('/move_shift',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'shift_id='+encodeURIComponent(shiftId)+'&date='+encodeURIComponent(dateStr)}).then(function(resp){if(resp.status===409){return resp.text().then(function(msg){showPlannerAlert(msg);});}window.location.reload();});}
     function toggleDayMenu(btn){var menu=btn.nextElementSibling;document.querySelectorAll('.day-mini-menu').forEach(function(m){if(m!==menu)m.style.display='none';});menu.style.display=menu.style.display==='none'?'block':'none';}
-    document.addEventListener('click',function(e){if(!e.target.closest('.day-menu-wrapper')&&!e.target.closest('#addShiftModal .modal-card')){document.querySelectorAll('.day-mini-menu').forEach(function(m){m.style.display='none';});}});
+    function toggleMiniActions(btn){
+      var menu = btn.nextElementSibling;
+      if (!menu || !menu.classList.contains('mini-actions')) return;
+      var willOpen = !menu.classList.contains('open');
+      document.querySelectorAll('.mini-actions.open').forEach(function(m){
+        if (m !== menu) m.classList.remove('open');
+      });
+      menu.classList.toggle('open', willOpen);
+    }
+    document.addEventListener('click',function(e){if(!e.target.closest('.day-menu-wrapper')&&!e.target.closest('#addShiftModal .modal-card')){document.querySelectorAll('.day-mini-menu').forEach(function(m){m.style.display='none';});}
+      if (!e.target.closest('.mini-actions-toggle') && !e.target.closest('.mini-actions.open')) {
+        document.querySelectorAll('.mini-actions.open').forEach(function(m){ m.classList.remove('open'); });
+      }
+    });
     document.addEventListener('DOMContentLoaded',function(){
       var CD=[{% for cl in clients %}{"name":{{cl[0]|tojson}},"addr":{{(cl[1] or '')|tojson}}}{% if not loop.last %},{% endif %}{% endfor %}];
       initClientSearch('csInputWeek','csHiddenWeek','csListWeek',CD);
@@ -7085,7 +7143,7 @@ def month_view():
                 {% if is_admin %}<div class="day-menu-wrapper" style="position:absolute;top:4px;right:4px;"><button onclick="toggleDayMenu(this)" title="{{ tr['add_shift'] }}" style="background:none;border:none;font-size:20px;font-weight:bold;cursor:pointer;padding:2px 5px;line-height:1;width:auto;margin:0;color:{% if dark %}#4ade80{% else %}#1f4f82{% endif %};opacity:{% if dark %}0.9{% else %}0.7{% endif %};" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='{% if dark %}0.9{% else %}0.7{% endif %}'">+</button><div class="day-mini-menu" style="display:none;position:absolute;right:0;top:28px;z-index:300;min-width:155px;border-radius:8px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,0.18);background:{% if dark %}#1d1d1f{% else %}white{% endif %};border:1px solid {% if dark %}#2c2c30{% else %}#dbeafe{% endif %};"><a href="javascript:void(0)" onclick="openAddShiftModal('{{ daystr }}')" style="display:block;padding:10px 15px;text-decoration:none;color:{% if dark %}#93c5fd{% else %}#1f4f82{% endif %};font-size:13px;font-weight:600;white-space:nowrap;" onmouseover="this.style.background='{% if dark %}#2c2c30{% else %}#eef4ff{% endif %}'" onmouseout="this.style.background='transparent'">+ {{ tr['add_shift'] }}</a></div></div>{% endif %}
                 <div style="font-weight:bold; margin-bottom:8px;"><a class="month-day-date" data-short="{{ day.strftime('%d') }}" href="{% if is_admin %}javascript:void(0){% else %}/?selected_date={{ daystr }}{% endif %}" {% if is_admin %}onclick="openHolidayModal('{{ daystr }}')"{% endif %} style="{% if day.weekday() >= 5 %}color:#ef4444;{% endif %}">{{ day.strftime('%d/%m/%Y') }}</a>{% if is_admin and copied_shift_id %}<br><form class="inline-delete-form" method="post" action="/paste_shift/{{ daystr }}" style="display:inline-block;margin-top:6px;"><button type="submit" style="padding:4px 7px;border-radius:6px;background:#16a34a;color:white;font-size:11px;border:none;cursor:pointer;font-family:inherit;">{{ tr["paste"] }}</button></form>{% endif %}</div>
                 {% if holiday_name %}<small class="holiday-note">{{ holiday_name }}</small>{% endif %}
-                {% for s in shifts_by_date.get(daystr, []) %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="--shift-accent:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#7aa7df') }};" data-w="{{ s[1]|e }}" data-c="{{ s[2]|e }}" data-city="{{ client_cities.get(s[2], '')|e }}" data-t="{{ s[4]|e }}"><b>{{ s[1] }}</b><br>{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}<br>{{ s[4] }}{% if is_admin %}<br><a class="mini-link edit-link" href="javascript:void(0)" data-eid="{{ s[0] }}" data-ew="{{ s[1]|e }}" data-ecl="{{ s[2]|e }}" data-edt="{{ s[3]|e }}" data-etm="{{ s[4]|e }}" data-est="{{ s[5]|e }}" onclick="openEditModalM(this)" title="{{ tr['edit'] }}" aria-label="{{ tr['edit'] }}">✏️</a><form class="inline-delete-form" method="post" action="/delete_shift/{{ s[0] }}" onsubmit='return confirm({{ tr.get("shift_delete_confirm","Delete this shift?")|tojson }});'><button type="submit" class="mini-link delete-link" title="{{ tr['delete'] }}" aria-label="{{ tr['delete'] }}">🗑</button></form><a class="mini-link copy-link" href="/copy_shift/{{ s[0] }}" title="{{ tr['copy'] }}" aria-label="{{ tr['copy'] }}">📋</a>{% endif %}</div>{% endfor %}
+                {% for s in shifts_by_date.get(daystr, []) %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="--shift-accent:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#7aa7df') }};" data-w="{{ s[1]|e }}" data-c="{{ s[2]|e }}" data-city="{{ client_cities.get(s[2], '')|e }}" data-t="{{ s[4]|e }}"><b>{{ s[1] }}</b><br>{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}<br>{{ s[4] }}{% if is_admin %}<br><button type="button" class="mini-actions-toggle" onclick="toggleMiniActions(this)" aria-label="{{ tr.get('more_actions','Vise akcija') }}" title="{{ tr.get('more_actions','Vise akcija') }}">⋯</button><div class="mini-actions"><a class="mini-link edit-link" href="javascript:void(0)" data-eid="{{ s[0] }}" data-ew="{{ s[1]|e }}" data-ecl="{{ s[2]|e }}" data-edt="{{ s[3]|e }}" data-etm="{{ s[4]|e }}" data-est="{{ s[5]|e }}" onclick="openEditModalM(this)" title="{{ tr['edit'] }}" aria-label="{{ tr['edit'] }}">✏️</a><form class="inline-delete-form" method="post" action="/delete_shift/{{ s[0] }}" onsubmit='return confirm({{ tr.get("shift_delete_confirm","Delete this shift?")|tojson }});'><button type="submit" class="mini-link delete-link" title="{{ tr['delete'] }}" aria-label="{{ tr['delete'] }}">🗑️</button></form><a class="mini-link copy-link" href="/copy_shift/{{ s[0] }}" title="{{ tr['copy'] }}" aria-label="{{ tr['copy'] }}">📋</a></div>{% endif %}</div>{% endfor %}
             </div>
         {% endfor %}{% endfor %}
     </div>
@@ -7161,7 +7219,20 @@ def month_view():
     function dragShift(ev, shiftId){ev.dataTransfer.setData('shift_id', shiftId);} function allowDrop(ev){ev.preventDefault();ev.currentTarget.classList.add('drop-target');} function clearDrop(ev){ev.currentTarget.classList.remove('drop-target');}
     function dropShift(ev, dateStr){ev.preventDefault();ev.currentTarget.classList.remove('drop-target');var shiftId=ev.dataTransfer.getData('shift_id');if(!shiftId)return;fetch('/move_shift',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'shift_id='+encodeURIComponent(shiftId)+'&date='+encodeURIComponent(dateStr)}).then(function(resp){if(resp.status===409){return resp.text().then(function(msg){showPlannerAlert(msg);});}window.location.reload();});}
     function toggleDayMenu(btn){var menu=btn.nextElementSibling;document.querySelectorAll('.day-mini-menu').forEach(function(m){if(m!==menu)m.style.display='none';});menu.style.display=menu.style.display==='none'?'block':'none';}
-    document.addEventListener('click',function(e){if(!e.target.closest('.day-menu-wrapper')&&!e.target.closest('#addShiftModal .modal-card')){document.querySelectorAll('.day-mini-menu').forEach(function(m){m.style.display='none';});}});
+    function toggleMiniActions(btn){
+      var menu = btn.nextElementSibling;
+      if (!menu || !menu.classList.contains('mini-actions')) return;
+      var willOpen = !menu.classList.contains('open');
+      document.querySelectorAll('.mini-actions.open').forEach(function(m){
+        if (m !== menu) m.classList.remove('open');
+      });
+      menu.classList.toggle('open', willOpen);
+    }
+    document.addEventListener('click',function(e){if(!e.target.closest('.day-menu-wrapper')&&!e.target.closest('#addShiftModal .modal-card')){document.querySelectorAll('.day-mini-menu').forEach(function(m){m.style.display='none';});}
+      if (!e.target.closest('.mini-actions-toggle') && !e.target.closest('.mini-actions.open')) {
+        document.querySelectorAll('.mini-actions.open').forEach(function(m){ m.classList.remove('open'); });
+      }
+    });
     document.addEventListener('DOMContentLoaded',function(){
       document.querySelectorAll('a.delete-link').forEach(function(link){link.addEventListener('click',function(e){if(!confirm({{ tr.get("shift_delete_confirm","Delete this?")|tojson }})){e.preventDefault();return false;}});});
       var CD=[{% for cl in clients %}{"name":{{cl[0]|tojson}},"addr":{{(cl[1] or '')|tojson}}}{% if not loop.last %},{% endif %}{% endfor %}];
