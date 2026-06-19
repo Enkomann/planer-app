@@ -4718,6 +4718,25 @@ BASE_STYLE = """
         .month-grid .mini-actions .copy-link   { background:rgba(34,197,94,.18)  !important; border-color:rgba(34,197,94,.35)  !important; }
         {% endif %}
     }
+
+    /* Tablet 601–900px: a 7-column month grid leaves each day tile
+       around ~100px wide. The desktop rule above renders three fixed
+       34px icons + 2×4px gap = 110px, which spills out of the card.
+       Re-grid the action row to 3 fluid columns so the icons shrink
+       to fit; ≥901px keeps the fixed 34×32 layout. */
+    @media (min-width:601px) and (max-width:900px) {
+        .month-grid .mini-actions {
+            display:grid; grid-template-columns:repeat(3, minmax(0,1fr));
+            width:100%; gap:3px;
+        }
+        .month-grid .mini-actions .mini-link,
+        .month-grid .mini-actions .inline-delete-form {
+            width:auto !important; min-width:0 !important; flex:none;
+        }
+        .month-grid .mini-actions .inline-delete-form .mini-link {
+            width:100% !important;
+        }
+    }
     /* Week-view shift action row: horizontal icon-only buttons with
        guaranteed flex:1 sizing and clear light-theme chip colors so
        the icons aren't washed out against the tinted shift tile. */
