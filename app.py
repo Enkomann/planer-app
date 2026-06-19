@@ -5040,8 +5040,11 @@ BASE_STYLE = """
             align-items:center; justify-content:center;
             background:rgba(127,127,127,.18); border:none;
             color:inherit; border-radius:6px;
-            min-width:26px; min-height:24px;
-            padding:1px 6px; margin-top:4px;
+            /* Pin against the global mobile button { padding:13px } rule
+               so the ⋯ stays compact in the day tile. */
+            width:30px !important; min-width:30px !important;
+            height:28px;            min-height:28px !important;
+            padding:0 !important;   margin-top:4px;
             font-size:14px; line-height:1; cursor:pointer;
             font-family:inherit;
         }
@@ -5056,26 +5059,48 @@ BASE_STYLE = """
             z-index:60;
         }
         .month-grid .mini-actions.open {
-            display:flex !important; flex-direction:column;
+            display:flex !important; flex-direction:row;
+            align-items:center; gap:5px;
             position:absolute; right:4px; top:100%;
-            min-width:120px; padding:4px;
+            min-width:auto; width:max-content; padding:5px;
             background:{{ '#1d1d1f' if dark else '#ffffff' }};
             border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};
             border-radius:10px;
             box-shadow:0 10px 24px rgba(0,0,0,.35);
             z-index:60;
         }
+        /* Square equal-sized action buttons, side-by-side. */
         .month-grid .mini-actions.open .mini-link {
             display:flex !important;
-            justify-content:flex-start !important;
-            align-items:center;
-            padding:10px 12px !important;
-            min-height:40px !important;
-            font-size:14px !important;
-            margin:2px 0 !important;
-            width:100%; box-sizing:border-box;
+            justify-content:center !important;
+            align-items:center !important;
+            width:42px  !important; min-width:42px !important;
+            height:42px;             min-height:42px !important;
+            padding:0   !important;  margin:0       !important;
+            font-size:18px !important; line-height:1;
+            border:1px solid transparent; border-radius:8px;
+            box-sizing:border-box;
         }
-        .month-grid .mini-actions.open .inline-delete-form { display:block; width:100%; }
+        /* Light-theme distinct colors for each action so the icon
+           kind is obvious at a glance. Dark theme keeps the
+           translucent neutral background it already had. */
+        {% if not dark %}
+        .month-grid .mini-actions.open .edit-link {
+            background:#dbeafe !important; color:#1d4ed8 !important;
+            border-color:#93c5fd !important;
+        }
+        .month-grid .mini-actions.open .delete-link {
+            background:#fee2e2 !important; color:#dc2626 !important;
+            border-color:#fca5a5 !important;
+        }
+        .month-grid .mini-actions.open .copy-link {
+            background:#dcfce7 !important; color:#15803d !important;
+            border-color:#86efac !important;
+        }
+        {% endif %}
+        .month-grid .mini-actions.open .inline-delete-form {
+            display:block; width:auto; margin:0;
+        }
         .month-grid .day-menu-wrapper { top:2px !important; right:2px !important; }
         .month-grid .day-menu-wrapper button { font-size:14px !important; padding:1px 3px !important; min-width:22px; min-height:22px; }
 
