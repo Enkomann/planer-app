@@ -5610,7 +5610,12 @@ BASE_STYLE = """
         border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};
         border-left:7px solid var(--worker-color, #2563eb);
         box-shadow:0 6px 18px rgba(0,0,0,.08);
+        position:relative;
     }
+    /* Navigation pin pinned to the top-right of the worker week card
+       so it stays in a consistent reachable spot regardless of how
+       many lines the client/worker text wraps to. */
+    .wapp-week-map { position:absolute; top:12px; right:12px; }
     .wapp-week-time { font-size:24px; font-weight:900; color:{{ '#e5e7eb' if dark else '#1e293b' }}; }
     .wapp-week-client { margin-top:10px; font-size:17px; font-weight:900; color:{{ '#e5e7eb' if dark else '#1e293b' }}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .wapp-week-worker { margin-top:6px; font-size:12px; color:{{ '#94a3b8' if dark else '#64748b' }}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -7119,11 +7124,15 @@ def week_view():
               {% for s in shifts %}
                 {% if s[3] == day %}
                 {% set auto_status = get_auto_status(s[3], s[4]) %}
+                {% set _waddr = client_addresses.get(s[2], '') %}
                 <article class="wapp-week-card" style="--worker-color:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#2563eb') }};">
                   <div class="wapp-week-time">{{ s[4] }}</div>
                   <div class="wapp-week-client">{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}</div>
                   <div class="wapp-week-worker">{{ s[1] }}</div>
                   <span class="wapp-status-badge" style="background:{{ status_colors.get(auto_status, '#6b7280') }};color:white;">{{ get_status_label(auto_status, tr) }}</span>
+                  {% if _waddr %}
+                  <a class="week-map-link wapp-week-map" href="https://www.google.com/maps/dir/?api=1&destination={{ _waddr|urlencode }}&travelmode=driving&dir_action=navigate" target="_blank" rel="noopener" title="{{ tr.get('open_in_maps','Open in Google Maps') }}" aria-label="{{ tr.get('open_in_maps','Open in Google Maps') }}">📍</a>
+                  {% endif %}
                 </article>
                 {% endif %}
               {% endfor %}
@@ -7196,7 +7205,7 @@ def week_view():
                 <a class="week-day-heading" href="{% if is_admin %}javascript:void(0){% else %}/?selected_date={{ day }}{% endif %}" {% if is_admin %}onclick="openHolidayModal('{{ day }}')"{% endif %}>{{ day_names[loop.index0] }}<br>{{ format_date(day) }}</a>
                 {% if is_admin %}<div class="day-menu-wrapper" style="position:absolute;top:4px;right:4px;"><button onclick="toggleDayMenu(this)" title="{{ tr['add_shift'] }}" style="background:none;border:none;font-size:20px;font-weight:bold;cursor:pointer;padding:2px 5px;line-height:1;width:auto;margin:0;color:{% if dark %}#4ade80{% else %}#1f4f82{% endif %};opacity:{% if dark %}0.9{% else %}0.7{% endif %};" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='{% if dark %}0.9{% else %}0.7{% endif %}'">+</button><div class="day-mini-menu" style="display:none;position:absolute;right:0;top:28px;z-index:300;min-width:155px;border-radius:8px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,0.18);background:{% if dark %}#1d1d1f{% else %}white{% endif %};border:1px solid {% if dark %}#2c2c30{% else %}#dbeafe{% endif %};"><a href="javascript:void(0)" onclick="openAddShiftModal('{{ day }}')" style="display:block;padding:10px 15px;text-decoration:none;color:{% if dark %}#93c5fd{% else %}#1f4f82{% endif %};font-size:13px;font-weight:600;white-space:nowrap;" onmouseover="this.style.background='{% if dark %}#2c2c30{% else %}#eef4ff{% endif %}'" onmouseout="this.style.background='transparent'">+ {{ tr['add_shift'] }}</a></div></div>{% endif %}
                 {% if holiday_name %}<small class="holiday-note">{{ holiday_name }}</small>{% endif %}
-                {% for s in shifts %}{% if s[3] == day %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="--shift-accent:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#7aa7df') }};"><b>{{ s[1] }}</b><br>{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}<br>{{ s[4] }}{% if not is_admin %}{% set _waddr = client_addresses.get(s[2], '') %}{% if _waddr %}<div style="margin-top:6px;"><a class="week-map-link" href="https://www.google.com/maps/dir/?api=1&destination={{ _waddr|urlencode }}&travelmode=driving&dir_action=navigate" target="_blank" rel="noopener" title="{{ tr.get('open_in_maps','Open in Google Maps') }}" aria-label="{{ tr.get('open_in_maps','Open in Google Maps') }}">📍</a></div>{% endif %}{% endif %}{% if is_admin %}<div class="week-shift-actions" style="display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;gap:4px;margin-top:6px;"><a class="mini-link edit-link wsa-btn" href="javascript:void(0)" data-eid="{{ s[0] }}" data-ew="{{ s[1]|e }}" data-ecl="{{ s[2]|e }}" data-edt="{{ s[3]|e }}" data-etm="{{ s[4]|e }}" data-est="{{ s[5]|e }}" onclick="openEditModalW(this)" title="{{ tr['edit'] }}" aria-label="{{ tr['edit'] }}">✏️</a><form class="inline-delete-form" style="flex:1;min-width:0;margin:0;" method="post" action="/delete_shift/{{ s[0] }}" onsubmit='return confirm({{ tr.get("shift_delete_confirm","Delete this shift?")|tojson }});'><button type="submit" class="mini-link delete-link wsa-btn" style="width:100%;" title="{{ tr['delete'] }}" aria-label="{{ tr['delete'] }}">🗑️</button></form><a class="mini-link copy-link wsa-btn" href="/copy_shift/{{ s[0] }}" title="{{ tr['copy'] }}" aria-label="{{ tr['copy'] }}">📋</a></div>{% endif %}</div>{% endif %}{% endfor %}
+                {% for s in shifts %}{% if s[3] == day %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="--shift-accent:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#7aa7df') }};"><b>{{ s[1] }}</b><br>{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}<br>{{ s[4] }}{% if is_admin %}<div class="week-shift-actions" style="display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;gap:4px;margin-top:6px;"><a class="mini-link edit-link wsa-btn" href="javascript:void(0)" data-eid="{{ s[0] }}" data-ew="{{ s[1]|e }}" data-ecl="{{ s[2]|e }}" data-edt="{{ s[3]|e }}" data-etm="{{ s[4]|e }}" data-est="{{ s[5]|e }}" onclick="openEditModalW(this)" title="{{ tr['edit'] }}" aria-label="{{ tr['edit'] }}">✏️</a><form class="inline-delete-form" style="flex:1;min-width:0;margin:0;" method="post" action="/delete_shift/{{ s[0] }}" onsubmit='return confirm({{ tr.get("shift_delete_confirm","Delete this shift?")|tojson }});'><button type="submit" class="mini-link delete-link wsa-btn" style="width:100%;" title="{{ tr['delete'] }}" aria-label="{{ tr['delete'] }}">🗑️</button></form><a class="mini-link copy-link wsa-btn" href="/copy_shift/{{ s[0] }}" title="{{ tr['copy'] }}" aria-label="{{ tr['copy'] }}">📋</a></div>{% endif %}</div>{% endif %}{% endfor %}
             </div>
         {% endfor %}
     </div>
