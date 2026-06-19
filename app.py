@@ -5033,7 +5033,7 @@ BASE_STYLE = """
         /* Mobile month grid: three icons can't fit in a ~50px-wide day
            tile. Hide the inline action group by default and show a
            single ⋯ toggle that opens a small popover with all three
-           actions stacked vertically. */
+           actions side by side (column-aware alignment below). */
         .month-grid .mini-actions:not(.open) { display:none !important; }
         .month-grid .mini-actions-toggle {
             display:inline-flex !important;
