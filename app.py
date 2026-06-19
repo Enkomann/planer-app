@@ -754,7 +754,6 @@ TRANSLATIONS["bos"].update({
     "client_details": "Detalji klijenta",
     "copy_mailing_label": "Kopiraj naljepnicu za kovertu",
     "more_actions": "Vise akcija",
-    "open_in_maps": "Otvori u Google Maps",
     "client_not_found": "Klijent nije pronadjen.",
     "list_to": "do",
     "filter_list": "Filtriraj listu",
@@ -808,7 +807,6 @@ TRANSLATIONS["en"].update({
     "client_details": "Client details",
     "copy_mailing_label": "Copy mailing label",
     "more_actions": "More actions",
-    "open_in_maps": "Open in Google Maps",
     "client_not_found": "Client not found.",
     "list_to": "to",
     "filter_list": "Filter list",
@@ -862,7 +860,6 @@ TRANSLATIONS["fr"].update({
     "client_details": "Details du client",
     "copy_mailing_label": "Copier l'etiquette d'envoi",
     "more_actions": "Plus d'actions",
-    "open_in_maps": "Ouvrir dans Google Maps",
     "client_not_found": "Client introuvable.",
     "list_to": "au",
     "filter_list": "Filtrer la liste",
@@ -916,7 +913,6 @@ TRANSLATIONS["de"].update({
     "client_details": "Kundendetails",
     "copy_mailing_label": "Versandetikett kopieren",
     "more_actions": "Weitere Aktionen",
-    "open_in_maps": "In Google Maps oeffnen",
     "client_not_found": "Kunde nicht gefunden.",
     "list_to": "bis",
     "filter_list": "Liste filtern",
@@ -970,7 +966,6 @@ TRANSLATIONS["pt"].update({
     "client_details": "Detalhes do cliente",
     "copy_mailing_label": "Copiar etiqueta de envio",
     "more_actions": "Mais acoes",
-    "open_in_maps": "Abrir no Google Maps",
     "client_not_found": "Cliente nao encontrado.",
     "list_to": "ate",
     "filter_list": "Filtrar lista",
@@ -4763,6 +4758,12 @@ BASE_STYLE = """
     .plan-map-link:hover {
         background:{{ 'rgba(34,197,94,.28)' if dark else '#bbf7d0' }};
     }
+    /* Touch viewports: pin is the worker's primary tap target on
+       phone for kicking off navigation — bump to 42×42 so it's a
+       comfortable finger hit, not a precision click. */
+    @media (max-width:1024px) {
+        .plan-map-link { width:42px; height:42px; font-size:18px; }
+    }
     .plan-shift-actions {
         display:flex; flex-direction:row; flex-wrap:nowrap;
         align-items:center; gap:6px; margin-top:10px;
@@ -6801,7 +6802,7 @@ def index():
         {% for week_start_key, week_shifts in weeks_grouped.items() %}
             {% set week_end_key = (datetime.strptime(week_start_key, "%Y-%m-%d") + timedelta(days=6)).strftime("%Y-%m-%d") %}
             <div class="card" style="padding:12px;"><h3 style="border-bottom:2px solid #1f4f82; padding-bottom:8px; margin-top:0;">{{ format_date(week_start_key) }} - {{ format_date(week_end_key) }}</h3>
-            {% for s in week_shifts %}{% set auto_status = get_auto_status(s[3], s[4]) %}{% set _addr = client_addresses.get(s[2], '') %}<div class="shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="border-left:6px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }}"><b>{{ format_date(s[3]) }}</b> | {{ s[4] }}<span class="status-badge" style="background:{{ status_colors.get(auto_status, '#6b7280') }};">{{ get_status_label(auto_status, tr) }}</span><br><br><b>{{ tr["team"] }}:</b> {{ s[1] }}<div class="plan-client-line"><b>{{ tr["pdf_client"] }}:</b> {{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}{% if _addr %} <a class="plan-map-link" href="https://www.google.com/maps/dir/?api=1&destination={{ _addr|urlencode }}" target="_blank" rel="noopener" title="{{ tr.get('open_in_maps','Otvori u Google Maps') }}" aria-label="{{ tr.get('open_in_maps','Otvori u Google Maps') }}">📍</a>{% endif %}</div>{% if is_admin %}<div class="plan-shift-actions"><a class="action-link edit-link psa-btn" href="/edit_shift/{{ s[0] }}" title="{{ tr['edit'] }}" aria-label="{{ tr['edit'] }}">✏️</a><form class="inline-delete-form" method="post" action="/delete_shift/{{ s[0] }}" onsubmit='return confirm({{ tr.get("shift_delete_confirm","Delete this shift?")|tojson }});'><button type="submit" class="action-link delete-link psa-btn" title="{{ tr['delete'] }}" aria-label="{{ tr['delete'] }}">🗑️</button></form><a class="action-link copy-link psa-btn" href="/copy_shift/{{ s[0] }}" title="{{ tr['copy'] }}" aria-label="{{ tr['copy'] }}">📋</a></div>{% endif %}</div>{% endfor %}</div>
+            {% for s in week_shifts %}{% set auto_status = get_auto_status(s[3], s[4]) %}{% set _addr = client_addresses.get(s[2], '') %}<div class="shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="border-left:6px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }}"><b>{{ format_date(s[3]) }}</b> | {{ s[4] }}<span class="status-badge" style="background:{{ status_colors.get(auto_status, '#6b7280') }};">{{ get_status_label(auto_status, tr) }}</span><br><br><b>{{ tr["team"] }}:</b> {{ s[1] }}<div class="plan-client-line"><b>{{ tr["pdf_client"] }}:</b> {{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}{% if _addr and not is_admin %} <a class="plan-map-link" href="https://www.google.com/maps/dir/?api=1&destination={{ _addr|urlencode }}" target="_blank" rel="noopener" title="{{ tr.get('open_in_maps','Otvori u Google Maps') }}" aria-label="{{ tr.get('open_in_maps','Otvori u Google Maps') }}">📍</a>{% endif %}</div>{% if is_admin %}<div class="plan-shift-actions"><a class="action-link edit-link psa-btn" href="/edit_shift/{{ s[0] }}" title="{{ tr['edit'] }}" aria-label="{{ tr['edit'] }}">✏️</a><form class="inline-delete-form" method="post" action="/delete_shift/{{ s[0] }}" onsubmit='return confirm({{ tr.get("shift_delete_confirm","Delete this shift?")|tojson }});'><button type="submit" class="action-link delete-link psa-btn" title="{{ tr['delete'] }}" aria-label="{{ tr['delete'] }}">🗑️</button></form><a class="action-link copy-link psa-btn" href="/copy_shift/{{ s[0] }}" title="{{ tr['copy'] }}" aria-label="{{ tr['copy'] }}">📋</a></div>{% endif %}</div>{% endfor %}</div>
         {% endfor %}
         </div>
         <a class="week-link" href="/week">{{ tr["week_calendar"] }}</a>{% if session.get('role') == 'admin' %}<a class="week-link" href="/month">{{ tr["month_calendar"] }}</a>{% endif %}<a class="week-link" href="/route_optimizer">{{ tr["route_optimizer"] }}</a><a class="pdf-link" href="/export_pdf{% if request.args.get('date') %}?date={{ request.args.get('date') }}{% endif %}" target="_blank">{{ tr["pdf"] }}</a>
@@ -6837,8 +6838,7 @@ def index():
             <div class="shift" style="border-left:6px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }}">
               <b>{{ format_date(s[3]) }}</b> | {{ s[4] }}<span class="status-badge" style="background:{{ status_colors.get(auto_status, '#6b7280') }};">{{ get_status_label(auto_status, tr) }}</span><br><br>
               <b>{{ tr["team"] }}:</b> {{ s[1] }}
-              {% set _addr = client_addresses.get(s[2], '') %}
-              <div class="plan-client-line"><b>{{ tr["pdf_client"] }}:</b> {{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}{% if _addr %} <a class="plan-map-link" href="https://www.google.com/maps/dir/?api=1&destination={{ _addr|urlencode }}" target="_blank" rel="noopener" title="{{ tr.get('open_in_maps','Otvori u Google Maps') }}" aria-label="{{ tr.get('open_in_maps','Otvori u Google Maps') }}">📍</a>{% endif %}</div>
+              <div class="plan-client-line"><b>{{ tr["pdf_client"] }}:</b> {{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}</div>
               <div class="plan-shift-actions">
                 <a class="action-link edit-link psa-btn" href="/edit_shift/{{ s[0] }}" title="{{ tr['edit'] }}" aria-label="{{ tr['edit'] }}">✏️</a>
                 <form class="inline-delete-form" method="post" action="/delete_shift/{{ s[0] }}" onsubmit='return confirm({{ tr.get("shift_delete_confirm","Delete this shift?")|tojson }});'><button type="submit" class="action-link delete-link psa-btn" title="{{ tr['delete'] }}" aria-label="{{ tr['delete'] }}">🗑️</button></form>
