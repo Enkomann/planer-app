@@ -4796,6 +4796,22 @@ BASE_STYLE = """
         .plan-shift-actions .inline-delete-form { width:42px; min-width:42px; }
     }
 
+    /* Worker-only pin on /week mini-shift tiles. Workers don't see
+       the admin action chips, so this sits where those chips would
+       otherwise be — a single green 📍 that opens turn-by-turn
+       directions to the client's saved address. */
+    .week-map-link {
+        display:inline-flex; align-items:center; justify-content:center;
+        width:32px; height:32px; padding:0; border-radius:8px;
+        text-decoration:none; font-size:16px; line-height:1;
+        background:{{ 'rgba(34,197,94,.18)' if dark else '#dcfce7' }};
+        color:{{ '#86efac' if dark else '#15803d' }};
+        border:1px solid {{ 'rgba(34,197,94,.35)' if dark else '#86efac' }};
+    }
+    @media (max-width:1024px) {
+        .week-map-link { width:42px; height:42px; font-size:18px; }
+    }
+
     /* Week-view shift action row: horizontal icon-only buttons with
        guaranteed flex:1 sizing and clear light-theme chip colors so
        the icons aren't washed out against the tinted shift tile. */
@@ -6557,7 +6573,7 @@ def index():
                                 <div class="wapp-address">{{ addr }}</div>
                                 <span class="wapp-status-badge" style="background:{{ status_colors.get(auto_status, '#6b7280') }};color:white;">{{ get_status_label(auto_status, tr) }}</span>
                             </div>
-                            <a class="wapp-map" href="https://www.google.com/maps/dir/?api=1&destination={{ addr|urlencode }}" target="_blank" rel="noopener" title="Google Maps">➜</a>
+                            {% set _real_addr = client_addresses.get(s[2], '') %}{% if _real_addr %}<a class="wapp-map" href="https://www.google.com/maps/dir/?api=1&destination={{ _real_addr|urlencode }}&travelmode=driving&dir_action=navigate" target="_blank" rel="noopener" title="{{ tr.get('open_in_maps','Open in Google Maps') }}" aria-label="{{ tr.get('open_in_maps','Open in Google Maps') }}">➜</a>{% endif %}
                         </div>
                         {% endfor %}
                     {% else %}
@@ -6584,7 +6600,7 @@ def index():
                                 <div class="wapp-client">{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}</div>
                                 <div class="wapp-address">{{ s[4] }} · {{ addr }}</div>
                             </div>
-                            <a class="wapp-map" href="https://www.google.com/maps/dir/?api=1&destination={{ addr|urlencode }}" target="_blank" rel="noopener" title="Google Maps">➜</a>
+                            {% set _real_addr = client_addresses.get(s[2], '') %}{% if _real_addr %}<a class="wapp-map" href="https://www.google.com/maps/dir/?api=1&destination={{ _real_addr|urlencode }}&travelmode=driving&dir_action=navigate" target="_blank" rel="noopener" title="{{ tr.get('open_in_maps','Open in Google Maps') }}" aria-label="{{ tr.get('open_in_maps','Open in Google Maps') }}">➜</a>{% endif %}
                         </div>
                         {% endfor %}
                     {% else %}
@@ -6622,7 +6638,7 @@ def index():
                         <div class="wapp-address">{{ s[4] }}</div>
                         <span class="wapp-status-badge" style="background:{{ status_colors.get(auto_status,'#6b7280') }};color:white;">{{ get_status_label(auto_status, tr) }}</span>
                       </div>
-                      <a class="wapp-map" href="https://www.google.com/maps/dir/?api=1&destination={{ addr|urlencode }}" target="_blank" rel="noopener" title="Google Maps">➜</a>
+                      {% set _real_addr = client_addresses.get(s[2], '') %}{% if _real_addr %}<a class="wapp-map" href="https://www.google.com/maps/dir/?api=1&destination={{ _real_addr|urlencode }}&travelmode=driving&dir_action=navigate" target="_blank" rel="noopener" title="{{ tr.get('open_in_maps','Open in Google Maps') }}" aria-label="{{ tr.get('open_in_maps','Open in Google Maps') }}">➜</a>{% endif %}
                     </div>
                     {% endfor %}
                   </div>
@@ -7071,6 +7087,7 @@ def week_view():
     holidays_map = get_all_holidays(conn, holiday_years)
     clients_raw = c.execute("SELECT name, address FROM clients ORDER BY name").fetchall()
     client_cities = client_city_map(clients_raw)
+    client_addresses = {row[0]: (row[1] or "") for row in clients_raw}
     clients = clients_raw
     workers = c.execute("SELECT name FROM workers ORDER BY name").fetchall()
     conn.close()
@@ -7179,7 +7196,7 @@ def week_view():
                 <a class="week-day-heading" href="{% if is_admin %}javascript:void(0){% else %}/?selected_date={{ day }}{% endif %}" {% if is_admin %}onclick="openHolidayModal('{{ day }}')"{% endif %}>{{ day_names[loop.index0] }}<br>{{ format_date(day) }}</a>
                 {% if is_admin %}<div class="day-menu-wrapper" style="position:absolute;top:4px;right:4px;"><button onclick="toggleDayMenu(this)" title="{{ tr['add_shift'] }}" style="background:none;border:none;font-size:20px;font-weight:bold;cursor:pointer;padding:2px 5px;line-height:1;width:auto;margin:0;color:{% if dark %}#4ade80{% else %}#1f4f82{% endif %};opacity:{% if dark %}0.9{% else %}0.7{% endif %};" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='{% if dark %}0.9{% else %}0.7{% endif %}'">+</button><div class="day-mini-menu" style="display:none;position:absolute;right:0;top:28px;z-index:300;min-width:155px;border-radius:8px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,0.18);background:{% if dark %}#1d1d1f{% else %}white{% endif %};border:1px solid {% if dark %}#2c2c30{% else %}#dbeafe{% endif %};"><a href="javascript:void(0)" onclick="openAddShiftModal('{{ day }}')" style="display:block;padding:10px 15px;text-decoration:none;color:{% if dark %}#93c5fd{% else %}#1f4f82{% endif %};font-size:13px;font-weight:600;white-space:nowrap;" onmouseover="this.style.background='{% if dark %}#2c2c30{% else %}#eef4ff{% endif %}'" onmouseout="this.style.background='transparent'">+ {{ tr['add_shift'] }}</a></div></div>{% endif %}
                 {% if holiday_name %}<small class="holiday-note">{{ holiday_name }}</small>{% endif %}
-                {% for s in shifts %}{% if s[3] == day %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="--shift-accent:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#7aa7df') }};"><b>{{ s[1] }}</b><br>{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}<br>{{ s[4] }}{% if is_admin %}<div class="week-shift-actions" style="display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;gap:4px;margin-top:6px;"><a class="mini-link edit-link wsa-btn" href="javascript:void(0)" data-eid="{{ s[0] }}" data-ew="{{ s[1]|e }}" data-ecl="{{ s[2]|e }}" data-edt="{{ s[3]|e }}" data-etm="{{ s[4]|e }}" data-est="{{ s[5]|e }}" onclick="openEditModalW(this)" title="{{ tr['edit'] }}" aria-label="{{ tr['edit'] }}">✏️</a><form class="inline-delete-form" style="flex:1;min-width:0;margin:0;" method="post" action="/delete_shift/{{ s[0] }}" onsubmit='return confirm({{ tr.get("shift_delete_confirm","Delete this shift?")|tojson }});'><button type="submit" class="mini-link delete-link wsa-btn" style="width:100%;" title="{{ tr['delete'] }}" aria-label="{{ tr['delete'] }}">🗑️</button></form><a class="mini-link copy-link wsa-btn" href="/copy_shift/{{ s[0] }}" title="{{ tr['copy'] }}" aria-label="{{ tr['copy'] }}">📋</a></div>{% endif %}</div>{% endif %}{% endfor %}
+                {% for s in shifts %}{% if s[3] == day %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="--shift-accent:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#7aa7df') }};"><b>{{ s[1] }}</b><br>{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}<br>{{ s[4] }}{% if not is_admin %}{% set _waddr = client_addresses.get(s[2], '') %}{% if _waddr %}<div style="margin-top:6px;"><a class="week-map-link" href="https://www.google.com/maps/dir/?api=1&destination={{ _waddr|urlencode }}&travelmode=driving&dir_action=navigate" target="_blank" rel="noopener" title="{{ tr.get('open_in_maps','Open in Google Maps') }}" aria-label="{{ tr.get('open_in_maps','Open in Google Maps') }}">📍</a></div>{% endif %}{% endif %}{% if is_admin %}<div class="week-shift-actions" style="display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;gap:4px;margin-top:6px;"><a class="mini-link edit-link wsa-btn" href="javascript:void(0)" data-eid="{{ s[0] }}" data-ew="{{ s[1]|e }}" data-ecl="{{ s[2]|e }}" data-edt="{{ s[3]|e }}" data-etm="{{ s[4]|e }}" data-est="{{ s[5]|e }}" onclick="openEditModalW(this)" title="{{ tr['edit'] }}" aria-label="{{ tr['edit'] }}">✏️</a><form class="inline-delete-form" style="flex:1;min-width:0;margin:0;" method="post" action="/delete_shift/{{ s[0] }}" onsubmit='return confirm({{ tr.get("shift_delete_confirm","Delete this shift?")|tojson }});'><button type="submit" class="mini-link delete-link wsa-btn" style="width:100%;" title="{{ tr['delete'] }}" aria-label="{{ tr['delete'] }}">🗑️</button></form><a class="mini-link copy-link wsa-btn" href="/copy_shift/{{ s[0] }}" title="{{ tr['copy'] }}" aria-label="{{ tr['copy'] }}">📋</a></div>{% endif %}</div>{% endif %}{% endfor %}
             </div>
         {% endfor %}
     </div>
@@ -7301,7 +7318,7 @@ def week_view():
     });
     </script>
     {% endif %}
-    """, tr=tr, dark=dark, week_days=week_days, worker_days=worker_days, shifts=shifts, worker_colors=worker_colors, client_cities=client_cities, format_date=format_date, holidays_map=holidays_map, day_names=day_names, status_colors=STATUS_COLORS, get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers, is_weekend=is_weekend, is_admin=is_admin, prev_week=prev_week, next_week=next_week, current_week=current_week, start_year=start_week.year, start_month=start_week.month, workers=workers, clients=clients, time_hours=time_hours(), selected_week_day=selected_week_day, day_shift_counts=day_shift_counts, day_month_labels=day_month_labels)
+    """, tr=tr, dark=dark, week_days=week_days, worker_days=worker_days, shifts=shifts, worker_colors=worker_colors, client_cities=client_cities, client_addresses=client_addresses, format_date=format_date, holidays_map=holidays_map, day_names=day_names, status_colors=STATUS_COLORS, get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers, is_weekend=is_weekend, is_admin=is_admin, prev_week=prev_week, next_week=next_week, current_week=current_week, start_year=start_week.year, start_month=start_week.month, workers=workers, clients=clients, time_hours=time_hours(), selected_week_day=selected_week_day, day_shift_counts=day_shift_counts, day_month_labels=day_month_labels)
 
 
 @app.route("/month")
