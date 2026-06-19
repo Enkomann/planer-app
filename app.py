@@ -4662,11 +4662,62 @@ BASE_STYLE = """
     button { background:#1f4f82; color:white; border:none; cursor:pointer; }
     .shift { background: {{ 'linear-gradient(135deg, #161618, #1e1e20)' if dark else 'linear-gradient(135deg, #ffffff, #f1f5f9)' }}; padding:14px; margin:12px 0; border-radius:12px; box-shadow:0 4px 14px rgba(0,0,0,0.06); }
     .mini-shift { margin-top:6px; padding:6px; border-radius:8px; font-size:12px; background: {{ '#1e1e20' if dark else '#f8fafc' }}; position:relative; }
-    /* Default desktop/tablet: actions render inline, ⋯ toggle hidden.
-       display:contents flattens the wrapper so the existing inline
-       layout (and inline-delete-form sibling) is unchanged. */
+    /* Default: actions render inline via display:contents on
+       non-month surfaces; ⋯ toggle hidden. The month-grid override
+       at @media (min-width:601px) below switches the wrapper to
+       inline-flex so the three icons sit side-by-side without the
+       global button { width:100% } stretching the delete button. */
     .mini-actions { display:contents; }
     .mini-actions-toggle { display:none; }
+
+    /* /month desktop + tablet horizontal action row: square 34x32
+       icon buttons, side-by-side, with light-theme chip colors so
+       the icons read clearly against the tinted day tile. Mobile
+       (≤600px) keeps the existing ⋯ popover — this block is
+       behind a min-width:601px gate. */
+    @media (min-width:601px) {
+        .month-grid .mini-actions {
+            display:inline-flex; flex-direction:row; flex-wrap:nowrap;
+            align-items:center; gap:4px;
+            margin-top:4px; max-width:100%;
+        }
+        .month-grid .mini-actions .mini-link {
+            display:inline-flex !important;
+            flex:0 0 34px; width:34px !important; min-width:34px !important;
+            height:32px;  min-height:32px !important;
+            padding:0 !important; margin:0 !important;
+            align-items:center; justify-content:center;
+            font-size:16px; line-height:1;
+            border:1px solid transparent; border-radius:7px;
+            box-sizing:border-box;
+        }
+        .month-grid .mini-actions .inline-delete-form {
+            display:inline-flex;
+            flex:0 0 34px; width:34px; min-width:34px;
+            margin:0; padding:0;
+        }
+        .month-grid .mini-actions .inline-delete-form .mini-link {
+            width:34px !important;
+        }
+        {% if not dark %}
+        .month-grid .mini-actions .edit-link {
+            background:#dbeafe !important; color:#1d4ed8 !important;
+            border-color:#93c5fd !important;
+        }
+        .month-grid .mini-actions .delete-link {
+            background:#fee2e2 !important; color:#dc2626 !important;
+            border-color:#fca5a5 !important;
+        }
+        .month-grid .mini-actions .copy-link {
+            background:#dcfce7 !important; color:#15803d !important;
+            border-color:#86efac !important;
+        }
+        {% else %}
+        .month-grid .mini-actions .edit-link   { background:rgba(59,130,246,.18) !important; border-color:rgba(59,130,246,.35) !important; }
+        .month-grid .mini-actions .delete-link { background:rgba(239,68,68,.18)  !important; border-color:rgba(239,68,68,.35)  !important; }
+        .month-grid .mini-actions .copy-link   { background:rgba(34,197,94,.18)  !important; border-color:rgba(34,197,94,.35)  !important; }
+        {% endif %}
+    }
     /* Week-view shift action row: horizontal icon-only buttons with
        guaranteed flex:1 sizing and clear light-theme chip colors so
        the icons aren't washed out against the tinted shift tile. */
