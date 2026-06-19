@@ -4737,6 +4737,59 @@ BASE_STYLE = """
             width:100% !important;
         }
     }
+    /* Dashboard /Plan shift card actions: icon row always sits on its
+       own line BELOW the client line, so long names/cities can't push
+       the actions onto an awkward second row mid-block. Used by both
+       the main weekly group and the archive accordion. */
+    .plan-client-line { display:block; margin-top:4px; overflow-wrap:anywhere; }
+    .plan-shift-actions {
+        display:flex; flex-direction:row; flex-wrap:nowrap;
+        align-items:center; gap:6px; margin-top:10px;
+    }
+    .plan-shift-actions .psa-btn {
+        display:inline-flex !important;
+        align-items:center; justify-content:center;
+        flex:0 0 40px;
+        width:40px !important; min-width:40px !important;
+        height:38px;            min-height:38px !important;
+        padding:0 !important;   margin:0 !important;
+        font-size:18px; line-height:1;
+        border:1px solid transparent; border-radius:8px;
+        box-sizing:border-box;
+    }
+    .plan-shift-actions .inline-delete-form {
+        display:inline-flex; width:40px; min-width:40px;
+        margin:0; padding:0;
+    }
+    .plan-shift-actions .inline-delete-form .psa-btn { width:40px !important; }
+    {% if not dark %}
+    .plan-shift-actions .edit-link.psa-btn {
+        background:#dbeafe !important; color:#1d4ed8 !important;
+        border-color:#93c5fd !important;
+    }
+    .plan-shift-actions .delete-link.psa-btn {
+        background:#fee2e2 !important; color:#dc2626 !important;
+        border-color:#fca5a5 !important;
+    }
+    .plan-shift-actions .copy-link.psa-btn {
+        background:#dcfce7 !important; color:#15803d !important;
+        border-color:#86efac !important;
+    }
+    {% else %}
+    .plan-shift-actions .edit-link.psa-btn   { background:rgba(59,130,246,.18) !important; border-color:rgba(59,130,246,.35) !important; }
+    .plan-shift-actions .delete-link.psa-btn { background:rgba(239,68,68,.18)  !important; border-color:rgba(239,68,68,.35)  !important; }
+    .plan-shift-actions .copy-link.psa-btn   { background:rgba(34,197,94,.18)  !important; border-color:rgba(34,197,94,.35)  !important; }
+    {% endif %}
+    /* Touch viewports: lift to 42px square so the targets are
+       finger-friendly even when the icons are tucked into a card. */
+    @media (max-width:1024px) {
+        .plan-shift-actions .psa-btn {
+            width:42px !important; min-width:42px !important;
+            height:42px;             min-height:42px !important;
+        }
+        .plan-shift-actions .inline-delete-form { width:42px; min-width:42px; }
+    }
+
     /* Week-view shift action row: horizontal icon-only buttons with
        guaranteed flex:1 sizing and clear light-theme chip colors so
        the icons aren't washed out against the tinted shift tile. */
@@ -6721,7 +6774,7 @@ def index():
         {% for week_start_key, week_shifts in weeks_grouped.items() %}
             {% set week_end_key = (datetime.strptime(week_start_key, "%Y-%m-%d") + timedelta(days=6)).strftime("%Y-%m-%d") %}
             <div class="card" style="padding:12px;"><h3 style="border-bottom:2px solid #1f4f82; padding-bottom:8px; margin-top:0;">{{ format_date(week_start_key) }} - {{ format_date(week_end_key) }}</h3>
-            {% for s in week_shifts %}{% set auto_status = get_auto_status(s[3], s[4]) %}<div class="shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="border-left:6px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }}"><b>{{ format_date(s[3]) }}</b> | {{ s[4] }}<span class="status-badge" style="background:{{ status_colors.get(auto_status, '#6b7280') }};">{{ get_status_label(auto_status, tr) }}</span><br><br><b>{{ tr["team"] }}:</b> {{ s[1] }}<br><b>{{ tr["pdf_client"] }}:</b> {{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}{% if is_admin %}<a class="action-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a><form class="inline-delete-form" method="post" action="/delete_shift/{{ s[0] }}" onsubmit='return confirm({{ tr.get("shift_delete_confirm","Delete this shift?")|tojson }});'><button type="submit" class="action-link delete-link">{{ tr["delete"] }}</button></form><a class="action-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>{% endif %}</div>{% endfor %}</div>
+            {% for s in week_shifts %}{% set auto_status = get_auto_status(s[3], s[4]) %}<div class="shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="border-left:6px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }}"><b>{{ format_date(s[3]) }}</b> | {{ s[4] }}<span class="status-badge" style="background:{{ status_colors.get(auto_status, '#6b7280') }};">{{ get_status_label(auto_status, tr) }}</span><br><br><b>{{ tr["team"] }}:</b> {{ s[1] }}<div class="plan-client-line"><b>{{ tr["pdf_client"] }}:</b> {{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}</div>{% if is_admin %}<div class="plan-shift-actions"><a class="action-link edit-link psa-btn" href="/edit_shift/{{ s[0] }}" title="{{ tr['edit'] }}" aria-label="{{ tr['edit'] }}">✏️</a><form class="inline-delete-form" method="post" action="/delete_shift/{{ s[0] }}" onsubmit='return confirm({{ tr.get("shift_delete_confirm","Delete this shift?")|tojson }});'><button type="submit" class="action-link delete-link psa-btn" title="{{ tr['delete'] }}" aria-label="{{ tr['delete'] }}">🗑️</button></form><a class="action-link copy-link psa-btn" href="/copy_shift/{{ s[0] }}" title="{{ tr['copy'] }}" aria-label="{{ tr['copy'] }}">📋</a></div>{% endif %}</div>{% endfor %}</div>
         {% endfor %}
         </div>
         <a class="week-link" href="/week">{{ tr["week_calendar"] }}</a>{% if session.get('role') == 'admin' %}<a class="week-link" href="/month">{{ tr["month_calendar"] }}</a>{% endif %}<a class="week-link" href="/route_optimizer">{{ tr["route_optimizer"] }}</a><a class="pdf-link" href="/export_pdf{% if request.args.get('date') %}?date={{ request.args.get('date') }}{% endif %}" target="_blank">{{ tr["pdf"] }}</a>
@@ -6756,11 +6809,13 @@ def index():
             {% for s in wk_shifts %}{% set auto_status = get_auto_status(s[3], s[4]) %}
             <div class="shift" style="border-left:6px solid {{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#1f4f82') }}">
               <b>{{ format_date(s[3]) }}</b> | {{ s[4] }}<span class="status-badge" style="background:{{ status_colors.get(auto_status, '#6b7280') }};">{{ get_status_label(auto_status, tr) }}</span><br><br>
-              <b>{{ tr["team"] }}:</b> {{ s[1] }}<br>
-              <b>{{ tr["pdf_client"] }}:</b> {{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}
-              <a class="action-link edit-link" href="/edit_shift/{{ s[0] }}">{{ tr["edit"] }}</a>
-              <form class="inline-delete-form" method="post" action="/delete_shift/{{ s[0] }}" onsubmit='return confirm({{ tr.get("shift_delete_confirm","Delete this shift?")|tojson }});'><button type="submit" class="action-link delete-link">{{ tr["delete"] }}</button></form>
-              <a class="action-link copy-link" href="/copy_shift/{{ s[0] }}">{{ tr["copy"] }}</a>
+              <b>{{ tr["team"] }}:</b> {{ s[1] }}
+              <div class="plan-client-line"><b>{{ tr["pdf_client"] }}:</b> {{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}</div>
+              <div class="plan-shift-actions">
+                <a class="action-link edit-link psa-btn" href="/edit_shift/{{ s[0] }}" title="{{ tr['edit'] }}" aria-label="{{ tr['edit'] }}">✏️</a>
+                <form class="inline-delete-form" method="post" action="/delete_shift/{{ s[0] }}" onsubmit='return confirm({{ tr.get("shift_delete_confirm","Delete this shift?")|tojson }});'><button type="submit" class="action-link delete-link psa-btn" title="{{ tr['delete'] }}" aria-label="{{ tr['delete'] }}">🗑️</button></form>
+                <a class="action-link copy-link psa-btn" href="/copy_shift/{{ s[0] }}" title="{{ tr['copy'] }}" aria-label="{{ tr['copy'] }}">📋</a>
+              </div>
             </div>
             {% endfor %}
           </div>
