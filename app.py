@@ -313,6 +313,15 @@ app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=bool(os.environ.get("RENDER") or os.environ.get("SESSION_COOKIE_SECURE") == "1"),
+    # "Remember me" path: when the user opts in at login we set
+    # session.permanent=True so the cookie picks up this lifetime
+    # (30 days) instead of being a browser-session cookie. Without
+    # the checkbox the cookie still expires on browser close.
+    PERMANENT_SESSION_LIFETIME=timedelta(days=30),
+    # Refresh the cookie's Expires header on every request so a
+    # daily user keeps a rolling 30-day window — they only get
+    # bounced to /login after 30 full days of inactivity.
+    SESSION_REFRESH_EACH_REQUEST=True,
 )
 app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_UPLOAD_MB", "600")) * 1024 * 1024
 
@@ -362,6 +371,7 @@ TRANSLATIONS = {
     "bos": {
         "login_title": "Prijava", "username": "Korisnicko ime", "password": "Lozinka",
         "login_btn": "Prijava", "login_error": "Pogresno korisnicko ime ili lozinka",
+    "remember_me": "Zapamti me na ovom uredjaju",
         "title": "PLAN RADNIKA", "logged_as": "Logovan kao", "logout": "Odjava",
         "add_worker": "Dodaj radnika", "add_client": "Dodaj klijenta", "add_shift": "Dodaj smjenu",
         "worker_name": "Ime radnika", "client_name": "Naziv klijenta", "address": "Adresa",
@@ -412,6 +422,7 @@ for lang in ["fr", "en", "de", "pt"]:
 
 TRANSLATIONS["fr"].update({
     "login_title": "Connexion", "login_btn": "Connexion", "logout": "Deconnexion",
+    "remember_me": "Se souvenir de moi sur cet appareil",
     "title": "PLAN DE TRAVAIL", "add_worker": "Ajouter employe", "add_client": "Ajouter client",
     "add_shift": "Ajouter mission", "workers": "Employes", "clients": "Clients",
     "week_calendar": "Calendrier hebdomadaire", "month_calendar": "Calendrier mensuel",
@@ -428,6 +439,7 @@ TRANSLATIONS["fr"].update({
 })
 TRANSLATIONS["en"].update({
     "login_title": "Login", "login_btn": "Login", "logout": "Logout",
+    "remember_me": "Remember me on this device",
     "title": "WORK SCHEDULE", "add_worker": "Add worker", "add_client": "Add client",
     "add_shift": "Add shift", "workers": "Workers", "clients": "Clients",
     "nav_plan": "Plan", "nav_week": "Week", "nav_month": "Month",
@@ -444,6 +456,7 @@ TRANSLATIONS["en"].update({
 })
 TRANSLATIONS["de"].update({
     "login_title": "Anmeldung", "login_btn": "Anmelden", "logout": "Abmelden",
+    "remember_me": "Auf diesem Geraet angemeldet bleiben",
     "title": "ARBEITSPLAN", "add_worker": "Mitarbeiter hinzufugen", "add_client": "Kunde hinzufugen",
     "add_shift": "Einsatz hinzufugen", "workers": "Mitarbeiter", "clients": "Kunden",
     "week_calendar": "Wochenkalender", "month_calendar": "Monatskalender",
@@ -460,6 +473,7 @@ TRANSLATIONS["de"].update({
 })
 TRANSLATIONS["pt"].update({
     "login_title": "Entrar", "login_btn": "Entrar", "logout": "Sair",
+    "remember_me": "Manter sessao iniciada neste dispositivo",
     "title": "PLANO DE TRABALHO", "add_worker": "Adicionar trabalhador", "add_client": "Adicionar cliente",
     "add_shift": "Adicionar turno", "workers": "Trabalhadores", "clients": "Clientes",
     "week_calendar": "Calendario semanal", "month_calendar": "Calendario mensal",
@@ -6348,20 +6362,57 @@ def login():
             conn.close()
             session["user"] = user[0]
             session["role"] = user[2]
+            # "Remember me" → permanent session (cookie picks up the
+            # PERMANENT_SESSION_LIFETIME=30d). Without the checkbox
+            # Flask falls back to a browser-session cookie. Failed
+            # logins NEVER reach this branch, so a bad password
+            # can't accidentally pin a permanent session.
+            session.permanent = (request.form.get("remember") == "1")
             return redirect("/")
         conn.close()
         error = tr["login_error"]
 
     return render_template_string(BASE_STYLE + """
+    <style>
+        .login-card { max-width:420px; margin:auto; text-align:center; padding:30px; }
+        .login-card h2 { margin:0 0 14px; }
+        .login-field { margin:0 0 10px; text-align:left; }
+        .login-field label.sr-only {
+            position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+            overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+        }
+        .login-field input { width:100%; box-sizing:border-box; }
+        .login-remember {
+            display:flex; align-items:center; gap:8px;
+            margin:6px 0 14px; font-size:13px; text-align:left;
+            color:{{ '#94a3b8' if dark else '#64748b' }};
+        }
+        .login-remember input { width:auto; margin:0; cursor:pointer; }
+    </style>
     <div class="langbar" style="max-width:420px; margin:0 auto 12px auto; text-align:right;">
         <a href="/set_lang/fr">FR</a><a href="/set_lang/en">EN</a><a href="/set_lang/bos">BOS</a><a href="/set_lang/de">DE</a><a href="/set_lang/pt">PT</a>
     </div>
-    <div class="card" style="max-width:420px; margin:auto; text-align:center; padding:30px;">
+    <div class="card login-card">
         <img src="{{ url_for('static', filename='logo.png') }}" alt="Luxmann Logo" style="height:70px; margin-bottom:12px;">
         <h2>{{ tr["login_title"] }}</h2>
-        <form method="post">
-            <input name="username" placeholder="{{ tr['username'] }}" required>
-            <input name="password" type="password" placeholder="{{ tr['password'] }}" required>
+        <form method="post" autocomplete="on">
+            <div class="login-field">
+                <label class="sr-only" for="username">{{ tr['username'] }}</label>
+                <input id="username" name="username" type="text"
+                       autocomplete="username" autocapitalize="none"
+                       autocorrect="off" spellcheck="false"
+                       placeholder="{{ tr['username'] }}" required>
+            </div>
+            <div class="login-field">
+                <label class="sr-only" for="password">{{ tr['password'] }}</label>
+                <input id="password" name="password" type="password"
+                       autocomplete="current-password"
+                       placeholder="{{ tr['password'] }}" required>
+            </div>
+            <label class="login-remember">
+                <input type="checkbox" name="remember" value="1">
+                {{ tr.get("remember_me","Remember me on this device") }}
+            </label>
             <button type="submit">{{ tr["login_btn"] }}</button>
         </form>
         {% if error %}<div style="color:#ef4444; margin-top:10px;">{{ error }}</div>{% endif %}
@@ -6371,6 +6422,8 @@ def login():
 
 @app.route("/logout")
 def logout():
+    # Wipe everything — both the session dict and the permanent flag —
+    # so a "Remember me" cookie can't outlive an explicit logout.
     session.clear()
     return redirect("/login")
 
