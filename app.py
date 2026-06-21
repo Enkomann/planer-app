@@ -7078,18 +7078,18 @@ def week_view():
     c = conn.cursor()
     worker_colors = get_worker_colors(conn)
     week_days = [(start_week + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
-    today_dt = datetime.today()
-    worker_start = datetime(today_dt.year, today_dt.month, 1)
-    worker_year_end = datetime(today_dt.year, 12, 31)
-    worker_day_count = max(1, (worker_year_end.date() - worker_start.date()).days + 1)
-    worker_days_dt = [worker_start + timedelta(days=i) for i in range(worker_day_count)]
-    worker_days = [d.strftime("%Y-%m-%d") for d in worker_days_dt]
-    query_start, query_end = (worker_days[0], worker_days[-1]) if not is_admin else (week_days[0], week_days[-1])
-    shifts = c.execute("SELECT * FROM shifts WHERE date >= ? AND date <= ? ORDER BY date, time, id", (query_start, query_end)).fetchall()
+    # Workers and admins share the same /week template now, so the SQL
+    # range must match the requested week for both. Pre-fix the worker
+    # branch loaded the entire current month through Dec 31, which
+    # ignored ?start=… for past months and silently broke across the
+    # year boundary.
+    shifts = c.execute(
+        "SELECT * FROM shifts WHERE date >= ? AND date <= ? ORDER BY date, time, id",
+        (week_days[0], week_days[-1]),
+    ).fetchall()
     if not is_admin:
         shifts = [s for s in shifts if worker_in_shift(current_user, s[1])]
-    holiday_years = {d.year for d in worker_days_dt} | {start_week.year, week_end.year}
-    holidays_map = get_all_holidays(conn, holiday_years)
+    holidays_map = get_all_holidays(conn, {start_week.year, week_end.year})
     clients_raw = c.execute("SELECT name, address FROM clients ORDER BY name").fetchall()
     client_cities = client_city_map(clients_raw)
     client_addresses = {row[0]: (row[1] or "") for row in clients_raw}
@@ -7097,103 +7097,8 @@ def week_view():
     workers = c.execute("SELECT name FROM workers ORDER BY name").fetchall()
     conn.close()
     day_names = [tr["monday"], tr["tuesday"], tr["wednesday"], tr["thursday"], tr["friday"], tr["saturday"], tr["sunday"]]
-    today_iso = datetime.today().strftime("%Y-%m-%d")
-    selected_week_day = request.args.get("day", "").strip()
-    if selected_week_day not in worker_days:
-        selected_week_day = today_iso if today_iso in worker_days else week_days[0]
-    day_shift_counts = {day: len([s for s in shifts if s[3] == day]) for day in worker_days}
-    day_month_labels = {d.strftime("%Y-%m-%d"): format_month_year(d.year, d.month) for d in worker_days_dt}
 
     return render_template_string(BASE_STYLE + header_html() + """
-    {% if False %}
-    <!-- Legacy worker-only wapp-week-shell layout deprecated in
-         favor of the unified calendar-board below. Workers now see
-         the same horizontal day-card layout as admin (with horizontal
-         scroll on mobile) but with a single 📍 navigation pin per
-         shift instead of edit/delete/copy chips. -->
-    <div class="page-content">
-      <div class="wapp-week-shell">
-        <div class="wapp-month-label" id="wappMonthLabel">{{ day_month_labels.get(selected_week_day, "") }}</div>
-        <div class="wapp-date-strip" id="wappDateStrip" aria-label="{{ tr.get('week_calendar','Sedmicni kalendar') }}">
-          {% for day in worker_days %}
-          <button type="button" class="wapp-date-bubble {% if day == selected_week_day %}active{% endif %}" data-day="{{ day }}" data-month="{{ day_month_labels.get(day, '') }}" onclick="selectWappDay('{{ day }}', this)" aria-label="{{ format_date(day) }}">
-            {{ day[8:10] }}
-          </button>
-          {% endfor %}
-        </div>
-        <div class="wapp-day-panels">
-          {% for day in worker_days %}
-          <section class="wapp-day-panel {% if day == selected_week_day %}active{% endif %}" id="wappDay{{ day|replace('-', '') }}">
-            {% if day_shift_counts.get(day, 0) > 0 %}
-            <div class="wapp-week-shifts">
-              {% for s in shifts %}
-                {% if s[3] == day %}
-                {% set auto_status = get_auto_status(s[3], s[4]) %}
-                {% set _waddr = client_addresses.get(s[2], '') %}
-                <article class="wapp-week-card" style="--worker-color:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#2563eb') }};">
-                  <div class="wapp-week-time">{{ s[4] }}</div>
-                  <div class="wapp-week-client">{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}</div>
-                  <div class="wapp-week-worker">{{ s[1] }}</div>
-                  <span class="wapp-status-badge" style="background:{{ status_colors.get(auto_status, '#6b7280') }};color:white;">{{ get_status_label(auto_status, tr) }}</span>
-                  {% if _waddr %}
-                  <a class="week-map-link wapp-week-map" href="https://www.google.com/maps/dir/?api=1&destination={{ _waddr|urlencode }}&travelmode=driving&dir_action=navigate" target="_blank" rel="noopener" title="{{ tr.get('open_in_maps','Open in Google Maps') }}" aria-label="{{ tr.get('open_in_maps','Open in Google Maps') }}">📍</a>
-                  {% endif %}
-                </article>
-                {% endif %}
-              {% endfor %}
-            </div>
-            {% else %}
-            <div class="wapp-empty-day">{{ tr["no_shifts"] }}</div>
-            {% endif %}
-          </section>
-          {% endfor %}
-        </div>
-      </div>
-    </div>
-    <script>
-    function selectWappDay(day, btn){
-      document.querySelectorAll('.wapp-date-bubble').forEach(function(b){ b.classList.remove('active'); });
-      if(btn) btn.classList.add('active');
-      var monthLabel = document.getElementById('wappMonthLabel');
-      if(monthLabel && btn && btn.dataset.month) monthLabel.textContent = btn.dataset.month;
-      document.querySelectorAll('.wapp-day-panel').forEach(function(p){ p.classList.remove('active'); });
-      var panel = document.getElementById('wappDay' + day.split('-').join(''));
-      if(panel){
-        panel.classList.add('active');
-        var scroller = panel.querySelector('.wapp-week-shifts');
-        if(scroller) scroller.scrollTo({left:0, behavior:'smooth'});
-      }
-      if(btn) btn.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'});
-    }
-    document.addEventListener('DOMContentLoaded', function(){
-      var active = document.querySelector('.wapp-date-bubble.active');
-      if(active) active.scrollIntoView({inline:'center', block:'nearest'});
-      var strip = document.getElementById('wappDateStrip');
-      var monthLabel = document.getElementById('wappMonthLabel');
-      var ticking = false;
-      function updateMonthFromScroll(){
-        if(!strip || !monthLabel) return;
-        var buttons = Array.prototype.slice.call(strip.querySelectorAll('.wapp-date-bubble'));
-        if(!buttons.length) return;
-        var center = strip.getBoundingClientRect().left + strip.clientWidth / 2;
-        var closest = buttons.reduce(function(best, btn){
-          var rect = btn.getBoundingClientRect();
-          var dist = Math.abs((rect.left + rect.width / 2) - center);
-          return (!best || dist < best.dist) ? {btn:btn, dist:dist} : best;
-        }, null);
-        if(closest && closest.btn.dataset.month) monthLabel.textContent = closest.btn.dataset.month;
-      }
-      if(strip){
-        strip.addEventListener('scroll', function(){
-          if(ticking) return;
-          ticking = true;
-          window.requestAnimationFrame(function(){ updateMonthFromScroll(); ticking = false; });
-        }, {passive:true});
-        updateMonthFromScroll();
-      }
-    });
-    </script>
-    {% else %}
     <h1>{{ tr["week_calendar"] }}</h1>
     <div>
         <a class="back-button" href="/">{{ tr["back"] }}</a>
@@ -7331,7 +7236,6 @@ def week_view():
       }
     });
     </script>
-    {% endif %}
     """, tr=tr, dark=dark, week_days=week_days, worker_days=worker_days, shifts=shifts, worker_colors=worker_colors, client_cities=client_cities, client_addresses=client_addresses, format_date=format_date, holidays_map=holidays_map, day_names=day_names, status_colors=STATUS_COLORS, get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers, is_weekend=is_weekend, is_admin=is_admin, prev_week=prev_week, next_week=next_week, current_week=current_week, start_year=start_week.year, start_month=start_week.month, workers=workers, clients=clients, time_hours=time_hours(), selected_week_day=selected_week_day, day_shift_counts=day_shift_counts, day_month_labels=day_month_labels)
 
 
