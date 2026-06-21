@@ -4662,6 +4662,10 @@ BASE_STYLE = """
 <style>
     html { -webkit-text-size-adjust:100%; text-size-adjust:100%; }
     body { font-family: Arial, sans-serif; margin:24px; background: {{ '#111113' if dark else '#f4f6f8' }}; color: {{ '#e5e7eb' if dark else '#1f2937' }}; touch-action:pan-y; overflow-x:hidden; }
+    /* Visually hidden but still announced by screen readers — used for
+       form <label> tags that the design hides but accessibility tools
+       still need. Standard "sr-only" pattern. */
+    .sr-only { position:absolute !important; width:1px !important; height:1px !important; padding:0 !important; margin:-1px !important; overflow:hidden !important; clip:rect(0,0,0,0) !important; white-space:nowrap !important; border:0 !important; }
     h1 { color: {{ '#93c5fd' if dark else '#1f4f82' }}; }
     h2, h3, h4 { color: {{ '#e5e7eb' if dark else '#111827' }}; }
     .brandbar, .card { background: {{ '#161618' if dark else 'white' }}; border-radius:12px; box-shadow:0 4px 14px rgba(0,0,0,0.06); }
@@ -13267,17 +13271,27 @@ def admin_page():
 
       <div class="card">
         <h3>🔑 {{ tr["change_password"] }}</h3>
-        <form method="post" action="/change_password">
-          <input name="new_password" type="password" placeholder="{{ tr['new_password'] }}" required>
+        <form method="post" action="/change_password" autocomplete="off">
+          <label class="sr-only" for="cp_new_password">{{ tr['new_password'] }}</label>
+          <input id="cp_new_password" name="new_password" type="password"
+                 autocomplete="new-password"
+                 placeholder="{{ tr['new_password'] }}" required>
           <button>{{ tr["save"] }}</button>
         </form>
       </div>
 
       <div class="card">
         <h3>➕ {{ tr["add_user"] }}</h3>
-        <form method="post" action="/add_user">
-          <input name="username" placeholder="{{ tr['username'] }}" required>
-          <input name="password" type="password" placeholder="{{ tr['password'] }}" required>
+        <form method="post" action="/add_user" autocomplete="off">
+          <label class="sr-only" for="au_username">{{ tr['username'] }}</label>
+          <input id="au_username" name="username" type="text"
+                 autocomplete="off" autocapitalize="none"
+                 autocorrect="off" spellcheck="false"
+                 placeholder="{{ tr['username'] }}" required>
+          <label class="sr-only" for="au_password">{{ tr['password'] }}</label>
+          <input id="au_password" name="password" type="password"
+                 autocomplete="new-password"
+                 placeholder="{{ tr['password'] }}" required>
           <select name="role">
             <option value="admin">{{ tr['role_admin'] }}</option>
             <option value="worker">{{ tr['role_worker'] }}</option>
