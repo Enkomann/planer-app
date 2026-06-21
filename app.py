@@ -6381,10 +6381,6 @@ def login():
         .login-card { max-width:420px; margin:auto; text-align:center; padding:30px; }
         .login-card h2 { margin:0 0 14px; }
         .login-field { margin:0 0 10px; text-align:left; }
-        .login-field label.sr-only {
-            position:absolute; width:1px; height:1px; padding:0; margin:-1px;
-            overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
-        }
         .login-field input { width:100%; box-sizing:border-box; }
         .login-remember {
             display:flex; align-items:center; gap:8px;
