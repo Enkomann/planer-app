@@ -13978,9 +13978,15 @@ def _diagram_page_inner():
     tr = t(); dark = get_theme() == "dark"
     conn = get_conn(); c = conn.cursor()
 
-    # Available years from invoice_records
+    # Revenue is bucketed by the WORK-PERIOD month (date_from), not the
+    # invoice issuance date. Reason: an admin generating last-month's
+    # invoices on the 1st-3rd of the next month would otherwise see
+    # May's revenue spike on the June bar. For manual invoices
+    # date_from = date_to = invoice_date so the bucket matches the
+    # invoice's own date — same as before for that source.
     year_rows = c.execute(
-        "SELECT DISTINCT strftime('%Y', invoice_date) as y FROM invoice_records WHERE deleted=0 AND invoice_date != '' ORDER BY y DESC"
+        "SELECT DISTINCT strftime('%Y', date_from) as y FROM invoice_records "
+        "WHERE COALESCE(deleted,0)=0 AND date_from != '' ORDER BY y DESC"
     ).fetchall()
     available_years = [r[0] for r in year_rows if r[0]]
     current_year_str = str(lux_now().year)
@@ -13990,17 +13996,19 @@ def _diagram_page_inner():
     if sel_year not in available_years:
         sel_year = available_years[0] if available_years else current_year_str
 
-    # Monthly data for selected year
+    # Monthly data for selected year — grouped by date_from month so
+    # the chart reflects when the WORK was done, not when it was billed.
     monthly_rows = c.execute("""
         SELECT
-            CAST(strftime('%m', invoice_date) AS INTEGER) as m,
+            CAST(strftime('%m', date_from) AS INTEGER) as m,
             COALESCE(SUM(amount), 0) as ht,
             COALESCE(SUM(total),  0) as ttc,
             COALESCE(SUM(CASE WHEN paid=1 THEN total ELSE 0 END), 0) as paid_ttc,
             COALESCE(SUM(CASE WHEN paid=0 THEN total ELSE 0 END), 0) as unpaid_ttc,
             COUNT(*) as cnt
         FROM invoice_records
-        WHERE deleted=0 AND invoice_date != '' AND strftime('%Y', invoice_date) = ?
+        WHERE COALESCE(deleted,0)=0 AND date_from != ''
+              AND strftime('%Y', date_from) = ?
         GROUP BY m ORDER BY m
     """, (sel_year,)).fetchall()
 
@@ -14036,20 +14044,24 @@ def _diagram_page_inner():
     active_months   = sum(1 for v in month_ttc if v > 0)
     avg_monthly     = round(total_ttc / max(active_months, 1), 2)
 
-    # Per-client breakdown for the year
+    # Per-client breakdown for the year — same date_from bucketing as
+    # the monthly chart so the totals add up consistently.
     client_rows = c.execute("""
         SELECT client_name, COALESCE(SUM(total),0) as ttc, COUNT(*) as cnt
         FROM invoice_records
-        WHERE deleted=0 AND invoice_date != '' AND strftime('%Y', invoice_date) = ?
+        WHERE COALESCE(deleted,0)=0 AND date_from != ''
+              AND strftime('%Y', date_from) = ?
         GROUP BY client_name ORDER BY ttc DESC LIMIT 12
     """, (sel_year,)).fetchall()
     client_names  = [r[0] or '—' for r in client_rows]
     client_totals = [round(r[1], 2) for r in client_rows]
 
-    # Previous year comparison
+    # Previous year comparison — work-period basis, same as the rest.
     prev_year = str(int(sel_year) - 1)
     prev_row = c.execute(
-        "SELECT COALESCE(SUM(total),0) FROM invoice_records WHERE deleted=0 AND invoice_date!='' AND strftime('%Y',invoice_date)=?",
+        "SELECT COALESCE(SUM(total),0) FROM invoice_records "
+        "WHERE COALESCE(deleted,0)=0 AND date_from!='' "
+        "AND strftime('%Y',date_from)=?",
         (prev_year,)
     ).fetchone()
     prev_total = round((prev_row[0] or 0), 2)
