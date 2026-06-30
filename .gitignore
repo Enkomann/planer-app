@@ -10,3 +10,5 @@ instance/
 *.bak
 backup-*/
 storage/
+planer.db
+.claude/
