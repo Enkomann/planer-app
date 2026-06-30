@@ -1033,6 +1033,15 @@ MODULE_TRANSLATIONS = {
         "diagram_paid_vs_unpaid_ttc": "Naplaceno vs Neplaceno (TTC)",
         "diagram_revenue_by_client": "Prihod po klijentu",
         "diagram_details_by_month": "Detalji po mjesecima",
+        "diagram_avg_active_month": "Prosjek aktivnih mjeseci",
+        "diagram_avg_formula": "TTC ukupno / aktivni mjeseci",
+        "diagram_avg_tooltip": "Racuna se samo prosjek mjeseci koji imaju fakture, ne svih 12 mjeseci.",
+        "diagram_month_detail": "Detalj po mjesecu",
+        "diagram_view_details": "Vidi detalje",
+        "diagram_invoice_count": "Broj faktura",
+        "diagram_work_period": "Period rada",
+        "diagram_issue_date": "Datum izdavanja",
+        "diagram_no_invoices_month": "Nema faktura za ovaj mjesec.",
         "diagram_month_col": "Mj.",
         "diagram_num_invoices_abbr": "Br. fakt.",
         "diagram_cumulative": "Kumulativ",
@@ -1150,6 +1159,15 @@ MODULE_TRANSLATIONS = {
         "diagram_paid_vs_unpaid_ttc": "Paid vs Unpaid (TTC)",
         "diagram_revenue_by_client": "Revenue by client",
         "diagram_details_by_month": "Details by month",
+        "diagram_avg_active_month": "Average active month",
+        "diagram_avg_formula": "Total TTC / active months",
+        "diagram_avg_tooltip": "Calculated only over months with invoices, not all 12 months of the year.",
+        "diagram_month_detail": "Month detail",
+        "diagram_view_details": "View details",
+        "diagram_invoice_count": "Invoice count",
+        "diagram_work_period": "Work period",
+        "diagram_issue_date": "Issue date",
+        "diagram_no_invoices_month": "No invoices for this month.",
         "diagram_month_col": "Mo.",
         "diagram_num_invoices_abbr": "# inv.",
         "diagram_cumulative": "Cumulative",
@@ -1253,6 +1271,15 @@ MODULE_TRANSLATIONS = {
         "diagram_paid_vs_unpaid_ttc": "Encaisse vs Non encaisse (TTC)",
         "diagram_revenue_by_client": "Revenus par client",
         "diagram_details_by_month": "Details par mois",
+        "diagram_avg_active_month": "Moyenne des mois facturés",
+        "diagram_avg_formula": "Total TTC / mois facturés",
+        "diagram_avg_tooltip": "Calculée uniquement sur les mois ayant des factures, pas sur les 12 mois de l'annee.",
+        "diagram_month_detail": "Detail par mois",
+        "diagram_view_details": "Voir details",
+        "diagram_invoice_count": "Nb. factures",
+        "diagram_work_period": "Periode de travail",
+        "diagram_issue_date": "Date d'emission",
+        "diagram_no_invoices_month": "Aucune facture pour ce mois.",
         "diagram_month_col": "Mois",
         "diagram_num_invoices_abbr": "Nb fac.",
         "diagram_cumulative": "Cumulatif",
@@ -1344,6 +1371,15 @@ MODULE_TRANSLATIONS = {
         "diagram_paid_vs_unpaid_ttc": "Bezahlt vs Offen (TTC)",
         "diagram_revenue_by_client": "Einnahmen pro Kunde",
         "diagram_details_by_month": "Details pro Monat",
+        "diagram_avg_active_month": "Durchschnitt aktiver Monate",
+        "diagram_avg_formula": "TTC gesamt / aktive Monate",
+        "diagram_avg_tooltip": "Berechnet nur ueber Monate mit Rechnungen, nicht ueber alle 12 Monate.",
+        "diagram_month_detail": "Monatsdetail",
+        "diagram_view_details": "Details ansehen",
+        "diagram_invoice_count": "Anzahl Rechnungen",
+        "diagram_work_period": "Arbeitszeitraum",
+        "diagram_issue_date": "Ausstellungsdatum",
+        "diagram_no_invoices_month": "Keine Rechnungen fuer diesen Monat.",
         "diagram_month_col": "Mon.",
         "diagram_num_invoices_abbr": "Anz. Re.",
         "diagram_cumulative": "Kumulativ",
@@ -1447,6 +1483,15 @@ MODULE_TRANSLATIONS = {
         "diagram_paid_vs_unpaid_ttc": "Cobrado vs Por cobrar (TTC)",
         "diagram_revenue_by_client": "Receitas por cliente",
         "diagram_details_by_month": "Detalhes por mes",
+        "diagram_avg_active_month": "Media de meses ativos",
+        "diagram_avg_formula": "TTC total / meses ativos",
+        "diagram_avg_tooltip": "Calculada apenas sobre meses com faturas, nao sobre os 12 meses do ano.",
+        "diagram_month_detail": "Detalhe por mes",
+        "diagram_view_details": "Ver detalhes",
+        "diagram_invoice_count": "Nº faturas",
+        "diagram_work_period": "Periodo de trabalho",
+        "diagram_issue_date": "Data de emissao",
+        "diagram_no_invoices_month": "Sem faturas neste mes.",
         "diagram_month_col": "Mes",
         "diagram_num_invoices_abbr": "Nr. fat.",
         "diagram_cumulative": "Cumulativo",
@@ -14083,6 +14128,39 @@ def _diagram_page_inner():
     active_months   = sum(1 for v in month_ttc if v > 0)
     avg_monthly     = round(total_ttc / max(active_months, 1), 2)
 
+    # Per-invoice rows for the drill-down section, grouped into 12
+    # buckets by date_from month. The user wanted to be able to expand
+    # any month (e.g. June 870 € HT / 1017.90 € TTC) and see exactly
+    # which invoices contribute. Uses the same date_from-based window
+    # as the bars above so the totals match line-for-line.
+    invoice_rows_year = c.execute("""
+        SELECT
+            CAST(strftime('%m', date_from) AS INTEGER) as m,
+            invoice_number, client_name, date_from, date_to, invoice_date,
+            COALESCE(amount, 0), COALESCE(vat_amount, 0), COALESCE(total, 0),
+            COALESCE(paid, 0), COALESCE(source, 'auto')
+        FROM invoice_records
+        WHERE COALESCE(deleted,0)=0 AND date_from != ''
+              AND strftime('%Y', date_from) = ?
+        ORDER BY date_from, CAST(invoice_number AS INTEGER)
+    """, (sel_year,)).fetchall()
+    month_invoices = {m: [] for m in range(1, 13)}
+    for row in invoice_rows_year:
+        m = int(row[0]) if row[0] is not None else 0
+        if 1 <= m <= 12:
+            month_invoices[m].append({
+                "invoice_number": row[1] or "",
+                "client_name":    row[2] or "",
+                "date_from":      row[3] or "",
+                "date_to":        row[4] or "",
+                "invoice_date":   row[5] or "",
+                "amount":         float(row[6] or 0),
+                "vat_amount":     float(row[7] or 0),
+                "total":          float(row[8] or 0),
+                "paid":           bool(row[9]),
+                "source":         row[10] or "auto",
+            })
+
     # Per-client breakdown for the year — same date_from bucketing as
     # the monthly chart so the totals add up consistently.
     client_rows = c.execute("""
@@ -14196,12 +14274,15 @@ def _diagram_page_inner():
       <div class="kpi-sub">{{ '%.2f'|format(month_ttc[best_month_idx]) }} € TTC</div>
     </div>
     {% endif %}
-    <div class="kpi-card" style="border-left:4px solid #06b6d4;">
-      <div class="kpi-label">{{ tr.get("diagram_avg_month","Prosjek / mj") }}</div>
+    <div class="kpi-card" style="border-left:4px solid #06b6d4;"
+         title="{{ tr.get('diagram_avg_tooltip','Calculated only over months with invoices.') }}">
+      <div class="kpi-label">{{ tr.get("diagram_avg_active_month","Prosjek aktivnih mjeseci") }}</div>
       <div class="kpi-value" style="color:{{ '#67e8f9' if dark else '#0891b2' }};">
         {{ '%.2f'|format(avg_monthly) }} €
       </div>
-      <div class="kpi-sub">TTC, {{ tr.get("diagram_active_months_abbr","aktivni mj") }}: {{ active_months }}</div>
+      <div class="kpi-sub">
+        {{ tr.get("diagram_avg_formula","TTC ukupno / aktivni mjeseci") }}: {{ active_months }}
+      </div>
     </div>
   </div>
 
@@ -14240,11 +14321,13 @@ def _diagram_page_inner():
           <th>{{ tr.get("diagram_unpaid_label","Neplaceno") }}</th>
           <th>{{ tr.get("diagram_num_invoices_abbr","Br. fakt.") }}</th>
           <th>{{ tr.get("diagram_cumulative","Kumulativ") }}</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
       {% for i in range(12) %}
       {% set pct = (month_ttc[i]/total_ttc*100)|round(0)|int if total_ttc > 0 else 0 %}
+      {% set m_invs = month_invoices.get(i + 1, []) %}
       <tr style="{{ 'opacity:0.4;' if month_ttc[i] == 0 else '' }}{{ 'background:' + ('#141416' if dark else '#eff6ff') + ';' if i == best_month_idx else '' }}">
         <td>
           {{ month_names[i] }}
@@ -14261,7 +14344,59 @@ def _diagram_page_inner():
         <td style="color:{{ '#94a3b8' if dark else '#64748b' }}; font-size:12px;">
           {% if cumul[i] > 0 %}{{ '%.2f'|format(cumul[i]) }}{% else %}—{% endif %}
         </td>
+        <td style="text-align:right;">
+          {% if m_invs %}
+          <button type="button" class="dgmd-toggle" data-target="dgmd-{{ i + 1 }}"
+                  style="background:transparent; border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }}; color:inherit; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:11px; font-family:inherit;">
+            ▸ {{ tr.get("diagram_view_details","Vidi detalje") }}
+          </button>
+          {% else %}—{% endif %}
+        </td>
       </tr>
+      {% if m_invs %}
+      <tr class="dgmd-row" id="dgmd-{{ i + 1 }}" hidden>
+        <td colspan="9" style="padding:0; background:{{ '#0f0f10' if dark else '#f8fafc' }};">
+          <div style="padding:12px 16px; border-top:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; border-bottom:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};">
+            <div style="font-weight:700; font-size:13px; margin-bottom:8px;">
+              📋 {{ tr.get("diagram_month_detail","Detalj po mjesecu") }} — {{ month_names[i] }} {{ sel_year }}
+              <span style="color:{{ '#94a3b8' if dark else '#64748b' }}; font-weight:400; font-size:12px; margin-left:8px;">
+                {{ tr.get("diagram_invoice_count","Br. faktura") }}: {{ m_invs|length }}
+              </span>
+            </div>
+            <table style="width:100%; border-collapse:collapse; font-size:12px;">
+              <thead>
+                <tr style="text-align:left; border-bottom:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};">
+                  <th style="padding:6px 8px;">{{ tr.get("invoice_number","N°") }}</th>
+                  <th style="padding:6px 8px;">{{ tr.get("client","Klijent") }}</th>
+                  <th style="padding:6px 8px;">{{ tr.get("diagram_work_period","Period rada") }}</th>
+                  <th style="padding:6px 8px;">{{ tr.get("diagram_issue_date","Datum izdavanja") }}</th>
+                  <th style="padding:6px 8px; text-align:right;">HT (€)</th>
+                  <th style="padding:6px 8px; text-align:right;">TVA (€)</th>
+                  <th style="padding:6px 8px; text-align:right;">TTC (€)</th>
+                  <th style="padding:6px 8px;">{{ tr.get("paid","Placeno") }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for inv in m_invs %}
+                <tr style="border-bottom:1px solid {{ '#1d1d1f' if dark else '#f1f5f9' }};">
+                  <td style="padding:6px 8px;"><a href="/invoices/view?invoice_number={{ inv.invoice_number|urlencode }}" style="color:{{ '#93c5fd' if dark else '#1f4f82' }}; text-decoration:underline; font-weight:600;">{{ inv.invoice_number }}</a>{% if inv.source == 'manual' %} <span style="color:{{ '#ffd429' if dark else '#b45309' }};" title="manual">✏️</span>{% endif %}</td>
+                  <td style="padding:6px 8px;">{{ inv.client_name }}</td>
+                  <td style="padding:6px 8px; font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }};">{{ inv.date_from }} → {{ inv.date_to }}</td>
+                  <td style="padding:6px 8px; font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }};">{{ inv.invoice_date }}</td>
+                  <td style="padding:6px 8px; text-align:right;">{{ '%.2f'|format(inv.amount) }}</td>
+                  <td style="padding:6px 8px; text-align:right; color:{{ '#94a3b8' if dark else '#64748b' }};">{{ '%.2f'|format(inv.vat_amount) }}</td>
+                  <td style="padding:6px 8px; text-align:right; font-weight:700; color:{{ '#c4b5fd' if dark else '#7c3aed' }};">{{ '%.2f'|format(inv.total) }}</td>
+                  <td style="padding:6px 8px;">
+                    {% if inv.paid %}<span style="color:#16a34a; font-weight:700;">✓</span>{% else %}<span style="color:#dc2626; font-weight:700;">✗</span>{% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </td>
+      </tr>
+      {% endif %}
       {% endfor %}
       </tbody>
       <tfoot>
@@ -14274,9 +14409,24 @@ def _diagram_page_inner():
           <td style="color:{{ '#fbbf24' if dark else '#d97706' }};">{{ '%.2f'|format(total_unpaid) }} €</td>
           <td style="text-align:center;">{{ total_inv }}</td>
           <td></td>
+          <td></td>
         </tr>
       </tfoot>
     </table>
+    <script>
+      // Inline expand/collapse for the month-detail rows. <details>
+      // doesn't compose cleanly inside <tbody>, so we toggle a hidden
+      // attribute on the sibling <tr.dgmd-row> instead.
+      document.querySelectorAll('.dgmd-toggle').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          var row = document.getElementById(btn.dataset.target);
+          if (!row) return;
+          var open = row.hasAttribute('hidden') ? false : true;
+          if (open) { row.setAttribute('hidden',''); btn.textContent = btn.textContent.replace('▾','▸'); }
+          else      { row.removeAttribute('hidden'); btn.textContent = btn.textContent.replace('▸','▾'); }
+        });
+      });
+    </script>
     </div>
   </div>
 </div>
@@ -14409,7 +14559,8 @@ def _diagram_page_inner():
      total_unpaid=total_unpaid, total_inv=total_inv,
      best_month_idx=best_month_idx, yoy_pct=yoy_pct, prev_year=prev_year,
      month_names=MONTH_NAMES, client_names=client_names, client_totals=client_totals,
-     active_months=active_months, avg_monthly=avg_monthly)
+     active_months=active_months, avg_monthly=avg_monthly,
+     month_invoices=month_invoices)
 
 
 @app.route("/api/search")
