@@ -1082,6 +1082,9 @@ MODULE_TRANSLATIONS = {
         # Manual invoice UI
         "mi_title": "Rucna faktura",
         "mi_invoice_num": "Broj fakture",
+        "mi_period_from": "Period rada od",
+        "mi_period_to": "Period rada do",
+        "mi_period_hint": "Period u kojem je rad obavljen. Koristi se za /diagram i izvjestaje. Ako se ostavi prazno, pada na datum fakture.",
         "mi_billed_to": "Fakturisi na",
         "mi_billing_address": "Adresa fakturiranja",
         "mi_items_title": "Stavke / Usluge",
@@ -1206,6 +1209,9 @@ MODULE_TRANSLATIONS = {
         "payroll_no_results": "No recorded shifts for the selected period or no worker has an hourly rate set.",
         "mi_title": "Manual invoice",
         "mi_invoice_num": "Invoice no.",
+        "mi_period_from": "Service period from",
+        "mi_period_to": "Service period to",
+        "mi_period_hint": "Period the work was actually performed. Drives /diagram and report bucketing. Falls back to the invoice date if left empty.",
         "mi_billed_to": "Bill to",
         "mi_billing_address": "Billing address",
         "mi_items_title": "Items / Services",
@@ -1318,6 +1324,9 @@ MODULE_TRANSLATIONS = {
         "payroll_no_results": "Aucune mission pour la periode selectionnee ou aucun employe n'a de taux horaire defini.",
         "mi_title": "Facture manuelle",
         "mi_invoice_num": "Facture n°",
+        "mi_period_from": "Periode du",
+        "mi_period_to": "Periode au",
+        "mi_period_hint": "Periode pendant laquelle le travail a ete effectue. Utilisee pour /diagram et les rapports. Defaut: la date de facture si laisse vide.",
         "mi_billed_to": "Facturé à",
         "mi_billing_address": "Adresse de facturation",
         "mi_items_title": "Articles / Prestations",
@@ -1418,6 +1427,9 @@ MODULE_TRANSLATIONS = {
         "payroll_no_results": "Keine Schichten fuer den gewahlten Zeitraum oder kein Mitarbeiter hat einen Stundensatz.",
         "mi_title": "Manuelle Rechnung",
         "mi_invoice_num": "Rechnung Nr.",
+        "mi_period_from": "Leistungszeitraum von",
+        "mi_period_to": "Leistungszeitraum bis",
+        "mi_period_hint": "Zeitraum, in dem die Arbeit ausgefuehrt wurde. Steuert /diagram und Berichte. Faellt auf das Rechnungsdatum zurueck, wenn leer.",
         "mi_billed_to": "Rechnungsempfanger",
         "mi_billing_address": "Rechnungsadresse",
         "mi_items_title": "Positionen / Leistungen",
@@ -1530,6 +1542,9 @@ MODULE_TRANSLATIONS = {
         "payroll_no_results": "Nenhum turno registado para o periodo selecionado ou nenhum trabalhador tem taxa horaria.",
         "mi_title": "Fatura manual",
         "mi_invoice_num": "Fatura n.°",
+        "mi_period_from": "Periodo de servico de",
+        "mi_period_to": "Periodo de servico ate",
+        "mi_period_hint": "Periodo em que o trabalho foi realizado. Usado em /diagram e relatorios. Em branco, usa a data da fatura.",
         "mi_billed_to": "Faturar a",
         "mi_billing_address": "Endereco de faturacao",
         "mi_items_title": "Artigos / Servicos",
@@ -4482,6 +4497,8 @@ def init_db():
             client_name TEXT DEFAULT '',
             client_address TEXT DEFAULT '',
             invoice_date TEXT DEFAULT '',
+            date_from TEXT DEFAULT '',
+            date_to TEXT DEFAULT '',
             items_json TEXT DEFAULT '[]',
             payment_terms TEXT DEFAULT '',
             total_ht REAL DEFAULT 0,
@@ -4650,6 +4667,20 @@ def init_db():
             c.execute("ALTER TABLE invoice_email_logs ADD COLUMN imap_saved INTEGER DEFAULT 0")
         if "imap_error" not in log_cols:
             c.execute("ALTER TABLE invoice_email_logs ADD COLUMN imap_error TEXT DEFAULT ''")
+    except Exception:
+        pass
+    # Migrate manual_invoice_drafts: add date_from/date_to so manual
+    # invoices can carry a real service window separate from the
+    # invoice_date. Without this, manual invoices were collapsing
+    # date_from = date_to = invoice_date, which silently put them in
+    # the wrong /diagram and report bucket whenever they were issued
+    # in a month different from the month of work.
+    try:
+        mid_cols = [r[1] for r in c.execute("PRAGMA table_info(manual_invoice_drafts)").fetchall()]
+        if "date_from" not in mid_cols:
+            c.execute("ALTER TABLE manual_invoice_drafts ADD COLUMN date_from TEXT DEFAULT ''")
+        if "date_to" not in mid_cols:
+            c.execute("ALTER TABLE manual_invoice_drafts ADD COLUMN date_to TEXT DEFAULT ''")
     except Exception:
         pass
     # Migrate manual_item_templates: add auto_saved / archived / last_used_at
@@ -10450,6 +10481,22 @@ def invoices_manual():
         inv_date      = request.form.get("invoice_date",  lux_now().strftime("%Y-%m-%d")).strip()
         payment_terms = request.form.get("payment_terms", "").strip()
 
+        # Service window — date_from / date_to. These drive the
+        # /diagram and report bucketing, so they must be real
+        # YYYY-MM-DD strings even when the form submits junk. Fall
+        # back to invoice_date so a missing or invalid value just
+        # keeps today's old behaviour instead of writing garbage.
+        def _safe_iso(s):
+            try:
+                datetime.strptime(s, "%Y-%m-%d")
+                return s
+            except (TypeError, ValueError):
+                return ""
+        raw_from = (request.form.get("date_from", "") or "").strip()
+        raw_to   = (request.form.get("date_to",   "") or "").strip()
+        date_from = _safe_iso(raw_from) or inv_date
+        date_to   = _safe_iso(raw_to)   or date_from
+
         # Collect line items from form arrays (safe parse, skip empty rows)
         designations = request.form.getlist("designation[]")
         amounts      = request.form.getlist("amount[]")
@@ -10507,7 +10554,7 @@ def invoices_manual():
                          amount, vat_amount, total, paid, sent, deleted, source)
                     VALUES (?,?,?,?,?,?,?,?,0,0,0,'manual')
                     ON CONFLICT(invoice_number) DO NOTHING
-                """, (inv_num, client_name, inv_date, inv_date, inv_date,
+                """, (inv_num, client_name, date_from, date_to, inv_date,
                       total_ht, total_vat, total_ttc))
                 conn.commit()
                 if c.rowcount == 1:
@@ -10515,13 +10562,17 @@ def invoices_manual():
                     break
             else:
                 if convert_from_auto:
-                    # Converting auto → manual: update source unconditionally
+                    # Converting auto → manual: preserve the auto's
+                    # original date_from/date_to (the form pre-fills
+                    # them in this path) and update everything else.
                     c.execute("""
                         UPDATE invoice_records SET
                             client_name=?, invoice_date=?,
+                            date_from=?, date_to=?,
                             amount=?, vat_amount=?, total=?, source='manual'
                         WHERE invoice_number=? AND COALESCE(deleted,0)=0
-                    """, (client_name, inv_date, total_ht, total_vat, total_ttc, inv_num))
+                    """, (client_name, inv_date, date_from, date_to,
+                          total_ht, total_vat, total_ttc, inv_num))
                     conn.commit()
                 else:
                     # EDIT: update this manual invoice (WHERE guard blocks auto invoices)
@@ -10532,10 +10583,11 @@ def invoices_manual():
                         VALUES (?,?,?,?,?,?,?,?,0,0,0,'manual')
                         ON CONFLICT(invoice_number) DO UPDATE SET
                             client_name=excluded.client_name, invoice_date=excluded.invoice_date,
+                            date_from=excluded.date_from, date_to=excluded.date_to,
                             amount=excluded.amount, vat_amount=excluded.vat_amount,
                             total=excluded.total, source='manual'
                         WHERE invoice_records.source='manual'
-                    """, (inv_num, client_name, inv_date, inv_date, inv_date,
+                    """, (inv_num, client_name, date_from, date_to, inv_date,
                           total_ht, total_vat, total_ttc))
                     conn.commit()
                 owned = c.execute(
@@ -10556,15 +10608,19 @@ def invoices_manual():
         now_str = lux_now().strftime("%Y-%m-%d %H:%M")
         c.execute("""
             INSERT INTO manual_invoice_drafts
-                (invoice_number, client_name, client_address, invoice_date, items_json,
+                (invoice_number, client_name, client_address, invoice_date,
+                 date_from, date_to, items_json,
                  payment_terms, total_ht, total_vat, total_ttc, created_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(invoice_number) DO UPDATE SET
                 client_name=excluded.client_name, client_address=excluded.client_address,
-                invoice_date=excluded.invoice_date, items_json=excluded.items_json,
+                invoice_date=excluded.invoice_date,
+                date_from=excluded.date_from, date_to=excluded.date_to,
+                items_json=excluded.items_json,
                 payment_terms=excluded.payment_terms, total_ht=excluded.total_ht,
                 total_vat=excluded.total_vat, total_ttc=excluded.total_ttc
-        """, (inv_num, client_name, client_addr, inv_date, items_json,
+        """, (inv_num, client_name, client_addr, inv_date,
+              date_from, date_to, items_json,
               payment_terms, total_ht, total_vat, total_ttc, now_str))
 
         # ── Auto-save each item as a reusable template ────────────────────
@@ -10606,13 +10662,28 @@ def invoices_manual():
     if load_num:
         row = c.execute(
             "SELECT invoice_number, client_name, client_address, invoice_date, "
+            "COALESCE(date_from,''), COALESCE(date_to,''), "
             "items_json, payment_terms FROM manual_invoice_drafts WHERE invoice_number=?",
             (load_num,)
         ).fetchone()
         if row:
             draft = {"invoice_number": row[0], "client_name": row[1],
                      "client_address": row[2], "invoice_date": row[3],
-                     "items_json": row[4], "payment_terms": row[5]}
+                     "date_from": row[4], "date_to": row[5],
+                     "items_json": row[6], "payment_terms": row[7]}
+            # Older manuals don't have date_from/date_to in the draft —
+            # pull them from invoice_records as a fallback so the form
+            # opens with the real persisted period instead of empty.
+            if not (draft["date_from"] or draft["date_to"]):
+                rec = c.execute(
+                    "SELECT COALESCE(date_from,''), COALESCE(date_to,'') "
+                    "FROM invoice_records "
+                    "WHERE invoice_number=? AND COALESCE(deleted,0)=0",
+                    (row[0],)
+                ).fetchone()
+                if rec:
+                    draft["date_from"] = draft["date_from"] or rec[0]
+                    draft["date_to"]   = draft["date_to"]   or rec[1]
     if load_auto and not draft:
         rec = c.execute(
             "SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, "
@@ -10635,6 +10706,10 @@ def invoices_manual():
                 "client_name": record["client"],
                 "client_address": client_addr,
                 "invoice_date": record["invoice_date"],
+                # Preserve the auto invoice's original work period so a
+                # converted manual stays in the same /diagram bucket.
+                "date_from": record.get("date_from", "") or "",
+                "date_to":   record.get("date_to",   "") or "",
                 "items_json": json.dumps([{"designation": designation, "amount": round(float(record["amount"]), 2), "vat_rate": vr}], ensure_ascii=False),
                 "payment_terms": settings.get("payment_terms", ""),
                 "_convert_from_auto": True,
@@ -10785,6 +10860,25 @@ def invoices_manual():
             <div class="mi-label">{{ tr["invoice_date"] }}</div>
             <input class="mi-input" type="date" name="invoice_date"
                    value="{{ draft.invoice_date or today }}">
+          </div>
+        </div>
+
+        <!-- Work period (date_from / date_to). Distinct from
+             invoice_date — drives /diagram and report bucketing so an
+             invoice issued in June for May's work lands under May. -->
+        <div class="mi-card" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div>
+            <div class="mi-label">📅 {{ tr.get("mi_period_from","Période du") }}</div>
+            <input class="mi-input" type="date" name="date_from"
+                   value="{{ draft.date_from or '' }}">
+          </div>
+          <div>
+            <div class="mi-label">📅 {{ tr.get("mi_period_to","Période au") }}</div>
+            <input class="mi-input" type="date" name="date_to"
+                   value="{{ draft.date_to or '' }}">
+          </div>
+          <div style="grid-column:1 / -1; font-size:12px; color:{{ '#94a3b8' if dark else '#64748b' }};">
+            {{ tr.get("mi_period_hint","Period u kojem je rad obavljen. Koristi se za /diagram i izvjestaje. Ako se ostavi prazno, padne na datum fakture.") }}
           </div>
         </div>
 
