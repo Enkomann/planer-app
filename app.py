@@ -3174,16 +3174,38 @@ def get_invoice_row_for_record(conn, record):
     return None, settings
 
 
-def fetch_invoice_records(conn, date_from=None, date_to=None, client=None, status="all"):
+def fetch_invoice_records(conn, date_from=None, date_to=None, client=None,
+                          status="all", date_basis="invoice_date"):
+    """Read invoice_records with optional date / client / status filters.
+
+    ``date_basis`` controls which date column the date_from/date_to
+    window applies to:
+
+      - ``"invoice_date"`` (default): the issuance date. Matches the
+        historic behaviour of /invoices listing, /invoices/list_pdf,
+        /invoices/download_all, /invoices/client_statement etc., so
+        nothing changes for existing callers.
+      - ``"work_period"``: the work-period start (``date_from``
+        column on invoice_records). Matches the /diagram bucketing
+        introduced in 8a12b2b — invoices issued in June for May's
+        shifts are counted as May. Exports that want to align with
+        the diagram should pass this.
+
+    Anything else falls back to invoice_date so a typo can't widen
+    the result silently.
+    """
+    if date_basis not in ("invoice_date", "work_period"):
+        date_basis = "invoice_date"
+    date_column = "date_from" if date_basis == "work_period" else "invoice_date"
     c = conn.cursor()
     conditions = []
     params = []
     conditions.append("COALESCE(deleted, 0) = 0")
     if date_from:
-        conditions.append("invoice_date >= ?")
+        conditions.append(f"{date_column} >= ?")
         params.append(date_from)
     if date_to:
-        conditions.append("invoice_date <= ?")
+        conditions.append(f"{date_column} <= ?")
         params.append(date_to)
     if client:
         conditions.append("client_name = ?")
