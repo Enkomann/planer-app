@@ -11368,14 +11368,28 @@ document.getElementById('miForm').addEventListener('invalid', function(e){
     // pick a side.
     if (matches.length !== 1) return null;
     var monthIdx = matches[0];
-    // Year preference: explicit 2026 / '26 in the text > invoice_date
-    // year > current year.
+    var monthRe  = MONTHS[monthIdx][1];
+    // Year preference:
+    //   explicit YYYY  >  apostrophe/curly-apostrophe YY  >
+    //   YY immediately following the detected month  >
+    //   invoice_date year  >  current year.
     var year = null;
     var ym = blob.match(/\b(20\d{2})\b/);
     if (ym) year = parseInt(ym[1], 10);
     if (!year) {
-      var apostrophe = blob.match(/'(\d{2})\b/);
+      // Accept both ASCII apostrophe (') and Unicode curly
+      // apostrophe (’ U+2019). "Mai'26" and "Mai’26" both → 2026.
+      var apostrophe = blob.match(/[’'](\d{2})\b/);
       if (apostrophe) year = 2000 + parseInt(apostrophe[1], 10);
+    }
+    if (!year) {
+      // "Mai 26" style: a 2-digit number right after the month
+      // word with at most a single space, and explicitly NOT
+      // followed by anything that would identify it as a quantity
+      // (more digits, a colon for times, h/H for hours, €, .).
+      var nearRe = new RegExp(monthRe.source + "\\s*(\\d{2})(?![\\d:hH€.,])", "i");
+      var near = blob.match(nearRe);
+      if (near) year = 2000 + parseInt(near[near.length - 1], 10);
     }
     if (!year) {
       var inv = document.querySelector('input[name="invoice_date"]');
