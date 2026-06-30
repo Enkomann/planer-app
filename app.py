@@ -1085,6 +1085,10 @@ MODULE_TRANSLATIONS = {
         "mi_period_from": "Period rada od",
         "mi_period_to": "Period rada do",
         "mi_period_hint": "Period u kojem je rad obavljen. Koristi se za /diagram i izvjestaje. Ako se ostavi prazno, pada na datum fakture.",
+        "mi_period_apply": "Primijeni",
+        "mi_period_suggest": "Designation pominje {month}. Predlazem period rada {from} -> {to}.",
+        "mi_period_changed_flash": "Period rada fakture #{n} je promijenjen na {from} - {to}.",
+        "diagram_fix_period": "Ispravi period rada",
         "mi_billed_to": "Fakturisi na",
         "mi_billing_address": "Adresa fakturiranja",
         "mi_items_title": "Stavke / Usluge",
@@ -1212,6 +1216,10 @@ MODULE_TRANSLATIONS = {
         "mi_period_from": "Service period from",
         "mi_period_to": "Service period to",
         "mi_period_hint": "Period the work was actually performed. Drives /diagram and report bucketing. Falls back to the invoice date if left empty.",
+        "mi_period_apply": "Apply",
+        "mi_period_suggest": "Designation mentions {month}. Suggested work period {from} → {to}.",
+        "mi_period_changed_flash": "Work period of invoice #{n} changed to {from} - {to}.",
+        "diagram_fix_period": "Fix work period",
         "mi_billed_to": "Bill to",
         "mi_billing_address": "Billing address",
         "mi_items_title": "Items / Services",
@@ -1327,6 +1335,10 @@ MODULE_TRANSLATIONS = {
         "mi_period_from": "Periode du",
         "mi_period_to": "Periode au",
         "mi_period_hint": "Periode pendant laquelle le travail a ete effectue. Utilisee pour /diagram et les rapports. Defaut: la date de facture si laisse vide.",
+        "mi_period_apply": "Appliquer",
+        "mi_period_suggest": "La designation mentionne {month}. Periode de travail suggeree {from} → {to}.",
+        "mi_period_changed_flash": "Periode de travail de la facture #{n} mise a jour: {from} - {to}.",
+        "diagram_fix_period": "Corriger la periode",
         "mi_billed_to": "Facturé à",
         "mi_billing_address": "Adresse de facturation",
         "mi_items_title": "Articles / Prestations",
@@ -1430,6 +1442,10 @@ MODULE_TRANSLATIONS = {
         "mi_period_from": "Leistungszeitraum von",
         "mi_period_to": "Leistungszeitraum bis",
         "mi_period_hint": "Zeitraum, in dem die Arbeit ausgefuehrt wurde. Steuert /diagram und Berichte. Faellt auf das Rechnungsdatum zurueck, wenn leer.",
+        "mi_period_apply": "Anwenden",
+        "mi_period_suggest": "Bezeichnung erwaehnt {month}. Vorgeschlagener Leistungszeitraum {from} → {to}.",
+        "mi_period_changed_flash": "Leistungszeitraum der Rechnung #{n} geaendert auf {from} - {to}.",
+        "diagram_fix_period": "Leistungszeitraum korrigieren",
         "mi_billed_to": "Rechnungsempfanger",
         "mi_billing_address": "Rechnungsadresse",
         "mi_items_title": "Positionen / Leistungen",
@@ -1545,6 +1561,10 @@ MODULE_TRANSLATIONS = {
         "mi_period_from": "Periodo de servico de",
         "mi_period_to": "Periodo de servico ate",
         "mi_period_hint": "Periodo em que o trabalho foi realizado. Usado em /diagram e relatorios. Em branco, usa a data da fatura.",
+        "mi_period_apply": "Aplicar",
+        "mi_period_suggest": "A designacao menciona {month}. Periodo de servico sugerido {from} → {to}.",
+        "mi_period_changed_flash": "Periodo de servico da fatura #{n} alterado para {from} - {to}.",
+        "diagram_fix_period": "Corrigir periodo",
         "mi_billed_to": "Faturar a",
         "mi_billing_address": "Endereco de faturacao",
         "mi_items_title": "Artigos / Servicos",
@@ -10508,6 +10528,16 @@ def invoices_manual():
         # backwards.
         if date_to < date_from:
             date_to = date_from
+        # Snapshot the existing date_from/date_to BEFORE the writes so
+        # we can detect a period repair and flash a specific message.
+        prev_period_row = c.execute(
+            "SELECT COALESCE(date_from,''), COALESCE(date_to,'') "
+            "FROM invoice_records "
+            "WHERE invoice_number=? AND COALESCE(deleted,0)=0",
+            (inv_num,)
+        ).fetchone() if inv_num else None
+        prev_date_from = (prev_period_row[0] if prev_period_row else "") or ""
+        prev_date_to   = (prev_period_row[1] if prev_period_row else "") or ""
 
         # Collect line items from form arrays (safe parse, skip empty rows)
         designations = request.form.getlist("designation[]")
@@ -10663,7 +10693,25 @@ def invoices_manual():
 
         if request.form.get("download_pdf"):
             return redirect(f"/invoices/manual/pdf?invoice_number={inv_num}")
-        flash(f"✓ {tr.get('mi_save_invoice','Faktura sačuvana')} #{inv_num}", "ok")
+        # If this save changed the work-period dates (admin opened the
+        # invoice specifically to repair the /diagram bucket), flash an
+        # explicit "period changed" message so they get confirmation
+        # the right column moved.
+        period_changed = (prev_date_from or prev_date_to) and (
+            prev_date_from != date_from or prev_date_to != date_to
+        )
+        if period_changed:
+            flash(
+                tr.get(
+                    "mi_period_changed_flash",
+                    "Period rada fakture #{n} je promijenjen na {from} - {to}.",
+                ).replace("{n}", str(inv_num))
+                 .replace("{from}", format_date(date_from))
+                 .replace("{to}",   format_date(date_to)),
+                "ok",
+            )
+        else:
+            flash(f"✓ {tr.get('mi_save_invoice','Faktura sačuvana')} #{inv_num}", "ok")
         return redirect(f"/invoices/manual?invoice_number={inv_num}")
 
     # ── GET: show form ────────────────────────────────────────────────────
@@ -10881,16 +10929,32 @@ def invoices_manual():
         <div class="mi-card" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
           <div>
             <div class="mi-label">📅 {{ tr.get("mi_period_from","Période du") }}</div>
-            <input class="mi-input" type="date" name="date_from"
+            <input class="mi-input" type="date" name="date_from" id="miDateFrom"
                    value="{{ draft.date_from or '' }}">
           </div>
           <div>
             <div class="mi-label">📅 {{ tr.get("mi_period_to","Période au") }}</div>
-            <input class="mi-input" type="date" name="date_to"
+            <input class="mi-input" type="date" name="date_to" id="miDateTo"
                    value="{{ draft.date_to or '' }}">
           </div>
           <div style="grid-column:1 / -1; font-size:12px; color:{{ '#94a3b8' if dark else '#64748b' }};">
             {{ tr.get("mi_period_hint","Period u kojem je rad obavljen. Koristi se za /diagram i izvjestaje. Ako se ostavi prazno, padne na datum fakture.") }}
+          </div>
+          <!-- Quick-apply banner: populated by JS at the bottom of the
+               page when the item designation mentions a month name like
+               "Mai 2026" / "mois de Mai'26". The admin still has to
+               click "Apply" — we never silently rewrite the dates. -->
+          <div id="miPeriodSuggest" hidden
+               style="grid-column:1 / -1; padding:10px 12px; border-radius:10px;
+                      background:#fef3c7; color:#92400e; border:1px solid #fde68a;
+                      font-size:13px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <span>💡 <span id="miPeriodSuggestText"></span></span>
+            <button type="button" id="miPeriodSuggestApply"
+                    style="margin-left:auto; background:#f59e0b; color:white; border:none;
+                           border-radius:8px; padding:7px 14px; font-weight:700;
+                           cursor:pointer; font-family:inherit; font-size:13px;">
+              {{ tr.get("mi_period_apply","Primijeni") }}
+            </button>
           </div>
         </div>
 
@@ -11257,6 +11321,113 @@ document.getElementById('miForm').addEventListener('invalid', function(e){
   e.target.scrollIntoView({behavior:'smooth', block:'center'});
   e.target.focus({preventScroll:true});
 }, true);
+
+// ── Work-period auto-detection from designation text ───────────────
+// User report: 4 manual invoices issued in June for May's work landed
+// in June on /diagram. The fix is to set their date_from / date_to to
+// the right month. Scan the line-item designations for French / English /
+// Luxembourgish month names. If we find a single confident match, show
+// a yellow banner with the proposed date_from / date_to. Admin still has
+// to click "Apply" — we never silently rewrite the dates.
+(function(){
+  // Month-name → 0-indexed month. Each language packed inline so we
+  // don't pull a heavy regex library — these are the spellings the
+  // user pointed at in the bug report.
+  var MONTHS = [
+    // [0-indexed month, regex pattern (case-insensitive)]
+    [0,  /\b(janvier|january|jan|januar|janeiro|januar)\b/i],
+    [1,  /\b(f[eé]vrier|february|feb|februar|fevereiro)\b/i],
+    [2,  /\b(mars|march|maerz|m[aä]rz|mar[çc]o)\b/i],
+    [3,  /\b(avril|april|apr|avril|abril)\b/i],
+    [4,  /\b(mai|may|maio)\b/i],
+    [5,  /\b(juin|june|jun|juni|junho)\b/i],
+    [6,  /\b(juillet|july|jul|juli|julho)\b/i],
+    [7,  /\b(ao[uû]t|august|aug|agosto)\b/i],
+    [8,  /\b(septembre|september|sep|setembro)\b/i],
+    [9,  /\b(octobre|october|oct|oktober|outubro)\b/i],
+    [10, /\b(novembre|november|nov|novembro)\b/i],
+    [11, /\b(d[eé]cembre|december|dec|dezember|dezembro)\b/i],
+  ];
+  function lastDay(year, monthIdx) {
+    return new Date(year, monthIdx + 1, 0).getDate();
+  }
+  function pad2(n){ return (n<10?"0":"")+n; }
+  function detect(){
+    var texts = [];
+    document.querySelectorAll('textarea[name="designation[]"]').forEach(function(ta){
+      if (ta.value) texts.push(ta.value);
+    });
+    var blob = texts.join(' ');
+    if (!blob) return null;
+    var matches = [];
+    MONTHS.forEach(function(pair){
+      if (pair[1].test(blob)) matches.push(pair[0]);
+    });
+    // Only auto-suggest when exactly ONE month was mentioned —
+    // ambiguous designations ("Mai et Juin") should not silently
+    // pick a side.
+    if (matches.length !== 1) return null;
+    var monthIdx = matches[0];
+    // Year preference: explicit 2026 / '26 in the text > invoice_date
+    // year > current year.
+    var year = null;
+    var ym = blob.match(/\b(20\d{2})\b/);
+    if (ym) year = parseInt(ym[1], 10);
+    if (!year) {
+      var apostrophe = blob.match(/'(\d{2})\b/);
+      if (apostrophe) year = 2000 + parseInt(apostrophe[1], 10);
+    }
+    if (!year) {
+      var inv = document.querySelector('input[name="invoice_date"]');
+      if (inv && inv.value) year = parseInt(inv.value.slice(0,4), 10);
+    }
+    if (!year) year = new Date().getFullYear();
+    var fromIso = year + "-" + pad2(monthIdx + 1) + "-01";
+    var toIso   = year + "-" + pad2(monthIdx + 1) + "-" + pad2(lastDay(year, monthIdx));
+    return {monthIdx:monthIdx, year:year, from:fromIso, to:toIso};
+  }
+  function fmtHuman(iso){
+    var p = iso.split('-');
+    return p[2] + "/" + p[1] + "/" + p[0];
+  }
+  function refresh(){
+    var banner = document.getElementById('miPeriodSuggest');
+    if (!banner) return;
+    var d = detect();
+    if (!d) { banner.hidden = true; return; }
+    var df = document.getElementById('miDateFrom');
+    var dt = document.getElementById('miDateTo');
+    // Don't nag when the period is already correct.
+    if (df && dt && df.value === d.from && dt.value === d.to) {
+      banner.hidden = true;
+      return;
+    }
+    var monthNames = [
+      "Janvier","Février","Mars","Avril","Mai","Juin",
+      "Juillet","Août","Septembre","Octobre","Novembre","Décembre"
+    ];
+    var label = monthNames[d.monthIdx] + " " + d.year;
+    var tplBanner = {{ (tr.get("mi_period_suggest","Designation pominje {month}. Predlažem period rada {from} → {to}."))|tojson }};
+    var msg = tplBanner.replace("{month}", label)
+                       .replace("{from}",  fmtHuman(d.from))
+                       .replace("{to}",    fmtHuman(d.to));
+    document.getElementById('miPeriodSuggestText').textContent = msg;
+    banner.hidden = false;
+    document.getElementById('miPeriodSuggestApply').onclick = function(){
+      if (df) df.value = d.from;
+      if (dt) dt.value = d.to;
+      banner.hidden = true;
+    };
+  }
+  document.addEventListener('DOMContentLoaded', refresh);
+  // Re-scan whenever the admin edits a line-item designation —
+  // adding "Mai'26" mid-edit should immediately offer the banner.
+  document.addEventListener('input', function(e){
+    if (e.target && e.target.matches && e.target.matches('textarea[name="designation[]"]')) {
+      refresh();
+    }
+  });
+})();
 </script>
 """, tr=tr, dark=dark, auto_num=auto_num, today=lux_now().strftime("%Y-%m-%d"),
      profiles=profiles,
@@ -14485,7 +14656,7 @@ def _diagram_page_inner():
               <tbody>
                 {% for inv in m_invs %}
                 <tr style="border-bottom:1px solid {{ '#1d1d1f' if dark else '#f1f5f9' }};">
-                  <td style="padding:6px 8px;"><a href="/invoices/view?invoice_number={{ inv.invoice_number|urlencode }}" style="color:{{ '#93c5fd' if dark else '#1f4f82' }}; text-decoration:underline; font-weight:600;">{{ inv.invoice_number }}</a>{% if inv.source == 'manual' %} <span style="color:{{ '#ffd429' if dark else '#b45309' }};" title="manual">✏️</span>{% endif %}</td>
+                  <td style="padding:6px 8px;"><a href="/invoices/view?invoice_number={{ inv.invoice_number|urlencode }}" style="color:{{ '#93c5fd' if dark else '#1f4f82' }}; text-decoration:underline; font-weight:600;">{{ inv.invoice_number }}</a>{% if inv.source == 'manual' %} <a href="/invoices/manual?invoice_number={{ inv.invoice_number|urlencode }}" style="color:{{ '#ffd429' if dark else '#b45309' }}; text-decoration:none; margin-left:4px;" title="{{ tr.get('diagram_fix_period','Ispravi period rada') }}">✏️</a>{% endif %}</td>
                   <td style="padding:6px 8px;">{{ inv.client_name }}</td>
                   <td style="padding:6px 8px; font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }};">{{ format_date(inv.date_from) }} → {{ format_date(inv.date_to) }}</td>
                   <td style="padding:6px 8px; font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }};">{{ format_date(inv.invoice_date) }}</td>
