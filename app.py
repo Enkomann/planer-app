@@ -4776,12 +4776,19 @@ init_db()
 
 
 BASE_STYLE = """
+<title>Luxmann Planner</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Luxmann">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#1e3a5f">
+<meta name="theme-color" content="#1f4f82">
+<!-- Favicon + Apple touch icon. v=2 cache-bust so the browser drops
+     the old generic icon when the user reloads the deployed app. -->
+<link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}?v=2">
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32x32.png') }}?v=2">
+<link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16x16.png') }}?v=2">
+<link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='apple-touch-icon.png') }}?v=2">
 <link rel="manifest" href="/manifest.json">
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(function(){});}</script>
 <style>
@@ -13584,8 +13591,8 @@ def pwa_manifest():
         "background_color": "#111113",
         "theme_color": "#1e3a5f",
         "icons": [
-            {"src": "/static/logo.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
-            {"src": "/static/logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+            {"src": "/static/icon-192.png?v=2", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+            {"src": "/static/icon-512.png?v=2", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
         ]
     }
     resp = app.response_class(json.dumps(data), mimetype="application/json")
