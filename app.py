@@ -4785,10 +4785,10 @@ BASE_STYLE = """
 <meta name="theme-color" content="#1f4f82">
 <!-- Favicon + Apple touch icon. v=2 cache-bust so the browser drops
      the old generic icon when the user reloads the deployed app. -->
-<link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}?v=2">
-<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32x32.png') }}?v=2">
-<link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16x16.png') }}?v=2">
-<link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='apple-touch-icon.png') }}?v=2">
+<link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}?v=3">
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32x32.png') }}?v=3">
+<link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16x16.png') }}?v=3">
+<link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='apple-touch-icon.png') }}?v=3">
 <link rel="manifest" href="/manifest.json">
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(function(){});}</script>
 <style>
@@ -8405,10 +8405,10 @@ SHARED_FOLDER_TMPL = """
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{ current_name }} – Luxmann</title>
 <meta name="theme-color" content="#1f4f82">
-<link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}?v=2">
-<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32x32.png') }}?v=2">
-<link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16x16.png') }}?v=2">
-<link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='apple-touch-icon.png') }}?v=2">
+<link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}?v=3">
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32x32.png') }}?v=3">
+<link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16x16.png') }}?v=3">
+<link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='apple-touch-icon.png') }}?v=3">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:system-ui,sans-serif;
@@ -8665,10 +8665,10 @@ def _share_error_page(icon, title, body, status=503):
         "<!doctype html><html><head><meta charset='utf-8'>"
         "<title>" + safe_title + "</title>"
         "<meta name='theme-color' content='#1f4f82'>"
-        "<link rel='icon' href='/static/favicon.ico?v=2'>"
-        "<link rel='icon' type='image/png' sizes='32x32' href='/static/favicon-32x32.png?v=2'>"
-        "<link rel='icon' type='image/png' sizes='16x16' href='/static/favicon-16x16.png?v=2'>"
-        "<link rel='apple-touch-icon' sizes='180x180' href='/static/apple-touch-icon.png?v=2'>"
+        "<link rel='icon' href='/static/favicon.ico?v=3'>"
+        "<link rel='icon' type='image/png' sizes='32x32' href='/static/favicon-32x32.png?v=3'>"
+        "<link rel='icon' type='image/png' sizes='16x16' href='/static/favicon-16x16.png?v=3'>"
+        "<link rel='apple-touch-icon' sizes='180x180' href='/static/apple-touch-icon.png?v=3'>"
         "<style>body{font-family:sans-serif;max-width:520px;margin:80px auto;"
         "padding:20px;text-align:center;}"
         ".icon{font-size:48px;margin-bottom:16px;}"
@@ -13601,8 +13601,8 @@ def pwa_manifest():
         "background_color": "#111113",
         "theme_color": "#1f4f82",
         "icons": [
-            {"src": "/static/icon-192.png?v=2", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
-            {"src": "/static/icon-512.png?v=2", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+            {"src": "/static/icon-192.png?v=3", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+            {"src": "/static/icon-512.png?v=3", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
         ]
     }
     resp = app.response_class(json.dumps(data), mimetype="application/json")
