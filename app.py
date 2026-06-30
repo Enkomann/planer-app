@@ -14381,8 +14381,8 @@ def _diagram_page_inner():
                 <tr style="border-bottom:1px solid {{ '#1d1d1f' if dark else '#f1f5f9' }};">
                   <td style="padding:6px 8px;"><a href="/invoices/view?invoice_number={{ inv.invoice_number|urlencode }}" style="color:{{ '#93c5fd' if dark else '#1f4f82' }}; text-decoration:underline; font-weight:600;">{{ inv.invoice_number }}</a>{% if inv.source == 'manual' %} <span style="color:{{ '#ffd429' if dark else '#b45309' }};" title="manual">✏️</span>{% endif %}</td>
                   <td style="padding:6px 8px;">{{ inv.client_name }}</td>
-                  <td style="padding:6px 8px; font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }};">{{ inv.date_from }} → {{ inv.date_to }}</td>
-                  <td style="padding:6px 8px; font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }};">{{ inv.invoice_date }}</td>
+                  <td style="padding:6px 8px; font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }};">{{ format_date(inv.date_from) }} → {{ format_date(inv.date_to) }}</td>
+                  <td style="padding:6px 8px; font-size:11px; color:{{ '#94a3b8' if dark else '#64748b' }};">{{ format_date(inv.invoice_date) }}</td>
                   <td style="padding:6px 8px; text-align:right;">{{ '%.2f'|format(inv.amount) }}</td>
                   <td style="padding:6px 8px; text-align:right; color:{{ '#94a3b8' if dark else '#64748b' }};">{{ '%.2f'|format(inv.vat_amount) }}</td>
                   <td style="padding:6px 8px; text-align:right; font-weight:700; color:{{ '#c4b5fd' if dark else '#7c3aed' }};">{{ '%.2f'|format(inv.total) }}</td>
@@ -14560,7 +14560,7 @@ def _diagram_page_inner():
      best_month_idx=best_month_idx, yoy_pct=yoy_pct, prev_year=prev_year,
      month_names=MONTH_NAMES, client_names=client_names, client_totals=client_totals,
      active_months=active_months, avg_monthly=avg_monthly,
-     month_invoices=month_invoices)
+     month_invoices=month_invoices, format_date=format_date)
 
 
 @app.route("/api/search")
