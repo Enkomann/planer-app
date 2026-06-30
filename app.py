@@ -3179,17 +3179,20 @@ def fetch_invoice_records(conn, date_from=None, date_to=None, client=None,
     """Read invoice_records with optional date / client / status filters.
 
     ``date_basis`` controls which date column the date_from/date_to
-    window applies to:
+    window applies to AND the ORDER BY column on the result:
 
-      - ``"invoice_date"`` (default): the issuance date. Matches the
-        historic behaviour of /invoices listing, /invoices/list_pdf,
-        /invoices/download_all, /invoices/client_statement etc., so
-        nothing changes for existing callers.
+      - ``"invoice_date"`` (default): the issuance date. Used by the
+        main /invoices listing and /invoices/client search-style
+        filters where the admin's mental model is "find invoices
+        whose paper date falls in this window".
       - ``"work_period"``: the work-period start (``date_from``
-        column on invoice_records). Matches the /diagram bucketing
-        introduced in 8a12b2b — invoices issued in June for May's
-        shifts are counted as May. Exports that want to align with
-        the diagram should pass this.
+        column on invoice_records). Used by /diagram and every
+        export that groups by service period — currently
+        /invoices/list_pdf, /invoices/download_all,
+        /invoices/client_statement and the per-client page
+        /invoices/client. Mental model: "show me what was worked
+        in this window", so a May-shift invoice issued in June
+        lands in the May bucket.
 
     Anything else falls back to invoice_date so a typo can't widen
     the result silently.
@@ -9621,8 +9624,15 @@ def invoices_client():
     status = request.args.get("status", "all").strip()
     doc_filter = request.args.get("doc", "all").strip()
     conn = get_conn()
+    # Align with the "Statement PDF" button on this same page —
+    # /invoices/client_statement already uses date_basis="work_period".
+    # Without this, picking "May" in the page filter could show a
+    # different set of invoices in the table than the PDF the button
+    # generates (a June-issued invoice for May's shifts would land in
+    # one set and not the other).
     rows = fetch_invoice_records(
-        conn, date_from or None, date_to or None, client, status
+        conn, date_from or None, date_to or None, client, status,
+        date_basis="work_period",
     )
     conn.close()
     # Document filter (auto = invoice, manual = manual invoice — both render same here)
