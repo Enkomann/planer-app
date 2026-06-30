@@ -3215,11 +3215,15 @@ def fetch_invoice_records(conn, date_from=None, date_to=None, client=None,
     elif status == "unpaid":
         conditions.append("paid = 0")
     where = (" WHERE " + " AND ".join(conditions)) if conditions else ""
+    # Sort by whichever date column the caller asked to filter on, so
+    # a work-period filter produces a work-period-ordered result and
+    # not a result sorted by issuance date.
+    order_col = "date_from" if date_basis == "work_period" else "invoice_date"
     query = f"""
         SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date, COALESCE(sent, 0), COALESCE(sent_date, ''), COALESCE(source, 'auto')
         FROM invoice_records
         {where}
-        ORDER BY invoice_date DESC, CAST(invoice_number AS INTEGER) DESC
+        ORDER BY {order_col} DESC, CAST(invoice_number AS INTEGER) DESC
     """
     return [invoice_record_to_dict(row) for row in c.execute(query, params).fetchall()]
 
@@ -10166,7 +10170,8 @@ def invoices_client_statement():
     doc_filter = request.args.get("doc",      "all").strip()
     conn = get_conn()
     records = fetch_invoice_records(
-        conn, date_from or None, date_to or None, client, status
+        conn, date_from or None, date_to or None, client, status,
+        date_basis="work_period",
     )
     conn.close()
     # Apply the same document filter as /invoices/client so PDF matches table
@@ -10237,7 +10242,8 @@ def invoices_list_pdf():
     client = request.args.get("client", "").strip()
     status = request.args.get("status", "all").strip()
     conn = get_conn()
-    records = fetch_invoice_records(conn, date_from, date_to, client or None, status)
+    records = fetch_invoice_records(conn, date_from, date_to, client or None, status,
+                                    date_basis="work_period")
     conn.close()
     pdf = build_invoice_list_pdf(records, date_from, date_to)
     return send_file(pdf, as_attachment=True, download_name=f"liste_factures_{date_from}_{date_to}.pdf", mimetype="application/pdf")
@@ -12669,7 +12675,8 @@ def invoices_download_all():
     date_to = request.args.get("date_to", default_to).strip()
     client = request.args.get("client", "").strip()
     conn = get_conn()
-    records = fetch_invoice_records(conn, date_from, date_to, client or None, "all")
+    records = fetch_invoice_records(conn, date_from, date_to, client or None, "all",
+                                    date_basis="work_period")
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
         for record in records:
