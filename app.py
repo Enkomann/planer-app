@@ -10478,24 +10478,36 @@ def invoices_manual():
         form_mode     = request.form.get("mode", "create")   # 'create' | 'edit'
         client_name   = request.form.get("client_name",   "").strip()
         client_addr   = request.form.get("client_address","").strip()
-        inv_date      = request.form.get("invoice_date",  lux_now().strftime("%Y-%m-%d")).strip()
+        raw_inv_date  = (request.form.get("invoice_date", "") or "").strip()
         payment_terms = request.form.get("payment_terms", "").strip()
 
         # Service window — date_from / date_to. These drive the
         # /diagram and report bucketing, so they must be real
         # YYYY-MM-DD strings even when the form submits junk. Fall
-        # back to invoice_date so a missing or invalid value just
-        # keeps today's old behaviour instead of writing garbage.
+        # back to invoice_date (also validated) so a missing or
+        # invalid value never writes garbage into invoice_records.
         def _safe_iso(s):
             try:
                 datetime.strptime(s, "%Y-%m-%d")
                 return s
             except (TypeError, ValueError):
                 return ""
-        raw_from = (request.form.get("date_from", "") or "").strip()
-        raw_to   = (request.form.get("date_to",   "") or "").strip()
+        today_iso = lux_now().strftime("%Y-%m-%d")
+        # Validate invoice_date with the same helper before letting
+        # it become a date_from fallback — a crafted POST with an
+        # invalid invoice_date used to leak into the work window.
+        inv_date  = _safe_iso(raw_inv_date) or today_iso
+        raw_from  = (request.form.get("date_from", "") or "").strip()
+        raw_to    = (request.form.get("date_to",   "") or "").strip()
         date_from = _safe_iso(raw_from) or inv_date
         date_to   = _safe_iso(raw_to)   or date_from
+        # Order guard: a swapped pair (date_to before date_from) is
+        # almost always a typo and would land the invoice in the
+        # wrong /diagram bucket. Snap date_to up to date_from so the
+        # work window collapses to a single day instead of running
+        # backwards.
+        if date_to < date_from:
+            date_to = date_from
 
         # Collect line items from form arrays (safe parse, skip empty rows)
         designations = request.form.getlist("designation[]")
