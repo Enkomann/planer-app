@@ -2931,6 +2931,18 @@ def month_navigation(year, month, delta):
 
 
 def get_week_start_from_request():
+    """Return the Monday of the requested week.
+
+    With ?start=YYYY-MM-DD: snap back to that date's Monday.
+    Without: snap TODAY to its Monday.
+
+    Historic bug: the no-arg branch used to return the 1st of the
+    current month. That happens to be a Monday sometimes (e.g.
+    2026-06-01), but for any month where the 1st isn't a Monday
+    the /week view mislabelled every column (day_names[0] = "Mon"
+    was rendered next to a Wednesday date etc.) and the range
+    covered days 1-7 instead of the current week.
+    """
     week_start_str = request.args.get("start", "").strip()
     if week_start_str:
         try:
@@ -2939,7 +2951,7 @@ def get_week_start_from_request():
         except Exception:
             pass
     today = datetime.today()
-    return datetime(today.year, today.month, 1)
+    return today - timedelta(days=today.weekday())
 
 
 def easter_date(year):
