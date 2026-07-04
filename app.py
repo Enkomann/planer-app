@@ -2951,6 +2951,11 @@ def get_week_start_from_request():
         except Exception:
             pass
     today = datetime.today()
+    # Normalize to midnight so callers that store or compare the raw
+    # datetime don't carry the request-time hh:mm:ss around; every
+    # existing caller only reads .strftime("%Y-%m-%d") so this is a
+    # no-op today, but makes the return value predictable.
+    today = datetime(today.year, today.month, today.day)
     return today - timedelta(days=today.weekday())
 
 
