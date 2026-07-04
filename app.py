@@ -7342,7 +7342,7 @@ def week_view():
             </div>
         {% endfor %}
     </div>
-    {% if is_admin %}<div id="holidayModal" class="modal-backdrop"><div class="modal-card"><h3>{{ tr["add_holiday"] }}</h3><form method="post" action="/add_holiday"><input type="date" name="date" id="holidayDate" required><input type="text" name="name" placeholder="{{ tr['holiday_name'] }}" required><button>{{ tr["save"] }}</button></form><button type="button" onclick="closeHolidayModal()">{{ tr["cancel"] }}</button></div></div>{% endif %}
+    {% if is_admin %}<div id="holidayModal" class="modal-backdrop"><div class="modal-card"><h3>{{ tr["add_holiday"] }}</h3><form method="post" action="/add_holiday"><label for="holidayDateW">{{ tr["date"] }}</label><input type="date" name="date" id="holidayDateW" required><input type="text" name="name" placeholder="{{ tr['holiday_name'] }}" required><button>{{ tr["save"] }}</button></form><button type="button" onclick="closeHolidayModal()">{{ tr["cancel"] }}</button></div></div>{% endif %}
     {% if is_admin %}
     <div id="addShiftModal" class="modal-backdrop" style="display:none;">
       <div class="modal-card" style="max-width:400px;width:95%;max-height:90vh;overflow-y:auto;">
@@ -7352,7 +7352,7 @@ def week_view():
           <label>{{ tr['choose_worker'] }}</label>
           {% for w in workers %}{% if w[0] != 'admin' %}<label class="check-row"><input type="checkbox" name="workers" value="{{ w[0] }}">{{ w[0] }}</label>{% endif %}{% endfor %}
           <div class="client-search-wrapper"><input type="text" id="csInputWeek" class="client-search-input" placeholder="{{ tr['search_placeholder'] }}" autocomplete="off"><input type="hidden" name="client" id="csHiddenWeek" required><div class="client-search-dropdown" id="csListWeek"></div></div>
-          <input id="addShiftDate" name="date" type="date" required>
+          <label for="addShiftDateW">{{ tr["date"] }}</label><input id="addShiftDateW" name="date" type="date" required>
           <label>{{ tr['start_time'] }}</label>
           <div style="display:flex;gap:6px;"><select name="start_hour">{% for h in time_hours %}<option value="{{ h }}" {% if h=='07' %}selected{% endif %}>{{ h }}</option>{% endfor %}</select><select name="start_minute"><option value="00" selected>00</option><option value="15">15</option><option value="30">30</option><option value="45">45</option></select></div>
           <label>{{ tr['end_time'] }}</label>
@@ -7365,7 +7365,7 @@ def week_view():
     </div>
     {% endif %}
     <script>
-    function openHolidayModal(dateStr){var m=document.getElementById('holidayModal');var d=document.getElementById('holidayDate');if(m&&d){d.value=dateStr;m.style.display='block';}}
+    function openHolidayModal(dateStr){var m=document.getElementById('holidayModal');var d=document.getElementById('holidayDateW');if(m&&d){d.value=dateStr;m.style.display='block';}}
     function closeHolidayModal(){var m=document.getElementById('holidayModal');if(m){m.style.display='none';}}
     function openAddShiftModal(dateStr){
       var form=document.getElementById('shiftModalFormW');
@@ -7375,7 +7375,7 @@ def week_view():
       if(titleEl)titleEl.innerHTML='+ {{ tr["add_shift"] }} — <span id="addShiftModalDate"></span>';
       document.getElementById('addShiftModalDate').textContent=dateStr;
       var btn=document.getElementById('shiftModalSaveBtnW');if(btn)btn.textContent='{{ tr["add_shift"] }}';
-      document.getElementById('addShiftDate').value=dateStr;
+      document.getElementById('addShiftDateW').value=dateStr;
       var ci=document.getElementById('csInputWeek');var ch=document.getElementById('csHiddenWeek');
       if(ci)ci.value='';if(ch)ch.value='';
       form.querySelectorAll('input[name="workers"]').forEach(function(cb){cb.checked=false;});
@@ -7395,7 +7395,7 @@ def week_view():
       var titleEl=document.getElementById('shiftModalTitleW');
       if(titleEl)titleEl.textContent='✏️ {{ tr["edit_shift"] }}';
       var btn=document.getElementById('shiftModalSaveBtnW');if(btn)btn.textContent='{{ tr["save"] }}';
-      document.getElementById('addShiftDate').value=date;
+      document.getElementById('addShiftDateW').value=date;
       var dateSpan=document.getElementById('addShiftModalDate');if(dateSpan)dateSpan.textContent=date;
       var workerList=workers.split(', ');
       form.querySelectorAll('input[name="workers"]').forEach(function(cb){cb.checked=workerList.indexOf(cb.value)>=0;});
@@ -7540,7 +7540,7 @@ def month_view():
             </div>
         {% endfor %}{% endfor %}
     </div>
-    {% if is_admin %}<div id="holidayModal" class="modal-backdrop"><div class="modal-card"><h3>{{ tr["add_holiday"] }}</h3><form method="post" action="/add_holiday"><input type="date" name="date" id="holidayDate" required><input type="text" name="name" placeholder="{{ tr['holiday_name'] }}" required><button>{{ tr["save"] }}</button></form><button type="button" onclick="closeHolidayModal()">{{ tr["cancel"] }}</button></div></div>{% endif %}
+    {% if is_admin %}<div id="holidayModal" class="modal-backdrop"><div class="modal-card"><h3>{{ tr["add_holiday"] }}</h3><form method="post" action="/add_holiday"><label for="holidayDateM">{{ tr["date"] }}</label><input type="date" name="date" id="holidayDateM" required><input type="text" name="name" placeholder="{{ tr['holiday_name'] }}" required><button>{{ tr["save"] }}</button></form><button type="button" onclick="closeHolidayModal()">{{ tr["cancel"] }}</button></div></div>{% endif %}
     {% if is_admin %}
     <div id="addShiftModal" class="modal-backdrop" style="display:none;">
       <div class="modal-card" style="max-width:400px;width:95%;max-height:90vh;overflow-y:auto;">
@@ -7550,7 +7550,7 @@ def month_view():
           <label>{{ tr['choose_worker'] }}</label>
           {% for w in workers %}{% if w[0] != 'admin' %}<label class="check-row"><input type="checkbox" name="workers" value="{{ w[0] }}">{{ w[0] }}</label>{% endif %}{% endfor %}
           <div class="client-search-wrapper"><input type="text" id="csInputMonth" class="client-search-input" placeholder="{{ tr['search_placeholder'] }}" autocomplete="off"><input type="hidden" name="client" id="csHiddenMonth" required><div class="client-search-dropdown" id="csListMonth"></div></div>
-          <input id="addShiftDate" name="date" type="date" required>
+          <label for="addShiftDateM">{{ tr["date"] }}</label><input id="addShiftDateM" name="date" type="date" required>
           <label>{{ tr['start_time'] }}</label>
           <div style="display:flex;gap:6px;"><select name="start_hour">{% for h in time_hours %}<option value="{{ h }}" {% if h=='07' %}selected{% endif %}>{{ h }}</option>{% endfor %}</select><select name="start_minute"><option value="00" selected>00</option><option value="15">15</option><option value="30">30</option><option value="45">45</option></select></div>
           <label>{{ tr['end_time'] }}</label>
@@ -7563,7 +7563,7 @@ def month_view():
     </div>
     {% endif %}
     <script>
-    function openHolidayModal(dateStr){var m=document.getElementById('holidayModal');var d=document.getElementById('holidayDate');if(m&&d){d.value=dateStr;m.style.display='block';}} function closeHolidayModal(){var m=document.getElementById('holidayModal');if(m){m.style.display='none';}}
+    function openHolidayModal(dateStr){var m=document.getElementById('holidayModal');var d=document.getElementById('holidayDateM');if(m&&d){d.value=dateStr;m.style.display='block';}} function closeHolidayModal(){var m=document.getElementById('holidayModal');if(m){m.style.display='none';}}
     function openAddShiftModal(dateStr){
       var form=document.getElementById('shiftModalFormM');
       form.action='/add_shift';
@@ -7572,7 +7572,7 @@ def month_view():
       if(titleEl)titleEl.innerHTML='+ {{ tr["add_shift"] }} — <span id="addShiftModalDate"></span>';
       document.getElementById('addShiftModalDate').textContent=dateStr;
       var btn=document.getElementById('shiftModalSaveBtnM');if(btn)btn.textContent='{{ tr["add_shift"] }}';
-      document.getElementById('addShiftDate').value=dateStr;
+      document.getElementById('addShiftDateM').value=dateStr;
       var ci=document.getElementById('csInputMonth');var ch=document.getElementById('csHiddenMonth');
       if(ci)ci.value='';if(ch)ch.value='';
       form.querySelectorAll('input[name="workers"]').forEach(function(cb){cb.checked=false;});
@@ -7592,7 +7592,7 @@ def month_view():
       var titleEl=document.getElementById('shiftModalTitleM');
       if(titleEl)titleEl.textContent='✏️ {{ tr["edit_shift"] }}';
       var btn=document.getElementById('shiftModalSaveBtnM');if(btn)btn.textContent='{{ tr["save"] }}';
-      document.getElementById('addShiftDate').value=date;
+      document.getElementById('addShiftDateM').value=date;
       var dateSpan=document.getElementById('addShiftModalDate');if(dateSpan)dateSpan.textContent=date;
       var workerList=workers.split(', ');
       form.querySelectorAll('input[name="workers"]').forEach(function(cb){cb.checked=workerList.indexOf(cb.value)>=0;});
@@ -13488,7 +13488,7 @@ def edit_shift(id):
     if not shift: return redirect("/")
     start_time, end_time = split_time_range(shift[4]); sh, sm = split_hour_min(start_time); eh, em = split_hour_min(end_time); selected_workers = split_workers(shift[1])
     return_to = request.referrer or f"/month?year={shift[3][:4]}&month={int(shift[3][5:7])}"
-    return render_template_string(BASE_STYLE + """<div class="card" style="max-width:520px;margin:auto;"><h2>{{ tr["edit_shift"] }}</h2><form method="post"><input type="hidden" name="return_to" value="{{ return_to }}"><label>{{ tr["choose_worker"] }}</label>{% for w in workers %}{% if w[0] != 'admin' %}<label class="check-row"><input type="checkbox" name="workers" value="{{ w[0] }}" {% if w[0] in selected_workers %}checked{% endif %}>{{ w[0] }}</label>{% endif %}{% endfor %}<div class="client-search-wrapper"><input type="text" id="csInputEdit" class="client-search-input" value="{{ shift[2] }}" placeholder="{{ tr['search_placeholder'] }}" autocomplete="off"><input type="hidden" name="client" id="csHiddenEdit" value="{{ shift[2] }}" required><div class="client-search-dropdown" id="csListEdit"></div></div><input type="date" name="date" value="{{ shift[3] }}" required><label>{{ tr["start_time"] }}</label><div style="display:flex;gap:6px;"><select name="start_hour">{% for h in time_hours %}<option value="{{ h }}" {% if h == sh %}selected{% endif %}>{{ h }}</option>{% endfor %}</select><select name="start_minute">{% for m in time_minutes %}<option value="{{ m }}" {% if m == sm %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></div><label>{{ tr["end_time"] }}</label><div style="display:flex;gap:6px;"><select name="end_hour">{% for h in time_hours %}<option value="{{ h }}" {% if h == eh %}selected{% endif %}>{{ h }}</option>{% endfor %}</select><select name="end_minute">{% for m in time_minutes %}<option value="{{ m }}" {% if m == em %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></div><select name="status"><option value="planned" {% if shift[5] == 'planned' %}selected{% endif %}>{{ tr["status_planned"] }}</option><option value="in_progress" {% if shift[5] == 'in_progress' %}selected{% endif %}>{{ tr["status_in_progress"] }}</option><option value="done" {% if shift[5] == 'done' %}selected{% endif %}>{{ tr["status_done"] }}</option></select><button>{{ tr["save"] }}</button></form><br><a class="back-button" href="/">{{ tr["back"] }}</a></div><script>document.addEventListener('DOMContentLoaded',function(){var CD=[{% for c in clients %}{"name":{{c[0]|tojson}},"addr":{{(c[1] or '')|tojson}}}{% if not loop.last %},{% endif %}{% endfor %}];initClientSearch('csInputEdit','csHiddenEdit','csListEdit',CD);});</script>""", tr=tr, dark=dark, shift=shift, workers=workers, clients=clients, selected_workers=selected_workers, sh=sh, sm=sm, eh=eh, em=em, time_hours=time_hours(), time_minutes=time_minutes(), return_to=return_to)
+    return render_template_string(BASE_STYLE + """<div class="card" style="max-width:520px;margin:auto;"><h2>{{ tr["edit_shift"] }}</h2><form method="post"><input type="hidden" name="return_to" value="{{ return_to }}"><label>{{ tr["choose_worker"] }}</label>{% for w in workers %}{% if w[0] != 'admin' %}<label class="check-row"><input type="checkbox" name="workers" value="{{ w[0] }}" {% if w[0] in selected_workers %}checked{% endif %}>{{ w[0] }}</label>{% endif %}{% endfor %}<div class="client-search-wrapper"><input type="text" id="csInputEdit" class="client-search-input" value="{{ shift[2] }}" placeholder="{{ tr['search_placeholder'] }}" autocomplete="off"><input type="hidden" name="client" id="csHiddenEdit" value="{{ shift[2] }}" required><div class="client-search-dropdown" id="csListEdit"></div></div><label for="editShiftDate">{{ tr["date"] }}</label><input id="editShiftDate" type="date" name="date" value="{{ shift[3] }}" required><label>{{ tr["start_time"] }}</label><div style="display:flex;gap:6px;"><select name="start_hour">{% for h in time_hours %}<option value="{{ h }}" {% if h == sh %}selected{% endif %}>{{ h }}</option>{% endfor %}</select><select name="start_minute">{% for m in time_minutes %}<option value="{{ m }}" {% if m == sm %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></div><label>{{ tr["end_time"] }}</label><div style="display:flex;gap:6px;"><select name="end_hour">{% for h in time_hours %}<option value="{{ h }}" {% if h == eh %}selected{% endif %}>{{ h }}</option>{% endfor %}</select><select name="end_minute">{% for m in time_minutes %}<option value="{{ m }}" {% if m == em %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></div><select name="status"><option value="planned" {% if shift[5] == 'planned' %}selected{% endif %}>{{ tr["status_planned"] }}</option><option value="in_progress" {% if shift[5] == 'in_progress' %}selected{% endif %}>{{ tr["status_in_progress"] }}</option><option value="done" {% if shift[5] == 'done' %}selected{% endif %}>{{ tr["status_done"] }}</option></select><button>{{ tr["save"] }}</button></form><br><a class="back-button" href="/">{{ tr["back"] }}</a></div><script>document.addEventListener('DOMContentLoaded',function(){var CD=[{% for c in clients %}{"name":{{c[0]|tojson}},"addr":{{(c[1] or '')|tojson}}}{% if not loop.last %},{% endif %}{% endfor %}];initClientSearch('csInputEdit','csHiddenEdit','csListEdit',CD);});</script>""", tr=tr, dark=dark, shift=shift, workers=workers, clients=clients, selected_workers=selected_workers, sh=sh, sm=sm, eh=eh, em=em, time_hours=time_hours(), time_minutes=time_minutes(), return_to=return_to)
 
 @app.route("/workers")
 def workers_page():
@@ -14020,18 +14020,18 @@ def clients_page():
           <input name="email" type="email" placeholder="✉ Email">
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
-          <label style="font-size:11px;font-weight:700;color:{{ '#94a3b8' if dark else '#64748b' }};display:flex;flex-direction:column;gap:2px;">
-            📅 {{ tr.get('contract_signed','Ugovor potpisan') }}
-            <input name="contract_signed_at" type="date" aria-label="{{ tr.get('contract_signed','Ugovor potpisan') }}">
-          </label>
-          <label style="font-size:11px;font-weight:700;color:{{ '#94a3b8' if dark else '#64748b' }};display:flex;flex-direction:column;gap:2px;">
-            {{ tr.get('contract_from','Ugovor od') }}
-            <input name="contract_from" type="date" aria-label="{{ tr.get('contract_from','Ugovor od') }}">
-          </label>
-          <label style="font-size:11px;font-weight:700;color:{{ '#94a3b8' if dark else '#64748b' }};display:flex;flex-direction:column;gap:2px;">
-            {{ tr.get('contract_to','Ugovor do') }}
-            <input name="contract_to" type="date" aria-label="{{ tr.get('contract_to','Ugovor do') }}">
-          </label>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label for="clientContractSigned" style="font-size:11px;font-weight:700;color:{{ '#94a3b8' if dark else '#64748b' }};">📅 {{ tr.get('contract_signed','Ugovor potpisan') }}</label>
+            <input id="clientContractSigned" name="contract_signed_at" type="date">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label for="clientContractFrom" style="font-size:11px;font-weight:700;color:{{ '#94a3b8' if dark else '#64748b' }};">{{ tr.get('contract_from','Ugovor od') }}</label>
+            <input id="clientContractFrom" name="contract_from" type="date">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label for="clientContractTo" style="font-size:11px;font-weight:700;color:{{ '#94a3b8' if dark else '#64748b' }};">{{ tr.get('contract_to','Ugovor do') }}</label>
+            <input id="clientContractTo" name="contract_to" type="date">
+          </div>
         </div>
         <button style="width:auto;align-self:flex-start;">{{ tr["add_client"] }}</button>
       </form>
