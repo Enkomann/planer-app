@@ -5300,6 +5300,26 @@ BASE_STYLE = """
         .nav-link { padding:13px 12px; min-height:44px; display:flex; align-items:center; }
         .mini-link { padding:7px 11px; min-height:40px; font-size:13px; }
         .day-menu-wrapper button { min-width:34px; min-height:34px; padding:2px 6px !important; }
+        /* iPad: date / datetime inputs default to ~28px which is
+           painful to tap and shows no visible affordance. Force a
+           real touch target and pad the native calendar picker so
+           the icon isn't a 12px dot in the corner. */
+        input[type="date"],
+        input[type="datetime-local"],
+        input[type="time"] {
+            min-height:44px !important;
+            padding:10px 12px !important;
+            font-size:15px !important;
+        }
+        input[type="date"]::-webkit-calendar-picker-indicator,
+        input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+        input[type="time"]::-webkit-calendar-picker-indicator {
+            padding:6px; cursor:pointer; opacity:0.7;
+        }
+        /* Same for select controls that share the row (VAT rate,
+           status, worker/client dropdowns) — 44px keeps them
+           tap-friendly alongside the date fields. */
+        select { min-height:44px !important; }
     }
 
     /* Phone ≤600px */
@@ -6913,7 +6933,8 @@ def index():
                 {% for w in workers %}{% if w[0] != 'admin' %}<label class="check-row"><input type="checkbox" name="workers" value="{{ w[0] }}">{{ w[0] }}</label>{% endif %}{% endfor %}
                 <div class="client-search-wrapper"><input type="text" id="csInputDash" class="client-search-input" placeholder="{{ tr['search_placeholder'] }}" autocomplete="off"><input type="hidden" name="client" id="csHiddenDash" required><div class="client-search-dropdown" id="csListDash"></div></div>
                 <div style="text-align:right;margin-top:2px;"><a href="/clients" style="font-size:11px;color:#3b82f6;text-decoration:none;opacity:0.8;">🏢 {{ tr["clients"] }} →</a></div>
-                <input name="date" type="date" value="{{ selected_date }}" required>
+                <label for="addShiftDateDash">{{ tr["date"] }}</label>
+                <input id="addShiftDateDash" name="date" type="date" value="{{ selected_date }}" required>
                 <label>{{ tr["start_time"] }}</label>
                 <div style="display:flex; gap:6px;"><select name="start_hour">{% for h in time_hours %}<option value="{{ h }}">{{ h }}</option>{% endfor %}</select><select name="start_minute"><option value="00" selected>00</option><option value="15">15</option><option value="30">30</option><option value="45">45</option></select></div>
                 <label>{{ tr["end_time"] }}</label>
@@ -9036,12 +9057,12 @@ def invoices():
                  hiding rows. -->
             <form method="get" action="/invoices" style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin:6px 0 14px;padding:10px 12px;border-radius:10px;background:{{ '#0f0f10' if dark else '#f8fafc' }};border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};">
               <div style="display:flex;flex-direction:column;gap:2px;">
-                <label style="font-size:11px;font-weight:700;color:{{ '#94a3b8' if dark else '#64748b' }};">{{ tr.get("list_from","Lista od") }}</label>
-                <input type="date" name="list_date_from" value="{{ list_date_from }}" style="padding:6px 8px;border-radius:6px;border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};background:{{ '#161618' if dark else 'white' }};color:{{ '#e2e8f0' if dark else '#0f172a' }};font-size:13px;">
+                <label for="invListFromDate" style="font-size:11px;font-weight:700;color:{{ '#94a3b8' if dark else '#64748b' }};">{{ tr.get("list_from","Lista od") }}</label>
+                <input id="invListFromDate" type="date" name="list_date_from" value="{{ list_date_from }}" style="padding:6px 8px;border-radius:6px;border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};background:{{ '#161618' if dark else 'white' }};color:{{ '#e2e8f0' if dark else '#0f172a' }};font-size:13px;">
               </div>
               <div style="display:flex;flex-direction:column;gap:2px;">
-                <label style="font-size:11px;font-weight:700;color:{{ '#94a3b8' if dark else '#64748b' }};">{{ tr.get("list_to","do") }}</label>
-                <input type="date" name="list_date_to"   value="{{ list_date_to }}"   style="padding:6px 8px;border-radius:6px;border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};background:{{ '#161618' if dark else 'white' }};color:{{ '#e2e8f0' if dark else '#0f172a' }};font-size:13px;">
+                <label for="invListToDate" style="font-size:11px;font-weight:700;color:{{ '#94a3b8' if dark else '#64748b' }};">{{ tr.get("list_to","do") }}</label>
+                <input id="invListToDate" type="date" name="list_date_to"   value="{{ list_date_to }}"   style="padding:6px 8px;border-radius:6px;border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};background:{{ '#161618' if dark else 'white' }};color:{{ '#e2e8f0' if dark else '#0f172a' }};font-size:13px;">
               </div>
               {# preserve other params on filter submit #}
               {% if q %}<input type="hidden" name="q" value="{{ q }}">{% endif %}
@@ -13999,9 +14020,18 @@ def clients_page():
           <input name="email" type="email" placeholder="✉ Email">
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
-          <input name="contract_signed_at" type="date" title="{{ tr.get('contract_signed','Ugovor potpisan') }}">
-          <input name="contract_from"      type="date" title="{{ tr.get('contract_from','Ugovor od') }}">
-          <input name="contract_to"        type="date" title="{{ tr.get('contract_to','Ugovor do') }}">
+          <label style="font-size:11px;font-weight:700;color:{{ '#94a3b8' if dark else '#64748b' }};display:flex;flex-direction:column;gap:2px;">
+            📅 {{ tr.get('contract_signed','Ugovor potpisan') }}
+            <input name="contract_signed_at" type="date" aria-label="{{ tr.get('contract_signed','Ugovor potpisan') }}">
+          </label>
+          <label style="font-size:11px;font-weight:700;color:{{ '#94a3b8' if dark else '#64748b' }};display:flex;flex-direction:column;gap:2px;">
+            {{ tr.get('contract_from','Ugovor od') }}
+            <input name="contract_from" type="date" aria-label="{{ tr.get('contract_from','Ugovor od') }}">
+          </label>
+          <label style="font-size:11px;font-weight:700;color:{{ '#94a3b8' if dark else '#64748b' }};display:flex;flex-direction:column;gap:2px;">
+            {{ tr.get('contract_to','Ugovor do') }}
+            <input name="contract_to" type="date" aria-label="{{ tr.get('contract_to','Ugovor do') }}">
+          </label>
         </div>
         <button style="width:auto;align-self:flex-start;">{{ tr["add_client"] }}</button>
       </form>
@@ -15149,12 +15179,12 @@ def payroll_page():
       <input type="hidden" name="action" value="calculate">
       <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end;">
         <div>
-          <label style="font-size:12px; color:{{ '#94a3b8' if dark else '#64748b' }}; display:block; margin-bottom:4px;">{{ tr["date_from"] }}</label>
-          <input type="date" name="date_from" value="{{ date_from }}" required style="padding:9px 12px; border-radius:8px; border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }}; background:{{ '#111113' if dark else '#f8fafc' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }};">
+          <label for="payrollFromDate" style="font-size:12px; color:{{ '#94a3b8' if dark else '#64748b' }}; display:block; margin-bottom:4px;">{{ tr["date_from"] }}</label>
+          <input id="payrollFromDate" type="date" name="date_from" value="{{ date_from }}" required style="padding:9px 12px; border-radius:8px; border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }}; background:{{ '#111113' if dark else '#f8fafc' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }};">
         </div>
         <div>
-          <label style="font-size:12px; color:{{ '#94a3b8' if dark else '#64748b' }}; display:block; margin-bottom:4px;">{{ tr["date_to"] }}</label>
-          <input type="date" name="date_to" value="{{ date_to }}" required style="padding:9px 12px; border-radius:8px; border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }}; background:{{ '#111113' if dark else '#f8fafc' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }};">
+          <label for="payrollToDate" style="font-size:12px; color:{{ '#94a3b8' if dark else '#64748b' }}; display:block; margin-bottom:4px;">{{ tr["date_to"] }}</label>
+          <input id="payrollToDate" type="date" name="date_to" value="{{ date_to }}" required style="padding:9px 12px; border-radius:8px; border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }}; background:{{ '#111113' if dark else '#f8fafc' }}; color:{{ '#e2e8f0' if dark else '#1e293b' }};">
         </div>
         <button type="submit" class="btn" style="background:#16a34a; color:white;">🧮 {{ tr.get("payroll_calculate_btn","Izracunaj plate") }}</button>
       </div>
