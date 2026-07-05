@@ -13429,24 +13429,51 @@ def invoices_download():
     conn = get_conn()
     settings = get_invoice_settings(conn)
     row = None
+    # invoice_number path: strict. Never fall through to the
+    # client/date query params — the whole reason we care about the
+    # invoice_number is that it identifies exactly one persisted
+    # record. Pre-fix, when get_invoice_row_for_record returned None
+    # (client has no shifts in the window) the route dropped into
+    # the legacy "look up by client query param" branch and could
+    # ship a completely different invoice's PDF.
     if invoice_number:
         rec_row = conn.cursor().execute(
             "SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date, COALESCE(sent,0), COALESCE(sent_date,''), COALESCE(source,'auto') "
             "FROM invoice_records WHERE invoice_number=? AND COALESCE(deleted,0)=0",
             (invoice_number,)
         ).fetchone()
-        if rec_row:
-            record = invoice_record_to_dict(rec_row)
-            row, settings = get_invoice_row_for_record(conn, record)
-            invoice_date = record["invoice_date"]
-            date_from = record["date_from"]
-            date_to = record["date_to"]
-    if not row:
+        if not rec_row:
+            conn.close()
+            return redirect("/invoices")
+        record = invoice_record_to_dict(rec_row)
+        row, settings = get_invoice_row_for_record(conn, record)
+        invoice_date = record["invoice_date"]
+        date_from = record["date_from"]
+        date_to = record["date_to"]
+        conn.close()
+        if not row:
+            # Persisted invoice exists but the current plan can't
+            # rebuild its row (client has no shifts in the window).
+            # Do NOT ship a different invoice — flash and bounce.
+            tr = t()
+            flash(
+                tr.get(
+                    "invoice_cannot_rebuild",
+                    "Invoice #{n} cannot be rebuilt from the current plan."
+                ).replace("{n}", str(invoice_number)),
+                "error",
+            )
+            return redirect("/invoices")
+    else:
+        # Legacy path: no invoice_number, look up by client query
+        # param + date range. Kept only because old bookmarks /
+        # emails still linger; new code should always pass
+        # invoice_number.
         rows = build_invoice_rows(conn, date_from, date_to, None, settings)
         row = next((r for r in rows if r["client"] == client), None)
-    conn.close()
-    if not row:
-        return redirect("/invoices")
+        conn.close()
+        if not row:
+            return redirect("/invoices")
     pdf = build_invoice_pdf(row, settings, invoice_date, date_from, date_to)
     filename = safe_pdf_name(row["invoice_number"], row["client"])
     return send_file(pdf, as_attachment=True, download_name=f"{filename}.pdf", mimetype="application/pdf")
