@@ -395,6 +395,7 @@ TRANSLATIONS = {
     "mi_rebuild_not_manual": "Obnavljanje iz plana radi samo na rucnim fakturama.",
     "mi_rebuild_no_period": "Faktura nema period rada (date_from/date_to) - postavi ga u editoru prije obnavljanja.",
     "mi_rebuild_no_shifts": "Nema smjena u planu za ovog klijenta u zadatom periodu.",
+    "invoice_cannot_rebuild": "Faktura #{n} se ne moze rekonstruisati iz trenutnog plana (klijent nema smjena u periodu). Provjerite plan ili obrisite fakturu i regenerisite je.",
         "add_user": "Dodaj korisnika", "role_admin": "admin", "role_worker": "worker",
         "existing_users": "Postojeci korisnici", "delete_user": "Obrisi korisnika",
         "status": "Status", "status_planned": "Planirano", "status_in_progress": "U toku",
@@ -465,6 +466,7 @@ TRANSLATIONS["en"].update({
     "mi_rebuild_not_manual": "Rebuild from plan works only on manual invoices.",
     "mi_rebuild_no_period": "Invoice has no work period (date_from/date_to) — set it in the editor before rebuilding.",
     "mi_rebuild_no_shifts": "No shifts in the plan for this client in the requested period.",
+    "invoice_cannot_rebuild": "Invoice #{n} cannot be rebuilt from the current plan (the client has no shifts in this period). Check the plan or delete the invoice and regenerate it.",
     "nav_settings": "Settings", "nav_docs_short": "Docs",
     "nav_language": "Language", "nav_tools": "Tools",
     "nav_admin_section": "Administration", "nav_account": "Account",
@@ -636,6 +638,7 @@ PRO_UI_TRANSLATIONS = {
     "mi_rebuild_not_manual": "La reconstruction fonctionne uniquement sur les factures manuelles.",
     "mi_rebuild_no_period": "La facture n'a pas de periode de travail (date_from/date_to) - definis-la dans l'editeur avant reconstruction.",
     "mi_rebuild_no_shifts": "Aucune mission dans le plan pour ce client sur la periode demandee.",
+    "invoice_cannot_rebuild": "La facture #{n} ne peut pas etre reconstruite depuis le plan actuel (le client n'a aucune mission sur cette periode). Verifiez le plan ou supprimez la facture puis regenerez-la.",
         "add_user": "Ajouter utilisateur", "role_admin": "admin", "role_worker": "employé",
         "existing_users": "Utilisateurs existants", "delete_user": "Supprimer utilisateur",
         "status": "Statut", "status_planned": "Planifié", "status_in_progress": "En cours", "status_done": "Terminé",
@@ -723,6 +726,7 @@ LANGUAGE_COMPLETION = {
     "mi_rebuild_not_manual": "Neuaufbau aus Plan funktioniert nur bei manuellen Rechnungen.",
     "mi_rebuild_no_period": "Rechnung hat keinen Arbeitszeitraum (date_from/date_to) - im Editor festlegen vor Neuaufbau.",
     "mi_rebuild_no_shifts": "Keine Einsaetze im Plan fuer diesen Kunden im angeforderten Zeitraum.",
+    "invoice_cannot_rebuild": "Rechnung #{n} kann aus dem aktuellen Plan nicht neu erstellt werden (der Kunde hat in diesem Zeitraum keine Einsaetze). Plan pruefen oder Rechnung loeschen und neu erstellen.",
         "role_admin": "admin", "role_worker": "Mitarbeiter", "existing_users": "Bestehende Benutzer",
         "delete_user": "Benutzer loeschen", "status": "Status", "monthly_absence_days": "Monatliche Abwesenheitstage",
         "hours": "Stunden", "days": "Tage", "all_workers": "Alle Mitarbeiter", "all_clients": "Alle Kunden",
@@ -758,6 +762,7 @@ LANGUAGE_COMPLETION = {
     "mi_rebuild_not_manual": "Reconstruir do plano funciona apenas em faturas manuais.",
     "mi_rebuild_no_period": "Fatura sem periodo de trabalho (date_from/date_to) - define-o no editor antes de reconstruir.",
     "mi_rebuild_no_shifts": "Sem turnos no plano para este cliente no periodo solicitado.",
+    "invoice_cannot_rebuild": "A fatura #{n} nao pode ser reconstruida a partir do plano atual (o cliente nao tem turnos neste periodo). Verifique o plano ou apague a fatura e volte a gera-la.",
         "role_admin": "admin", "role_worker": "trabalhador", "existing_users": "Utilizadores existentes",
         "delete_user": "Apagar utilizador", "status": "Estado", "status_planned": "Planeado",
         "status_in_progress": "Em curso", "status_done": "Concluido", "monthly_absence_days": "Dias de ausencia mensais",
@@ -3328,11 +3333,37 @@ def invoice_record_to_dict(record):
 
 
 def get_invoice_row_for_record(conn, record):
+    """Rebuild the invoice preview row for a persisted invoice_records
+    entry, using the CURRENT plan.
+
+    Identity is the persisted (client_name, date_from, date_to) pair,
+    NOT the invoice_number. build_invoice_rows() re-derives its
+    invoice_number for every client in the window from the current
+    settings.invoice_start_number + the sort index; that generated
+    number can collide with a completely different persisted invoice.
+    Pre-fix, the primary match was on invoice_number, so #4385 stored
+    for "Astrid Kohl" happily grabbed a rebuilt "TELUS INDUSTRY" row
+    that had been renumbered to 4385 in the current pass and served
+    the admin the wrong client name and address on /invoices/view.
+
+    New rule:
+      1. Match strictly on client_name — that is the stable identity
+         for an auto invoice within a work period.
+      2. Never fall back to invoice_number matching. If no row for
+         this client exists in the window (client was removed, the
+         work period changed, whatever), return (None, settings) so
+         the caller renders a "cannot be rebuilt from plan" state
+         instead of silently swapping in someone else's data.
+
+    Persisted fields (invoice_number, amount, vat_amount, total,
+    paid, sent) still get layered on top of the rebuilt row so the
+    UI shows what the customer was actually billed — only the
+    designation / details / address are pulled from the current
+    plan.
+    """
     settings = get_invoice_settings(conn)
     rows = build_invoice_rows(conn, record["date_from"], record["date_to"], None, settings)
-    row = next((r for r in rows if str(r["invoice_number"]) == str(record["invoice_number"])), None)
-    if not row:
-        row = next((r for r in rows if r["client"] == record["client"]), None)
+    row = next((r for r in rows if r["client"] == record["client"]), None)
     if row:
         row["invoice_number"] = record["invoice_number"]
         row["paid"] = record["paid"]
@@ -10064,6 +10095,20 @@ def invoices_view():
         row, settings = get_invoice_row_for_record(conn, record)
         conn.close()
         if not row:
+            # No current-plan row for this record's client in its work
+            # period. Pre-fix we silently swapped in whatever row
+            # happened to share the same generated invoice_number (the
+            # #4385 → TELUS bug). Tell the admin instead of showing a
+            # stranger's invoice.
+            flash(
+                tr.get(
+                    "invoice_cannot_rebuild",
+                    "Faktura #{n} se ne moze rekonstruisati iz trenutnog plana "
+                    "(klijent nema smjena u periodu). Provjerite plan ili "
+                    "obrisite fakturu i regenerisite je."
+                ).replace("{n}", str(invoice_number)),
+                "error",
+            )
             return redirect("/invoices")
         pdf_url      = f"/invoices/preview_pdf?invoice_number={urllib.parse.quote(invoice_number)}"
         download_url = f"/invoices/download?invoice_number={urllib.parse.quote(invoice_number)}&client={urllib.parse.quote(row['client'])}&date_from={record['date_from']}&date_to={record['date_to']}&invoice_date={record['invoice_date']}"
