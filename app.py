@@ -385,6 +385,16 @@ TRANSLATIONS = {
         "pdf_time": "Vrijeme", "pdf_worker": "Radnici", "pdf_client": "Klijent",
         "pdf_no_shifts": "Nema smjena",
     "billable_hours": "Sati (naplativi)", "user_mgmt": "Upravljanje korisnicima",
+    "invoice_plan_mismatch_title": "Ova rucna faktura se ne poklapa sa trenutnim planom za ovaj period.",
+    "invoice_plan_mismatch_stored": "Sacuvano na fakturi",
+    "invoice_plan_mismatch_plan": "Trenutni plan",
+    "invoice_plan_mismatch_confirm": "Obnoviti stavke iz trenutnog plana? Broj fakture, datum izdavanja i status placanja/slanja ostaju nepromijenjeni.",
+    "invoice_rebuild_from_plan": "Obnovi stavke iz plana",
+    "invoice_rebuild_paid_sent_warn": "Faktura je vec placena/poslana - obnavljanje zamijenjuje stavke ali cuva paid/sent status.",
+    "mi_rebuild_ok": "Stavke fakture #{n} obnovljene iz trenutnog plana. Sati: {h}, TTC: {t} EUR",
+    "mi_rebuild_not_manual": "Obnavljanje iz plana radi samo na rucnim fakturama.",
+    "mi_rebuild_no_period": "Faktura nema period rada (date_from/date_to) - postavi ga u editoru prije obnavljanja.",
+    "mi_rebuild_no_shifts": "Nema smjena u planu za ovog klijenta u zadatom periodu.",
         "add_user": "Dodaj korisnika", "role_admin": "admin", "role_worker": "worker",
         "existing_users": "Postojeci korisnici", "delete_user": "Obrisi korisnika",
         "status": "Status", "status_planned": "Planirano", "status_in_progress": "U toku",
@@ -445,6 +455,16 @@ TRANSLATIONS["en"].update({
     "add_shift": "Add shift", "workers": "Workers", "clients": "Clients",
     "nav_plan": "Plan", "nav_week": "Week", "nav_month": "Month",
     "nav_payroll": "Payroll", "nav_diagram": "Chart", "nav_route": "Route", "billable_hours": "Billable hours",
+    "invoice_plan_mismatch_title": "This manual invoice no longer matches the current plan for its period.",
+    "invoice_plan_mismatch_stored": "Saved on invoice",
+    "invoice_plan_mismatch_plan": "Current plan",
+    "invoice_plan_mismatch_confirm": "Rebuild items from current plan? Invoice number, issue date and paid/sent status stay unchanged.",
+    "invoice_rebuild_from_plan": "Rebuild from plan",
+    "invoice_rebuild_paid_sent_warn": "Invoice is already paid/sent — the rebuild replaces line items but keeps paid/sent status.",
+    "mi_rebuild_ok": "Invoice #{n} rebuilt from current plan. Hours: {h}, TTC: {t} EUR",
+    "mi_rebuild_not_manual": "Rebuild from plan works only on manual invoices.",
+    "mi_rebuild_no_period": "Invoice has no work period (date_from/date_to) — set it in the editor before rebuilding.",
+    "mi_rebuild_no_shifts": "No shifts in the plan for this client in the requested period.",
     "nav_settings": "Settings", "nav_docs_short": "Docs",
     "nav_language": "Language", "nav_tools": "Tools",
     "nav_admin_section": "Administration", "nav_account": "Account",
@@ -606,6 +626,16 @@ PRO_UI_TRANSLATIONS = {
         "pdf": "PDF planning", "month_pdf": "PDF calendrier mensuel", "pdf_title": "Planning des employés",
         "pdf_user": "Utilisateur", "pdf_date": "Date", "pdf_time": "Heure", "pdf_worker": "Employés",
         "pdf_client": "Client", "pdf_no_shifts": "Aucune mission", "billable_hours": "Heures facturables", "user_mgmt": "Gestion des utilisateurs",
+    "invoice_plan_mismatch_title": "Cette facture manuelle ne correspond plus au plan actuel pour cette periode.",
+    "invoice_plan_mismatch_stored": "Enregistre sur la facture",
+    "invoice_plan_mismatch_plan": "Plan actuel",
+    "invoice_plan_mismatch_confirm": "Reconstruire les lignes a partir du plan actuel ? Le n° de facture, la date et le statut paye/envoye restent inchanges.",
+    "invoice_rebuild_from_plan": "Reconstruire depuis le plan",
+    "invoice_rebuild_paid_sent_warn": "Facture deja payee/envoyee - la reconstruction remplace les lignes mais conserve le statut paye/envoye.",
+    "mi_rebuild_ok": "Facture #{n} reconstruite depuis le plan actuel. Heures: {h}, TTC: {t} EUR",
+    "mi_rebuild_not_manual": "La reconstruction fonctionne uniquement sur les factures manuelles.",
+    "mi_rebuild_no_period": "La facture n'a pas de periode de travail (date_from/date_to) - definis-la dans l'editeur avant reconstruction.",
+    "mi_rebuild_no_shifts": "Aucune mission dans le plan pour ce client sur la periode demandee.",
         "add_user": "Ajouter utilisateur", "role_admin": "admin", "role_worker": "employé",
         "existing_users": "Utilisateurs existants", "delete_user": "Supprimer utilisateur",
         "status": "Statut", "status_planned": "Planifié", "status_in_progress": "En cours", "status_done": "Terminé",
@@ -683,6 +713,16 @@ LANGUAGE_COMPLETION = {
         "pdf_date": "Datum", "pdf_time": "Zeit", "pdf_worker": "Mitarbeiter", "pdf_client": "Kunde",
         "pdf_no_shifts": "Keine Einsaetze",
     "billable_hours": "Abrechenbare Stunden", "user_mgmt": "Benutzerverwaltung", "add_user": "Benutzer hinzufuegen",
+    "invoice_plan_mismatch_title": "Diese manuelle Rechnung stimmt nicht mehr mit dem aktuellen Plan fuer diesen Zeitraum ueberein.",
+    "invoice_plan_mismatch_stored": "Auf Rechnung gespeichert",
+    "invoice_plan_mismatch_plan": "Aktueller Plan",
+    "invoice_plan_mismatch_confirm": "Positionen aus dem aktuellen Plan neu erstellen? Rechnungsnummer, Rechnungsdatum und Bezahlt/Gesendet-Status bleiben unveraendert.",
+    "invoice_rebuild_from_plan": "Aus Plan neu erstellen",
+    "invoice_rebuild_paid_sent_warn": "Rechnung bereits bezahlt/gesendet - Neuaufbau ersetzt Positionen, behaelt jedoch Bezahlt/Gesendet-Status.",
+    "mi_rebuild_ok": "Rechnung #{n} aus aktuellem Plan neu erstellt. Stunden: {h}, TTC: {t} EUR",
+    "mi_rebuild_not_manual": "Neuaufbau aus Plan funktioniert nur bei manuellen Rechnungen.",
+    "mi_rebuild_no_period": "Rechnung hat keinen Arbeitszeitraum (date_from/date_to) - im Editor festlegen vor Neuaufbau.",
+    "mi_rebuild_no_shifts": "Keine Einsaetze im Plan fuer diesen Kunden im angeforderten Zeitraum.",
         "role_admin": "admin", "role_worker": "Mitarbeiter", "existing_users": "Bestehende Benutzer",
         "delete_user": "Benutzer loeschen", "status": "Status", "monthly_absence_days": "Monatliche Abwesenheitstage",
         "hours": "Stunden", "days": "Tage", "all_workers": "Alle Mitarbeiter", "all_clients": "Alle Kunden",
@@ -708,6 +748,16 @@ LANGUAGE_COMPLETION = {
         "pdf_date": "Data", "pdf_time": "Hora", "pdf_worker": "Trabalhadores", "pdf_client": "Cliente",
         "pdf_no_shifts": "Sem turnos",
     "billable_hours": "Horas faturaveis", "user_mgmt": "Gestao de utilizadores", "add_user": "Adicionar utilizador",
+    "invoice_plan_mismatch_title": "Esta fatura manual ja nao corresponde ao plano atual deste periodo.",
+    "invoice_plan_mismatch_stored": "Guardado na fatura",
+    "invoice_plan_mismatch_plan": "Plano atual",
+    "invoice_plan_mismatch_confirm": "Reconstruir itens a partir do plano atual? Numero da fatura, data de emissao e estado pago/enviado ficam inalterados.",
+    "invoice_rebuild_from_plan": "Reconstruir do plano",
+    "invoice_rebuild_paid_sent_warn": "Fatura ja paga/enviada - a reconstrucao substitui as linhas mas mantem o estado pago/enviado.",
+    "mi_rebuild_ok": "Fatura #{n} reconstruida a partir do plano atual. Horas: {h}, TTC: {t} EUR",
+    "mi_rebuild_not_manual": "Reconstruir do plano funciona apenas em faturas manuais.",
+    "mi_rebuild_no_period": "Fatura sem periodo de trabalho (date_from/date_to) - define-o no editor antes de reconstruir.",
+    "mi_rebuild_no_shifts": "Sem turnos no plano para este cliente no periodo solicitado.",
         "role_admin": "admin", "role_worker": "trabalhador", "existing_users": "Utilizadores existentes",
         "delete_user": "Apagar utilizador", "status": "Estado", "status_planned": "Planeado",
         "status_in_progress": "Em curso", "status_done": "Concluido", "monthly_absence_days": "Dias de ausencia mensais",
@@ -3292,6 +3342,42 @@ def get_invoice_row_for_record(conn, record):
         row["sent"] = record.get("sent", False)
         return row, settings
     return None, settings
+
+
+def plan_summary_for_record(conn, record):
+    """Return {"hours", "amount", "vat_amount", "total", "shifts",
+    "row"} representing what the CURRENT plan would produce for this
+    record's client + date_from..date_to window.
+
+    Used by /invoices/view to detect stale manual invoices whose
+    stored designation no longer matches the current shift schedule.
+    The 'row' key carries the full build_invoice_rows() dict so the
+    rebuild endpoint can reuse it to regenerate designation text
+    without doing the math twice.
+
+    Returns None when the record has no usable date range or no
+    matching client in the current plan (nothing to compare against).
+    """
+    date_from = record.get("date_from") or ""
+    date_to   = record.get("date_to")   or ""
+    client    = record.get("client")    or ""
+    if not (date_from and date_to and client):
+        return None
+    try:
+        rows = build_invoice_rows(conn, date_from, date_to)
+    except Exception:
+        return None
+    match = next((r for r in rows if r["client"] == client), None)
+    if not match:
+        return None
+    return {
+        "hours":      round(float(match.get("hours") or 0), 2),
+        "amount":     round(float(match.get("amount") or 0), 2),
+        "vat_amount": round(float(match.get("vat_amount") or 0), 2),
+        "total":      round(float(match.get("total") or 0), 2),
+        "shifts":     match.get("details", []),
+        "row":        match,
+    }
 
 
 def fetch_invoice_records(conn, date_from=None, date_to=None, client=None,
@@ -10009,6 +10095,21 @@ def invoices_view():
     # Build HTML preview context (shared data with PDF builders)
     conn2 = get_conn()
     view_ctx = _invoice_view_context(conn2, record)
+
+    # Plan-vs-invoice mismatch detection. Manual invoices carry a
+    # frozen items_json snapshot; if the admin edited shifts after
+    # saving the manual, the invoice can silently drift from what
+    # the current plan says the client actually worked. Compare the
+    # stored HT against what build_invoice_rows() would produce
+    # right now and show a warning banner + rebuild button in the
+    # template if the delta > 0.50 EUR.
+    plan_summary = plan_summary_for_record(conn2, record) if is_manual else None
+    if plan_summary is not None:
+        stored_ht = round(float(record.get("amount") or 0), 2)
+        plan_ht   = plan_summary["amount"]
+        plan_mismatch = abs(plan_ht - stored_ht) > 0.5
+    else:
+        plan_mismatch = False
     # Email proof / archive trail for this invoice — most recent first.
     # We intentionally pull every column we know about so the UI can
     # surface Message-ID and PDF hash as forensic evidence the email
@@ -10178,6 +10279,40 @@ def invoices_view():
                 </span>
             </div>
 
+            {% if is_manual and plan_mismatch and plan_summary %}
+            <div style="margin:12px 0; padding:12px 16px; border-radius:10px;
+                        background:{{ 'rgba(245,158,11,.15)' if dark else '#fef3c7' }};
+                        color:{{ '#fcd34d' if dark else '#92400e' }};
+                        border:1px solid #f59e0b; font-size:13px;">
+              <div style="font-weight:700; margin-bottom:6px;">
+                ⚠ {{ tr.get("invoice_plan_mismatch_title","Ova ručna faktura se ne poklapa sa trenutnim planom za ovaj period.") }}
+              </div>
+              <div style="font-size:12px; margin-bottom:8px;">
+                {{ tr.get("invoice_plan_mismatch_stored","Sacuvano na fakturi") }}:
+                <b>{{ '%.2f'|format(record.amount) }} € HT</b>
+                &nbsp;·&nbsp;
+                {{ tr.get("invoice_plan_mismatch_plan","Trenutni plan") }}:
+                <b>{{ '%.2f'|format(plan_summary.amount) }} € HT</b>
+                ({{ '%.2f'|format(plan_summary.hours) }} h)
+              </div>
+              <form method="post" action="/invoices/manual/rebuild" style="display:inline;"
+                    onsubmit='return confirm({{ (tr.get("invoice_plan_mismatch_confirm","Obnoviti stavke iz trenutnog plana? Broj fakture, datum izdavanja i status placanja/slanja ostaju nepromijenjeni.") + ((" [PAID/SENT]" if (record.paid or record.sent) else "")))|tojson }});'>
+                <input type="hidden" name="invoice_number" value="{{ record.invoice_number }}">
+                <button type="submit"
+                        style="background:#f59e0b; color:white; border:none;
+                               border-radius:8px; padding:8px 14px; font-weight:700;
+                               font-size:13px; cursor:pointer; font-family:inherit;">
+                  🔄 {{ tr.get("invoice_rebuild_from_plan","Obnovi stavke iz plana") }}
+                </button>
+              </form>
+              {% if record.paid or record.sent %}
+              <div style="margin-top:6px; font-size:11px; color:#dc2626;">
+                ⚠ {{ tr.get("invoice_rebuild_paid_sent_warn","Faktura je vec placena/poslana — obnavljanje zamijenjuje stavke ali cuva paid/sent status.") }}
+              </div>
+              {% endif %}
+            </div>
+            {% endif %}
+
             <div class="invoice-stage">
               {% if view_ctx %}
               <article class="invoice-paper">
@@ -10317,7 +10452,8 @@ Tel: {{ view_ctx.company_phone }}{% endif %}{% if view_ctx.company_email %}
     """, tr=tr, dark=dark, row=row, record=record, view_ctx=view_ctx,
          pdf_url=pdf_url, download_url=download_url,
          paid_fields=paid_fields, sent_fields=sent_fields,
-         is_manual=is_manual, edit_url=edit_url, email_logs=email_logs)
+         is_manual=is_manual, edit_url=edit_url, email_logs=email_logs,
+         plan_summary=plan_summary, plan_mismatch=plan_mismatch)
 
 
 @app.route("/invoices/preview_pdf")
@@ -11529,6 +11665,96 @@ document.getElementById('miForm').addEventListener('invalid', function(e){
      templates_list=templates_list,
      prefill_items=prefill_items,
      extra_vat_rates=extra_vat_rates)
+
+
+@app.route("/invoices/manual/rebuild", methods=["POST"])
+def invoices_manual_rebuild():
+    """Regenerate a manual invoice's items from the CURRENT plan.
+
+    Triggered by the "Obnovi stavke iz plana" button on the mismatch
+    banner shown in /invoices/view. Only touches items_json, amount,
+    vat_amount and total — invoice_number, invoice_date, paid, sent,
+    client and the work window are all preserved. Refuses on auto
+    invoices, missing records, or clients that have no shifts in
+    the record's window.
+    """
+    if session.get("role") != "admin":
+        return redirect("/")
+    tr = t()
+    invoice_number = request.form.get("invoice_number", "").strip()
+    if not invoice_number:
+        return redirect("/invoices")
+    conn = get_conn(); c = conn.cursor()
+    rec_row = c.execute(
+        "SELECT client_name, date_from, date_to, invoice_date, "
+        "COALESCE(source,'auto'), COALESCE(paid,0), COALESCE(sent,0) "
+        "FROM invoice_records WHERE invoice_number=? AND COALESCE(deleted,0)=0",
+        (invoice_number,)
+    ).fetchone()
+    if not rec_row:
+        conn.close()
+        flash(tr.get("invoice_not_found", "Faktura nije pronadjena."), "error")
+        return redirect("/invoices")
+    if rec_row[4] != "manual":
+        conn.close()
+        flash(tr.get(
+            "mi_rebuild_not_manual",
+            "Obnavljanje iz plana radi samo na rucnim fakturama."
+        ), "error")
+        return redirect(f"/invoices/view?invoice_number={urllib.parse.quote(invoice_number)}")
+    client_name, date_from, date_to, invoice_date = rec_row[0], rec_row[1], rec_row[2], rec_row[3]
+    if not (date_from and date_to):
+        conn.close()
+        flash(tr.get(
+            "mi_rebuild_no_period",
+            "Faktura nema period rada (date_from/date_to) — postavi ga u editoru prije obnavljanja."
+        ), "error")
+        return redirect(f"/invoices/view?invoice_number={urllib.parse.quote(invoice_number)}")
+    rows = build_invoice_rows(conn, date_from, date_to)
+    match = next((r for r in rows if r["client"] == client_name), None)
+    if not match:
+        conn.close()
+        flash(tr.get(
+            "mi_rebuild_no_shifts",
+            "Nema smjena u planu za ovog klijenta u zadatom periodu."
+        ), "error")
+        return redirect(f"/invoices/view?invoice_number={urllib.parse.quote(invoice_number)}")
+    designation = invoice_designation_text(match)
+    new_items = [{
+        "designation": designation,
+        "amount":      round(float(match.get("amount") or 0), 2),
+        "vat_rate":    round(float(match.get("vat_rate") or 0) * 100, 2),
+    }]
+    items_json = json.dumps(new_items, ensure_ascii=False)
+    total_ht  = round(float(match.get("amount") or 0), 2)
+    total_vat = round(float(match.get("vat_amount") or 0), 2)
+    total_ttc = round(float(match.get("total") or 0), 2)
+    now_str   = lux_now().strftime("%Y-%m-%d %H:%M")
+    # Draft: swap items + totals; keep client/address/invoice_date.
+    c.execute(
+        "UPDATE manual_invoice_drafts SET items_json=?, total_ht=?, total_vat=?, "
+        "total_ttc=?, created_at=? WHERE invoice_number=?",
+        (items_json, total_ht, total_vat, total_ttc, now_str, invoice_number),
+    )
+    # Record: update HT/VAT/TTC only. paid/sent/paid_date/sent_date
+    # left as-is on purpose so a legitimately paid invoice keeps its
+    # payment audit trail even after we resync the line items.
+    c.execute(
+        "UPDATE invoice_records SET amount=?, vat_amount=?, total=? "
+        "WHERE invoice_number=? AND COALESCE(deleted,0)=0",
+        (total_ht, total_vat, total_ttc, invoice_number),
+    )
+    conn.commit(); conn.close()
+    flash(
+        tr.get(
+            "mi_rebuild_ok",
+            "Stavke fakture #{n} obnovljene iz trenutnog plana. Sati: {h}, TTC: {t} EUR"
+        ).replace("{n}", str(invoice_number))
+         .replace("{h}", f"{match.get('hours', 0):.2f}")
+         .replace("{t}", f"{total_ttc:.2f}"),
+        "ok",
+    )
+    return redirect(f"/invoices/view?invoice_number={urllib.parse.quote(invoice_number)}")
 
 
 @app.route("/invoices/manual/vat_rate", methods=["POST"])
