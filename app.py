@@ -383,7 +383,8 @@ TRANSLATIONS = {
         "month_pdf": "PDF mjesecni kalendar", "back": "Nazad", "edit_shift": "Izmijeni smjenu", "save": "Sacuvaj",
         "pdf_title": "Raspored radnika", "pdf_user": "Korisnik", "pdf_date": "Datum",
         "pdf_time": "Vrijeme", "pdf_worker": "Radnici", "pdf_client": "Klijent",
-        "pdf_no_shifts": "Nema smjena", "user_mgmt": "Upravljanje korisnicima",
+        "pdf_no_shifts": "Nema smjena",
+    "billable_hours": "Sati (naplativi)", "user_mgmt": "Upravljanje korisnicima",
         "add_user": "Dodaj korisnika", "role_admin": "admin", "role_worker": "worker",
         "existing_users": "Postojeci korisnici", "delete_user": "Obrisi korisnika",
         "status": "Status", "status_planned": "Planirano", "status_in_progress": "U toku",
@@ -443,7 +444,7 @@ TRANSLATIONS["en"].update({
     "title": "WORK SCHEDULE", "add_worker": "Add worker", "add_client": "Add client",
     "add_shift": "Add shift", "workers": "Workers", "clients": "Clients",
     "nav_plan": "Plan", "nav_week": "Week", "nav_month": "Month",
-    "nav_payroll": "Payroll", "nav_diagram": "Chart", "nav_route": "Route",
+    "nav_payroll": "Payroll", "nav_diagram": "Chart", "nav_route": "Route", "billable_hours": "Billable hours",
     "nav_settings": "Settings", "nav_docs_short": "Docs",
     "nav_language": "Language", "nav_tools": "Tools",
     "nav_admin_section": "Administration", "nav_account": "Account",
@@ -604,7 +605,7 @@ PRO_UI_TRANSLATIONS = {
         "copy": "Copier", "copy_shift": "Copier la mission", "paste": "+ Coller",
         "pdf": "PDF planning", "month_pdf": "PDF calendrier mensuel", "pdf_title": "Planning des employés",
         "pdf_user": "Utilisateur", "pdf_date": "Date", "pdf_time": "Heure", "pdf_worker": "Employés",
-        "pdf_client": "Client", "pdf_no_shifts": "Aucune mission", "user_mgmt": "Gestion des utilisateurs",
+        "pdf_client": "Client", "pdf_no_shifts": "Aucune mission", "billable_hours": "Heures facturables", "user_mgmt": "Gestion des utilisateurs",
         "add_user": "Ajouter utilisateur", "role_admin": "admin", "role_worker": "employé",
         "existing_users": "Utilisateurs existants", "delete_user": "Supprimer utilisateur",
         "status": "Statut", "status_planned": "Planifié", "status_in_progress": "En cours", "status_done": "Terminé",
@@ -680,7 +681,8 @@ LANGUAGE_COMPLETION = {
         "copy": "Kopieren", "copy_shift": "Einsatz kopieren", "paste": "+ Einfuegen", "pdf": "PDF Arbeitsplan",
         "month_pdf": "PDF Monatskalender", "pdf_title": "Arbeitsplan der Mitarbeiter", "pdf_user": "Benutzer",
         "pdf_date": "Datum", "pdf_time": "Zeit", "pdf_worker": "Mitarbeiter", "pdf_client": "Kunde",
-        "pdf_no_shifts": "Keine Einsaetze", "user_mgmt": "Benutzerverwaltung", "add_user": "Benutzer hinzufuegen",
+        "pdf_no_shifts": "Keine Einsaetze",
+    "billable_hours": "Abrechenbare Stunden", "user_mgmt": "Benutzerverwaltung", "add_user": "Benutzer hinzufuegen",
         "role_admin": "admin", "role_worker": "Mitarbeiter", "existing_users": "Bestehende Benutzer",
         "delete_user": "Benutzer loeschen", "status": "Status", "monthly_absence_days": "Monatliche Abwesenheitstage",
         "hours": "Stunden", "days": "Tage", "all_workers": "Alle Mitarbeiter", "all_clients": "Alle Kunden",
@@ -704,7 +706,8 @@ LANGUAGE_COMPLETION = {
         "copy": "Copiar", "copy_shift": "Copiar turno", "paste": "+ Colar", "pdf": "PDF do plano",
         "month_pdf": "PDF calendario mensal", "pdf_title": "Plano dos trabalhadores", "pdf_user": "Utilizador",
         "pdf_date": "Data", "pdf_time": "Hora", "pdf_worker": "Trabalhadores", "pdf_client": "Cliente",
-        "pdf_no_shifts": "Sem turnos", "user_mgmt": "Gestao de utilizadores", "add_user": "Adicionar utilizador",
+        "pdf_no_shifts": "Sem turnos",
+    "billable_hours": "Horas faturaveis", "user_mgmt": "Gestao de utilizadores", "add_user": "Adicionar utilizador",
         "role_admin": "admin", "role_worker": "trabalhador", "existing_users": "Utilizadores existentes",
         "delete_user": "Apagar utilizador", "status": "Estado", "status_planned": "Planeado",
         "status_in_progress": "Em curso", "status_done": "Concluido", "monthly_absence_days": "Dias de ausencia mensais",
@@ -2785,6 +2788,26 @@ def parse_shift_hours(time_str):
         return max((end - start).total_seconds() / 3600, 0.0)
     except Exception:
         return 0.0
+
+
+def shift_billable_hours(shift):
+    """Real billable hours for a shift row = duration × #workers.
+
+    A 08:00–09:30 shift with two workers "Edita, Izeta" bills the
+    client for 3.0h, not 1.5h. parse_shift_hours() returns duration
+    only; every consumer that displays or sums BILLABLE hours must
+    multiply by the worker count, otherwise "search shifts PDF"
+    totals disagree with what the invoice actually charges.
+
+    shift is a row tuple in the same shape returned by SELECT *
+    FROM shifts (id, worker, client, date, time, status, ...).
+    """
+    try:
+        time_str = shift[4]
+        worker_text = shift[1]
+    except (IndexError, TypeError):
+        return 0.0
+    return parse_shift_hours(time_str) * max(1, len(split_workers(worker_text)))
 
 
 def get_auto_status(shift_date, time_range):
@@ -13152,13 +13175,15 @@ def shifts_search_pdf():
     styles = getSampleStyleSheet(); elements = []
     if os.path.exists("static/logo.png"): elements += [Image("static/logo.png", width=4*cm, height=2*cm), Spacer(1, 8)]
     elements += [Paragraph(title, styles["Title"]), Spacer(1, 10)]
-    total_hours = sum(parse_shift_hours(s[4]) for s in shifts)
+    # Billable hours = duration × number of workers on the shift.
+    # A 08:00-09:30 shift with two workers bills for 3.0h, not 1.5h.
+    total_hours = sum(shift_billable_hours(s) for s in shifts)
     elements.append(Paragraph(f"{tr.get('hours','Sati')}: {total_hours:.2f}", styles["Normal"])); elements.append(Spacer(1, 8))
-    table_data = [[tr["pdf_date"], tr["pdf_time"], tr["pdf_worker"], tr["pdf_client"], tr["status"]]]
+    table_data = [[tr["pdf_date"], tr["pdf_time"], tr["pdf_worker"], tr["pdf_client"], tr.get("billable_hours","Sati (naplativi)"), tr["status"]]]
     for s in shifts:
-        table_data.append([format_date(s[3]), s[4], s[1], s[2], get_status_label(get_auto_status(s[3], s[4]), tr)])
-    if not shifts: table_data.append(["-", "-", "-", "-", tr["pdf_no_shifts"]])
-    table = Table(table_data, colWidths=[3*cm, 3*cm, 5*cm, 7*cm, 4*cm])
+        table_data.append([format_date(s[3]), s[4], s[1], s[2], f"{shift_billable_hours(s):.2f}", get_status_label(get_auto_status(s[3], s[4]), tr)])
+    if not shifts: table_data.append(["-", "-", "-", "-", "-", tr["pdf_no_shifts"]])
+    table = Table(table_data, colWidths=[2.6*cm, 2.6*cm, 5*cm, 6*cm, 2.4*cm, 3.4*cm])
     table.setStyle(TableStyle([
         ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#1f4f82")),
         ("TEXTCOLOR",  (0,0), (-1,0), colors.white),
