@@ -11787,6 +11787,13 @@ def invoices_manual_rebuild():
             prior_items = json.loads(prior_row[0]) or []
     except Exception:
         prior_items = []
+    # Defensive: legacy or hand-edited items_json might be a dict, a
+    # string, or a list containing non-dict garbage. Anything but a
+    # list-of-dicts is treated as empty extras so slicing and
+    # extra.get(...) below stay safe.
+    if not isinstance(prior_items, list):
+        prior_items = []
+    prior_items = [x for x in prior_items if isinstance(x, dict)]
     extra_items = prior_items[1:] if len(prior_items) > 1 else []
     new_items = [plan_item] + extra_items
     items_json = json.dumps(new_items, ensure_ascii=False)
