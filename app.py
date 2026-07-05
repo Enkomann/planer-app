@@ -388,7 +388,7 @@ TRANSLATIONS = {
     "invoice_plan_mismatch_title": "Ova rucna faktura se ne poklapa sa trenutnim planom za ovaj period.",
     "invoice_plan_mismatch_stored": "Sacuvano na fakturi",
     "invoice_plan_mismatch_plan": "Trenutni plan",
-    "invoice_plan_mismatch_confirm": "Obnoviti stavke iz trenutnog plana? Broj fakture, datum izdavanja i status placanja/slanja ostaju nepromijenjeni.",
+    "invoice_plan_mismatch_confirm": "Obnoviti prvu (uslugu) stavku iz trenutnog plana? Dodatne rucne stavke (odbici, dodatne usluge, napomene) ostaju sacuvane. Broj fakture, datum izdavanja i status placanja/slanja ostaju nepromijenjeni.",
     "invoice_rebuild_from_plan": "Obnovi stavke iz plana",
     "invoice_rebuild_paid_sent_warn": "Faktura je vec placena/poslana - obnavljanje zamijenjuje stavke ali cuva paid/sent status.",
     "mi_rebuild_ok": "Stavke fakture #{n} obnovljene iz trenutnog plana. Sati: {h}, TTC: {t} EUR",
@@ -458,7 +458,7 @@ TRANSLATIONS["en"].update({
     "invoice_plan_mismatch_title": "This manual invoice no longer matches the current plan for its period.",
     "invoice_plan_mismatch_stored": "Saved on invoice",
     "invoice_plan_mismatch_plan": "Current plan",
-    "invoice_plan_mismatch_confirm": "Rebuild items from current plan? Invoice number, issue date and paid/sent status stay unchanged.",
+    "invoice_plan_mismatch_confirm": "Rebuild the first (service) line from the current plan? Extra manual rows (deductions, add-ons, notes) are kept. Invoice number, issue date and paid/sent status stay unchanged.",
     "invoice_rebuild_from_plan": "Rebuild from plan",
     "invoice_rebuild_paid_sent_warn": "Invoice is already paid/sent — the rebuild replaces line items but keeps paid/sent status.",
     "mi_rebuild_ok": "Invoice #{n} rebuilt from current plan. Hours: {h}, TTC: {t} EUR",
@@ -629,7 +629,7 @@ PRO_UI_TRANSLATIONS = {
     "invoice_plan_mismatch_title": "Cette facture manuelle ne correspond plus au plan actuel pour cette periode.",
     "invoice_plan_mismatch_stored": "Enregistre sur la facture",
     "invoice_plan_mismatch_plan": "Plan actuel",
-    "invoice_plan_mismatch_confirm": "Reconstruire les lignes a partir du plan actuel ? Le n° de facture, la date et le statut paye/envoye restent inchanges.",
+    "invoice_plan_mismatch_confirm": "Reconstruire la premiere ligne (service) a partir du plan actuel ? Les lignes manuelles supplementaires (deductions, extras, notes) sont conservees. Le n° de facture, la date et le statut paye/envoye restent inchanges.",
     "invoice_rebuild_from_plan": "Reconstruire depuis le plan",
     "invoice_rebuild_paid_sent_warn": "Facture deja payee/envoyee - la reconstruction remplace les lignes mais conserve le statut paye/envoye.",
     "mi_rebuild_ok": "Facture #{n} reconstruite depuis le plan actuel. Heures: {h}, TTC: {t} EUR",
@@ -716,7 +716,7 @@ LANGUAGE_COMPLETION = {
     "invoice_plan_mismatch_title": "Diese manuelle Rechnung stimmt nicht mehr mit dem aktuellen Plan fuer diesen Zeitraum ueberein.",
     "invoice_plan_mismatch_stored": "Auf Rechnung gespeichert",
     "invoice_plan_mismatch_plan": "Aktueller Plan",
-    "invoice_plan_mismatch_confirm": "Positionen aus dem aktuellen Plan neu erstellen? Rechnungsnummer, Rechnungsdatum und Bezahlt/Gesendet-Status bleiben unveraendert.",
+    "invoice_plan_mismatch_confirm": "Erste (Leistungs-)Position aus dem aktuellen Plan neu erstellen? Zusaetzliche manuelle Positionen (Abzuege, Extras, Notizen) bleiben erhalten. Rechnungsnummer, Rechnungsdatum und Bezahlt/Gesendet-Status bleiben unveraendert.",
     "invoice_rebuild_from_plan": "Aus Plan neu erstellen",
     "invoice_rebuild_paid_sent_warn": "Rechnung bereits bezahlt/gesendet - Neuaufbau ersetzt Positionen, behaelt jedoch Bezahlt/Gesendet-Status.",
     "mi_rebuild_ok": "Rechnung #{n} aus aktuellem Plan neu erstellt. Stunden: {h}, TTC: {t} EUR",
@@ -751,7 +751,7 @@ LANGUAGE_COMPLETION = {
     "invoice_plan_mismatch_title": "Esta fatura manual ja nao corresponde ao plano atual deste periodo.",
     "invoice_plan_mismatch_stored": "Guardado na fatura",
     "invoice_plan_mismatch_plan": "Plano atual",
-    "invoice_plan_mismatch_confirm": "Reconstruir itens a partir do plano atual? Numero da fatura, data de emissao e estado pago/enviado ficam inalterados.",
+    "invoice_plan_mismatch_confirm": "Reconstruir a primeira linha (servico) a partir do plano atual? As linhas manuais extra (deducoes, extras, notas) sao mantidas. Numero da fatura, data de emissao e estado pago/enviado ficam inalterados.",
     "invoice_rebuild_from_plan": "Reconstruir do plano",
     "invoice_rebuild_paid_sent_warn": "Fatura ja paga/enviada - a reconstrucao substitui as linhas mas mantem o estado pago/enviado.",
     "mi_rebuild_ok": "Fatura #{n} reconstruida a partir do plano atual. Horas: {h}, TTC: {t} EUR",
@@ -10146,8 +10146,16 @@ def invoices_view():
         ht_off       = abs(plan_ht - stored_ht) > 0.5
         hours_off    = (stored_hours is not None
                         and abs(plan_summary["hours"] - stored_hours) > 0.10)
+        # Case-fold + collapse runs of whitespace before comparing so
+        # a purely cosmetic edit (extra spaces, uppercased month
+        # name, trailing newline) doesn't nag the admin forever
+        # while HT and hours already match. Real content drifts
+        # (different dates, different hours per shift) still trip
+        # the comparison because those change actual tokens.
+        def _norm(s):
+            return " ".join((s or "").split()).lower()
         desig_off    = (bool(stored_desig) and bool(expected_desig)
-                        and stored_desig != expected_desig)
+                        and _norm(stored_desig) != _norm(expected_desig))
         plan_mismatch = ht_off or hours_off or desig_off
     # Email proof / archive trail for this invoice — most recent first.
     # We intentionally pull every column we know about so the UI can
@@ -11759,15 +11767,44 @@ def invoices_manual_rebuild():
         ), "error")
         return redirect(f"/invoices/view?invoice_number={urllib.parse.quote(invoice_number)}")
     designation = invoice_designation_text(match)
-    new_items = [{
+    plan_item = {
         "designation": designation,
         "amount":      round(float(match.get("amount") or 0), 2),
         "vat_rate":    round(float(match.get("vat_rate") or 0) * 100, 2),
-    }]
+    }
+    # Preserve extra manual rows (deduction, additional service,
+    # custom note, discount, etc.). Convention: item[0] is the
+    # plan-generated service line; item[1:] belong to the admin.
+    # Replace only the first, keep the tail unchanged so a
+    # rebuild doesn't nuke a hand-written "- 20 € (discount)".
+    prior_items = []
+    try:
+        prior_row = c.execute(
+            "SELECT items_json FROM manual_invoice_drafts WHERE invoice_number=?",
+            (invoice_number,)
+        ).fetchone()
+        if prior_row and prior_row[0]:
+            prior_items = json.loads(prior_row[0]) or []
+    except Exception:
+        prior_items = []
+    extra_items = prior_items[1:] if len(prior_items) > 1 else []
+    new_items = [plan_item] + extra_items
     items_json = json.dumps(new_items, ensure_ascii=False)
-    total_ht  = round(float(match.get("amount") or 0), 2)
+    # Totals must include the preserved extra rows so the summary
+    # on the invoice actually matches the item list.
+    total_ht = round(float(match.get("amount") or 0), 2)
     total_vat = round(float(match.get("vat_amount") or 0), 2)
-    total_ttc = round(float(match.get("total") or 0), 2)
+    for extra in extra_items:
+        try:
+            amt = float(extra.get("amount") or 0)
+            vr  = float(extra.get("vat_rate") or 0) / 100.0
+            total_ht  += amt
+            total_vat += amt * vr
+        except (TypeError, ValueError):
+            continue
+    total_ht  = round(total_ht, 2)
+    total_vat = round(total_vat, 2)
+    total_ttc = round(total_ht + total_vat, 2)
     now_str   = lux_now().strftime("%Y-%m-%d %H:%M")
     # Draft: swap items + totals; keep client/address/invoice_date.
     # If the draft row is missing (partial delete, DB import gap,
