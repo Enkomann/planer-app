@@ -10099,17 +10099,56 @@ def invoices_view():
     # Plan-vs-invoice mismatch detection. Manual invoices carry a
     # frozen items_json snapshot; if the admin edited shifts after
     # saving the manual, the invoice can silently drift from what
-    # the current plan says the client actually worked. Compare the
-    # stored HT against what build_invoice_rows() would produce
-    # right now and show a warning banner + rebuild button in the
-    # template if the delta > 0.50 EUR.
-    plan_summary = plan_summary_for_record(conn2, record) if is_manual else None
+    # the current plan says the client actually worked. Three
+    # independent triggers so a coincidentally-equal total doesn't
+    # mask a wrong-dates draft:
+    #   (a) |plan HT - stored HT| > 0.50 EUR
+    #   (b) |plan hours - stored hours| > 0.10 h
+    #       (hours parsed from the "Total N h" line if present)
+    #   (c) stored first-item designation != expected designation
+    plan_summary  = plan_summary_for_record(conn2, record) if is_manual else None
+    plan_mismatch = False
+    stored_hours  = None
+    stored_desig  = ""
+    expected_desig = ""
     if plan_summary is not None:
         stored_ht = round(float(record.get("amount") or 0), 2)
         plan_ht   = plan_summary["amount"]
-        plan_mismatch = abs(plan_ht - stored_ht) > 0.5
-    else:
-        plan_mismatch = False
+        # Pull the manual draft's first-item designation for the
+        # designation / hours comparison. Best-effort: any parse
+        # failure just falls back to the HT-only trigger.
+        try:
+            draft_row = conn2.cursor().execute(
+                "SELECT items_json FROM manual_invoice_drafts WHERE invoice_number=?",
+                (invoice_number,)
+            ).fetchone()
+            if draft_row and draft_row[0]:
+                stored_items = json.loads(draft_row[0])
+                if stored_items:
+                    stored_desig = (stored_items[0].get("designation") or "").strip()
+        except Exception:
+            stored_desig = ""
+        # "Total 6h" / "Total 6,00h" / "Total 6.00 h" — extract the
+        # first number after "Total" if present.
+        try:
+            m = re.search(
+                r"total\s+([0-9]+(?:[.,][0-9]+)?)\s*h",
+                stored_desig, re.IGNORECASE
+            )
+            if m:
+                stored_hours = float(m.group(1).replace(",", "."))
+        except Exception:
+            stored_hours = None
+        try:
+            expected_desig = invoice_designation_text(plan_summary["row"]).strip()
+        except Exception:
+            expected_desig = ""
+        ht_off       = abs(plan_ht - stored_ht) > 0.5
+        hours_off    = (stored_hours is not None
+                        and abs(plan_summary["hours"] - stored_hours) > 0.10)
+        desig_off    = (bool(stored_desig) and bool(expected_desig)
+                        and stored_desig != expected_desig)
+        plan_mismatch = ht_off or hours_off or desig_off
     # Email proof / archive trail for this invoice — most recent first.
     # We intentionally pull every column we know about so the UI can
     # surface Message-ID and PDF hash as forensic evidence the email
@@ -11731,11 +11770,19 @@ def invoices_manual_rebuild():
     total_ttc = round(float(match.get("total") or 0), 2)
     now_str   = lux_now().strftime("%Y-%m-%d %H:%M")
     # Draft: swap items + totals; keep client/address/invoice_date.
+    # If the draft row is missing (partial delete, DB import gap,
+    # race with another admin) bail out cleanly BEFORE writing to
+    # invoice_records so we don't end up with a record that's out
+    # of sync with a non-existent draft.
     c.execute(
         "UPDATE manual_invoice_drafts SET items_json=?, total_ht=?, total_vat=?, "
         "total_ttc=?, created_at=? WHERE invoice_number=?",
         (items_json, total_ht, total_vat, total_ttc, now_str, invoice_number),
     )
+    if c.rowcount != 1:
+        conn.rollback(); conn.close()
+        flash(tr.get("invoice_not_found", "Faktura nije pronadjena."), "error")
+        return redirect("/invoices")
     # Record: update HT/VAT/TTC only. paid/sent/paid_date/sent_date
     # left as-is on purpose so a legitimately paid invoice keeps its
     # payment audit trail even after we resync the line items.
