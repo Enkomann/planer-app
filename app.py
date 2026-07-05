@@ -4990,6 +4990,12 @@ BASE_STYLE = """
        form <label> tags that the design hides but accessibility tools
        still need. Standard "sr-only" pattern. */
     .sr-only { position:absolute !important; width:1px !important; height:1px !important; padding:0 !important; margin:-1px !important; overflow:hidden !important; clip:rect(0,0,0,0) !important; white-space:nowrap !important; border:0 !important; }
+    /* /invoices/view mismatch banner — collapse the "Voir differences"
+       side-by-side diff into a single column on narrow viewports so
+       the <pre> boxes don't get squeezed to unreadable widths. */
+    @media (max-width:720px) {
+        .invmm-diff-grid { grid-template-columns:1fr !important; }
+    }
     h1 { color: {{ '#93c5fd' if dark else '#1f4f82' }}; }
     h2, h3, h4 { color: {{ '#e5e7eb' if dark else '#111827' }}; }
     .brandbar, .card { background: {{ '#161618' if dark else 'white' }}; border-radius:12px; box-shadow:0 4px 14px rgba(0,0,0,0.06); }
@@ -10485,7 +10491,7 @@ def invoices_view():
                 <summary style="cursor:pointer; font-size:12px; font-weight:700;">
                   🔍 {{ tr.get("invoice_view_diff","Vidi razlike") }}
                 </summary>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
+                <div class="invmm-diff-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
                   <div>
                     <div style="font-size:11px; opacity:.75; margin-bottom:3px;">
                       {{ tr.get("invoice_diff_saved","Faktura sacuvana") }}
