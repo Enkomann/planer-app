@@ -386,6 +386,13 @@ TRANSLATIONS = {
         "pdf_no_shifts": "Nema smjena",
     "billable_hours": "Sati (naplativi)", "user_mgmt": "Upravljanje korisnicima",
     "invoice_plan_mismatch_title": "Ova rucna faktura se ne poklapa sa trenutnim planom za ovaj period.",
+    "invoice_plan_mismatch_text_only_title": "Iznos je isti, ali tekst/detalji fakture se razlikuju od trenutnog plana.",
+    "invoice_reason_ht": "HT razlika",
+    "invoice_reason_hours": "Sati razlika",
+    "invoice_reason_text": "Tekst/detalji fakture",
+    "invoice_view_diff": "Vidi razlike",
+    "invoice_diff_saved": "Faktura sacuvana",
+    "invoice_diff_plan": "Trenutni plan",
     "invoice_plan_mismatch_stored": "Sacuvano na fakturi",
     "invoice_plan_mismatch_plan": "Trenutni plan",
     "invoice_plan_mismatch_confirm": "Obnoviti prvu (uslugu) stavku iz trenutnog plana? Dodatne rucne stavke (odbici, dodatne usluge, napomene) ostaju sacuvane. Broj fakture, datum izdavanja i status placanja/slanja ostaju nepromijenjeni.",
@@ -457,6 +464,13 @@ TRANSLATIONS["en"].update({
     "nav_plan": "Plan", "nav_week": "Week", "nav_month": "Month",
     "nav_payroll": "Payroll", "nav_diagram": "Chart", "nav_route": "Route", "billable_hours": "Billable hours",
     "invoice_plan_mismatch_title": "This manual invoice no longer matches the current plan for its period.",
+    "invoice_plan_mismatch_text_only_title": "Amount matches, but the invoice text/details differ from the current plan.",
+    "invoice_reason_ht": "HT differs",
+    "invoice_reason_hours": "Hours differ",
+    "invoice_reason_text": "Text/details differ",
+    "invoice_view_diff": "View differences",
+    "invoice_diff_saved": "Saved invoice",
+    "invoice_diff_plan": "Current plan",
     "invoice_plan_mismatch_stored": "Saved on invoice",
     "invoice_plan_mismatch_plan": "Current plan",
     "invoice_plan_mismatch_confirm": "Rebuild the first (service) line from the current plan? Extra manual rows (deductions, add-ons, notes) are kept. Invoice number, issue date and paid/sent status stay unchanged.",
@@ -629,6 +643,13 @@ PRO_UI_TRANSLATIONS = {
         "pdf_user": "Utilisateur", "pdf_date": "Date", "pdf_time": "Heure", "pdf_worker": "Employés",
         "pdf_client": "Client", "pdf_no_shifts": "Aucune mission", "billable_hours": "Heures facturables", "user_mgmt": "Gestion des utilisateurs",
     "invoice_plan_mismatch_title": "Cette facture manuelle ne correspond plus au plan actuel pour cette periode.",
+    "invoice_plan_mismatch_text_only_title": "Le montant est identique, mais le texte / les details de la facture different du plan actuel.",
+    "invoice_reason_ht": "HT different",
+    "invoice_reason_hours": "Heures differentes",
+    "invoice_reason_text": "Texte/details differents",
+    "invoice_view_diff": "Voir les differences",
+    "invoice_diff_saved": "Facture sauvegardee",
+    "invoice_diff_plan": "Plan actuel",
     "invoice_plan_mismatch_stored": "Enregistre sur la facture",
     "invoice_plan_mismatch_plan": "Plan actuel",
     "invoice_plan_mismatch_confirm": "Reconstruire la premiere ligne (service) a partir du plan actuel ? Les lignes manuelles supplementaires (deductions, extras, notes) sont conservees. Le n° de facture, la date et le statut paye/envoye restent inchanges.",
@@ -717,6 +738,13 @@ LANGUAGE_COMPLETION = {
         "pdf_no_shifts": "Keine Einsaetze",
     "billable_hours": "Abrechenbare Stunden", "user_mgmt": "Benutzerverwaltung", "add_user": "Benutzer hinzufuegen",
     "invoice_plan_mismatch_title": "Diese manuelle Rechnung stimmt nicht mehr mit dem aktuellen Plan fuer diesen Zeitraum ueberein.",
+    "invoice_plan_mismatch_text_only_title": "Der Betrag stimmt, aber der Rechnungstext/-Details weichen vom aktuellen Plan ab.",
+    "invoice_reason_ht": "HT weicht ab",
+    "invoice_reason_hours": "Stunden weichen ab",
+    "invoice_reason_text": "Text/Details weichen ab",
+    "invoice_view_diff": "Unterschiede anzeigen",
+    "invoice_diff_saved": "Gespeicherte Rechnung",
+    "invoice_diff_plan": "Aktueller Plan",
     "invoice_plan_mismatch_stored": "Auf Rechnung gespeichert",
     "invoice_plan_mismatch_plan": "Aktueller Plan",
     "invoice_plan_mismatch_confirm": "Erste (Leistungs-)Position aus dem aktuellen Plan neu erstellen? Zusaetzliche manuelle Positionen (Abzuege, Extras, Notizen) bleiben erhalten. Rechnungsnummer, Rechnungsdatum und Bezahlt/Gesendet-Status bleiben unveraendert.",
@@ -753,6 +781,13 @@ LANGUAGE_COMPLETION = {
         "pdf_no_shifts": "Sem turnos",
     "billable_hours": "Horas faturaveis", "user_mgmt": "Gestao de utilizadores", "add_user": "Adicionar utilizador",
     "invoice_plan_mismatch_title": "Esta fatura manual ja nao corresponde ao plano atual deste periodo.",
+    "invoice_plan_mismatch_text_only_title": "O montante e igual, mas o texto/detalhes da fatura diferem do plano atual.",
+    "invoice_reason_ht": "HT diferente",
+    "invoice_reason_hours": "Horas diferentes",
+    "invoice_reason_text": "Texto/detalhes diferentes",
+    "invoice_view_diff": "Ver diferencas",
+    "invoice_diff_saved": "Fatura guardada",
+    "invoice_diff_plan": "Plano atual",
     "invoice_plan_mismatch_stored": "Guardado na fatura",
     "invoice_plan_mismatch_plan": "Plano atual",
     "invoice_plan_mismatch_confirm": "Reconstruir a primeira linha (servico) a partir do plano atual? As linhas manuais extra (deducoes, extras, notas) sao mantidas. Numero da fatura, data de emissao e estado pago/enviado ficam inalterados.",
@@ -10202,6 +10237,26 @@ def invoices_view():
         desig_off    = (bool(stored_desig) and bool(expected_desig)
                         and _norm(stored_desig) != _norm(expected_desig))
         plan_mismatch = ht_off or hours_off or desig_off
+        # Expose the individual reasons + raw texts so the template
+        # can (a) explain to the admin which field actually drifted
+        # and (b) offer a side-by-side "Voir différences" panel.
+        # When ONLY the designation differs (HT and hours match) the
+        # banner drops to a softer "text differs" tone rather than
+        # the loud "invoice no longer matches plan" warning.
+        mismatch_info = {
+            "ht_off":         ht_off,
+            "hours_off":      hours_off,
+            "desig_off":      desig_off,
+            "text_only":      (desig_off and not ht_off and not hours_off),
+            "stored_ht":      stored_ht,
+            "plan_ht":        plan_ht,
+            "stored_hours":   stored_hours,
+            "plan_hours":     plan_summary["hours"],
+            "stored_desig":   stored_desig,
+            "expected_desig": expected_desig,
+        }
+    else:
+        mismatch_info = None
     # Email proof / archive trail for this invoice — most recent first.
     # We intentionally pull every column we know about so the UI can
     # surface Message-ID and PDF hash as forensic evidence the email
@@ -10371,14 +10426,49 @@ def invoices_view():
                 </span>
             </div>
 
-            {% if is_manual and plan_mismatch and plan_summary %}
+            {% if is_manual and plan_mismatch and plan_summary and mismatch_info %}
+            {# text_only = only designation differs → softer blue notice.
+               Any HT or hours drift → louder yellow warning. #}
+            {% set _soft   = mismatch_info.text_only %}
+            {% set _bg     = ('rgba(59,130,246,.15)' if dark else '#dbeafe') if _soft else ('rgba(245,158,11,.15)' if dark else '#fef3c7') %}
+            {% set _fg     = ('#93c5fd' if dark else '#1e3a8a')             if _soft else ('#fcd34d' if dark else '#92400e') %}
+            {% set _border = '#3b82f6' if _soft else '#f59e0b' %}
+            {% set _btnbg  = '#3b82f6' if _soft else '#f59e0b' %}
+            {% set _icon   = 'ℹ' if _soft else '⚠' %}
             <div style="margin:12px 0; padding:12px 16px; border-radius:10px;
-                        background:{{ 'rgba(245,158,11,.15)' if dark else '#fef3c7' }};
-                        color:{{ '#fcd34d' if dark else '#92400e' }};
-                        border:1px solid #f59e0b; font-size:13px;">
+                        background:{{ _bg }}; color:{{ _fg }};
+                        border:1px solid {{ _border }}; font-size:13px;">
               <div style="font-weight:700; margin-bottom:6px;">
-                ⚠ {{ tr.get("invoice_plan_mismatch_title","Ova ručna faktura se ne poklapa sa trenutnim planom za ovaj period.") }}
+                {{ _icon }}
+                {% if _soft %}
+                  {{ tr.get("invoice_plan_mismatch_text_only_title","Iznos je isti, ali tekst/detalji fakture se razlikuju od trenutnog plana.") }}
+                {% else %}
+                  {{ tr.get("invoice_plan_mismatch_title","Ova ručna faktura se ne poklapa sa trenutnim planom za ovaj period.") }}
+                {% endif %}
               </div>
+
+              {# Reason chips: show exactly which field(s) drifted. #}
+              <div style="font-size:11px; margin-bottom:8px; display:flex; flex-wrap:wrap; gap:6px;">
+                {% if mismatch_info.ht_off %}
+                <span style="background:rgba(220,38,38,.15); color:#dc2626; padding:2px 8px; border-radius:999px; font-weight:700;">
+                  {{ tr.get("invoice_reason_ht","HT razlika") }}: {{ '%.2f'|format(mismatch_info.stored_ht) }} → {{ '%.2f'|format(mismatch_info.plan_ht) }} €
+                </span>
+                {% endif %}
+                {% if mismatch_info.hours_off %}
+                <span style="background:rgba(220,38,38,.15); color:#dc2626; padding:2px 8px; border-radius:999px; font-weight:700;">
+                  {{ tr.get("invoice_reason_hours","Sati razlika") }}:
+                  {% if mismatch_info.stored_hours is not none %}{{ '%.2f'|format(mismatch_info.stored_hours) }}{% else %}?{% endif %}
+                  → {{ '%.2f'|format(mismatch_info.plan_hours) }} h
+                </span>
+                {% endif %}
+                {% if mismatch_info.desig_off %}
+                <span style="background:rgba(37,99,235,.15); color:#1d4ed8; padding:2px 8px; border-radius:999px; font-weight:700;">
+                  {{ tr.get("invoice_reason_text","Tekst/detalji fakture") }}
+                </span>
+                {% endif %}
+              </div>
+
+              {# Compact totals line, always shown so the admin has HT + hours at a glance. #}
               <div style="font-size:12px; margin-bottom:8px;">
                 {{ tr.get("invoice_plan_mismatch_stored","Sacuvano na fakturi") }}:
                 <b>{{ '%.2f'|format(record.amount) }} € HT</b>
@@ -10387,11 +10477,36 @@ def invoices_view():
                 <b>{{ '%.2f'|format(plan_summary.amount) }} € HT</b>
                 ({{ '%.2f'|format(plan_summary.hours) }} h)
               </div>
+
+              {# "Voir différences" expandable side-by-side. Only worth
+                 showing when the designation actually drifted. #}
+              {% if mismatch_info.desig_off and mismatch_info.stored_desig and mismatch_info.expected_desig %}
+              <details style="margin:0 0 8px;">
+                <summary style="cursor:pointer; font-size:12px; font-weight:700;">
+                  🔍 {{ tr.get("invoice_view_diff","Vidi razlike") }}
+                </summary>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
+                  <div>
+                    <div style="font-size:11px; opacity:.75; margin-bottom:3px;">
+                      {{ tr.get("invoice_diff_saved","Faktura sacuvana") }}
+                    </div>
+                    <pre style="white-space:pre-wrap; font-size:11px; font-family:ui-monospace,Menlo,Consolas,monospace; padding:8px; border-radius:6px; background:rgba(0,0,0,.06); color:{{ '#e2e8f0' if dark else '#0f172a' }}; margin:0; max-height:180px; overflow:auto;">{{ mismatch_info.stored_desig }}</pre>
+                  </div>
+                  <div>
+                    <div style="font-size:11px; opacity:.75; margin-bottom:3px;">
+                      {{ tr.get("invoice_diff_plan","Trenutni plan") }}
+                    </div>
+                    <pre style="white-space:pre-wrap; font-size:11px; font-family:ui-monospace,Menlo,Consolas,monospace; padding:8px; border-radius:6px; background:rgba(0,0,0,.06); color:{{ '#e2e8f0' if dark else '#0f172a' }}; margin:0; max-height:180px; overflow:auto;">{{ mismatch_info.expected_desig }}</pre>
+                  </div>
+                </div>
+              </details>
+              {% endif %}
+
               <form method="post" action="/invoices/manual/rebuild" style="display:inline;"
-                    onsubmit='return confirm({{ (tr.get("invoice_plan_mismatch_confirm","Obnoviti stavke iz trenutnog plana? Broj fakture, datum izdavanja i status placanja/slanja ostaju nepromijenjeni.") + ((" [PAID/SENT]" if (record.paid or record.sent) else "")))|tojson }});'>
+                    onsubmit='return confirm({{ (tr.get("invoice_plan_mismatch_confirm","Obnoviti prvu (usluga) stavku iz trenutnog plana? Dodatne rucne stavke ostaju sacuvane. Broj fakture, datum izdavanja i status placanja/slanja ostaju nepromijenjeni.") + ((" [PAID/SENT]" if (record.paid or record.sent) else "")))|tojson }});'>
                 <input type="hidden" name="invoice_number" value="{{ record.invoice_number }}">
                 <button type="submit"
-                        style="background:#f59e0b; color:white; border:none;
+                        style="background:{{ _btnbg }}; color:white; border:none;
                                border-radius:8px; padding:8px 14px; font-weight:700;
                                font-size:13px; cursor:pointer; font-family:inherit;">
                   🔄 {{ tr.get("invoice_rebuild_from_plan","Obnovi stavke iz plana") }}
@@ -10545,7 +10660,8 @@ Tel: {{ view_ctx.company_phone }}{% endif %}{% if view_ctx.company_email %}
          pdf_url=pdf_url, download_url=download_url,
          paid_fields=paid_fields, sent_fields=sent_fields,
          is_manual=is_manual, edit_url=edit_url, email_logs=email_logs,
-         plan_summary=plan_summary, plan_mismatch=plan_mismatch)
+         plan_summary=plan_summary, plan_mismatch=plan_mismatch,
+         mismatch_info=mismatch_info)
 
 
 @app.route("/invoices/preview_pdf")
