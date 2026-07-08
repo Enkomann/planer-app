@@ -644,7 +644,7 @@ PRO_UI_TRANSLATIONS = {
         "pdf": "PDF planning", "month_pdf": "PDF calendrier mensuel", "pdf_title": "Planning des employés",
         "pdf_user": "Utilisateur", "pdf_date": "Date", "pdf_time": "Heure", "pdf_worker": "Employés",
         "pdf_client": "Client", "pdf_no_shifts": "Aucune mission", "billable_hours": "Heures facturables", "user_mgmt": "Gestion des utilisateurs",
-    "worker_hours": "Heures employe",
+    "worker_hours": "Heures de l'employe",
     "invoice_plan_mismatch_title": "Cette facture manuelle ne correspond plus au plan actuel pour cette periode.",
     "invoice_plan_mismatch_text_only_title": "Le montant est identique, mais le texte / les details de la facture different du plan actuel.",
     "invoice_reason_ht": "HT different",
