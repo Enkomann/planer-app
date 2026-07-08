@@ -386,6 +386,8 @@ TRANSLATIONS = {
         "pdf_no_shifts": "Nema smjena",
     "billable_hours": "Sati (naplativi)", "user_mgmt": "Upravljanje korisnicima",
     "worker_hours": "Sati radnika",
+    "worker_hours_pdf": "Moji sati PDF",
+    "worker_hours_pdf_hint": "Preuzmi izvjestaj po periodu",
     "invoice_plan_mismatch_title": "Ova rucna faktura se ne poklapa sa trenutnim planom za ovaj period.",
     "invoice_plan_mismatch_text_only_title": "Iznos je isti, ali tekst/detalji fakture se razlikuju od trenutnog plana.",
     "invoice_reason_ht": "HT razlika",
@@ -465,6 +467,8 @@ TRANSLATIONS["en"].update({
     "nav_plan": "Plan", "nav_week": "Week", "nav_month": "Month",
     "nav_payroll": "Payroll", "nav_diagram": "Chart", "nav_route": "Route", "billable_hours": "Billable hours",
     "worker_hours": "Worker hours",
+    "worker_hours_pdf": "My hours PDF",
+    "worker_hours_pdf_hint": "Download a report for a period",
     "invoice_plan_mismatch_title": "This manual invoice no longer matches the current plan for its period.",
     "invoice_plan_mismatch_text_only_title": "Amount matches, but the invoice text/details differ from the current plan.",
     "invoice_reason_ht": "HT differs",
@@ -645,6 +649,8 @@ PRO_UI_TRANSLATIONS = {
         "pdf_user": "Utilisateur", "pdf_date": "Date", "pdf_time": "Heure", "pdf_worker": "Employés",
         "pdf_client": "Client", "pdf_no_shifts": "Aucune mission", "billable_hours": "Heures facturables", "user_mgmt": "Gestion des utilisateurs",
     "worker_hours": "Heures de l'employe",
+    "worker_hours_pdf": "Mes heures PDF",
+    "worker_hours_pdf_hint": "Telecharger un rapport pour la periode",
     "invoice_plan_mismatch_title": "Cette facture manuelle ne correspond plus au plan actuel pour cette periode.",
     "invoice_plan_mismatch_text_only_title": "Le montant est identique, mais le texte / les details de la facture different du plan actuel.",
     "invoice_reason_ht": "HT different",
@@ -741,6 +747,8 @@ LANGUAGE_COMPLETION = {
         "pdf_no_shifts": "Keine Einsaetze",
     "billable_hours": "Abrechenbare Stunden", "user_mgmt": "Benutzerverwaltung", "add_user": "Benutzer hinzufuegen",
     "worker_hours": "Mitarbeiterstunden",
+    "worker_hours_pdf": "Meine Stunden PDF",
+    "worker_hours_pdf_hint": "Bericht fuer einen Zeitraum herunterladen",
     "invoice_plan_mismatch_title": "Diese manuelle Rechnung stimmt nicht mehr mit dem aktuellen Plan fuer diesen Zeitraum ueberein.",
     "invoice_plan_mismatch_text_only_title": "Der Betrag stimmt, aber der Rechnungstext/-Details weichen vom aktuellen Plan ab.",
     "invoice_reason_ht": "HT weicht ab",
@@ -785,6 +793,8 @@ LANGUAGE_COMPLETION = {
         "pdf_no_shifts": "Sem turnos",
     "billable_hours": "Horas faturaveis", "user_mgmt": "Gestao de utilizadores", "add_user": "Adicionar utilizador",
     "worker_hours": "Horas do trabalhador",
+    "worker_hours_pdf": "As minhas horas PDF",
+    "worker_hours_pdf_hint": "Descarregar relatorio por periodo",
     "invoice_plan_mismatch_title": "Esta fatura manual ja nao corresponde ao plano atual deste periodo.",
     "invoice_plan_mismatch_text_only_title": "O montante e igual, mas o texto/detalhes da fatura diferem do plano atual.",
     "invoice_reason_ht": "HT diferente",
@@ -6369,6 +6379,7 @@ def header_html():
           <a href="javascript:void(0)" onclick="closeWorkerMenu();openWorkerLeaveSheet();"><span>☀</span><div>{{ tr.get("leave_request","Zahtjev za odsustvo") }}<small>{{ tr.get("leave_send","Posalji zahtjev") }}</small></div></a>
           <a href="/week_pdf" target="_blank" rel="noopener" onclick="closeWorkerMenu()"><span>PDF</span><div>{{ tr.get("week_calendar","Sedmicni kalendar") }}<small>{{ tr.get("download","Preuzmi") }}</small></div></a>
           <a href="/month_pdf" target="_blank" rel="noopener" onclick="closeWorkerMenu()"><span>PDF</span><div>{{ tr.get("month_calendar","Mjesecni kalendar") }}<small>{{ tr.get("download","Preuzmi") }}</small></div></a>
+          <a href="javascript:void(0)" onclick="closeWorkerMenu();openWorkerHoursSheet();"><span>⏱</span><div>{{ tr.get("worker_hours_pdf","Moji sati PDF") }}<small>{{ tr.get("worker_hours_pdf_hint","Preuzmi izvještaj po periodu") }}</small></div></a>
         </div>
       </div>
     </header>
@@ -6405,6 +6416,20 @@ def header_html():
         </form>
       </div>
     </div>
+    <div class="wapp-leave-sheet" id="wappHoursSheet" onclick="if(event.target===this)closeWorkerHoursSheet();">
+      <div class="wapp-leave-inner">
+        <button class="wapp-leave-close" type="button" onclick="closeWorkerHoursSheet()">×</button>
+        <h3>⏱ {{ tr.get("worker_hours_pdf","Moji sati PDF") }}</h3>
+        <form method="get" action="/worker/hours_pdf" target="_blank" rel="noopener"
+              onsubmit="closeWorkerHoursSheet();">
+          <label for="whFrom">{{ tr.get("date_from","Datum od") }}</label>
+          <input type="date" id="whFrom" name="date_from" required>
+          <label for="whTo">{{ tr.get("date_to","Datum do") }}</label>
+          <input type="date" id="whTo" name="date_to" required>
+          <button type="submit">📄 {{ tr.get("download","Preuzmi") }} PDF</button>
+        </form>
+      </div>
+    </div>
     <script>
     function toggleWorkerMenu(ev){
       if(ev) ev.stopPropagation();
@@ -6429,12 +6454,31 @@ def header_html():
       var sheet = document.getElementById('wappLeaveSheet');
       if(sheet) sheet.classList.remove('open');
     }
+    function openWorkerHoursSheet(){
+      var sheet = document.getElementById('wappHoursSheet');
+      if(!sheet) return;
+      // Default the range to "current month, 1st → today" on every
+      // open so the sheet is one-tap-to-submit for the common case.
+      // pad2 keeps the strings in ISO YYYY-MM-DD.
+      function pad2(n){ return (n<10?'0':'') + n; }
+      var now = new Date();
+      var y = now.getFullYear(), m = pad2(now.getMonth() + 1), d = pad2(now.getDate());
+      var from = document.getElementById('whFrom');
+      var to   = document.getElementById('whTo');
+      if(from && !from.value) from.value = y + '-' + m + '-01';
+      if(to   && !to.value)   to.value   = y + '-' + m + '-' + d;
+      sheet.classList.add('open');
+    }
+    function closeWorkerHoursSheet(){
+      var sheet = document.getElementById('wappHoursSheet');
+      if(sheet) sheet.classList.remove('open');
+    }
     document.addEventListener('click', function(ev){
       var wrap = document.querySelector('.wapp-menu-wrap');
       if(wrap && !wrap.contains(ev.target)) closeWorkerMenu();
     });
     document.addEventListener('keydown', function(ev){
-      if(ev.key === 'Escape'){ closeWorkerMenu(); closeWorkerLeaveSheet(); }
+      if(ev.key === 'Escape'){ closeWorkerMenu(); closeWorkerLeaveSheet(); closeWorkerHoursSheet(); }
     });
     </script>
     {% endif %}
@@ -13736,6 +13780,104 @@ def invoices_certificate():
     conn = get_conn(); settings = get_invoice_settings(conn); rows = build_invoice_rows(conn, date_from, date_to, fixed_amount if fixed_amount else None, settings); conn.close()
     pdf = build_invoice_certificate_pdf(rows, invoice_date, date_from, date_to)
     return send_file(pdf, as_attachment=True, download_name=f"certificat_factures_{date_from}_{date_to}.pdf", mimetype="application/pdf")
+
+@app.route("/worker/hours_pdf")
+def worker_hours_pdf():
+    """Worker-only personal timesheet PDF.
+
+    Guards on session.role == "worker", filters shifts to the
+    logged-in user via worker_in_shift(), and ALWAYS reports raw
+    duration per shift (never billable hours) so a worker sharing
+    a 10:00-13:00 shift with a colleague sees 3.00 h — the number
+    they actually worked, not the client's bill line.
+
+    Query params:
+      date_from, date_to (YYYY-MM-DD). If either is missing or
+      invalid we fall back to "1st of current month → today" so a
+      malformed URL still produces a sensible PDF.
+
+    A worker cannot ever request another worker's PDF — there is
+    no ?worker= query param on this route, and the SQL filter
+    only keeps rows where worker_in_shift(current_user, ...) is
+    true.
+    """
+    if "user" not in session:
+        return redirect("/login")
+    if session.get("role") != "worker":
+        return redirect("/")
+    tr = t()
+    current_user = session.get("user")
+    def _iso(v):
+        try:
+            datetime.strptime(v, "%Y-%m-%d")
+            return v
+        except (TypeError, ValueError):
+            return ""
+    date_from = _iso((request.args.get("date_from") or "").strip())
+    date_to   = _iso((request.args.get("date_to")   or "").strip())
+    if not date_from:
+        today = lux_now()
+        date_from = today.replace(day=1).strftime("%Y-%m-%d")
+    if not date_to:
+        date_to = lux_now().strftime("%Y-%m-%d")
+    if date_to < date_from:
+        date_to = date_from
+    conn = get_conn(); c = conn.cursor()
+    all_shifts = c.execute(
+        "SELECT * FROM shifts WHERE date >= ? AND date <= ? ORDER BY date, time, id",
+        (date_from, date_to)
+    ).fetchall()
+    conn.close()
+    shifts = [s for s in all_shifts if worker_in_shift(current_user, s[1])]
+
+    title = f"{tr.get('worker_hours_pdf','Moji sati')} — {current_user}  ·  " \
+            f"{format_date(date_from)} – {format_date(date_to)}"
+    buffer = io.BytesIO()
+    doc = pdf_doc(buffer, title, pagesize=A4,
+                  rightMargin=1.5*cm, leftMargin=1.5*cm,
+                  topMargin=1.5*cm, bottomMargin=1.5*cm)
+    styles = getSampleStyleSheet()
+    elements = []
+    if os.path.exists("static/logo.png"):
+        elements += [Image("static/logo.png", width=4*cm, height=2*cm), Spacer(1, 8)]
+    elements += [Paragraph(title, styles["Title"]), Spacer(1, 10)]
+
+    # Raw duration only — the worker's own timesheet is never the
+    # billable line (2 workers × 3 h = 6 h).
+    total_hours = sum(parse_shift_hours(s[4]) for s in shifts)
+    elements.append(Paragraph(
+        f"{tr.get('worker_hours','Sati radnika')}: {total_hours:.2f}",
+        styles["Normal"],
+    ))
+    elements.append(Spacer(1, 8))
+
+    table_data = [[tr["pdf_date"], tr["pdf_time"], tr["pdf_client"],
+                   tr.get("worker_hours", "Sati radnika"), tr["status"]]]
+    for s in shifts:
+        table_data.append([
+            format_date(s[3]), s[4], s[2],
+            f"{parse_shift_hours(s[4]):.2f}",
+            get_status_label(get_auto_status(s[3], s[4]), tr),
+        ])
+    if not shifts:
+        table_data.append(["-", "-", "-", "-", tr["pdf_no_shifts"]])
+    table = Table(table_data, colWidths=[2.6*cm, 2.6*cm, 7*cm, 2.6*cm, 3.4*cm])
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#1f4f82")),
+        ("TEXTCOLOR",  (0,0), (-1,0), colors.white),
+        ("FONTNAME",   (0,0), (-1,0), "Helvetica-Bold"),
+        ("GRID",       (0,0), (-1,-1), 0.5, colors.grey),
+        ("ROWBACKGROUNDS", (0,1), (-1,-1),
+         [colors.whitesmoke, colors.HexColor("#eaf2fb")]),
+        ("FONTSIZE",   (0,0), (-1,-1), 9),
+    ]))
+    elements.append(table)
+    doc.build(elements); buffer.seek(0)
+    filename = safe_pdf_name("moji_sati", current_user, date_from, date_to)
+    return send_file(buffer, as_attachment=True,
+                     download_name=f"{filename}.pdf",
+                     mimetype="application/pdf")
+
 
 @app.route("/shifts_search_pdf")
 def shifts_search_pdf():
