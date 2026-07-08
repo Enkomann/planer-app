@@ -3826,7 +3826,8 @@ def build_quote_pdf(data, settings):
     if settings.get("company_email"):
         company_lines.append(settings["company_email"])
     logo_cell = Image("static/logo.png", width=4.5*cm, height=2.4*cm) if os.path.exists("static/logo.png") else ""
-    client_block = f"<b>Devis pour</b><br/>{data['client_name']}<br/>{data['client_address'].replace(chr(10), '<br/>')}"
+    _quote_addr = format_invoice_address(data.get('client_address', '') or '')
+    client_block = f"<b>Devis pour</b><br/>{data['client_name']}<br/>{_quote_addr.replace(chr(10), '<br/>')}"
     if data.get("client_email"):
         client_block += f"<br/>{data['client_email']}"
     amount = float(data.get("amount") or 0)
@@ -4420,7 +4421,7 @@ def build_reminder_pdf(records, settings, language="fr"):
     if not records:
         return None
     client = records[0]["client"] or "-"
-    address_html = records[0].get("_client_address_html") or ""
+    address_html = format_invoice_address(records[0].get("_client_address_html") or "")
     today = lux_now().strftime("%Y-%m-%d")
 
     buffer = io.BytesIO()
