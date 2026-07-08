@@ -6465,8 +6465,8 @@ def header_html():
       var y = now.getFullYear(), m = pad2(now.getMonth() + 1), d = pad2(now.getDate());
       var from = document.getElementById('whFrom');
       var to   = document.getElementById('whTo');
-      if(from && !from.value) from.value = y + '-' + m + '-01';
-      if(to   && !to.value)   to.value   = y + '-' + m + '-' + d;
+      if(from) from.value = y + '-' + m + '-01';
+      if(to)   to.value   = y + '-' + m + '-' + d;
       sheet.classList.add('open');
     }
     function closeWorkerHoursSheet(){
