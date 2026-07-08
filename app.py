@@ -385,6 +385,7 @@ TRANSLATIONS = {
         "pdf_time": "Vrijeme", "pdf_worker": "Radnici", "pdf_client": "Klijent",
         "pdf_no_shifts": "Nema smjena",
     "billable_hours": "Sati (naplativi)", "user_mgmt": "Upravljanje korisnicima",
+    "worker_hours": "Sati radnika",
     "invoice_plan_mismatch_title": "Ova rucna faktura se ne poklapa sa trenutnim planom za ovaj period.",
     "invoice_plan_mismatch_text_only_title": "Iznos je isti, ali tekst/detalji fakture se razlikuju od trenutnog plana.",
     "invoice_reason_ht": "HT razlika",
@@ -463,6 +464,7 @@ TRANSLATIONS["en"].update({
     "add_shift": "Add shift", "workers": "Workers", "clients": "Clients",
     "nav_plan": "Plan", "nav_week": "Week", "nav_month": "Month",
     "nav_payroll": "Payroll", "nav_diagram": "Chart", "nav_route": "Route", "billable_hours": "Billable hours",
+    "worker_hours": "Worker hours",
     "invoice_plan_mismatch_title": "This manual invoice no longer matches the current plan for its period.",
     "invoice_plan_mismatch_text_only_title": "Amount matches, but the invoice text/details differ from the current plan.",
     "invoice_reason_ht": "HT differs",
@@ -642,6 +644,7 @@ PRO_UI_TRANSLATIONS = {
         "pdf": "PDF planning", "month_pdf": "PDF calendrier mensuel", "pdf_title": "Planning des employés",
         "pdf_user": "Utilisateur", "pdf_date": "Date", "pdf_time": "Heure", "pdf_worker": "Employés",
         "pdf_client": "Client", "pdf_no_shifts": "Aucune mission", "billable_hours": "Heures facturables", "user_mgmt": "Gestion des utilisateurs",
+    "worker_hours": "Heures employe",
     "invoice_plan_mismatch_title": "Cette facture manuelle ne correspond plus au plan actuel pour cette periode.",
     "invoice_plan_mismatch_text_only_title": "Le montant est identique, mais le texte / les details de la facture different du plan actuel.",
     "invoice_reason_ht": "HT different",
@@ -737,6 +740,7 @@ LANGUAGE_COMPLETION = {
         "pdf_date": "Datum", "pdf_time": "Zeit", "pdf_worker": "Mitarbeiter", "pdf_client": "Kunde",
         "pdf_no_shifts": "Keine Einsaetze",
     "billable_hours": "Abrechenbare Stunden", "user_mgmt": "Benutzerverwaltung", "add_user": "Benutzer hinzufuegen",
+    "worker_hours": "Mitarbeiterstunden",
     "invoice_plan_mismatch_title": "Diese manuelle Rechnung stimmt nicht mehr mit dem aktuellen Plan fuer diesen Zeitraum ueberein.",
     "invoice_plan_mismatch_text_only_title": "Der Betrag stimmt, aber der Rechnungstext/-Details weichen vom aktuellen Plan ab.",
     "invoice_reason_ht": "HT weicht ab",
@@ -780,6 +784,7 @@ LANGUAGE_COMPLETION = {
         "pdf_date": "Data", "pdf_time": "Hora", "pdf_worker": "Trabalhadores", "pdf_client": "Cliente",
         "pdf_no_shifts": "Sem turnos",
     "billable_hours": "Horas faturaveis", "user_mgmt": "Gestao de utilizadores", "add_user": "Adicionar utilizador",
+    "worker_hours": "Horas do trabalhador",
     "invoice_plan_mismatch_title": "Esta fatura manual ja nao corresponde ao plano atual deste periodo.",
     "invoice_plan_mismatch_text_only_title": "O montante e igual, mas o texto/detalhes da fatura diferem do plano atual.",
     "invoice_reason_ht": "HT diferente",
@@ -2898,6 +2903,34 @@ def shift_billable_hours(shift):
     except (IndexError, TypeError):
         return 0.0
     return parse_shift_hours(time_str) * max(1, len(split_workers(worker_text)))
+
+
+def shift_search_pdf_hours(shift, single_worker_scope=False):
+    """Hours to display for a shift row on /shifts_search_pdf.
+
+    Two very different mental models sit behind the same PDF:
+
+      - "How much do we bill for this shift?"  → multiply duration
+        by worker count. A 10:00–13:00 shift with two workers is
+        6.0 billable hours.
+      - "How much did THIS worker work on this shift?" → just
+        parse the duration. The same shift is 3.0 hours from
+        Izeta's timesheet's point of view.
+
+    When the PDF is scoped to a specific worker (the ?worker=…
+    filter or a non-admin worker viewing their own PDF), the row
+    should read the personal-timesheet number, otherwise the
+    admin-facing billing number. Pass single_worker_scope=True to
+    switch modes; the invoice pipeline is untouched (build_invoice
+    _rows keeps multiplying by worker count).
+    """
+    try:
+        time_str = shift[4]
+    except (IndexError, TypeError):
+        return 0.0
+    if single_worker_scope:
+        return parse_shift_hours(time_str)
+    return shift_billable_hours(shift)
 
 
 def get_auto_status(shift_date, time_range):
@@ -13754,13 +13787,24 @@ def shifts_search_pdf():
     styles = getSampleStyleSheet(); elements = []
     if os.path.exists("static/logo.png"): elements += [Image("static/logo.png", width=4*cm, height=2*cm), Spacer(1, 8)]
     elements += [Paragraph(title, styles["Title"]), Spacer(1, 10)]
-    # Billable hours = duration × number of workers on the shift.
-    # A 08:00-09:30 shift with two workers bills for 3.0h, not 1.5h.
-    total_hours = sum(shift_billable_hours(s) for s in shifts)
-    elements.append(Paragraph(f"{tr.get('hours','Sati')}: {total_hours:.2f}", styles["Normal"])); elements.append(Spacer(1, 8))
-    table_data = [[tr["pdf_date"], tr["pdf_time"], tr["pdf_worker"], tr["pdf_client"], tr.get("billable_hours","Sati (naplativi)"), tr["status"]]]
+    # Row/total hours depend on scope. When the PDF is filtered to
+    # ONE worker (admin picked ?worker=... or a non-admin worker is
+    # viewing their own timesheet), rows show duration only — the
+    # "how much did this person work" number. Otherwise the PDF is
+    # showing the whole team on a shift, so rows use billable hours
+    # (duration × worker count) to match invoice generation.
+    single_worker_scope = bool(worker_filter) or not is_admin
+    row_hours = lambda sh: shift_search_pdf_hours(sh, single_worker_scope)
+    hours_label = (
+        tr.get("worker_hours", "Sati radnika")
+        if single_worker_scope
+        else tr.get("billable_hours", "Sati (naplativi)")
+    )
+    total_hours = sum(row_hours(s) for s in shifts)
+    elements.append(Paragraph(f"{hours_label}: {total_hours:.2f}", styles["Normal"])); elements.append(Spacer(1, 8))
+    table_data = [[tr["pdf_date"], tr["pdf_time"], tr["pdf_worker"], tr["pdf_client"], hours_label, tr["status"]]]
     for s in shifts:
-        table_data.append([format_date(s[3]), s[4], s[1], s[2], f"{shift_billable_hours(s):.2f}", get_status_label(get_auto_status(s[3], s[4]), tr)])
+        table_data.append([format_date(s[3]), s[4], s[1], s[2], f"{row_hours(s):.2f}", get_status_label(get_auto_status(s[3], s[4]), tr)])
     if not shifts: table_data.append(["-", "-", "-", "-", "-", tr["pdf_no_shifts"]])
     table = Table(table_data, colWidths=[2.6*cm, 2.6*cm, 5*cm, 6*cm, 2.4*cm, 3.4*cm])
     table.setStyle(TableStyle([
