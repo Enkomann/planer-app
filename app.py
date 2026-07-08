@@ -3250,6 +3250,62 @@ def invoice_vat_rate(client_type):
     return 0.17 if client_type == "pro" else 0.08
 
 
+_INVOICE_ADDR_POSTCODE_RE = re.compile(r"\bL[-\s]?(\d{4})\b", re.IGNORECASE)
+
+
+def format_invoice_address(address):
+    """Turn a single-line client address into a clean postal block.
+
+    Rules:
+      - If the input already has newlines, respect the admin's manual
+        layout as-is (only strip trailing whitespace on each line).
+      - Otherwise look for a Luxembourg postcode "L-9674" / "L 9674" /
+        "L9674". If found, break the string in two: the street part
+        before the postcode goes on line 1, the postcode + locality
+        goes on line 2.
+      - Drop a trailing ", Luxembourg" that follows the postcode part
+        (redundant for a Luxembourg-based invoice).
+
+    Handled examples:
+      "1 um Buren Nocher L-9674, Luxembourg"
+        → "1 um Buren\nNocher L-9674"
+      "23 Salzbaach L-9559 WILTZ"
+        → "23 Salzbaach\nL-9559 WILTZ"
+      "1 um Buren\nNocher L-9674"  (already multi-line)
+        → unchanged
+    """
+    if not address:
+        return address or ""
+    raw = address.replace("\r", "")
+    if "\n" in raw:
+        return "\n".join(line.rstrip() for line in raw.split("\n") if line.strip())
+    s = raw.strip()
+    # Strip trailing ", Luxembourg" (any case, allow spaces)
+    s = re.sub(r",\s*Luxembourg\.?\s*$", "", s, flags=re.IGNORECASE)
+    m = _INVOICE_ADDR_POSTCODE_RE.search(s)
+    if not m:
+        return s
+    postcode_start = m.start()
+    street = s[:postcode_start].rstrip().rstrip(",").rstrip()
+    postal = s[postcode_start:].strip().lstrip(",").lstrip()
+    # "Nocher L-9674" — the locality often sits just before the
+    # postcode as a single word. Move it down onto the postal line
+    # so the street line is just "1 um Buren".
+    parts = street.split()
+    if len(parts) >= 2 and not any(ch.isdigit() for ch in parts[-1]):
+        locality = parts[-1]
+        # Only pull it down when the postal line is just the bare
+        # postcode ("L-9674"). If the postcode is already followed by
+        # a locality on that side ("L-9559 WILTZ") the address is
+        # already well-formed and pulling another word from the street
+        # would produce "…\nSalzbaach L-9559 WILTZ".
+        postal_tokens = postal.split()
+        if len(postal_tokens) == 1:
+            street = " ".join(parts[:-1]).rstrip()
+            postal = f"{locality} {postal}".strip()
+    return f"{street}\n{postal}" if street and postal else (street or postal)
+
+
 def invoice_service_title(date_from, date_to):
     try:
         start = datetime.strptime(date_from, "%Y-%m-%d")
@@ -3625,7 +3681,7 @@ def _invoice_view_context(conn, record):
             return None
         client_name, client_addr, items_json, pterms = drow
         ctx["client_name"]    = client_name or record.get("client", "")
-        ctx["client_address"] = client_addr or ""
+        ctx["client_address"] = format_invoice_address(client_addr) if client_addr else ""
         try:
             items = json.loads(items_json or "[]")
         except Exception:
@@ -3664,8 +3720,13 @@ def _invoice_view_context(conn, record):
         if not row:
             return None
         ctx["client_name"]    = row.get("client", "") or record.get("client", "")
-        ctx["client_address"] = row.get("address", "") or "-"
-        ctx["client_email"]   = row.get("email", "") or ""
+        _raw_addr = row.get("address", "") or ""
+        ctx["client_address"] = format_invoice_address(_raw_addr) if _raw_addr else "-"
+        # Email is intentionally NOT surfaced to the invoice view — the
+        # billing block should stay a clean postal address only. The
+        # email lives in client_invoice_profiles for the send-by-email
+        # flow.
+        ctx["client_email"]   = ""
         # Auto invoice: one designation block (service title + dates + total + price)
         designation_text = "\n".join(invoice_designation_lines(row))
         ctx["items"].append({
@@ -3711,7 +3772,12 @@ def build_invoice_pdf(row, settings, invoice_date, date_from, date_to, document_
     company_table.setStyle(TableStyle([("ALIGN", (1,0), (1,0), "RIGHT"), ("VALIGN", (0,0), (-1,-1), "TOP")]))
     elements += [company_table, Spacer(1, 34)]
 
-    billing = Paragraph(f"<b>Factur\u00e9 \u00e0</b><br/>{row['client']}<br/>{(row['address'] or '-').replace(chr(10), '<br/>')}" + (f"<br/>{row['email']}" if row["email"] else ""), normal)
+    # Format the raw one-line address into a proper postal block and
+    # drop the email \u2014 the client's email stays in the invoice profile
+    # for the "Send via email" flow but no longer clutters the printed
+    # invoice's "Factur\u00e9 \u00e0" panel.
+    _addr = format_invoice_address(row["address"]) if row.get("address") else "-"
+    billing = Paragraph(f"<b>Factur\u00e9 \u00e0</b><br/>{row['client']}<br/>{_addr.replace(chr(10), '<br/>')}", normal)
     meta = Paragraph(f"<b>Facture n\u00b0</b>&nbsp;&nbsp;&nbsp; {row['invoice_number']}<br/><b>Date</b>&nbsp;&nbsp;&nbsp; {format_date(invoice_date)}", normal)
     elements += [Table([[billing, meta]], colWidths=[10*cm, 7.5*cm], style=[("ALIGN", (1,0), (1,0), "RIGHT"), ("VALIGN", (0,0), (-1,-1), "TOP")]), Spacer(1, 28)]
 
@@ -4221,7 +4287,8 @@ def build_manual_invoice_pdf(draft, settings):
     elements += [company_table, Spacer(1, 34)]
 
     # ── Billing block (client name + address) — matches auto invoice ─────────────
-    addr_html = client_addr.replace("\n", "<br/>") if client_addr else "-"
+    _addr_fmt = format_invoice_address(client_addr) if client_addr else ""
+    addr_html = _addr_fmt.replace("\n", "<br/>") if _addr_fmt else "-"
     billing = Paragraph(
         f"<b>Facturé à</b><br/>{client_name}<br/>{addr_html}",
         normal,
@@ -10548,7 +10615,6 @@ Tel: {{ view_ctx.company_phone }}{% endif %}{% if view_ctx.company_email %}
                     <b>Facturé à</b>
                     <div class="ip-client-name">{{ view_ctx.client_name or '-' }}</div>
                     <div class="ip-client-addr">{{ view_ctx.client_address or '-' }}</div>
-                    {% if view_ctx.client_email %}<div>{{ view_ctx.client_email }}</div>{% endif %}
                   </div>
                   <div class="ip-meta">
                     <div class="ip-meta-row"><b>Facture n°</b> <span>{{ view_ctx.invoice_number }}</span></div>
