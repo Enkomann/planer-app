@@ -3827,9 +3827,10 @@ def build_quote_pdf(data, settings):
         company_lines.append(settings["company_email"])
     logo_cell = Image("static/logo.png", width=4.5*cm, height=2.4*cm) if os.path.exists("static/logo.png") else ""
     _quote_addr = format_invoice_address(data.get('client_address', '') or '')
+    # Same policy as the invoice PDFs: postal block only, no email.
+    # The client email still travels through the composer / send-by-
+    # email flow, but the printed quote itself stays a clean address.
     client_block = f"<b>Devis pour</b><br/>{data['client_name']}<br/>{_quote_addr.replace(chr(10), '<br/>')}"
-    if data.get("client_email"):
-        client_block += f"<br/>{data['client_email']}"
     amount = float(data.get("amount") or 0)
     vat_rate = float(data.get("vat_rate") or 0)
     vat_amount = amount * vat_rate
