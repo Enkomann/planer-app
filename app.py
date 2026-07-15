@@ -381,6 +381,10 @@ TRANSLATIONS = {
         "copy": "Copy", "copy_shift": "Kopiraj smjenu", "paste": "+ Paste",
         "week_calendar": "Sedmicni kalendar", "month_calendar": "Mjesecni kalendar", "pdf": "PDF raspored",
         "month_pdf": "PDF mjesecni kalendar", "back": "Nazad", "edit_shift": "Izmijeni smjenu", "save": "Sacuvaj",
+        "clients_pdf": "PDF lista klijenata",
+        "clients_pdf_title": "Lista klijenata",
+        "notes": "Zabiljeske",
+        "city_or_place": "Mjesto",
         "pdf_title": "Raspored radnika", "pdf_user": "Korisnik", "pdf_date": "Datum",
         "pdf_time": "Vrijeme", "pdf_worker": "Radnici", "pdf_client": "Klijent",
         "pdf_no_shifts": "Nema smjena",
@@ -450,6 +454,10 @@ TRANSLATIONS["fr"].update({
     "week_calendar": "Calendrier hebdomadaire", "month_calendar": "Calendrier mensuel",
     "monthly_hours": "Heures mensuelles", "weekly_hours": "Heures hebdomadaires",
     "back": "Retour", "save": "Enregistrer", "delete": "Supprimer", "edit": "Modifier",
+    "clients_pdf": "PDF liste clients",
+    "clients_pdf_title": "Liste des clients",
+    "notes": "Notes",
+    "city_or_place": "Localite",
     "sick": "Maladie", "vacation": "Conge", "sick_vacation": "Maladie / Conge",
     "duplicate_shift_warning": "Cette mission avec les memes employes, horaires et client existe deja.",
     "nav_plan": "Plan", "nav_week": "Semaine", "nav_month": "Mois",
@@ -494,6 +502,10 @@ TRANSLATIONS["en"].update({
     "week_calendar": "Weekly calendar", "month_calendar": "Monthly calendar",
     "monthly_hours": "Monthly hours", "weekly_hours": "Weekly hours",
     "back": "Back", "save": "Save", "delete": "Delete", "edit": "Edit",
+    "clients_pdf": "Clients PDF",
+    "clients_pdf_title": "Clients list",
+    "notes": "Notes",
+    "city_or_place": "City",
     "sick": "Sick leave", "vacation": "Vacation", "sick_vacation": "Sick leave / Vacation",
     "duplicate_shift_warning": "This shift with the same workers, time and client already exists.",
 })
@@ -505,6 +517,10 @@ TRANSLATIONS["de"].update({
     "week_calendar": "Wochenkalender", "month_calendar": "Monatskalender",
     "monthly_hours": "Monatsstunden", "weekly_hours": "Wochenstunden",
     "back": "Zuruck", "save": "Speichern", "delete": "Loschen", "edit": "Bearbeiten",
+    "clients_pdf": "Kundenliste PDF",
+    "clients_pdf_title": "Kundenliste",
+    "notes": "Notizen",
+    "city_or_place": "Ort",
     "sick": "Krankheit", "vacation": "Urlaub", "sick_vacation": "Krankheit / Urlaub",
     "duplicate_shift_warning": "Dieser Einsatz mit denselben Mitarbeitern, derselben Zeit und demselben Kunden existiert bereits.",
     "nav_plan": "Plan", "nav_week": "Woche", "nav_month": "Monat",
@@ -522,6 +538,10 @@ TRANSLATIONS["pt"].update({
     "week_calendar": "Calendario semanal", "month_calendar": "Calendario mensal",
     "monthly_hours": "Horas mensais", "weekly_hours": "Horas semanais",
     "back": "Voltar", "save": "Guardar", "delete": "Apagar", "edit": "Editar",
+    "clients_pdf": "PDF lista de clientes",
+    "clients_pdf_title": "Lista de clientes",
+    "notes": "Notas",
+    "city_or_place": "Cidade",
     "sick": "Baixa medica", "vacation": "Ferias", "sick_vacation": "Baixa / Ferias",
     "duplicate_shift_warning": "Este turno com os mesmos trabalhadores, horario e cliente ja existe.",
     "nav_plan": "Plano", "nav_week": "Semana", "nav_month": "Mes",
@@ -13879,6 +13899,105 @@ def worker_hours_pdf():
                      mimetype="application/pdf")
 
 
+@app.route("/clients/pdf")
+def clients_pdf():
+    """Admin-only printable client worksheet.
+
+    One row per client, sorted alphabetically. The rightmost
+    column is intentionally empty ruled lines so the admin can
+    walk the list with a pen (phone calls, site notes, etc.).
+    City is extracted from the stored address via
+    client_city_from_address(); if we can't parse a postal-code
+    town reliably we leave the cell blank rather than dumping
+    the raw street back into the "city" column.
+    """
+    if session.get("role") != "admin":
+        return redirect("/")
+    tr = t()
+    conn = get_conn(); c = conn.cursor()
+    clients = c.execute(
+        "SELECT name, COALESCE(address,'') FROM clients ORDER BY LOWER(name)"
+    ).fetchall()
+    conn.close()
+
+    title = tr.get("clients_pdf_title", "Lista klijenata")
+    buffer = io.BytesIO()
+    doc = pdf_doc(buffer, title, pagesize=A4,
+                  rightMargin=1.2*cm, leftMargin=1.2*cm,
+                  topMargin=1.2*cm, bottomMargin=1.2*cm)
+    styles = getSampleStyleSheet()
+    elements = []
+    if os.path.exists("static/logo.png"):
+        elements += [Image("static/logo.png", width=4*cm, height=2*cm), Spacer(1, 6)]
+    elements += [
+        Paragraph(title, styles["Title"]),
+        Paragraph(format_date(lux_now().strftime("%Y-%m-%d")), styles["Normal"]),
+        Spacer(1, 10),
+    ]
+
+    # Empty ruled lines inside the Notes cell — three underscores
+    # give the admin enough writing space (~1.6cm row height).
+    notes_lines = "________________________________________<br/>" \
+                  "________________________________________<br/>" \
+                  "________________________________________"
+    cell_style = ParagraphStyle(
+        "clientsPdfCell", parent=styles["Normal"],
+        fontName="Helvetica", fontSize=10, leading=13,
+    )
+    header_style = ParagraphStyle(
+        "clientsPdfHead", parent=styles["Normal"],
+        fontName="Helvetica-Bold", fontSize=10, leading=12,
+        textColor=colors.white,
+    )
+    notes_style = ParagraphStyle(
+        "clientsPdfNotes", parent=styles["Normal"],
+        fontName="Helvetica", fontSize=9, leading=14,
+        textColor=colors.HexColor("#94a3b8"),
+    )
+
+    table_data = [[
+        Paragraph(tr.get("client_name", "Klijent"), header_style),
+        Paragraph(tr.get("city_or_place", "Mjesto"), header_style),
+        Paragraph(tr.get("notes", "Zabiljeske"), header_style),
+    ]]
+    for name, address in clients:
+        city = client_city_from_address(address)
+        table_data.append([
+            Paragraph(name or "", cell_style),
+            Paragraph(city or "", cell_style),
+            Paragraph(notes_lines, notes_style),
+        ])
+    if len(table_data) == 1:
+        table_data.append([Paragraph("-", cell_style),
+                           Paragraph("-", cell_style),
+                           Paragraph("-", cell_style)])
+
+    table = Table(
+        table_data,
+        colWidths=[6*cm, 4*cm, 8.6*cm],
+        rowHeights=[0.9*cm] + [1.7*cm]*(len(table_data) - 1),
+        repeatRows=1,
+    )
+    table.setStyle(TableStyle([
+        ("BACKGROUND",  (0,0), (-1,0), colors.HexColor("#1f4f82")),
+        ("TEXTCOLOR",   (0,0), (-1,0), colors.white),
+        ("FONTNAME",    (0,0), (-1,0), "Helvetica-Bold"),
+        ("ALIGN",       (0,0), (-1,0), "LEFT"),
+        ("VALIGN",      (0,0), (-1,-1), "TOP"),
+        ("GRID",        (0,0), (-1,-1), 0.5, colors.grey),
+        ("LEFTPADDING", (0,0), (-1,-1), 6),
+        ("RIGHTPADDING",(0,0), (-1,-1), 6),
+        ("TOPPADDING",  (0,0), (-1,-1), 5),
+        ("BOTTOMPADDING",(0,0), (-1,-1), 5),
+    ]))
+    elements.append(table)
+    doc.build(elements); buffer.seek(0)
+    filename = safe_pdf_name("lista_klijenata", lux_now().strftime("%Y-%m-%d"))
+    return send_file(buffer, as_attachment=False,
+                     download_name=f"{filename}.pdf",
+                     mimetype="application/pdf")
+
+
 @app.route("/shifts_search_pdf")
 def shifts_search_pdf():
     if "user" not in session: return redirect("/login")
@@ -14799,6 +14918,8 @@ def clients_page():
     </style>
     <h1>🏢 {{ tr["clients"] }}</h1>
     <a class="back-button" href="/">{{ tr["back"] }}</a>
+    <a class="back-button" href="/clients/pdf" target="_blank" rel="noopener"
+       style="margin-left:8px;">📄 {{ tr.get("clients_pdf","PDF lista klijenata") }}</a>
 
     <div class="add-client-card" style="margin-top:16px;">
       <h3 style="margin:0 0 12px;">+ {{ tr["add_client"] }}</h3>
