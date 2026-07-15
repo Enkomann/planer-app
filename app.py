@@ -13963,8 +13963,8 @@ def clients_pdf():
     for name, address in clients:
         city = client_city_from_address(address)
         table_data.append([
-            Paragraph(name or "", cell_style),
-            Paragraph(city or "", cell_style),
+            Paragraph(_html.escape(name or ""), cell_style),
+            Paragraph(_html.escape(city or ""), cell_style),
             Paragraph(notes_lines, notes_style),
         ])
     if len(table_data) == 1:
