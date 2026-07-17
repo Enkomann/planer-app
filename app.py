@@ -383,6 +383,9 @@ TRANSLATIONS = {
         "month_pdf": "PDF mjesecni kalendar", "back": "Nazad", "edit_shift": "Izmijeni smjenu", "save": "Sacuvaj",
         "clients_pdf": "PDF lista klijenata",
         "invoices_download_none": "Nema faktura za izabrani period ili sve nisu mogle biti generisane.",
+        "date_filter_basis": "Filtriraj po",
+        "invoice_date_basis": "Datum fakture",
+        "work_period_basis": "Period rada",
         "clients_pdf_title": "Lista klijenata",
         "notes": "Zabiljeske",
         "city_or_place": "Mjesto",
@@ -457,6 +460,9 @@ TRANSLATIONS["fr"].update({
     "back": "Retour", "save": "Enregistrer", "delete": "Supprimer", "edit": "Modifier",
     "clients_pdf": "PDF liste clients",
     "invoices_download_none": "Aucune facture pour la periode selectionnee ou aucune n'a pu etre generee.",
+    "date_filter_basis": "Filtrer par",
+    "invoice_date_basis": "Date de facture",
+    "work_period_basis": "Periode de travail",
     "clients_pdf_title": "Liste des clients",
     "notes": "Notes",
     "city_or_place": "Localite",
@@ -506,6 +512,9 @@ TRANSLATIONS["en"].update({
     "back": "Back", "save": "Save", "delete": "Delete", "edit": "Edit",
     "clients_pdf": "Clients PDF",
     "invoices_download_none": "No invoices for the selected period, or none could be generated.",
+    "date_filter_basis": "Filter by",
+    "invoice_date_basis": "Invoice date",
+    "work_period_basis": "Work period",
     "clients_pdf_title": "Clients list",
     "notes": "Notes",
     "city_or_place": "City",
@@ -522,6 +531,9 @@ TRANSLATIONS["de"].update({
     "back": "Zuruck", "save": "Speichern", "delete": "Loschen", "edit": "Bearbeiten",
     "clients_pdf": "Kundenliste PDF",
     "invoices_download_none": "Keine Rechnungen fuer den gewaehlten Zeitraum oder keine konnte erstellt werden.",
+    "date_filter_basis": "Filtern nach",
+    "invoice_date_basis": "Rechnungsdatum",
+    "work_period_basis": "Arbeitszeitraum",
     "clients_pdf_title": "Kundenliste",
     "notes": "Notizen",
     "city_or_place": "Ort",
@@ -544,6 +556,9 @@ TRANSLATIONS["pt"].update({
     "back": "Voltar", "save": "Guardar", "delete": "Apagar", "edit": "Editar",
     "clients_pdf": "PDF lista de clientes",
     "invoices_download_none": "Sem faturas para o periodo selecionado ou nenhuma pode ser gerada.",
+    "date_filter_basis": "Filtrar por",
+    "invoice_date_basis": "Data da fatura",
+    "work_period_basis": "Periodo de trabalho",
     "clients_pdf_title": "Lista de clientes",
     "notes": "Notas",
     "city_or_place": "Cidade",
@@ -10960,6 +10975,13 @@ def invoices_export_options():
                     <option value="unpaid">{{ tr["unpaid"] }}</option>
                 </select>
             {% endif %}
+            {% if export_type in ('all', 'list') %}
+                <label>{{ tr.get("date_filter_basis","Filtriraj po") }}</label>
+                <select name="date_basis">
+                    <option value="invoice_date" selected>{{ tr.get("invoice_date_basis","Datum fakture") }}</option>
+                    <option value="work_period">{{ tr.get("work_period_basis","Period rada") }}</option>
+                </select>
+            {% endif %}
             <datalist id="invoiceExportClients">{% for p in profiles %}<option value="{{ p.client }}"></option>{% endfor %}</datalist>
             <button>{{ tr["download_all_invoices"] if export_type == 'all' else title }}</button>
         </form>
@@ -10977,9 +10999,12 @@ def invoices_list_pdf():
     date_to = request.args.get("date_to", default_to).strip()
     client = request.args.get("client", "").strip()
     status = request.args.get("status", "all").strip()
+    date_basis = request.args.get("date_basis", "invoice_date").strip()
+    if date_basis not in ("invoice_date", "work_period"):
+        date_basis = "invoice_date"
     conn = get_conn()
     records = fetch_invoice_records(conn, date_from, date_to, client or None, status,
-                                    date_basis="work_period")
+                                    date_basis=date_basis)
     conn.close()
     pdf = build_invoice_list_pdf(records, date_from, date_to)
     return send_file(pdf, as_attachment=True, download_name=f"liste_factures_{date_from}_{date_to}.pdf", mimetype="application/pdf")
@@ -13825,11 +13850,43 @@ def invoices_download_all():
     date_from = request.args.get("date_from", default_from).strip()
     date_to = request.args.get("date_to", default_to).strip()
     client = request.args.get("client", "").strip()
+    # Default to invoice_date because the export form is "download all
+    # invoices in this range" from the admin's perspective — the range
+    # they type is the paper date they want on the shelf. work_period
+    # is still available for the "give me everything worked in June"
+    # request and can be picked in the selector.
+    date_basis = request.args.get("date_basis", "invoice_date").strip()
+    if date_basis not in ("invoice_date", "work_period"):
+        date_basis = "invoice_date"
     conn = get_conn()
     try:
+        # Diagnostic: log how many rows each basis would produce so we
+        # can see, from Render logs, why an export looked short.
+        try:
+            _diag_c = conn.cursor()
+            n_by_invoice = _diag_c.execute(
+                "SELECT COUNT(*) FROM invoice_records "
+                "WHERE COALESCE(deleted,0)=0 AND invoice_date >= ? AND invoice_date <= ?"
+                + (" AND client_name = ?" if client else ""),
+                ((date_from, date_to, client) if client else (date_from, date_to)),
+            ).fetchone()[0]
+            n_by_work = _diag_c.execute(
+                "SELECT COUNT(*) FROM invoice_records "
+                "WHERE COALESCE(deleted,0)=0 AND date_from >= ? AND date_from <= ?"
+                + (" AND client_name = ?" if client else ""),
+                ((date_from, date_to, client) if client else (date_from, date_to)),
+            ).fetchone()[0]
+            app.logger.info(
+                "invoices_download_all diag: basis=%s range=%s..%s client=%r "
+                "count_by_invoice_date=%d count_by_work_period=%d",
+                date_basis, date_from, date_to, client, n_by_invoice, n_by_work,
+            )
+        except Exception:
+            app.logger.exception("invoices_download_all: diagnostic count failed")
+
         try:
             records = fetch_invoice_records(conn, date_from, date_to, client or None, "all",
-                                            date_basis="work_period")
+                                            date_basis=date_basis)
         except Exception:
             app.logger.exception("invoices_download_all: failed before ZIP build")
             tr = t(); dark = get_theme() == "dark"
