@@ -13825,7 +13825,7 @@ def invoices_download_all():
             if not exported:
                 # No invoices to send back — return a friendly page
                 # instead of a ZIP containing only an errors file.
-                tr = t()
+                tr = t(); dark = get_theme() == "dark"
                 msg = tr.get("invoices_download_none",
                              "Nema faktura za izabrani period ili sve nisu mogle biti generisane.")
                 detail = ""
@@ -13841,9 +13841,11 @@ def invoices_download_all():
                     "<a class='back-button' href='/invoices/export_options?type=all'>"
                     + tr.get("back", "Nazad") + "</a>"
                     "<div style='margin-top:20px;padding:20px;border-radius:12px;"
-                    "background:#fef3c7;color:#78350f;'>"
+                    "background:{{ '#4a3a10' if dark else '#fef3c7' }};"
+                    "color:{{ '#fde68a' if dark else '#78350f' }};'>"
                     "<b>" + _html.escape(msg) + "</b>" + detail +
-                    "</div>"
+                    "</div>",
+                    tr=tr, dark=dark,
                 )
 
             try:
