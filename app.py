@@ -521,7 +521,7 @@ TRANSLATIONS["en"].update({
     "date_filter_basis": "Filter by",
     "export_pick_period_hint": "Choose the exact period and, if needed, the client.",
     "status_all": "All",
-    "invoice_list_pdf": "Invoices list PDF",
+    "invoice_list_pdf": "Invoice list PDF",
     "invoice_date_basis": "Invoice date",
     "work_period_basis": "Work period",
     "clients_pdf_title": "Clients list",
