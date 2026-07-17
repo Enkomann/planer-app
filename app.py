@@ -386,6 +386,7 @@ TRANSLATIONS = {
         "date_filter_basis": "Filtriraj po",
         "export_pick_period_hint": "Izaberi tacan period i po potrebi klijenta.",
         "status_all": "Sve",
+        "invoice_list_pdf": "Lista faktura PDF",
         "invoice_date_basis": "Datum fakture",
         "work_period_basis": "Period rada",
         "clients_pdf_title": "Lista klijenata",
@@ -465,6 +466,7 @@ TRANSLATIONS["fr"].update({
     "date_filter_basis": "Filtrer par",
     "export_pick_period_hint": "Choisissez la periode exacte et, si besoin, le client.",
     "status_all": "Tous",
+    "invoice_list_pdf": "Liste des factures PDF",
     "invoice_date_basis": "Date de facture",
     "work_period_basis": "Periode de travail",
     "clients_pdf_title": "Liste des clients",
@@ -519,6 +521,7 @@ TRANSLATIONS["en"].update({
     "date_filter_basis": "Filter by",
     "export_pick_period_hint": "Choose the exact period and, if needed, the client.",
     "status_all": "All",
+    "invoice_list_pdf": "Invoices list PDF",
     "invoice_date_basis": "Invoice date",
     "work_period_basis": "Work period",
     "clients_pdf_title": "Clients list",
@@ -540,6 +543,7 @@ TRANSLATIONS["de"].update({
     "date_filter_basis": "Filtern nach",
     "export_pick_period_hint": "Waehlen Sie den genauen Zeitraum und ggf. den Kunden.",
     "status_all": "Alle",
+    "invoice_list_pdf": "Rechnungsliste PDF",
     "invoice_date_basis": "Rechnungsdatum",
     "work_period_basis": "Arbeitszeitraum",
     "clients_pdf_title": "Kundenliste",
@@ -567,6 +571,7 @@ TRANSLATIONS["pt"].update({
     "date_filter_basis": "Filtrar por",
     "export_pick_period_hint": "Escolha o periodo exato e, se necessario, o cliente.",
     "status_all": "Todos",
+    "invoice_list_pdf": "Lista de faturas PDF",
     "invoice_date_basis": "Data da fatura",
     "work_period_basis": "Periodo de trabalho",
     "clients_pdf_title": "Lista de clientes",
@@ -9447,7 +9452,7 @@ def invoices():
                 <div class="invoice-actions">
                     <a href="/invoices/export_options?type=all">{{ tr["download_all_invoices"] }}</a>
                     <a href="/invoices/export_options?type=certificate">{{ tr["annual_certificate"] }}</a>
-                    <a href="/invoices/export_options?type=list">Lista faktura PDF</a>
+                    <a href="/invoices/export_options?type=list">{{ tr.get("invoice_list_pdf","Lista faktura PDF") }}</a>
                 </div>
             </div>
 
@@ -10962,7 +10967,7 @@ def invoices_export_options():
     conn.close()
     title = {
         "certificate": tr["annual_certificate"],
-        "list": "Lista faktura PDF",
+        "list": tr.get("invoice_list_pdf", "Lista faktura PDF"),
     }.get(export_type, tr["download_all_invoices"])
     action = {
         "certificate": "/invoices/client_statement",
