@@ -3570,6 +3570,19 @@ def plan_summary_for_record(conn, record):
     }
 
 
+def invoice_number_sort_key(value):
+    """Sort key for invoice numbers that works for both pure-digit
+    modern numbers ("4385") and legacy/manual tags ("INV-2024-1",
+    "4385-A"). Digits sort numerically after strings, so the SQL
+    ORDER BY invoice_number DESC + this Python resort produces
+    "4385, 4384, ..., INV-2024-1" — newest numeric first, then
+    stringy legacy IDs. Crucially it never CASTs to INTEGER, which
+    is what blew up /invoices/download_all on PostgreSQL when a
+    non-digit invoice_number was in range."""
+    s = str(value or "")
+    return (1, int(s)) if s.isdigit() else (0, s.lower())
+
+
 def fetch_invoice_records(conn, date_from=None, date_to=None, client=None,
                           status="all", date_basis="invoice_date"):
     """Read invoice_records with optional date / client / status filters.
@@ -3622,9 +3635,14 @@ def fetch_invoice_records(conn, date_from=None, date_to=None, client=None,
         SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date, COALESCE(sent, 0), COALESCE(sent_date, ''), COALESCE(source, 'auto')
         FROM invoice_records
         {where}
-        ORDER BY {order_col} DESC, CAST(invoice_number AS INTEGER) DESC
+        ORDER BY {order_col} DESC, invoice_number DESC
     """
-    return [invoice_record_to_dict(row) for row in c.execute(query, params).fetchall()]
+    rows = [invoice_record_to_dict(row) for row in c.execute(query, params).fetchall()]
+    rows.sort(
+        key=lambda r: (r.get(order_col) or "", invoice_number_sort_key(r.get("invoice_number"))),
+        reverse=True,
+    )
+    return rows
 
 
 def fetch_invoice_records_for_work_period(conn, date_from, date_to, invoice_date=None):
@@ -3653,18 +3671,27 @@ def fetch_invoice_records_for_work_period(conn, date_from, date_to, invoice_date
                 AND (invoice_date = ?
                      OR (invoice_date >= ? AND invoice_date <= ?)))
           )
-        ORDER BY CAST(invoice_number AS INTEGER) DESC, invoice_date DESC
+        ORDER BY invoice_number DESC, invoice_date DESC
     """
     rows = [invoice_record_to_dict(row) for row in c.execute(query, (date_from, date_to, inv_match, date_from, date_to)).fetchall()]
+    rows.sort(
+        key=lambda r: (invoice_number_sort_key(r.get("invoice_number")), r.get("invoice_date") or ""),
+        reverse=True,
+    )
     if rows or not invoice_date:
         return rows
     fallback_query = """
         SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date, COALESCE(sent, 0), COALESCE(sent_date, ''), COALESCE(source, 'auto')
         FROM invoice_records
         WHERE COALESCE(deleted, 0) = 0 AND invoice_date = ?
-        ORDER BY CAST(invoice_number AS INTEGER) DESC, invoice_date DESC
+        ORDER BY invoice_number DESC, invoice_date DESC
     """
-    return [invoice_record_to_dict(row) for row in c.execute(fallback_query, (invoice_date,)).fetchall()]
+    fallback = [invoice_record_to_dict(row) for row in c.execute(fallback_query, (invoice_date,)).fetchall()]
+    fallback.sort(
+        key=lambda r: (invoice_number_sort_key(r.get("invoice_number")), r.get("invoice_date") or ""),
+        reverse=True,
+    )
+    return fallback
 
 
 def invoice_number_from_index(settings, index):
@@ -4465,10 +4492,15 @@ def _unpaid_invoices_for_client(conn, client_name):
         "COALESCE(sent_date,''), COALESCE(source,'auto') "
         "FROM invoice_records "
         "WHERE client_name = ? AND COALESCE(deleted,0)=0 AND COALESCE(paid,0)=0 "
-        "ORDER BY invoice_date DESC, CAST(invoice_number AS INTEGER) DESC",
+        "ORDER BY invoice_date DESC, invoice_number DESC",
         (client_name,),
     ).fetchall()
-    return [invoice_record_to_dict(r) for r in rows]
+    records = [invoice_record_to_dict(r) for r in rows]
+    records.sort(
+        key=lambda r: (r.get("invoice_date") or "", invoice_number_sort_key(r.get("invoice_number"))),
+        reverse=True,
+    )
+    return records
 
 
 def _reminder_address_block(record):
@@ -13795,8 +13827,26 @@ def invoices_download_all():
     client = request.args.get("client", "").strip()
     conn = get_conn()
     try:
-        records = fetch_invoice_records(conn, date_from, date_to, client or None, "all",
-                                        date_basis="work_period")
+        try:
+            records = fetch_invoice_records(conn, date_from, date_to, client or None, "all",
+                                            date_basis="work_period")
+        except Exception:
+            app.logger.exception("invoices_download_all: failed before ZIP build")
+            tr = t(); dark = get_theme() == "dark"
+            return render_template_string(
+                BASE_STYLE + header_html() +
+                "<h1>📦 " + tr.get("invoices", "Fakture") + "</h1>"
+                "<a class='back-button' href='/invoices/export_options?type=all'>"
+                + tr.get("back", "Nazad") + "</a>"
+                "<div style='margin-top:20px;padding:20px;border-radius:12px;"
+                "background:{{ '#4a1414' if dark else '#fee2e2' }};"
+                "color:{{ '#fecaca' if dark else '#7f1d1d' }};'>"
+                "<b>" + _html.escape(tr.get(
+                    "invoices_download_none",
+                    "Nema faktura za izabrani period ili sve nisu mogle biti generisane.",
+                )) + "</b></div>",
+                tr=tr, dark=dark,
+            )
         exported = []
         errors = []
         zip_buffer = io.BytesIO()
@@ -15485,8 +15535,12 @@ def _diagram_page_inner():
         FROM invoice_records
         WHERE COALESCE(deleted,0)=0 AND date_from != ''
               AND strftime('%Y', date_from) = ?
-        ORDER BY date_from, CAST(invoice_number AS INTEGER)
+        ORDER BY date_from, invoice_number
     """, (sel_year,)).fetchall()
+    invoice_rows_year = sorted(
+        invoice_rows_year,
+        key=lambda row: (row[3] or "", invoice_number_sort_key(row[1])),
+    )
     month_invoices = {m: [] for m in range(1, 13)}
     for row in invoice_rows_year:
         m = int(row[0]) if row[0] is not None else 0
