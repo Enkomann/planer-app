@@ -382,6 +382,7 @@ TRANSLATIONS = {
         "week_calendar": "Sedmicni kalendar", "month_calendar": "Mjesecni kalendar", "pdf": "PDF raspored",
         "month_pdf": "PDF mjesecni kalendar", "back": "Nazad", "edit_shift": "Izmijeni smjenu", "save": "Sacuvaj",
         "clients_pdf": "PDF lista klijenata",
+        "invoices_download_none": "Nema faktura za izabrani period ili sve nisu mogle biti generisane.",
         "clients_pdf_title": "Lista klijenata",
         "notes": "Zabiljeske",
         "city_or_place": "Mjesto",
@@ -455,6 +456,7 @@ TRANSLATIONS["fr"].update({
     "monthly_hours": "Heures mensuelles", "weekly_hours": "Heures hebdomadaires",
     "back": "Retour", "save": "Enregistrer", "delete": "Supprimer", "edit": "Modifier",
     "clients_pdf": "PDF liste clients",
+    "invoices_download_none": "Aucune facture pour la periode selectionnee ou aucune n'a pu etre generee.",
     "clients_pdf_title": "Liste des clients",
     "notes": "Notes",
     "city_or_place": "Localite",
@@ -503,6 +505,7 @@ TRANSLATIONS["en"].update({
     "monthly_hours": "Monthly hours", "weekly_hours": "Weekly hours",
     "back": "Back", "save": "Save", "delete": "Delete", "edit": "Edit",
     "clients_pdf": "Clients PDF",
+    "invoices_download_none": "No invoices for the selected period, or none could be generated.",
     "clients_pdf_title": "Clients list",
     "notes": "Notes",
     "city_or_place": "City",
@@ -518,6 +521,7 @@ TRANSLATIONS["de"].update({
     "monthly_hours": "Monatsstunden", "weekly_hours": "Wochenstunden",
     "back": "Zuruck", "save": "Speichern", "delete": "Loschen", "edit": "Bearbeiten",
     "clients_pdf": "Kundenliste PDF",
+    "invoices_download_none": "Keine Rechnungen fuer den gewaehlten Zeitraum oder keine konnte erstellt werden.",
     "clients_pdf_title": "Kundenliste",
     "notes": "Notizen",
     "city_or_place": "Ort",
@@ -539,6 +543,7 @@ TRANSLATIONS["pt"].update({
     "monthly_hours": "Horas mensais", "weekly_hours": "Horas semanais",
     "back": "Voltar", "save": "Guardar", "delete": "Apagar", "edit": "Editar",
     "clients_pdf": "PDF lista de clientes",
+    "invoices_download_none": "Sem faturas para o periodo selecionado ou nenhuma pode ser gerada.",
     "clients_pdf_title": "Lista de clientes",
     "notes": "Notas",
     "city_or_place": "Cidade",
@@ -13768,6 +13773,20 @@ def invoices_download():
 
 @app.route("/invoices/download_all")
 def invoices_download_all():
+    """Bulk ZIP of invoice PDFs (auto + manual) for a period.
+
+    Each record's PDF is built via _build_invoice_pdf_for_email,
+    which already picks the right source: manual drafts go through
+    build_manual_invoice_pdf, auto invoices through build_invoice_pdf
+    reconstructed from the plan. That fixes the old crash where a
+    manual invoice was fed to get_invoice_row_for_record and the
+    route returned Internal Server Error mid-way through the ZIP.
+
+    One broken invoice does not sink the whole export: failures are
+    caught per record, listed in _export_errors.txt inside the ZIP,
+    and logged for Render. If every single invoice fails, the user
+    gets a readable HTML message instead of a 500.
+    """
     if session.get("role") != "admin":
         return redirect("/")
     default_from, default_to = previous_month_range()
@@ -13775,21 +13794,77 @@ def invoices_download_all():
     date_to = request.args.get("date_to", default_to).strip()
     client = request.args.get("client", "").strip()
     conn = get_conn()
-    records = fetch_invoice_records(conn, date_from, date_to, client or None, "all",
-                                    date_basis="work_period")
-    zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        for record in records:
-            row, settings = get_invoice_row_for_record(conn, record)
-            if not row:
-                continue
-            pdf = build_invoice_pdf(row, settings, record["invoice_date"], record["date_from"], record["date_to"])
-            zf.writestr(f"{safe_pdf_name(record['invoice_number'], record['client'])}.pdf", pdf.getvalue())
-        list_pdf = build_invoice_list_pdf(records, date_from, date_to)
-        zf.writestr(f"liste_factures_{date_from}_{date_to}.pdf", list_pdf.getvalue())
-    conn.close()
+    try:
+        records = fetch_invoice_records(conn, date_from, date_to, client or None, "all",
+                                        date_basis="work_period")
+        exported = []
+        errors = []
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+            for record in records:
+                inv_num = record.get("invoice_number") or ""
+                client_name = record.get("client") or ""
+                try:
+                    pdf_bytes, _fname = _build_invoice_pdf_for_email(conn, inv_num)
+                    if not pdf_bytes:
+                        errors.append((inv_num, client_name,
+                                       "PDF source missing (no plan rows or no manual draft)"))
+                        continue
+                    zf.writestr(
+                        f"{safe_pdf_name(inv_num, client_name)}.pdf",
+                        pdf_bytes,
+                    )
+                    exported.append(record)
+                except Exception as exc:
+                    app.logger.exception(
+                        "invoices_download_all: failed to build PDF for %s (%s)",
+                        inv_num, client_name,
+                    )
+                    errors.append((inv_num, client_name, f"{type(exc).__name__}: {exc}"))
+
+            if not exported:
+                # No invoices to send back — return a friendly page
+                # instead of a ZIP containing only an errors file.
+                tr = t()
+                msg = tr.get("invoices_download_none",
+                             "Nema faktura za izabrani period ili sve nisu mogle biti generisane.")
+                detail = ""
+                if errors:
+                    detail = "<ul style='margin-top:12px;text-align:left;'>" + "".join(
+                        f"<li><b>{_html.escape(str(n))}</b> — "
+                        f"{_html.escape(str(c))}: {_html.escape(str(r))}</li>"
+                        for (n, c, r) in errors
+                    ) + "</ul>"
+                return render_template_string(
+                    BASE_STYLE + header_html() +
+                    "<h1>📦 " + tr.get("invoices", "Fakture") + "</h1>"
+                    "<a class='back-button' href='/invoices/export_options?type=all'>"
+                    + tr.get("back", "Nazad") + "</a>"
+                    "<div style='margin-top:20px;padding:20px;border-radius:12px;"
+                    "background:#fef3c7;color:#78350f;'>"
+                    "<b>" + _html.escape(msg) + "</b>" + detail +
+                    "</div>"
+                )
+
+            try:
+                list_pdf = build_invoice_list_pdf(exported, date_from, date_to)
+                zf.writestr(f"liste_factures_{date_from}_{date_to}.pdf", list_pdf.getvalue())
+            except Exception as exc:
+                app.logger.exception("invoices_download_all: failed to build list PDF")
+                errors.append(("liste_factures", "-", f"{type(exc).__name__}: {exc}"))
+
+            if errors:
+                report = ["Fakture koje nisu ušle u ZIP:\n"]
+                for n, c, r in errors:
+                    report.append(f"- {n} | {c} | {r}\n")
+                zf.writestr("_export_errors.txt", "".join(report))
+    finally:
+        conn.close()
+
     zip_buffer.seek(0)
-    return send_file(zip_buffer, as_attachment=True, download_name=f"factures_{date_from}_{date_to}.zip", mimetype="application/zip")
+    return send_file(zip_buffer, as_attachment=True,
+                     download_name=f"factures_{date_from}_{date_to}.zip",
+                     mimetype="application/zip")
 
 
 @app.route("/invoices/certificate")
