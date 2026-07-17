@@ -384,6 +384,8 @@ TRANSLATIONS = {
         "clients_pdf": "PDF lista klijenata",
         "invoices_download_none": "Nema faktura za izabrani period ili sve nisu mogle biti generisane.",
         "date_filter_basis": "Filtriraj po",
+        "export_pick_period_hint": "Izaberi tacan period i po potrebi klijenta.",
+        "status_all": "Sve",
         "invoice_date_basis": "Datum fakture",
         "work_period_basis": "Period rada",
         "clients_pdf_title": "Lista klijenata",
@@ -461,6 +463,8 @@ TRANSLATIONS["fr"].update({
     "clients_pdf": "PDF liste clients",
     "invoices_download_none": "Aucune facture pour la periode selectionnee ou aucune n'a pu etre generee.",
     "date_filter_basis": "Filtrer par",
+    "export_pick_period_hint": "Choisissez la periode exacte et, si besoin, le client.",
+    "status_all": "Tous",
     "invoice_date_basis": "Date de facture",
     "work_period_basis": "Periode de travail",
     "clients_pdf_title": "Liste des clients",
@@ -513,6 +517,8 @@ TRANSLATIONS["en"].update({
     "clients_pdf": "Clients PDF",
     "invoices_download_none": "No invoices for the selected period, or none could be generated.",
     "date_filter_basis": "Filter by",
+    "export_pick_period_hint": "Choose the exact period and, if needed, the client.",
+    "status_all": "All",
     "invoice_date_basis": "Invoice date",
     "work_period_basis": "Work period",
     "clients_pdf_title": "Clients list",
@@ -532,6 +538,8 @@ TRANSLATIONS["de"].update({
     "clients_pdf": "Kundenliste PDF",
     "invoices_download_none": "Keine Rechnungen fuer den gewaehlten Zeitraum oder keine konnte erstellt werden.",
     "date_filter_basis": "Filtern nach",
+    "export_pick_period_hint": "Waehlen Sie den genauen Zeitraum und ggf. den Kunden.",
+    "status_all": "Alle",
     "invoice_date_basis": "Rechnungsdatum",
     "work_period_basis": "Arbeitszeitraum",
     "clients_pdf_title": "Kundenliste",
@@ -557,6 +565,8 @@ TRANSLATIONS["pt"].update({
     "clients_pdf": "PDF lista de clientes",
     "invoices_download_none": "Sem faturas para o periodo selecionado ou nenhuma pode ser gerada.",
     "date_filter_basis": "Filtrar por",
+    "export_pick_period_hint": "Escolha o periodo exato e, se necessario, o cliente.",
+    "status_all": "Todos",
     "invoice_date_basis": "Data da fatura",
     "work_period_basis": "Periodo de trabalho",
     "clients_pdf_title": "Lista de clientes",
@@ -3605,18 +3615,23 @@ def fetch_invoice_records(conn, date_from=None, date_to=None, client=None,
     ``date_basis`` controls which date column the date_from/date_to
     window applies to AND the ORDER BY column on the result:
 
-      - ``"invoice_date"`` (default): the issuance date. Used by the
-        main /invoices listing and /invoices/client search-style
-        filters where the admin's mental model is "find invoices
-        whose paper date falls in this window".
+      - ``"invoice_date"`` (default): the issuance date on the
+        invoice_records row. Used by:
+          - the main /invoices listing
+          - /invoices/download_all and /invoices/list_pdf when the
+            admin picks "Datum fakture" in the export form (the
+            default) — "give me every invoice ISSUED in this range"
+        Mental model: "find invoices whose paper date falls in
+        this window".
       - ``"work_period"``: the work-period start (``date_from``
-        column on invoice_records). Used by /diagram and every
-        export that groups by service period — currently
-        /invoices/list_pdf, /invoices/download_all,
-        /invoices/client_statement and the per-client page
-        /invoices/client. Mental model: "show me what was worked
-        in this window", so a May-shift invoice issued in June
-        lands in the May bucket.
+        column on invoice_records). Used by:
+          - /diagram (revenue by service month)
+          - /invoices/client and /invoices/client_statement
+          - /invoices/download_all and /invoices/list_pdf when the
+            admin picks "Period rada" in the export form
+        Mental model: "show me what was WORKED in this window",
+        so a May-shift invoice issued in June lands in the May
+        bucket.
 
     Anything else falls back to invoice_date so a typo can't widen
     the result silently.
@@ -10956,7 +10971,7 @@ def invoices_export_options():
     return render_template_string(BASE_STYLE + header_html() + """
     <div class="card" style="max-width:760px;margin:auto;">
         <h2>{{ title }}</h2>
-        <p class="muted">Izaberi tacan period i po potrebi klijenta.</p>
+        <p class="muted">{{ tr.get("export_pick_period_hint","Izaberi tacan period i po potrebi klijenta.") }}</p>
         <form method="get" action="{{ action }}">
             <label>{{ tr["date_from"] }}</label><input type="date" name="date_from" value="{{ default_from }}" required>
             <label>{{ tr["date_to"] }}</label><input type="date" name="date_to" value="{{ default_to }}" required>
@@ -10970,7 +10985,7 @@ def invoices_export_options():
             {% if export_type == 'list' %}
                 <label>{{ tr["payment_status"] }}</label>
                 <select name="status">
-                    <option value="all">Sve</option>
+                    <option value="all">{{ tr.get("status_all","Sve") }}</option>
                     <option value="paid">{{ tr["paid"] }}</option>
                     <option value="unpaid">{{ tr["unpaid"] }}</option>
                 </select>
