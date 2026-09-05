@@ -47,6 +47,9 @@ SMTP_USER      = os.environ.get("SMTP_USER", "").strip()
 SMTP_PASSWORD  = os.environ.get("SMTP_PASSWORD", "")    # never log this
 SMTP_FROM      = os.environ.get("SMTP_FROM", "").strip() or SMTP_USER
 SMTP_FROM_NAME = os.environ.get("SMTP_FROM_NAME", "Luxmann Services").strip()
+# Optional distinct Reply-To. When set, client replies go to this
+# address instead of the noreply sender. Empty → Reply-To == From.
+SMTP_REPLY_TO  = os.environ.get("SMTP_REPLY_TO", "").strip()
 EMAIL_SCHEDULER_SECRET = os.environ.get("EMAIL_SCHEDULER_SECRET", "").strip()
 
 # ── IMAP archive ("Save copy to Sent folder") ──────────────────────────────
@@ -4140,7 +4143,10 @@ def _smtp_send(to_addrs, subject, body, pdf_bytes=None, pdf_name="facture.pdf",
     msg = EmailMessage()
     from_addr = formataddr((SMTP_FROM_NAME or "", SMTP_FROM))
     msg["From"] = from_addr
-    msg["Reply-To"] = from_addr
+    # Prefer explicit SMTP_REPLY_TO (e.g. noreply@ sender + monitored
+    # mailbox for replies). Fall back to the From address so behavior
+    # is unchanged when SMTP_REPLY_TO is not configured.
+    msg["Reply-To"] = SMTP_REPLY_TO or from_addr
     msg["To"] = ", ".join(valid_to)
     if cc:
         msg["Cc"] = ", ".join(cc)
