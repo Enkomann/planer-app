@@ -4076,6 +4076,45 @@ def _split_email_list(s):
     return [p.strip() for p in parts if p.strip() and _is_valid_email(p.strip())]
 
 
+# Sentence used as an idempotency marker AND as the visible header
+# of the noreply notice. Kept as a plain string constant so callers
+# can also detect it if they need to strip / re-apply the notice.
+NOREPLY_NOTICE_HEADER_FR = "Adresse e-mail automatique"
+
+
+def _noreply_notice_parts(reply_to_addr):
+    """Return (plain_text, html_fragment) for the noreply footer.
+
+    Only used when the outgoing message is sent from an unattended
+    address (SMTP_FROM) and replies should be redirected to a real
+    monitored mailbox (SMTP_REPLY_TO). The visible reply-to address
+    is passed in explicitly rather than read from module state so
+    the notice always matches the header the recipient sees.
+    """
+    addr = (reply_to_addr or "").strip()
+    safe = _html.escape(addr)
+    plain = (
+        "\n"
+        "------------------------------------------------------------\n"
+        "\n"
+        f"[!] {NOREPLY_NOTICE_HEADER_FR}\n"
+        "Merci de ne pas repondre directement a cette adresse e-mail.\n"
+        f"Pour toute question ou demande, veuillez nous contacter a {addr}.\n"
+    )
+    html = (
+        '<hr style="border:none;border-top:1px solid #d1d5db;'
+        'margin:22px 0;">'
+        '<div style="font-size:12px;color:#6b7280;line-height:1.5;">'
+        f'<div style="font-weight:700;color:#b45309;">'
+        f'&#9888;&#65039; {_html.escape(NOREPLY_NOTICE_HEADER_FR)}</div>'
+        'Merci de ne pas r&eacute;pondre directement &agrave; cette adresse e-mail.<br>'
+        'Pour toute question ou demande, veuillez nous contacter &agrave; '
+        f'<a href="mailto:{safe}" style="color:#1d4ed8;">{safe}</a>.'
+        '</div>'
+    )
+    return plain, html
+
+
 def _email_body_to_html(body):
     """Render editable plain-text email body as safe HTML for nicer signatures."""
     html_lines = []
@@ -4160,9 +4199,29 @@ def _smtp_send(to_addrs, subject, body, pdf_bytes=None, pdf_name="facture.pdf",
         msgid_domain = "planer.local"
     msg_id = make_msgid(domain=msgid_domain)
     msg["Message-ID"] = msg_id
-    msg.set_content(body or "")
-    if body:
-        msg.add_alternative(_email_body_to_html(body), subtype="html")
+    # Append a noreply notice ONLY when the outgoing message is
+    # actually unattended — i.e. Reply-To is configured AND points
+    # somewhere OTHER than the From address. This keeps the notice
+    # off deployments where From == Reply-To (a real monitored
+    # sender), and it is not hardcoded to any specific address.
+    # Idempotency: skip if the body already carries the notice
+    # (e.g. a queued row that was previously augmented before send).
+    plain_body = body or ""
+    reply_to_effective = SMTP_REPLY_TO.strip() if SMTP_REPLY_TO else ""
+    show_noreply_notice = (
+        bool(reply_to_effective)
+        and reply_to_effective.lower() != (SMTP_FROM or "").lower()
+        and NOREPLY_NOTICE_HEADER_FR not in plain_body
+    )
+    if show_noreply_notice:
+        notice_plain, notice_html = _noreply_notice_parts(reply_to_effective)
+        plain_body = plain_body + notice_plain
+    msg.set_content(plain_body)
+    if plain_body:
+        html_body = _email_body_to_html(body or "")
+        if show_noreply_notice:
+            html_body = html_body + notice_html
+        msg.add_alternative(html_body, subtype="html")
 
     if pdf_bytes:
         msg.add_attachment(pdf_bytes, maintype="application", subtype="pdf",
