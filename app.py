@@ -10711,7 +10711,7 @@ def invoices_view():
             .ip-meta .ip-meta-row { justify-content:flex-start; }
         }
         @media print {
-            .doc-tabs, .toolbar, .ip-download-cta, .sidebar, .topbar, .bottom-nav, .brandbar, .invoice-print-fab, .email-log-card { display:none !important; }
+            .doc-tabs, .toolbar, .ip-download-cta, .sidebar, .topbar, .bottom-nav, .brandbar, .invoice-print-fab, .email-log-card, .invoice-screen-notice { display:none !important; }
             .invoice-stage, .viewer-shell, .viewer-panel { background:white !important; padding:0 !important; border:none !important; box-shadow:none !important; }
             .invoice-paper { box-shadow:none !important; max-width:none !important; }
         }
@@ -10763,7 +10763,8 @@ def invoices_view():
             {% set _border = '#3b82f6' if _soft else '#f59e0b' %}
             {% set _btnbg  = '#3b82f6' if _soft else '#f59e0b' %}
             {% set _icon   = 'ℹ' if _soft else '⚠' %}
-            <div style="margin:12px 0; padding:12px 16px; border-radius:10px;
+            <div class="invoice-screen-notice"
+                 style="margin:12px 0; padding:12px 16px; border-radius:10px;
                         background:{{ _bg }}; color:{{ _fg }};
                         border:1px solid {{ _border }}; font-size:13px;">
               <div style="font-weight:700; margin-bottom:6px;">
