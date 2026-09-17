@@ -11002,33 +11002,53 @@ Tel: {{ view_ctx.company_phone }}{% endif %}{% if view_ctx.company_email %}
         </div>
     </div>
     <script>
-    // Open the self-hosted PDF.js viewer, same origin, with the
-    // real ReportLab PDF URL and an #autoprint=1 fragment. The
-    // patched viewer.html (see static/pdfjs/web/viewer.html)
-    // waits for its own 'documentloaded' event and then calls
-    // PDFViewerApplication.triggerPrinting() — the exact code
-    // path its toolbar Print button uses — so a single click on
-    // 🖨️ brings up the system Print dialog with the actual PDF,
-    // not the HTML preview. If the popup is blocked or PDF.js
-    // is missing (e.g. static/pdfjs/ not deployed), the plain
-    // <a href> takes over and opens the PDF in a new tab.
+    // One-click print: inject the self-hosted PDF.js viewer as a
+    // HIDDEN same-origin iframe on this very page. The patched
+    // viewer.html triggers PDFViewerApplication.triggerPrinting()
+    // as soon as its 'documentloaded' event fires, and browsers
+    // surface that as the OS Print dialog at top level over
+    // /invoices/view — no popup window, no visible PDF preview,
+    // no second click. The invoice viewer page stays fully
+    // visible behind the dialog.
     //
-    // Guardrail: we hand PDF.js ONLY same-origin invoice URLs.
-    // The pdf_url is emitted server-side and always begins with
-    // /invoices/preview_pdf or /invoices/manual/pdf, so no
-    // externally-supplied URL ever reaches viewer.html?file=.
+    // The iframe is positioned far off-screen instead of
+    // display:none, because display:none suspends layout inside
+    // the frame and PDF.js needs a real render tree to print.
+    // afterprint fires whichever button the admin picks — we
+    // clean up the frame then.
+    //
+    // Guardrail: only same-origin invoice URLs (starting with '/')
+    // are passed to viewer.html?file=. server-side pdf_url is
+    // always /invoices/preview_pdf or /invoices/manual/pdf, so
+    // no externally-supplied URL ever reaches PDF.js.
     function printInvoicePdf(pdfUrl, ev) {
       try {
         if (typeof pdfUrl !== 'string' || pdfUrl.charAt(0) !== '/') return true;
-        var viewer = '/static/pdfjs/web/viewer.html?file='
-                     + encodeURIComponent(pdfUrl)
-                     + '#autoprint=1';
-        var w = window.open(viewer, '_blank');
-        if (!w) return true;
+        var viewerUrl = '/static/pdfjs/web/viewer.html?file='
+                        + encodeURIComponent(pdfUrl)
+                        + '#autoprint=1';
+        var prev = document.getElementById('__invoice_print_iframe__');
+        if (prev) prev.remove();
+        var iframe = document.createElement('iframe');
+        iframe.id = '__invoice_print_iframe__';
+        iframe.setAttribute('aria-hidden', 'true');
+        iframe.setAttribute('tabindex', '-1');
+        iframe.style.cssText =
+          'position:fixed;left:-10000px;top:0;width:800px;height:1200px;'
+          + 'border:0;opacity:0;pointer-events:none;';
+        iframe.src = viewerUrl;
+        iframe.addEventListener('load', function () {
+          try {
+            iframe.contentWindow.addEventListener('afterprint', function () {
+              setTimeout(function () { iframe.remove(); }, 200);
+            });
+          } catch (e) { /* same-origin so unusual, but survive it */ }
+        });
+        document.body.appendChild(iframe);
         if (ev && ev.preventDefault) ev.preventDefault();
         return false;
       } catch (e) {
-        return true;
+        return true;  // any surprise → anchor default opens PDF in new tab
       }
     }
     </script>
