@@ -10911,22 +10911,15 @@ Tel: {{ view_ctx.company_phone }}{% endif %}{% if view_ctx.company_email %}
                   <b>Conditions et modalités de paiement</b>
                   <div class="ip-pay-body">{{ view_ctx.payment_terms_html|safe }}</div>
                 </section>
-                {# Print action. onclick opens a helper window
-                   synchronously (inside the user gesture, so popup
-                   blockers stay quiet), loads the real ReportLab
-                   PDF into a full-page iframe, and fires the browser's
-                   own print() as soon as the PDF finishes loading —
-                   Ctrl+P skipped, one click, real PDF bytes on paper.
-                   If window.open is blocked or the platform (mostly
-                   iOS Safari) refuses cross-frame print, we fall
-                   through to the anchor's href and the PDF simply
-                   opens in a new tab so the admin can print from
-                   the viewer's own UI. #}
+                {# Open the real ReportLab PDF (same builder used by
+                   "Download PDF") in a new tab, inline. The admin
+                   then uses the browser's PDF viewer to Print
+                   (Ctrl+P / iOS Share → Print) so what leaves the
+                   printer matches the emailed / archived document. #}
                 <a class="invoice-print-fab" href="{{ pdf_url }}"
                    target="_blank" rel="noopener"
                    title="{{ tr.get('print_invoice','Stampaj fakturu') }}"
-                   aria-label="{{ tr.get('print_invoice','Stampaj fakturu') }}"
-                   onclick="return printInvoicePdf({{ pdf_url|tojson }}, event);">🖨️</a>
+                   aria-label="{{ tr.get('print_invoice','Stampaj fakturu') }}">🖨️</a>
               </article>
               {% else %}
               <div class="invoice-paper">
@@ -11001,105 +10994,6 @@ Tel: {{ view_ctx.company_phone }}{% endif %}{% if view_ctx.company_email %}
             {% endif %}
         </div>
     </div>
-    <script>
-    // Diagnostic build: the patched PDF.js viewer.html posts
-    // 'invoicePrint' messages up to this window for every stage
-    // (script-run → webviewerloaded → app-initialized →
-    //  documentloaded → before-triggerPrinting → beforeprint →
-    //  afterprint). We log them so we can see from a real Render
-    //  deploy exactly where autoprint stalls, and we enforce a
-    // hard fallback: if 'beforeprint' does not arrive within
-    // AUTOPRINT_FALLBACK_MS, tear the hidden iframe down and
-    // open the raw PDF in a new tab so the admin still gets
-    // access to the document from a single click.
-    var AUTOPRINT_FALLBACK_MS = 5000;
-
-    (function attachPrintListener() {
-      window.addEventListener("message", function (ev) {
-        if (ev.origin !== window.location.origin) return;
-        var d = ev.data;
-        if (!d || d.type !== "invoicePrint") return;
-        try { console.log("[invoice-print]", d.stage, d); } catch (e) {}
-      });
-    })();
-
-    function printInvoicePdf(pdfUrl, ev) {
-      try {
-        if (typeof pdfUrl !== "string" || pdfUrl.charAt(0) !== "/") return true;
-        var viewerUrl = "/static/pdfjs/web/viewer.html?file="
-                        + encodeURIComponent(pdfUrl)
-                        + "#autoprint=1";
-        var prev = document.getElementById("__invoice_print_iframe__");
-        if (prev) prev.remove();
-
-        var iframe = document.createElement("iframe");
-        iframe.id = "__invoice_print_iframe__";
-        iframe.setAttribute("aria-hidden", "true");
-        iframe.setAttribute("tabindex", "-1");
-        iframe.style.cssText =
-          "position:fixed;left:-10000px;top:0;width:800px;height:1200px;"
-          + "border:0;opacity:0;pointer-events:none;";
-        iframe.src = viewerUrl;
-
-        var reachedBeforePrint = false;
-        var cleanedUp = false;
-        function cleanup(reason) {
-          if (cleanedUp) return;
-          cleanedUp = true;
-          try { console.log("[invoice-print] cleanup:", reason); } catch (e) {}
-          if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-          window.removeEventListener("message", onMsg);
-        }
-
-        function onMsg(mev) {
-          if (mev.origin !== window.location.origin) return;
-          var d = mev.data;
-          if (!d || d.type !== "invoicePrint" ||
-              mev.source !== iframe.contentWindow) return;
-          if (d.stage === "beforeprint") {
-            reachedBeforePrint = true;
-          }
-          if (d.stage === "afterprint") {
-            // Native dialog closed (Print or Cancel) — free the frame.
-            setTimeout(function () { cleanup("afterprint"); }, 200);
-          }
-          if (d.stage === "triggerPrinting-error" ||
-              d.stage === "init-promise-rejected" ||
-              d.stage === "no-app-object" ||
-              d.stage === "no-init-promise" ||
-              d.stage === "no-event-bus") {
-            // PDF.js told us it cannot proceed. Open the plain
-            // PDF so the admin at least has the document.
-            cleanup("viewer-error:" + d.stage);
-            try {
-              var w = window.open(pdfUrl, "_blank", "noopener");
-              if (!w) window.location.href = pdfUrl;
-            } catch (e) { window.location.href = pdfUrl; }
-          }
-        }
-        window.addEventListener("message", onMsg);
-
-        // Hard timeout: if beforeprint hasn't fired within the
-        // budget, autoprint has silently failed. Tear the frame
-        // down and open the raw PDF as an unambiguous fallback.
-        setTimeout(function () {
-          if (reachedBeforePrint || cleanedUp) return;
-          try { console.warn("[invoice-print] autoprint stalled — falling back to PDF tab"); } catch (e) {}
-          cleanup("stall-timeout");
-          try {
-            var w = window.open(pdfUrl, "_blank", "noopener");
-            if (!w) window.location.href = pdfUrl;
-          } catch (e) { window.location.href = pdfUrl; }
-        }, AUTOPRINT_FALLBACK_MS);
-
-        document.body.appendChild(iframe);
-        if (ev && ev.preventDefault) ev.preventDefault();
-        return false;
-      } catch (e) {
-        return true;
-      }
-    }
-    </script>
     """, tr=tr, dark=dark, row=row, record=record, view_ctx=view_ctx,
          pdf_url=pdf_url, download_url=download_url,
          paid_fields=paid_fields, sent_fields=sent_fields,
