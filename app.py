@@ -10911,16 +10911,22 @@ Tel: {{ view_ctx.company_phone }}{% endif %}{% if view_ctx.company_email %}
                   <b>Conditions et modalités de paiement</b>
                   <div class="ip-pay-body">{{ view_ctx.payment_terms_html|safe }}</div>
                 </section>
-                {# Open the real ReportLab PDF (same builder used by
-                   "Download PDF") in a new tab, inline. The admin then
-                   uses the PDF viewer's own Print (Ctrl+P / iOS Share
-                   → Print) so what leaves the printer matches the
-                   emailed / archived document byte-for-byte — no
-                   browser HTML rendition of the invoice paper. #}
+                {# Print action. onclick opens a helper window
+                   synchronously (inside the user gesture, so popup
+                   blockers stay quiet), loads the real ReportLab
+                   PDF into a full-page iframe, and fires the browser's
+                   own print() as soon as the PDF finishes loading —
+                   Ctrl+P skipped, one click, real PDF bytes on paper.
+                   If window.open is blocked or the platform (mostly
+                   iOS Safari) refuses cross-frame print, we fall
+                   through to the anchor's href and the PDF simply
+                   opens in a new tab so the admin can print from
+                   the viewer's own UI. #}
                 <a class="invoice-print-fab" href="{{ pdf_url }}"
                    target="_blank" rel="noopener"
                    title="{{ tr.get('print_invoice','Stampaj fakturu') }}"
-                   aria-label="{{ tr.get('print_invoice','Stampaj fakturu') }}">🖨️</a>
+                   aria-label="{{ tr.get('print_invoice','Stampaj fakturu') }}"
+                   onclick="return printInvoicePdf({{ pdf_url|tojson }}, event);">🖨️</a>
               </article>
               {% else %}
               <div class="invoice-paper">
@@ -10995,6 +11001,56 @@ Tel: {{ view_ctx.company_phone }}{% endif %}{% if view_ctx.company_email %}
             {% endif %}
         </div>
     </div>
+    <script>
+    // Open a helper window synchronously in the click handler (so the
+    // popup blocker treats it as a user gesture), embed the real PDF
+    // in a full-page iframe, and print() as soon as it finishes
+    // loading. All state lives in the helper window; the /invoices/view
+    // page is untouched.
+    function printInvoicePdf(pdfUrl, ev) {
+      try {
+        var w = window.open('', '_blank');
+        if (!w) return true;  // popup blocked → let <a href> open the PDF
+        w.document.open();
+        w.document.write(
+          '<!doctype html><html><head><meta charset="utf-8">' +
+          '<title>Print</title><style>' +
+          'html,body{margin:0;height:100%;background:#525659;}' +
+          'iframe{border:0;width:100%;height:100%;display:block;}' +
+          '</style></head><body>' +
+          '<iframe id="pf" src="' + pdfUrl + '"></iframe>' +
+          '</body></html>'
+        );
+        w.document.close();
+        var iframe = w.document.getElementById('pf');
+        var fired = false;
+        function firePrint() {
+          if (fired) return;
+          fired = true;
+          // Small delay so Chromium's built-in PDF viewer finishes
+          // its own render pass before we ask it to print. Without
+          // it, print() sometimes prints a blank first attempt.
+          setTimeout(function () {
+            try {
+              iframe.contentWindow.focus();
+              iframe.contentWindow.print();
+            } catch (e) {
+              // Cross-frame print refused (iOS Safari, sandbox);
+              // leave the PDF visible in the helper window so the
+              // admin can print from the viewer's own toolbar.
+            }
+          }, 300);
+        }
+        iframe.addEventListener('load', firePrint);
+        // Safety net: some browsers cache the PDF and skip 'load'.
+        setTimeout(firePrint, 2500);
+        if (ev && ev.preventDefault) ev.preventDefault();
+        return false;
+      } catch (e) {
+        return true;  // any surprise → fall through to normal open
+      }
+    }
+    </script>
     """, tr=tr, dark=dark, row=row, record=record, view_ctx=view_ctx,
          pdf_url=pdf_url, download_url=download_url,
          paid_fields=paid_fields, sent_fields=sent_fields,
