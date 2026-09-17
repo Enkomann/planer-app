@@ -11002,52 +11002,48 @@ Tel: {{ view_ctx.company_phone }}{% endif %}{% if view_ctx.company_email %}
         </div>
     </div>
     <script>
-    // Open a helper window synchronously in the click handler (so the
-    // popup blocker treats it as a user gesture), embed the real PDF
-    // in a full-page iframe, and print() as soon as it finishes
-    // loading. All state lives in the helper window; the /invoices/view
-    // page is untouched.
+    // Navigate a helper window directly to the PDF URL (same origin,
+    // so no cross-origin restriction) and call print() on that
+    // window once it loads. Chromium's built-in PDF viewer that
+    // takes over the helper window intercepts window.print() and
+    // opens its native system Print dialog — the exact behavior
+    // the admin wants: one click → Print dialog with the real
+    // ReportLab PDF, no HTML rendition, no second click.
+    //
+    // This is more reliable than wrapping the PDF in an <iframe>
+    // and calling iframe.contentWindow.print(): the built-in
+    // viewer sometimes refuses cross-frame print() but always
+    // honors window.print() on its own document.
     function printInvoicePdf(pdfUrl, ev) {
       try {
-        var w = window.open('', '_blank');
-        if (!w) return true;  // popup blocked → let <a href> open the PDF
-        w.document.open();
-        w.document.write(
-          '<!doctype html><html><head><meta charset="utf-8">' +
-          '<title>Print</title><style>' +
-          'html,body{margin:0;height:100%;background:#525659;}' +
-          'iframe{border:0;width:100%;height:100%;display:block;}' +
-          '</style></head><body>' +
-          '<iframe id="pf" src="' + pdfUrl + '"></iframe>' +
-          '</body></html>'
-        );
-        w.document.close();
-        var iframe = w.document.getElementById('pf');
-        var fired = false;
-        function firePrint() {
-          if (fired) return;
-          fired = true;
-          // Small delay so Chromium's built-in PDF viewer finishes
-          // its own render pass before we ask it to print. Without
-          // it, print() sometimes prints a blank first attempt.
-          setTimeout(function () {
-            try {
-              iframe.contentWindow.focus();
-              iframe.contentWindow.print();
-            } catch (e) {
-              // Cross-frame print refused (iOS Safari, sandbox);
-              // leave the PDF visible in the helper window so the
-              // admin can print from the viewer's own toolbar.
-            }
-          }, 300);
+        var w = window.open(pdfUrl, '_blank');
+        if (!w) return true;  // popup blocked → <a href> takes over
+        var printed = false;
+        function doPrint() {
+          if (printed) return;
+          printed = true;
+          try {
+            w.focus();
+            w.print();
+          } catch (e) {
+            // iOS Safari / sandboxed contexts sometimes throw
+            // SecurityError. The PDF stays visible in the helper
+            // window and the admin uses the viewer's own print
+            // button (Ctrl+P / Share → Print). Never a blank tab.
+          }
         }
-        iframe.addEventListener('load', firePrint);
-        // Safety net: some browsers cache the PDF and skip 'load'.
-        setTimeout(firePrint, 2500);
+        // Chromium's built-in PDF viewer usually does not fire the
+        // parent's load listener (the load happens inside the
+        // plugin), so both a load hook AND a safety-net timeout
+        // are wired. Whichever fires first wins; the flag makes
+        // print() run exactly once.
+        try { w.addEventListener('load', function(){ setTimeout(doPrint, 300); }); }
+        catch (e) { /* cross-origin between listener and target — ignore */ }
+        setTimeout(doPrint, 1200);
         if (ev && ev.preventDefault) ev.preventDefault();
         return false;
       } catch (e) {
-        return true;  // any surprise → fall through to normal open
+        return true;  // any surprise → fall through to anchor default
       }
     }
     </script>
