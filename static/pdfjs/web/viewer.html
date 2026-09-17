@@ -620,28 +620,69 @@ See https://github.com/adobe-type-tools/cmap-resources
     </div> <!-- outerContainer -->
     <div id="printContainer"></div>
     <script>
+    // Instrumented auto-print hook. Logs every stage to the
+    // browser console AND posts it to the embedding parent
+    // window (via postMessage, same-origin), so /invoices/view
+    // can see exactly where an autoprint attempt succeeds or
+    // stalls without a repro request. Enabled ONLY on the
+    // explicit #autoprint=1 URL fragment.
     (function () {
-      // Auto-print hook. When the viewer is opened with
-      // #autoprint=1 in the URL fragment, wait for PDF.js to
-      // finish loading the document, then call its own
-      // triggerPrinting() — the exact code path the toolbar
-      // Print button uses. If that fails for any reason the
-      // viewer stays visible and the admin can still print
-      // manually. Enabled ONLY on the explicit hash so a
-      // shared viewer URL never auto-prints.
-      if (!/(?:^|[#&])autoprint=1(?:&|$)/.test(window.location.hash || "")) return;
+      var origin = window.location.origin;
+      var hash = window.location.hash || "";
+      var autoprint = /(?:^|[#&])autoprint=1(?:&|$)/.test(hash);
+      function post(stage, extra) {
+        var payload = { type: "invoicePrint", stage: stage,
+                        extra: extra || null, autoprint: autoprint,
+                        ts: Date.now() };
+        try { console.log("[autoprint]", stage, payload); } catch (e) {}
+        try {
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage(payload, origin);
+          }
+        } catch (e) {}
+      }
+      post("script-run", { hash: hash });
+      if (!autoprint) return;
+
       var fired = false;
+      function attemptPrint(app) {
+        if (fired) return;
+        fired = true;
+        setTimeout(function () {
+          post("before-triggerPrinting", { pages: app.pagesCount });
+          try {
+            app.triggerPrinting();
+            post("after-triggerPrinting");
+          } catch (e) {
+            post("triggerPrinting-error",
+                 { name: e && e.name, message: String(e).slice(0,200) });
+          }
+        }, 120);
+      }
+
+      // Bubble the standard browser print lifecycle up so the
+      // parent knows whether the dialog actually appeared.
+      window.addEventListener("beforeprint", function () { post("beforeprint"); });
+      window.addEventListener("afterprint",  function () { post("afterprint"); });
+
       document.addEventListener("webviewerloaded", function () {
+        post("webviewerloaded");
         var app = window.PDFViewerApplication;
-        if (!app || !app.initializedPromise) return;
+        if (!app) { post("no-app-object"); return; }
+        if (!app.initializedPromise) { post("no-init-promise"); return; }
         app.initializedPromise.then(function () {
+          post("app-initialized");
+          if (!app.eventBus) { post("no-event-bus"); return; }
           app.eventBus.on("documentloaded", function () {
-            if (fired) return;
-            fired = true;
-            setTimeout(function () {
-              try { app.triggerPrinting(); } catch (e) { /* stay visible */ }
-            }, 120);
+            post("documentloaded", { pages: app.pagesCount });
+            attemptPrint(app);
           });
+          app.eventBus.on("pagesloaded", function () {
+            post("pagesloaded", { pages: app.pagesCount });
+          });
+        }).catch(function (err) {
+          post("init-promise-rejected",
+               { message: String(err).slice(0, 200) });
         });
       });
     })();

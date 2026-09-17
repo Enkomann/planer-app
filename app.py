@@ -11002,53 +11002,101 @@ Tel: {{ view_ctx.company_phone }}{% endif %}{% if view_ctx.company_email %}
         </div>
     </div>
     <script>
-    // One-click print: inject the self-hosted PDF.js viewer as a
-    // HIDDEN same-origin iframe on this very page. The patched
-    // viewer.html triggers PDFViewerApplication.triggerPrinting()
-    // as soon as its 'documentloaded' event fires, and browsers
-    // surface that as the OS Print dialog at top level over
-    // /invoices/view — no popup window, no visible PDF preview,
-    // no second click. The invoice viewer page stays fully
-    // visible behind the dialog.
-    //
-    // The iframe is positioned far off-screen instead of
-    // display:none, because display:none suspends layout inside
-    // the frame and PDF.js needs a real render tree to print.
-    // afterprint fires whichever button the admin picks — we
-    // clean up the frame then.
-    //
-    // Guardrail: only same-origin invoice URLs (starting with '/')
-    // are passed to viewer.html?file=. server-side pdf_url is
-    // always /invoices/preview_pdf or /invoices/manual/pdf, so
-    // no externally-supplied URL ever reaches PDF.js.
+    // Diagnostic build: the patched PDF.js viewer.html posts
+    // 'invoicePrint' messages up to this window for every stage
+    // (script-run → webviewerloaded → app-initialized →
+    //  documentloaded → before-triggerPrinting → beforeprint →
+    //  afterprint). We log them so we can see from a real Render
+    //  deploy exactly where autoprint stalls, and we enforce a
+    // hard fallback: if 'beforeprint' does not arrive within
+    // AUTOPRINT_FALLBACK_MS, tear the hidden iframe down and
+    // open the raw PDF in a new tab so the admin still gets
+    // access to the document from a single click.
+    var AUTOPRINT_FALLBACK_MS = 5000;
+
+    (function attachPrintListener() {
+      window.addEventListener("message", function (ev) {
+        if (ev.origin !== window.location.origin) return;
+        var d = ev.data;
+        if (!d || d.type !== "invoicePrint") return;
+        try { console.log("[invoice-print]", d.stage, d); } catch (e) {}
+      });
+    })();
+
     function printInvoicePdf(pdfUrl, ev) {
       try {
-        if (typeof pdfUrl !== 'string' || pdfUrl.charAt(0) !== '/') return true;
-        var viewerUrl = '/static/pdfjs/web/viewer.html?file='
+        if (typeof pdfUrl !== "string" || pdfUrl.charAt(0) !== "/") return true;
+        var viewerUrl = "/static/pdfjs/web/viewer.html?file="
                         + encodeURIComponent(pdfUrl)
-                        + '#autoprint=1';
-        var prev = document.getElementById('__invoice_print_iframe__');
+                        + "#autoprint=1";
+        var prev = document.getElementById("__invoice_print_iframe__");
         if (prev) prev.remove();
-        var iframe = document.createElement('iframe');
-        iframe.id = '__invoice_print_iframe__';
-        iframe.setAttribute('aria-hidden', 'true');
-        iframe.setAttribute('tabindex', '-1');
+
+        var iframe = document.createElement("iframe");
+        iframe.id = "__invoice_print_iframe__";
+        iframe.setAttribute("aria-hidden", "true");
+        iframe.setAttribute("tabindex", "-1");
         iframe.style.cssText =
-          'position:fixed;left:-10000px;top:0;width:800px;height:1200px;'
-          + 'border:0;opacity:0;pointer-events:none;';
+          "position:fixed;left:-10000px;top:0;width:800px;height:1200px;"
+          + "border:0;opacity:0;pointer-events:none;";
         iframe.src = viewerUrl;
-        iframe.addEventListener('load', function () {
+
+        var reachedBeforePrint = false;
+        var cleanedUp = false;
+        function cleanup(reason) {
+          if (cleanedUp) return;
+          cleanedUp = true;
+          try { console.log("[invoice-print] cleanup:", reason); } catch (e) {}
+          if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+          window.removeEventListener("message", onMsg);
+        }
+
+        function onMsg(mev) {
+          if (mev.origin !== window.location.origin) return;
+          var d = mev.data;
+          if (!d || d.type !== "invoicePrint" ||
+              mev.source !== iframe.contentWindow) return;
+          if (d.stage === "beforeprint") {
+            reachedBeforePrint = true;
+          }
+          if (d.stage === "afterprint") {
+            // Native dialog closed (Print or Cancel) — free the frame.
+            setTimeout(function () { cleanup("afterprint"); }, 200);
+          }
+          if (d.stage === "triggerPrinting-error" ||
+              d.stage === "init-promise-rejected" ||
+              d.stage === "no-app-object" ||
+              d.stage === "no-init-promise" ||
+              d.stage === "no-event-bus") {
+            // PDF.js told us it cannot proceed. Open the plain
+            // PDF so the admin at least has the document.
+            cleanup("viewer-error:" + d.stage);
+            try {
+              var w = window.open(pdfUrl, "_blank", "noopener");
+              if (!w) window.location.href = pdfUrl;
+            } catch (e) { window.location.href = pdfUrl; }
+          }
+        }
+        window.addEventListener("message", onMsg);
+
+        // Hard timeout: if beforeprint hasn't fired within the
+        // budget, autoprint has silently failed. Tear the frame
+        // down and open the raw PDF as an unambiguous fallback.
+        setTimeout(function () {
+          if (reachedBeforePrint || cleanedUp) return;
+          try { console.warn("[invoice-print] autoprint stalled — falling back to PDF tab"); } catch (e) {}
+          cleanup("stall-timeout");
           try {
-            iframe.contentWindow.addEventListener('afterprint', function () {
-              setTimeout(function () { iframe.remove(); }, 200);
-            });
-          } catch (e) { /* same-origin so unusual, but survive it */ }
-        });
+            var w = window.open(pdfUrl, "_blank", "noopener");
+            if (!w) window.location.href = pdfUrl;
+          } catch (e) { window.location.href = pdfUrl; }
+        }, AUTOPRINT_FALLBACK_MS);
+
         document.body.appendChild(iframe);
         if (ev && ev.preventDefault) ev.preventDefault();
         return false;
       } catch (e) {
-        return true;  // any surprise → anchor default opens PDF in new tab
+        return true;
       }
     }
     </script>
