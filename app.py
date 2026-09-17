@@ -390,6 +390,7 @@ TRANSLATIONS = {
         "export_pick_period_hint": "Izaberi tacan period i po potrebi klijenta.",
         "status_all": "Sve",
         "invoice_list_pdf": "Lista faktura PDF",
+        "print_invoice": "Stampaj fakturu",
         "invoice_date_basis": "Datum fakture",
         "work_period_basis": "Period rada",
         "clients_pdf_title": "Lista klijenata",
@@ -470,6 +471,7 @@ TRANSLATIONS["fr"].update({
     "export_pick_period_hint": "Choisissez la periode exacte et, si besoin, le client.",
     "status_all": "Tous",
     "invoice_list_pdf": "Liste des factures PDF",
+    "print_invoice": "Imprimer la facture",
     "invoice_date_basis": "Date de facture",
     "work_period_basis": "Periode de travail",
     "clients_pdf_title": "Liste des clients",
@@ -525,6 +527,7 @@ TRANSLATIONS["en"].update({
     "export_pick_period_hint": "Choose the exact period and, if needed, the client.",
     "status_all": "All",
     "invoice_list_pdf": "Invoice list PDF",
+    "print_invoice": "Print invoice",
     "invoice_date_basis": "Invoice date",
     "work_period_basis": "Work period",
     "clients_pdf_title": "Clients list",
@@ -547,6 +550,7 @@ TRANSLATIONS["de"].update({
     "export_pick_period_hint": "Waehlen Sie den genauen Zeitraum und ggf. den Kunden.",
     "status_all": "Alle",
     "invoice_list_pdf": "Rechnungsliste PDF",
+    "print_invoice": "Rechnung drucken",
     "invoice_date_basis": "Rechnungsdatum",
     "work_period_basis": "Arbeitszeitraum",
     "clients_pdf_title": "Kundenliste",
@@ -575,6 +579,7 @@ TRANSLATIONS["pt"].update({
     "export_pick_period_hint": "Escolha o periodo exato e, se necessario, o cliente.",
     "status_all": "Todos",
     "invoice_list_pdf": "Lista de faturas PDF",
+    "print_invoice": "Imprimir fatura",
     "invoice_date_basis": "Data da fatura",
     "work_period_basis": "Periodo de trabalho",
     "clients_pdf_title": "Lista de clientes",
@@ -10619,6 +10624,7 @@ def invoices_view():
         /* ── Invoice "paper" preview ──────────────────────────────── */
         .invoice-stage { background:{{ '#0f0f10' if dark else '#e5e7eb' }}; padding:32px 16px; border:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }}; border-radius:0 0 10px 10px; }
         .invoice-paper {
+            position:relative;
             background:#ffffff; color:#111827;
             max-width:920px; margin:0 auto;
             padding:36px 44px;
@@ -10626,6 +10632,19 @@ def invoices_view():
             box-shadow:0 12px 36px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.04);
             font-family:'Helvetica Neue', Arial, sans-serif;
             font-size:13px; line-height:1.55;
+        }
+        .invoice-print-fab {
+            position:absolute; right:24px; bottom:24px;
+            width:44px; height:44px; border-radius:999px;
+            border:1px solid #cbd5e1; background:#ffffff; color:#1f2937;
+            box-shadow:0 8px 22px rgba(15,23,42,0.18);
+            cursor:pointer; display:flex; align-items:center; justify-content:center;
+            font-size:20px; z-index:5; padding:0;
+        }
+        .invoice-print-fab:hover { background:#f3f4f6; box-shadow:0 10px 26px rgba(15,23,42,0.24); }
+        .invoice-print-fab:active { transform:translateY(1px); }
+        @media (max-width:720px){
+            .invoice-print-fab { right:12px; bottom:12px; width:40px; height:40px; font-size:18px; }
         }
         .ip-header { background:{{ view_ctx.accent }}; color:#ffffff; padding:18px 24px; border-radius:4px; display:flex; align-items:center; justify-content:space-between; gap:48px; }
         .ip-brand { font-size:22px; font-weight:800; }
@@ -10692,7 +10711,7 @@ def invoices_view():
             .ip-meta .ip-meta-row { justify-content:flex-start; }
         }
         @media print {
-            .doc-tabs, .toolbar, .ip-download-cta, .sidebar, .topbar, .bottom-nav, .brandbar { display:none !important; }
+            .doc-tabs, .toolbar, .ip-download-cta, .sidebar, .topbar, .bottom-nav, .brandbar, .invoice-print-fab, .email-log-card { display:none !important; }
             .invoice-stage, .viewer-shell, .viewer-panel { background:white !important; padding:0 !important; border:none !important; box-shadow:none !important; }
             .invoice-paper { box-shadow:none !important; max-width:none !important; }
         }
@@ -10890,6 +10909,10 @@ Tel: {{ view_ctx.company_phone }}{% endif %}{% if view_ctx.company_email %}
                   <b>Conditions et modalités de paiement</b>
                   <div class="ip-pay-body">{{ view_ctx.payment_terms_html|safe }}</div>
                 </section>
+                <button type="button" class="invoice-print-fab"
+                        title="{{ tr.get('print_invoice','Stampaj fakturu') }}"
+                        aria-label="{{ tr.get('print_invoice','Stampaj fakturu') }}"
+                        onclick="window.print()">🖨️</button>
               </article>
               {% else %}
               <div class="invoice-paper">
