@@ -11002,48 +11002,33 @@ Tel: {{ view_ctx.company_phone }}{% endif %}{% if view_ctx.company_email %}
         </div>
     </div>
     <script>
-    // Navigate a helper window directly to the PDF URL (same origin,
-    // so no cross-origin restriction) and call print() on that
-    // window once it loads. Chromium's built-in PDF viewer that
-    // takes over the helper window intercepts window.print() and
-    // opens its native system Print dialog — the exact behavior
-    // the admin wants: one click → Print dialog with the real
-    // ReportLab PDF, no HTML rendition, no second click.
+    // Open the self-hosted PDF.js viewer, same origin, with the
+    // real ReportLab PDF URL and an #autoprint=1 fragment. The
+    // patched viewer.html (see static/pdfjs/web/viewer.html)
+    // waits for its own 'documentloaded' event and then calls
+    // PDFViewerApplication.triggerPrinting() — the exact code
+    // path its toolbar Print button uses — so a single click on
+    // 🖨️ brings up the system Print dialog with the actual PDF,
+    // not the HTML preview. If the popup is blocked or PDF.js
+    // is missing (e.g. static/pdfjs/ not deployed), the plain
+    // <a href> takes over and opens the PDF in a new tab.
     //
-    // This is more reliable than wrapping the PDF in an <iframe>
-    // and calling iframe.contentWindow.print(): the built-in
-    // viewer sometimes refuses cross-frame print() but always
-    // honors window.print() on its own document.
+    // Guardrail: we hand PDF.js ONLY same-origin invoice URLs.
+    // The pdf_url is emitted server-side and always begins with
+    // /invoices/preview_pdf or /invoices/manual/pdf, so no
+    // externally-supplied URL ever reaches viewer.html?file=.
     function printInvoicePdf(pdfUrl, ev) {
       try {
-        var w = window.open(pdfUrl, '_blank');
-        if (!w) return true;  // popup blocked → <a href> takes over
-        var printed = false;
-        function doPrint() {
-          if (printed) return;
-          printed = true;
-          try {
-            w.focus();
-            w.print();
-          } catch (e) {
-            // iOS Safari / sandboxed contexts sometimes throw
-            // SecurityError. The PDF stays visible in the helper
-            // window and the admin uses the viewer's own print
-            // button (Ctrl+P / Share → Print). Never a blank tab.
-          }
-        }
-        // Chromium's built-in PDF viewer usually does not fire the
-        // parent's load listener (the load happens inside the
-        // plugin), so both a load hook AND a safety-net timeout
-        // are wired. Whichever fires first wins; the flag makes
-        // print() run exactly once.
-        try { w.addEventListener('load', function(){ setTimeout(doPrint, 300); }); }
-        catch (e) { /* cross-origin between listener and target — ignore */ }
-        setTimeout(doPrint, 1200);
+        if (typeof pdfUrl !== 'string' || pdfUrl.charAt(0) !== '/') return true;
+        var viewer = '/static/pdfjs/web/viewer.html?file='
+                     + encodeURIComponent(pdfUrl)
+                     + '#autoprint=1';
+        var w = window.open(viewer, '_blank');
+        if (!w) return true;
         if (ev && ev.preventDefault) ev.preventDefault();
         return false;
       } catch (e) {
-        return true;  // any surprise → fall through to anchor default
+        return true;
       }
     }
     </script>
