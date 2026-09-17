@@ -10640,6 +10640,7 @@ def invoices_view():
             box-shadow:0 8px 22px rgba(15,23,42,0.18);
             cursor:pointer; display:flex; align-items:center; justify-content:center;
             font-size:20px; z-index:5; padding:0;
+            text-decoration:none;
         }
         .invoice-print-fab:hover { background:#f3f4f6; box-shadow:0 10px 26px rgba(15,23,42,0.24); }
         .invoice-print-fab:active { transform:translateY(1px); }
@@ -10910,10 +10911,16 @@ Tel: {{ view_ctx.company_phone }}{% endif %}{% if view_ctx.company_email %}
                   <b>Conditions et modalités de paiement</b>
                   <div class="ip-pay-body">{{ view_ctx.payment_terms_html|safe }}</div>
                 </section>
-                <button type="button" class="invoice-print-fab"
-                        title="{{ tr.get('print_invoice','Stampaj fakturu') }}"
-                        aria-label="{{ tr.get('print_invoice','Stampaj fakturu') }}"
-                        onclick="window.print()">🖨️</button>
+                {# Open the real ReportLab PDF (same builder used by
+                   "Download PDF") in a new tab, inline. The admin then
+                   uses the PDF viewer's own Print (Ctrl+P / iOS Share
+                   → Print) so what leaves the printer matches the
+                   emailed / archived document byte-for-byte — no
+                   browser HTML rendition of the invoice paper. #}
+                <a class="invoice-print-fab" href="{{ pdf_url }}"
+                   target="_blank" rel="noopener"
+                   title="{{ tr.get('print_invoice','Stampaj fakturu') }}"
+                   aria-label="{{ tr.get('print_invoice','Stampaj fakturu') }}">🖨️</a>
               </article>
               {% else %}
               <div class="invoice-paper">
