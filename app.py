@@ -11482,7 +11482,12 @@ def invoices_manual():
             )
         else:
             flash(f"✓ {tr.get('mi_save_invoice','Faktura sačuvana')} #{inv_num}", "ok")
-        return redirect(f"/invoices/manual?invoice_number={inv_num}")
+        # Plain Save (not "Save + PDF") returns the admin to the
+        # invoices list so they see the new row immediately in
+        # context, instead of staying on the manual editor.
+        # download_pdf is handled above and still opens the PDF
+        # after the same successful commit.
+        return redirect("/invoices")
 
     # ── GET: show form ────────────────────────────────────────────────────
     # Pre-fill from existing draft if invoice_number given
