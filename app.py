@@ -2681,6 +2681,43 @@ def format_date(date_str):
         return date_str
 
 
+def format_datetime_local(value):
+    """Render a stored sent_at / created_at value as DD-MM-YYYY HH:MM:SS.
+
+    Tolerates every shape the two backends and their history throw at
+    the viewer:
+      - datetime object straight from PostgreSQL (psycopg2 returns
+        one for TIMESTAMP columns; our TEXT-typed columns come back
+        as strings but a defensive isinstance() covers both);
+      - ISO string from SQLite: '2026-09-29 14:56:54' or
+        '2026-09-29T14:56:54' or the same with fractional seconds
+        or a trailing 'Z';
+      - legacy blanks / malformed values: returned unchanged (empty
+        string stays empty so the caller can decide whether to show
+        '—').
+
+    No timezone conversion: whatever the row carries is what we show.
+    """
+    if value is None or value == "":
+        return ""
+    if isinstance(value, datetime):
+        return value.strftime("%d-%m-%Y %H:%M:%S")
+    s = str(value).strip()
+    if not s:
+        return ""
+    normalized = s.replace("T", " ")
+    if normalized.endswith("Z"):
+        normalized = normalized[:-1]
+    if "." in normalized:
+        normalized = normalized.split(".", 1)[0]
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(normalized, fmt).strftime("%d-%m-%Y %H:%M:%S")
+        except ValueError:
+            continue
+    return s
+
+
 def safe_pdf_name(*parts):
     raw = "_".join(str(part or "").strip() for part in parts if str(part or "").strip())
     normalized = unicodedata.normalize("NFKD", raw).encode("ascii", "ignore").decode("ascii")
@@ -10982,7 +11019,10 @@ Tel: {{ view_ctx.company_phone }}{% endif %}{% if view_ctx.company_email %}
                 <tbody>
                   {% for lg in email_logs %}
                   <tr style="border-bottom:1px solid {{ '#2c2c30' if dark else '#f1f5f9' }};">
-                    <td style="padding:6px 8px;white-space:nowrap;">{{ lg.sent_at }}</td>
+                    <td style="padding:6px 8px;white-space:nowrap;">
+                      {% set _sent = format_datetime_local(lg.sent_at) %}
+                      {% if _sent %}{{ _sent }}{% else %}<span style="color:{{ '#9ca3af' if dark else '#6b7280' }};">—</span>{% endif %}
+                    </td>
                     <td style="padding:6px 8px;white-space:nowrap;">
                       {% if lg.email_type == 'reminder' %}
                         <span style="display:inline-block;padding:2px 8px;border-radius:999px;
@@ -11050,7 +11090,8 @@ Tel: {{ view_ctx.company_phone }}{% endif %}{% if view_ctx.company_email %}
          paid_fields=paid_fields, sent_fields=sent_fields,
          is_manual=is_manual, edit_url=edit_url, email_logs=email_logs,
          plan_summary=plan_summary, plan_mismatch=plan_mismatch,
-         mismatch_info=mismatch_info)
+         mismatch_info=mismatch_info,
+         format_datetime_local=format_datetime_local)
 
 
 @app.route("/invoices/preview_pdf")
