@@ -391,6 +391,10 @@ TRANSLATIONS = {
         "status_all": "Sve",
         "invoice_list_pdf": "Lista faktura PDF",
         "print_invoice": "Stampaj fakturu",
+        "email_log_type": "Vrsta",
+        "email_type_invoice": "Faktura",
+        "email_type_reminder": "Podsjetnik",
+        "email_type_unknown": "Nepoznato",
         "invoice_date_basis": "Datum fakture",
         "work_period_basis": "Period rada",
         "clients_pdf_title": "Lista klijenata",
@@ -472,6 +476,10 @@ TRANSLATIONS["fr"].update({
     "status_all": "Tous",
     "invoice_list_pdf": "Liste des factures PDF",
     "print_invoice": "Imprimer la facture",
+    "email_log_type": "Type",
+    "email_type_invoice": "Facture",
+    "email_type_reminder": "Rappel",
+    "email_type_unknown": "Inconnu",
     "invoice_date_basis": "Date de facture",
     "work_period_basis": "Periode de travail",
     "clients_pdf_title": "Liste des clients",
@@ -528,6 +536,10 @@ TRANSLATIONS["en"].update({
     "status_all": "All",
     "invoice_list_pdf": "Invoice list PDF",
     "print_invoice": "Print invoice",
+    "email_log_type": "Type",
+    "email_type_invoice": "Invoice",
+    "email_type_reminder": "Reminder",
+    "email_type_unknown": "Unknown",
     "invoice_date_basis": "Invoice date",
     "work_period_basis": "Work period",
     "clients_pdf_title": "Clients list",
@@ -551,6 +563,10 @@ TRANSLATIONS["de"].update({
     "status_all": "Alle",
     "invoice_list_pdf": "Rechnungsliste PDF",
     "print_invoice": "Rechnung drucken",
+    "email_log_type": "Typ",
+    "email_type_invoice": "Rechnung",
+    "email_type_reminder": "Erinnerung",
+    "email_type_unknown": "Unbekannt",
     "invoice_date_basis": "Rechnungsdatum",
     "work_period_basis": "Arbeitszeitraum",
     "clients_pdf_title": "Kundenliste",
@@ -580,6 +596,10 @@ TRANSLATIONS["pt"].update({
     "status_all": "Todos",
     "invoice_list_pdf": "Lista de faturas PDF",
     "print_invoice": "Imprimir fatura",
+    "email_log_type": "Tipo",
+    "email_type_invoice": "Fatura",
+    "email_type_reminder": "Lembrete",
+    "email_type_unknown": "Desconhecido",
     "invoice_date_basis": "Data da fatura",
     "work_period_basis": "Periodo de trabalho",
     "clients_pdf_title": "Lista de clientes",
@@ -5055,7 +5075,8 @@ def init_db():
             message_id TEXT DEFAULT '',
             attachment_sha256 TEXT DEFAULT '',
             imap_saved INTEGER DEFAULT 0,
-            imap_error TEXT DEFAULT ''
+            imap_error TEXT DEFAULT '',
+            email_type TEXT DEFAULT 'unknown'
         )
     """)
 
@@ -5153,6 +5174,12 @@ def init_db():
             c.execute("ALTER TABLE invoice_email_logs ADD COLUMN imap_saved INTEGER DEFAULT 0")
         if "imap_error" not in log_cols:
             c.execute("ALTER TABLE invoice_email_logs ADD COLUMN imap_error TEXT DEFAULT ''")
+        # Tag each log row with what kind of email it was, so the
+        # trace on /invoices/view can tell an invoice apart from a
+        # reminder without inspecting the subject (which is
+        # translated / editable).
+        if "email_type" not in log_cols:
+            c.execute("ALTER TABLE invoice_email_logs ADD COLUMN email_type TEXT DEFAULT 'unknown'")
     except Exception:
         pass
     # Migrate manual_invoice_drafts: add date_from/date_to so manual
@@ -10579,7 +10606,8 @@ def invoices_view():
         log_rows = conn2.cursor().execute("""
             SELECT recipient, subject, status, error, sent_at,
                    COALESCE(message_id,''), COALESCE(attachment_sha256,''),
-                   COALESCE(imap_saved,0), COALESCE(imap_error,'')
+                   COALESCE(imap_saved,0), COALESCE(imap_error,''),
+                   COALESCE(email_type,'unknown')
             FROM invoice_email_logs
             WHERE invoice_number = ?
             ORDER BY id DESC
@@ -10600,6 +10628,7 @@ def invoices_view():
         "attachment_sha256":  r[6] or "",
         "imap_saved": bool(r[7]),
         "imap_error": r[8] or "",
+        "email_type": (r[9] or "unknown"),
     } for r in log_rows]
 
     return render_template_string(BASE_STYLE + header_html() + """
@@ -10940,6 +10969,7 @@ Tel: {{ view_ctx.company_phone }}{% endif %}{% if view_ctx.company_email %}
                 <thead>
                   <tr style="text-align:left;border-bottom:1px solid {{ '#2c2c30' if dark else '#e2e8f0' }};">
                     <th style="padding:6px 8px;">{{ tr.get("sent_at","Vrijeme") }}</th>
+                    <th style="padding:6px 8px;">{{ tr.get("email_log_type","Vrsta") }}</th>
                     <th style="padding:6px 8px;">{{ tr.get("recipient","Primalac") }}</th>
                     <th style="padding:6px 8px;">{{ tr.get("status","Status") }}</th>
                     <th style="padding:6px 8px;" title="{{ tr.get('email_log_mailbox_help','Kopija sacuvana u Sent folderu mailbox-a preko IMAP-a') }}">
@@ -10953,6 +10983,27 @@ Tel: {{ view_ctx.company_phone }}{% endif %}{% if view_ctx.company_email %}
                   {% for lg in email_logs %}
                   <tr style="border-bottom:1px solid {{ '#2c2c30' if dark else '#f1f5f9' }};">
                     <td style="padding:6px 8px;white-space:nowrap;">{{ lg.sent_at }}</td>
+                    <td style="padding:6px 8px;white-space:nowrap;">
+                      {% if lg.email_type == 'reminder' %}
+                        <span style="display:inline-block;padding:2px 8px;border-radius:999px;
+                                     background:{{ 'rgba(245,158,11,.18)' if dark else '#fef3c7' }};
+                                     color:{{ '#fcd34d' if dark else '#92400e' }};
+                                     font-weight:700;font-size:11px;">
+                          📮 {{ tr.get("email_type_reminder","Podsjetnik") }}
+                        </span>
+                      {% elif lg.email_type == 'invoice' %}
+                        <span style="display:inline-block;padding:2px 8px;border-radius:999px;
+                                     background:{{ 'rgba(37,99,235,.18)' if dark else '#dbeafe' }};
+                                     color:{{ '#93c5fd' if dark else '#1e3a8a' }};
+                                     font-weight:700;font-size:11px;">
+                          📄 {{ tr.get("email_type_invoice","Faktura") }}
+                        </span>
+                      {% else %}
+                        <span style="color:{{ '#9ca3af' if dark else '#6b7280' }};font-size:11px;">
+                          — {{ tr.get("email_type_unknown","Nepoznato") }}
+                        </span>
+                      {% endif %}
+                    </td>
                     <td style="padding:6px 8px;">{{ lg.recipient }}</td>
                     <td style="padding:6px 8px;">
                       {% if lg.status == 'sent' %}
@@ -13707,11 +13758,13 @@ def invoices_email_send():
         c.execute("""
             INSERT INTO invoice_email_logs
                 (invoice_number, recipient, subject, status, error, sent_at,
-                 message_id, attachment_sha256, imap_saved, imap_error)
-            VALUES (?,?,?,?,?,?,?,?,?,?)
+                 message_id, attachment_sha256, imap_saved, imap_error,
+                 email_type)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?)
         """, (invoice_number or bulk_client, recipient, subject,
               "sent" if ok else "failed", err if not ok else "", now_str,
-              msg_id, pdf_sha, imap_saved, imap_error))
+              msg_id, pdf_sha, imap_saved, imap_error,
+              "reminder" if is_reminder else "invoice"))
         # Only mark invoice 'sent' for real invoice emails, not reminders
         if ok and invoice_number and not is_reminder:
             c.execute(
@@ -13854,11 +13907,13 @@ def task_send_scheduled_emails():
             c.execute("""
                 INSERT INTO invoice_email_logs
                     (invoice_number, recipient, subject, status, error, sent_at,
-                     message_id, attachment_sha256, imap_saved, imap_error)
-                VALUES (?,?,?,?,?,?,?,?,?,?)
+                     message_id, attachment_sha256, imap_saved, imap_error,
+                     email_type)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?)
             """, (inv_num, rcpt, subj, "sent" if ok else "failed",
                   err if not ok else "", now_str,
-                  msg_id, pdf_sha, imap_saved, imap_error))
+                  msg_id, pdf_sha, imap_saved, imap_error,
+                  "invoice"))
             if ok:
                 c.execute("UPDATE invoice_records SET sent=1, sent_date=? WHERE invoice_number=?",
                           (lux_now().strftime("%Y-%m-%d"), inv_num))
