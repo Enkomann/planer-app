@@ -2000,7 +2000,7 @@ INVOICE_TRANSLATIONS = {
         "invoices": "Fakture", "invoice_settings": "Podesavanja faktura", "invoice_text": "Tekst na fakturi",
         "payment_terms": "Modalitet placanja", "bank_account": "Racun za uplatu", "invoice_profiles": "Profili klijenata za fakture",
         "client_type": "Tip klijenta", "private_client": "Privatno lice", "pro_client": "Profesionalni klijent",
-        "hourly_rate": "Cijena po satu", "billing_section": "Podaci za fakturisanje", "invalid_hourly_rate": "Neispravna cijena po satu.", "save_failed": "Čuvanje nije uspjelo.", "client_already_exists": "Klijent sa tim imenom već postoji.", "client_added_flash": "✓ Klijent dodat: {name}", "email": "Email", "vat_rate": "TVA", "generate_invoice": "Generisi fakturu",
+        "hourly_rate": "Cijena po satu", "billing_section": "Podaci za fakturisanje", "invalid_hourly_rate": "Neispravna cijena po satu.", "invalid_vat_rate": "Neispravna TVA stopa.", "save_failed": "Čuvanje nije uspjelo.", "client_already_exists": "Klijent sa tim imenom već postoji.", "client_added_flash": "✓ Klijent dodat: {name}", "email": "Email", "vat_rate": "TVA", "generate_invoice": "Generisi fakturu",
         "download_all_invoices": "Preuzmi sve fakture PDF", "annual_certificate": "Godisnji certifikat",
         "date_from": "Od datuma", "date_to": "Do datuma", "invoice_date": "Datum fakture",
         "invoice_number": "Broj fakture", "amount_without_vat": "Iznos bez TVA", "amount_with_vat": "Iznos sa TVA",
@@ -2093,7 +2093,7 @@ INVOICE_TRANSLATIONS["en"] = {
     "invoices": "Invoices", "invoice_settings": "Invoice settings", "invoice_text": "Invoice text",
     "payment_terms": "Payment terms", "bank_account": "Bank account", "invoice_profiles": "Client invoice profiles",
     "client_type": "Client type", "private_client": "Private client", "pro_client": "Professional client",
-    "hourly_rate": "Hourly rate", "billing_section": "Billing details", "invalid_hourly_rate": "Invalid hourly rate.", "save_failed": "Save failed.", "client_already_exists": "A client with this name already exists.", "client_added_flash": "✓ Client added: {name}", "email": "Email", "vat_rate": "VAT", "generate_invoice": "Generate invoice",
+    "hourly_rate": "Hourly rate", "billing_section": "Billing details", "invalid_hourly_rate": "Invalid hourly rate.", "invalid_vat_rate": "Invalid VAT rate.", "save_failed": "Save failed.", "client_already_exists": "A client with this name already exists.", "client_added_flash": "✓ Client added: {name}", "email": "Email", "vat_rate": "VAT", "generate_invoice": "Generate invoice",
     "download_all_invoices": "Download all invoice PDFs", "annual_certificate": "Annual certificate",
     "date_from": "Date from", "date_to": "Date to", "invoice_date": "Invoice date",
     "invoice_number": "Invoice number", "amount_without_vat": "Amount without VAT", "amount_with_vat": "Amount with VAT",
@@ -2183,7 +2183,7 @@ INVOICE_TRANSLATIONS["fr"] = {
     "invoices": "Factures", "invoice_settings": "Parametres des factures", "invoice_text": "Texte sur la facture",
     "payment_terms": "Conditions et modalites de paiement", "bank_account": "Compte bancaire", "invoice_profiles": "Profils de facturation clients",
     "client_type": "Type de client", "private_client": "Client prive", "pro_client": "Client professionnel",
-    "hourly_rate": "Prix horaire", "billing_section": "Donnees de facturation", "invalid_hourly_rate": "Prix horaire invalide.", "save_failed": "Enregistrement echoue.", "client_already_exists": "Un client avec ce nom existe deja.", "client_added_flash": "✓ Client ajoute : {name}", "email": "Email", "vat_rate": "TVA", "generate_invoice": "Generer facture",
+    "hourly_rate": "Prix horaire", "billing_section": "Donnees de facturation", "invalid_hourly_rate": "Prix horaire invalide.", "invalid_vat_rate": "Taux de TVA invalide.", "save_failed": "Enregistrement echoue.", "client_already_exists": "Un client avec ce nom existe deja.", "client_added_flash": "✓ Client ajoute : {name}", "email": "Email", "vat_rate": "TVA", "generate_invoice": "Generer facture",
     "download_all_invoices": "Telecharger toutes les factures PDF", "annual_certificate": "Certificat annuel",
     "date_from": "Date du", "date_to": "Date au", "invoice_date": "Date de facture",
     "invoice_number": "Facture no", "amount_without_vat": "Total HT", "amount_with_vat": "Total TTC",
@@ -2273,7 +2273,7 @@ INVOICE_TRANSLATIONS["de"] = {
     "invoices": "Rechnungen", "invoice_settings": "Rechnungseinstellungen", "invoice_text": "Rechnungstext",
     "payment_terms": "Zahlungsbedingungen", "bank_account": "Bankkonto", "invoice_profiles": "Kundenprofile fuer Rechnungen",
     "client_type": "Kundentyp", "private_client": "Privatkunde", "pro_client": "Gewerbekunde",
-    "hourly_rate": "Stundensatz", "billing_section": "Rechnungsangaben", "invalid_hourly_rate": "Ungultiger Stundensatz.", "save_failed": "Speichern fehlgeschlagen.", "client_already_exists": "Ein Kunde mit diesem Namen existiert bereits.", "client_added_flash": "✓ Kunde hinzugefugt: {name}", "email": "Email", "vat_rate": "MwSt.", "generate_invoice": "Rechnung erstellen",
+    "hourly_rate": "Stundensatz", "billing_section": "Rechnungsangaben", "invalid_hourly_rate": "Ungultiger Stundensatz.", "invalid_vat_rate": "Ungultiger MwSt.-Satz.", "save_failed": "Speichern fehlgeschlagen.", "client_already_exists": "Ein Kunde mit diesem Namen existiert bereits.", "client_added_flash": "✓ Kunde hinzugefugt: {name}", "email": "Email", "vat_rate": "MwSt.", "generate_invoice": "Rechnung erstellen",
     "download_all_invoices": "Alle Rechnungen als PDF herunterladen", "annual_certificate": "Jahreszertifikat",
     "date_from": "Datum von", "date_to": "Datum bis", "invoice_date": "Rechnungsdatum",
     "invoice_number": "Rechnungsnummer", "amount_without_vat": "Betrag ohne MwSt.", "amount_with_vat": "Betrag mit MwSt.",
@@ -2363,7 +2363,7 @@ INVOICE_TRANSLATIONS["pt"] = {
     "invoices": "Faturas", "invoice_settings": "Definicoes de faturas", "invoice_text": "Texto na fatura",
     "payment_terms": "Condicoes de pagamento", "bank_account": "Conta bancaria", "invoice_profiles": "Perfis de clientes para faturas",
     "client_type": "Tipo de cliente", "private_client": "Cliente privado", "pro_client": "Cliente profissional",
-    "hourly_rate": "Preco por hora", "billing_section": "Dados de faturacao", "invalid_hourly_rate": "Preco por hora invalido.", "save_failed": "Falha ao guardar.", "client_already_exists": "Ja existe um cliente com este nome.", "client_added_flash": "✓ Cliente adicionado: {name}", "email": "Email", "vat_rate": "IVA", "generate_invoice": "Gerar fatura",
+    "hourly_rate": "Preco por hora", "billing_section": "Dados de faturacao", "invalid_hourly_rate": "Preco por hora invalido.", "invalid_vat_rate": "Taxa de IVA invalida.", "save_failed": "Falha ao guardar.", "client_already_exists": "Ja existe um cliente com este nome.", "client_added_flash": "✓ Cliente adicionado: {name}", "email": "Email", "vat_rate": "IVA", "generate_invoice": "Gerar fatura",
     "download_all_invoices": "Descarregar todas as faturas PDF", "annual_certificate": "Certificado anual",
     "date_from": "Data de", "date_to": "Data ate", "invoice_date": "Data da fatura",
     "invoice_number": "Numero da fatura", "amount_without_vat": "Valor sem IVA", "amount_with_vat": "Valor com IVA",
@@ -3422,26 +3422,66 @@ def get_invoice_profiles(conn):
     sync_invoice_profiles(conn)
     c = conn.cursor()
     rows = c.execute("""
-        SELECT c.name, c.address, p.email, p.client_type, p.hourly_rate, p.custom_address
+        SELECT c.name, c.address, p.email, p.client_type, p.hourly_rate,
+               p.custom_address, p.vat_rate
         FROM clients c
         LEFT JOIN client_invoice_profiles p ON p.client_name = c.name
         ORDER BY c.name
     """).fetchall()
     profiles = []
     for row in rows:
+        ctype = row[3] or "private"
+        stored_vat = row[6]
+        # Legacy row that pre-dates the editable column: fall back to
+        # the historical client_type → rate map. The migration itself
+        # already backfills vat_rate for existing rows under its
+        # IS NULL guard, so this branch is only a defensive net.
+        if stored_vat is None:
+            vat_pct = default_vat_pct_for_client_type(ctype)
+        else:
+            vat_pct = float(stored_vat)
         profiles.append({
             "client": row[0],
             "base_address": row[1] or "",
             "email": row[2] or "",
-            "client_type": row[3] or "private",
+            "client_type": ctype,
             "hourly_rate": float(row[4] or 0),
             "address": row[5] or row[1] or "",
+            "vat_rate": vat_pct,  # stored as percent (8.00, 17.00, …)
         })
     return profiles
 
 
 def invoice_vat_rate(client_type):
+    """Legacy default-rate mapper.
+
+    Kept for one job only: suggesting an initial vat_rate when a
+    new client profile is created and the admin has not yet typed
+    a percent. Returns the historical defaults (private 8%, pro
+    17%) as a fraction. The hot invoice-generation path reads
+    the editable per-client vat_rate stored on
+    client_invoice_profiles instead — see build_invoice_rows.
+    """
     return 0.17 if client_type == "pro" else 0.08
+
+
+def default_vat_pct_for_client_type(client_type):
+    """Initial percent suggestion for a new profile (private=8, pro=17)."""
+    return 17.00 if client_type == "pro" else 8.00
+
+
+def format_vat_rate_pct(value):
+    """Render a stored vat_rate (percent) for display: 8.0 → "8%",
+    16.5 → "16.5%", 17.0 → "17%".
+    """
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return ""
+    if v == int(v):
+        return f"{int(v)}%"
+    s = f"{v:.2f}".rstrip("0").rstrip(".")
+    return f"{s}%"
 
 
 # Shared whitelist for the two client-type values. Both /add_client
@@ -3494,9 +3534,33 @@ def parse_hourly_rate_input(raw, *, missing_sentinel=object(),
     return value
 
 
+def parse_vat_rate_input(raw, *, missing_sentinel=object(),
+                          blank_action="reject"):
+    """Parse a vat_rate form field (percent) into a float.
+
+    Mirrors parse_hourly_rate_input: accepts '.' or ',' as decimal
+    separator, returns "__missing__" / "__blank__" / "__invalid__"
+    sentinels for the three abnormal cases, else a float in [0, 100].
+
+    Reject rules: NaN, Infinity, negative, > 100, non-numeric text.
+    """
+    if raw is missing_sentinel:
+        return "__missing__"
+    text = (raw or "").strip().replace(",", ".").rstrip("%").strip()
+    if text == "":
+        return "__blank__" if blank_action == "preserve" else "__invalid__"
+    try:
+        value = float(text)
+    except (TypeError, ValueError):
+        return "__invalid__"
+    if not math.isfinite(value) or value < 0 or value > 100:
+        return "__invalid__"
+    return value
+
+
 def upsert_client_invoice_profile(cursor, client_name, *,
                                     email=None, client_type=None,
-                                    hourly_rate=None):
+                                    hourly_rate=None, vat_rate=None):
     """Upsert a client_invoice_profiles row, writing ONLY the fields
     the caller passed (so the dashboard quick-add path doesn't
     silently rewrite client_type/hourly_rate it never saw).
@@ -3532,6 +3596,8 @@ def upsert_client_invoice_profile(cursor, client_name, *,
         _add("client_type", normalize_client_type(client_type), "'private'")
     if hourly_rate is not None:
         _add("hourly_rate", float(hourly_rate), "0")
+    if vat_rate is not None:
+        _add("vat_rate", float(vat_rate), "8.00")
 
     if not sets_update:
         # Caller passed nothing beyond client_name: nothing to touch,
@@ -3660,7 +3726,12 @@ def build_invoice_rows(conn, date_from, date_to, fixed_amount=None, settings=Non
         if not profile:
             continue
         base_amount = float(fixed_amount) if fixed_amount not in (None, "") else hours * profile["hourly_rate"]
-        vat_rate = invoice_vat_rate(profile["client_type"])
+        # Editable per-client VAT percent is the single source for
+        # NEW auto invoices. The legacy private/pro mapping only
+        # survives as a default suggestion when a brand-new profile
+        # is being created elsewhere.
+        vat_rate = float(profile.get("vat_rate") or
+                         default_vat_pct_for_client_type(profile["client_type"])) / 100.0
         vat_amount = base_amount * vat_rate
         number = invoice_number_from_index(settings, index)
         rows.append({
@@ -5548,7 +5619,8 @@ def init_db():
             email TEXT DEFAULT '',
             client_type TEXT DEFAULT 'private',
             hourly_rate REAL DEFAULT 0,
-            custom_address TEXT DEFAULT ''
+            custom_address TEXT DEFAULT '',
+            vat_rate REAL DEFAULT 8.00
         )
     """)
     c.execute("""
@@ -5710,6 +5782,30 @@ def init_db():
             conn.rollback()
         except Exception:
             pass
+    # client_invoice_profiles.vat_rate — per-client percent explicitly
+    # editable from both admin forms. Backfilled from the legacy
+    # client_type → rate mapping (private 8%, pro 17%) exactly ONCE,
+    # under the "vat_rate IS NULL" guard, so a later rate change
+    # cannot be clobbered by re-running init_db().
+    try:
+        profile_cols = [row[1] for row in c.execute(
+            "PRAGMA table_info(client_invoice_profiles)"
+        ).fetchall()]
+        if "vat_rate" not in profile_cols:
+            c.execute(
+                "ALTER TABLE client_invoice_profiles "
+                "ADD COLUMN vat_rate REAL"
+            )
+            c.execute(
+                "UPDATE client_invoice_profiles "
+                "SET vat_rate = CASE WHEN client_type='pro' "
+                "THEN 17.00 ELSE 8.00 END "
+                "WHERE vat_rate IS NULL"
+            )
+    except Exception:
+        app.logger.exception("client_invoice_profiles.vat_rate migration failed")
+        try: conn.rollback()
+        except Exception: pass
     invoice_cols = [row[1] for row in c.execute("PRAGMA table_info(invoice_settings)").fetchall()]
     for col_name, col_type in [
         ("company_name", "TEXT DEFAULT ''"), ("company_address", "TEXT DEFAULT ''"),
@@ -10321,10 +10417,13 @@ def invoices():
             <input type="hidden" id="invoiceClientName" name="client_name">
             <input id="invoiceCustomAddress" name="custom_address" placeholder="{{ tr['address'] }}">
             <input id="invoiceEmail" name="email" placeholder="{{ tr['email'] }}">
-            <select name="client_type">
-                <option value="private">{{ tr["private_client"] }} - 8%</option>
-                <option value="pro">{{ tr["pro_client"] }} - 17%</option>
+            <select id="invoiceClientType" name="client_type">
+                <option value="private">{{ tr["private_client"] }}</option>
+                <option value="pro">{{ tr["pro_client"] }}</option>
             </select>
+            <input id="invoiceVatRate" type="number" min="0" max="100" step="0.01"
+                   inputmode="decimal" name="vat_rate"
+                   placeholder="{{ tr.get('vat_rate','TVA') }} (%)">
             <input id="invoiceHourlyRate" type="number" step="0.01" name="hourly_rate" placeholder="{{ tr['hourly_rate'] }}">
             <button>{{ tr["save_client_profile"] }}</button>
         </form>
@@ -10394,6 +10493,18 @@ def invoices():
         document.getElementById('invoiceEmail').value = profile.email || "";
         document.querySelector('select[name="client_type"]').value = profile.client_type || "private";
         document.getElementById('invoiceHourlyRate').value = profile.hourly_rate || 0;
+        var vat = document.getElementById('invoiceVatRate');
+        if (vat) {
+            // Show the stored percent as-is. Blank → suggest the
+            // historical default (private=8, pro=17). Does NOT
+            // overwrite anything the admin had typed before picking
+            // a client (fillInvoiceProfile only runs on client search).
+            if (profile.vat_rate !== undefined && profile.vat_rate !== null) {
+                vat.value = String(profile.vat_rate);
+            } else {
+                vat.value = (profile.client_type === 'pro') ? '17' : '8';
+            }
+        }
     }
     document.addEventListener('DOMContentLoaded', function(){
         // Search submits via the GET form; no live filter (server paginates)
@@ -13310,15 +13421,60 @@ def invoices_settings():
 def invoices_profile():
     if session.get("role") != "admin":
         return redirect("/")
+    tr = t()
     client_name = request.form.get("client_name", "").strip()
-    if client_name:
-        conn = get_conn(); c = conn.cursor()
-        c.execute("""
-            INSERT INTO client_invoice_profiles (client_name, email, client_type, hourly_rate, custom_address)
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(client_name) DO UPDATE SET email = excluded.email, client_type = excluded.client_type, hourly_rate = excluded.hourly_rate, custom_address = excluded.custom_address
-        """, (client_name, request.form.get("email", "").strip(), request.form.get("client_type", "private").strip(), request.form.get("hourly_rate", 0) or 0, request.form.get("custom_address", "").strip()))
-        conn.commit(); conn.close()
+    if not client_name:
+        return redirect("/invoices")
+    client_type_val = normalize_client_type(
+        request.form.get("client_type"), default="private",
+    )
+    rate_parsed = parse_hourly_rate_input(
+        request.form.get("hourly_rate", ""), blank_action="reject",
+    )
+    if rate_parsed in ("__invalid__",):
+        flash(tr.get("invalid_hourly_rate", "Neispravna cijena po satu."), "error")
+        return redirect("/invoices")
+    hourly_rate_val = 0.0 if rate_parsed == "__blank__" else float(rate_parsed)
+    vat_parsed = parse_vat_rate_input(
+        request.form.get("vat_rate", ""), blank_action="preserve",
+    )
+    if vat_parsed == "__invalid__":
+        flash(tr.get("invalid_vat_rate", "Neispravna TVA stopa."), "error")
+        return redirect("/invoices")
+    conn = get_conn(); c = conn.cursor()
+    try:
+        if vat_parsed == "__blank__":
+            # Keep the stored percent so admins editing a different
+            # field (e.g. custom_address) don't accidentally reset VAT.
+            existing = c.execute(
+                "SELECT vat_rate FROM client_invoice_profiles WHERE client_name=?",
+                (client_name,)
+            ).fetchone()
+            vat_rate_val = (float(existing[0]) if existing and existing[0] is not None
+                            else default_vat_pct_for_client_type(client_type_val))
+        else:
+            vat_rate_val = float(vat_parsed)
+        c.execute(
+            "INSERT INTO client_invoice_profiles "
+            "(client_name, email, client_type, hourly_rate, custom_address, vat_rate) "
+            "VALUES (?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(client_name) DO UPDATE SET "
+            "email = excluded.email, client_type = excluded.client_type, "
+            "hourly_rate = excluded.hourly_rate, "
+            "custom_address = excluded.custom_address, "
+            "vat_rate = excluded.vat_rate",
+            (client_name, request.form.get("email", "").strip(),
+             client_type_val, hourly_rate_val,
+             request.form.get("custom_address", "").strip(),
+             vat_rate_val),
+        )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        app.logger.exception("invoices_profile: save failed for %r", client_name)
+        flash(tr.get("save_failed", "Čuvanje nije uspjelo."), "error")
+    finally:
+        conn.close()
     return redirect("/invoices")
 
 
@@ -15294,13 +15450,13 @@ def edit_client(name):
         cfrom    = f.get("contract_from", "").strip()
         cto      = f.get("contract_to", "").strip()
         notes    = f.get("notes", "").strip()
-        # Billing details: PDV category + hourly rate. Validated against
-        # the same whitelist invoice_vat_rate() uses, and the rate is
-        # accepted with either '.' or ',' as decimal separator. An empty
-        # hourly_rate PRESERVES the existing stored value — we never
-        # silently rewrite a saved rate to 0 just because the admin
-        # left the field untouched. Any other garbage (non-numeric,
-        # negative) fails with a flash and no partial save.
+        # Billing details: PDV category + VAT percent + hourly rate.
+        # Shared whitelist (CLIENT_TYPES_ALLOWED) and shared parsers;
+        # an empty hourly_rate OR vat_rate PRESERVES the existing
+        # stored value so editing an unrelated field (phone, notes,
+        # name) can never silently rewrite the invoicing math. Any
+        # out-of-range value (negative, >100 for VAT, NaN, non-
+        # numeric text) fails with a flash and no partial save.
         client_type_raw = normalize_client_type(f.get("client_type"),
                                                  default="private")
         rate_parsed = parse_hourly_rate_input(
@@ -15311,6 +15467,14 @@ def edit_client(name):
             flash(tr.get("invalid_hourly_rate", "Neispravna cijena po satu."), "error")
             return redirect("/edit_client/" + urllib.parse.quote(name))
         hourly_rate_new = None if rate_parsed == "__blank__" else float(rate_parsed)
+        vat_parsed = parse_vat_rate_input(
+            f.get("vat_rate", ""), blank_action="preserve",
+        )
+        if vat_parsed == "__invalid__":
+            conn.close()
+            flash(tr.get("invalid_vat_rate", "Neispravna TVA stopa."), "error")
+            return redirect("/edit_client/" + urllib.parse.quote(name))
+        vat_rate_new = None if vat_parsed == "__blank__" else float(vat_parsed)
         if new_name:
             try:
                 # Phase 1: clients row (incl. optional rename).
@@ -15337,17 +15501,35 @@ def edit_client(name):
                 # whatever the invoice profiles page or an earlier
                 # save had set. If no profile exists at all, we fall
                 # back to 0 — the schema default.
-                existing_rate_row = c.execute(
-                    "SELECT hourly_rate FROM client_invoice_profiles WHERE client_name=?",
+                existing_prof_row = c.execute(
+                    "SELECT hourly_rate, vat_rate "
+                    "FROM client_invoice_profiles WHERE client_name=?",
                     (new_name,)
                 ).fetchone()
                 if hourly_rate_new is None:
-                    hourly_rate_to_store = float(existing_rate_row[0] or 0) if existing_rate_row else 0.0
+                    hourly_rate_to_store = (
+                        float(existing_prof_row[0] or 0)
+                        if existing_prof_row else 0.0
+                    )
                 else:
                     hourly_rate_to_store = float(hourly_rate_new)
+                # Blank vat_rate on the form never silently overwrites
+                # the stored percent — editing phone / notes must not
+                # mutate the historical VAT category. Likewise, picking
+                # a new client_type here never implicitly rewrites a
+                # vat_rate the admin already set.
+                if vat_rate_new is None:
+                    if existing_prof_row and existing_prof_row[1] is not None:
+                        vat_rate_to_store = float(existing_prof_row[1])
+                    else:
+                        vat_rate_to_store = default_vat_pct_for_client_type(
+                            client_type_raw,
+                        )
+                else:
+                    vat_rate_to_store = float(vat_rate_new)
                 # Phase 4: upsert the profile — one write-through for
-                # email + client_type + hourly_rate. Still the single
-                # source of truth; the /invoices/profile page keeps
+                # email + client_type + hourly_rate + vat_rate. Still
+                # the single source of truth; /invoices/profile keeps
                 # editing the same row. Shared with /add_client via
                 # upsert_client_invoice_profile().
                 upsert_client_invoice_profile(
@@ -15355,6 +15537,7 @@ def edit_client(name):
                     email=email,
                     client_type=client_type_raw,
                     hourly_rate=hourly_rate_to_store,
+                    vat_rate=vat_rate_to_store,
                 )
                 conn.commit()
             except Exception:
@@ -15375,19 +15558,23 @@ def edit_client(name):
     # same table used by /invoices/profile, so both screens edit the
     # same record.
     profile_row = c.execute(
-        "SELECT COALESCE(client_type,'private'), COALESCE(hourly_rate,0) "
+        "SELECT COALESCE(client_type,'private'), COALESCE(hourly_rate,0), vat_rate "
         "FROM client_invoice_profiles WHERE client_name=?",
         (name,)
     ).fetchone()
     conn.close()
     if not row:
         return redirect("/clients")
+    _ptype = (profile_row[0] if profile_row else "private")
+    _pvat  = (profile_row[2] if profile_row and profile_row[2] is not None
+              else default_vat_pct_for_client_type(_ptype))
     client = {
         "name": row[0], "address": row[1], "phone": row[2], "email": row[3],
         "contract_signed_at": row[4], "contract_from": row[5],
         "contract_to": row[6], "notes": row[7],
-        "client_type": (profile_row[0] if profile_row else "private"),
+        "client_type": _ptype,
         "hourly_rate": (float(profile_row[1]) if profile_row and profile_row[1] is not None else 0.0),
+        "vat_rate": float(_pvat),
     }
     return render_template_string(BASE_STYLE + header_html() + """
     <style>
@@ -15460,14 +15647,20 @@ def edit_client(name):
         <div class="cf-row">
           <div>
             <label class="cf-label">{{ tr.get("client_type","Tip klijenta") }}</label>
-            <select class="cf-input" name="client_type">
+            <select class="cf-input" id="editClientType" name="client_type">
               <option value="private" {% if client.client_type != 'pro' %}selected{% endif %}>
-                {{ tr.get("private_client","Privatno lice") }} — 8%
+                {{ tr.get("private_client","Privatno lice") }}
               </option>
               <option value="pro" {% if client.client_type == 'pro' %}selected{% endif %}>
-                {{ tr.get("pro_client","Profesionalni klijent") }} — 17%
+                {{ tr.get("pro_client","Profesionalni klijent") }}
               </option>
             </select>
+          </div>
+          <div>
+            <label class="cf-label">{{ tr.get("vat_rate","TVA") }} (%)</label>
+            <input class="cf-input" id="editClientVat" type="number" name="vat_rate"
+                   min="0" max="100" step="0.01" inputmode="decimal"
+                   value="{{ '%.2f'|format(client.vat_rate) }}">
           </div>
           <div>
             <label class="cf-label">{{ tr.get("hourly_rate","Cijena po satu") }} (EUR)</label>
@@ -15476,6 +15669,16 @@ def edit_client(name):
                    value="{{ '%.2f'|format(client.hourly_rate) if client.hourly_rate else '' }}">
           </div>
         </div>
+        <script>
+        (function () {
+          var sel = document.getElementById('editClientType');
+          var vat = document.getElementById('editClientVat');
+          if (!sel || !vat) return;
+          // Editing an existing client: NEVER rewrite a stored
+          // vat_rate just because the admin flipped the category.
+          // Explicitly no listener on sel's change.
+        })();
+        </script>
 
         <label class="cf-label">📝 {{ tr.get("notes","Napomena") }}</label>
         <textarea class="cf-textarea" name="notes">{{ client.notes }}</textarea>
@@ -15620,6 +15823,7 @@ def add_client():
     _MISSING = object()
     client_type_in = f.get("client_type", _MISSING)
     rate_raw       = f.get("hourly_rate", _MISSING)
+    vat_raw        = f.get("vat_rate",    _MISSING)
 
     client_type_val = normalize_client_type(
         None if client_type_in is _MISSING else client_type_in,
@@ -15636,6 +15840,18 @@ def add_client():
         return redirect("/clients")
     else:
         hourly_rate_val = float(rate_parsed)
+    vat_parsed = parse_vat_rate_input(
+        vat_raw, missing_sentinel=_MISSING, blank_action="reject",
+    )
+    if vat_parsed == "__missing__":
+        # Dashboard quick-add never typed a percent: suggest the
+        # historical default for the selected (or defaulted) type.
+        vat_rate_val = default_vat_pct_for_client_type(client_type_val)
+    elif vat_parsed == "__invalid__":
+        flash(tr.get("invalid_vat_rate", "Neispravna TVA stopa."), "error")
+        return redirect("/clients")
+    else:
+        vat_rate_val = float(vat_parsed)
 
     conn = get_conn(); c = conn.cursor()
     try:
@@ -15665,6 +15881,7 @@ def add_client():
             email=email,
             client_type=client_type_val,
             hourly_rate=hourly_rate_val,
+            vat_rate=vat_rate_val,
         )
         conn.commit()
     except Exception:
@@ -16058,10 +16275,12 @@ def clients_page():
     tr = t(); dark = get_theme() == "dark"
     conn = get_conn(); c = conn.cursor()
     clients = c.execute(
-        "SELECT name, address, COALESCE(phone,''), COALESCE(email,''), "
-        "COALESCE(contract_signed_at,''), COALESCE(contract_from,''), "
-        "COALESCE(contract_to,'') "
-        "FROM clients ORDER BY name"
+        "SELECT c.name, c.address, COALESCE(c.phone,''), COALESCE(c.email,''), "
+        "COALESCE(c.contract_signed_at,''), COALESCE(c.contract_from,''), "
+        "COALESCE(c.contract_to,''), p.vat_rate, p.hourly_rate "
+        "FROM clients c "
+        "LEFT JOIN client_invoice_profiles p ON p.client_name = c.name "
+        "ORDER BY c.name"
     ).fetchall()
     conn.close()
     return render_template_string(BASE_STYLE + header_html() + """
@@ -16135,16 +16354,37 @@ def clients_page():
                     text-transform:uppercase;letter-spacing:.04em;margin:4px 0 -4px;">
           💶 {{ tr.get("billing_section","Podaci za fakturisanje") }}
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-          <select name="client_type" aria-label="{{ tr.get('client_type','Tip klijenta') }}">
-            <option value="private">{{ tr.get("private_client","Privatno lice") }} — 8%</option>
-            <option value="pro">{{ tr.get("pro_client","Profesionalni klijent") }} — 17%</option>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+          <select id="addClientType" name="client_type" aria-label="{{ tr.get('client_type','Tip klijenta') }}">
+            <option value="private">{{ tr.get("private_client","Privatno lice") }}</option>
+            <option value="pro">{{ tr.get("pro_client","Profesionalni klijent") }}</option>
           </select>
+          <input id="addClientVat" name="vat_rate" type="number" min="0" max="100" step="0.01"
+                 inputmode="decimal" required value="8"
+                 placeholder="{{ tr.get('vat_rate','TVA') }} (%)"
+                 aria-label="{{ tr.get('vat_rate','TVA') }}">
           <input name="hourly_rate" type="number" min="0" step="0.01"
                  inputmode="decimal" required
                  placeholder="{{ tr.get('hourly_rate','Cijena po satu') }} (EUR)"
                  aria-label="{{ tr.get('hourly_rate','Cijena po satu') }}">
         </div>
+        <script>
+        (function () {
+          var sel = document.getElementById('addClientType');
+          var vat = document.getElementById('addClientVat');
+          if (!sel || !vat) return;
+          // Only re-suggest the rate while the admin has not touched
+          // the field. Once they type a custom value, flipping
+          // private/pro must not clobber it.
+          var dirty = false;
+          vat.addEventListener('input',  function () { dirty = true; });
+          vat.addEventListener('change', function () { dirty = true; });
+          sel.addEventListener('change', function () {
+            if (dirty) return;
+            vat.value = (sel.value === 'pro') ? '17' : '8';
+          });
+        })();
+        </script>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
           <div style="display:flex;flex-direction:column;gap:4px;">
             <label for="clientContractSigned" style="font-size:11px;font-weight:700;color:{{ '#94a3b8' if dark else '#64748b' }};">📅 {{ tr.get('contract_signed','Ugovor potpisan') }}</label>
@@ -16173,6 +16413,13 @@ def clients_page():
         {% if cl[2] %}<div class="client-card-addr">📞 {{ cl[2] }}</div>{% endif %}
         {% if cl[3] %}<div class="client-card-addr">✉ {{ cl[3] }}</div>{% endif %}
         {% if cl[5] and cl[6] %}<div class="client-card-addr">📅 {{ cl[5] }} → {{ cl[6] }}</div>{% endif %}
+        {% if cl[7] is not none or cl[8] %}
+        <div class="client-card-addr">💶
+          {% if cl[7] is not none %}TVA {{ format_vat_rate_pct(cl[7]) }}{% endif %}
+          {% if cl[7] is not none and cl[8] %} · {% endif %}
+          {% if cl[8] %}{{ '%.2f'|format(cl[8]) }} EUR/h{% endif %}
+        </div>
+        {% endif %}
         <div class="client-card-actions">
           <a href="/clients/view/{{ cl[0]|urlencode }}">{{ tr.get("details","Detalji") }}</a>
           <a href="/edit_client/{{ cl[0]|urlencode }}">{{ tr["edit"] }}</a>
@@ -16247,7 +16494,8 @@ def clients_page():
       applyFilter();
     })();
     </script>
-    """, tr=tr, dark=dark, clients=clients)
+    """, tr=tr, dark=dark, clients=clients,
+         format_vat_rate_pct=format_vat_rate_pct)
 
 
 @app.route("/backup")
