@@ -8125,7 +8125,102 @@ def index():
     <div class="grid">
         {% if is_admin %}
         <div class="card dashboard-panel panel-worker"><h3>{{ tr["add_worker"] }}</h3><form method="post" action="/add_worker" autocomplete="off"><input name="worker_name" placeholder="{{ tr['worker_name'] }}" required autocomplete="off"><input name="address" placeholder="{{ tr['address'] }}" autocomplete="off"><input name="contract_type" placeholder="{{ tr['contract_type'] }}" autocomplete="off"><label>{{ tr["contract_end_date"] }}</label><input name="contract_end_date" type="date"><button>{{ tr["add_worker"] }}</button></form></div>
-        <div class="card dashboard-panel panel-client"><h3>{{ tr["add_client"] }}</h3><form method="post" action="/add_client" autocomplete="off"><input name="client_name" placeholder="{{ tr['client_name'] }}" required autocomplete="off"><input name="address" placeholder="{{ tr['address'] }}" required autocomplete="off"><button>{{ tr["add_client"] }}</button></form></div>
+        <div class="card dashboard-panel panel-client">
+          <h3>{{ tr["add_client"] }}</h3>
+          {# Dashboard quick-add now carries the same billing fields as
+             the /clients page, submitted to the SAME /add_client route
+             with the SAME field names. All validation + the
+             upsert_client_invoice_profile transaction stays server-
+             side; no shadow logic lives here. #}
+          <style>
+            .pc-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+            .pc-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;}
+            .pc-field{display:flex;flex-direction:column;gap:3px;min-width:0;}
+            .pc-label{font-size:10.5px;font-weight:700;letter-spacing:.03em;
+                       color:{{ '#94a3b8' if dark else '#64748b' }};}
+            .pc-section{font-size:11px;font-weight:700;letter-spacing:.04em;
+                         text-transform:uppercase;margin-top:4px;
+                         color:{{ '#94a3b8' if dark else '#64748b' }};}
+            .pc-suffix{position:relative;}
+            .pc-suffix input{padding-right:24px;width:100%;box-sizing:border-box;}
+            .pc-suffix::after{content:attr(data-suffix);position:absolute;
+                               right:8px;top:50%;transform:translateY(-50%);
+                               pointer-events:none;font-size:12px;
+                               color:{{ '#9ca3af' if dark else '#64748b' }};}
+            .pc-help{margin:4px 0 0;font-size:10.5px;
+                      color:{{ '#9ca3af' if dark else '#64748b' }};}
+            @media (max-width:720px){
+              .pc-grid-2,.pc-grid-3{grid-template-columns:1fr;}
+            }
+          </style>
+          <form method="post" action="/add_client" autocomplete="off"
+                style="display:flex;flex-direction:column;gap:6px;">
+            <input type="hidden" name="next" value="/">
+            <input name="client_name" placeholder="{{ tr['client_name'] }}" required autocomplete="off">
+            <input name="address" placeholder="{{ tr['address'] }}" required autocomplete="off">
+            <div class="pc-grid-2">
+              <input name="phone" placeholder="📞 {{ tr.get('phone','Telefon') }}" autocomplete="off">
+              <input name="email" type="email" placeholder="✉ Email" autocomplete="off">
+            </div>
+            <div class="pc-section">💶 {{ tr.get("billing_section","Podaci za fakturisanje") }}</div>
+            <div class="pc-grid-3">
+              <div class="pc-field">
+                <label class="pc-label" for="dashClientType">{{ tr.get("client_type","Tip klijenta") }}</label>
+                <select id="dashClientType" name="client_type">
+                  <option value="private">{{ tr.get("private_client","Privatno lice") }}</option>
+                  <option value="pro">{{ tr.get("pro_client","Profesionalni klijent") }}</option>
+                </select>
+              </div>
+              <div class="pc-field">
+                <label class="pc-label" for="dashClientVat">{{ tr.get("vat_rate","TVA") }} (%)</label>
+                <div class="pc-suffix" data-suffix="%">
+                  <input id="dashClientVat" name="vat_rate" type="number"
+                         min="0" max="100" step="0.01" inputmode="decimal"
+                         required value="8">
+                </div>
+              </div>
+              <div class="pc-field">
+                <label class="pc-label" for="dashClientRate">{{ tr.get("hourly_rate","Cijena po satu") }} (EUR)</label>
+                <input id="dashClientRate" name="hourly_rate" type="number"
+                       min="0" step="0.01" inputmode="decimal" required>
+              </div>
+            </div>
+            <div class="pc-grid-3">
+              <div class="pc-field">
+                <label class="pc-label" for="dashCSigned">📅 {{ tr.get("contract_signed","Ugovor potpisan") }}</label>
+                <input id="dashCSigned" name="contract_signed_at" type="date">
+              </div>
+              <div class="pc-field">
+                <label class="pc-label" for="dashCFrom">{{ tr.get("contract_from","Ugovor od") }}</label>
+                <input id="dashCFrom" name="contract_from" type="date">
+              </div>
+              <div class="pc-field">
+                <label class="pc-label" for="dashCTo">{{ tr.get("contract_to","Ugovor do") }}</label>
+                <input id="dashCTo" name="contract_to" type="date">
+              </div>
+            </div>
+            <p class="pc-help">{{ tr.get("billing_future_only","Primjenjuje se samo na buduce fakture.") }}</p>
+            <button>{{ tr["add_client"] }}</button>
+          </form>
+          <script>
+          (function () {
+            var sel = document.getElementById('dashClientType');
+            var vat = document.getElementById('dashClientVat');
+            if (!sel || !vat) return;
+            // Same sticky rule as the /clients add card: only re-
+            // suggest the rate while the admin has not touched the
+            // VAT field. Flipping type after a manual edit keeps
+            // the typed value.
+            var dirty = false;
+            vat.addEventListener('input',  function () { dirty = true; });
+            vat.addEventListener('change', function () { dirty = true; });
+            sel.addEventListener('change', function () {
+              if (dirty) return;
+              vat.value = (sel.value === 'pro') ? '17' : '8';
+            });
+          })();
+          </script>
+        </div>
 
         <div class="card dashboard-panel panel-shift">
             <h3>{{ tr["add_shift"] }}</h3>
@@ -15863,8 +15958,16 @@ def add_client():
     cfrom   = f.get("contract_from", "").strip()
     cto     = f.get("contract_to", "").strip()
     notes   = f.get("notes", "").strip()
+    # Where to send the admin back on both success and error. The
+    # dashboard card submits with next=/ so the admin stays on the
+    # home page and sees the flash there; /clients posts omit the
+    # field and continue to land on /clients. Guard: only accept
+    # same-origin local paths (must start with '/'); anything else
+    # falls back to /clients.
+    _nxt = (f.get("next") or "").strip()
+    return_url = _nxt if _nxt.startswith("/") and not _nxt.startswith("//") else "/clients"
     if not (name and address):
-        return redirect("/clients")
+        return redirect(return_url)
 
     # Discriminate "field missing from the request" (dashboard quick-
     # add, which only submits name+address) from "field present but
@@ -15888,7 +15991,7 @@ def add_client():
     elif rate_parsed == "__invalid__":
         flash(tr.get("invalid_hourly_rate", "Neispravna cijena po satu."),
               "error")
-        return redirect("/clients")
+        return redirect(return_url)
     else:
         hourly_rate_val = float(rate_parsed)
     vat_parsed = parse_vat_rate_input(
@@ -15900,7 +16003,7 @@ def add_client():
         vat_rate_val = default_vat_pct_for_client_type(client_type_val)
     elif vat_parsed == "__invalid__":
         flash(tr.get("invalid_vat_rate", "Neispravna TVA stopa."), "error")
-        return redirect("/clients")
+        return redirect(return_url)
     else:
         vat_rate_val = float(vat_parsed)
 
@@ -15926,7 +16029,7 @@ def add_client():
                    .replace("{name}", name),
                 "error",
             )
-            return redirect("/clients")
+            return redirect(return_url)
         upsert_client_invoice_profile(
             c, name,
             email=email,
@@ -15940,14 +16043,14 @@ def add_client():
         app.logger.exception("add_client: save failed for %r", name)
         conn.close()
         flash(tr.get("save_failed", "Čuvanje nije uspjelo."), "error")
-        return redirect("/clients")
+        return redirect(return_url)
     conn.close()
     flash(
         tr.get("client_added_flash", "✓ Klijent dodat: {name}")
           .replace("{name}", name),
         "ok",
     )
-    return redirect("/clients")
+    return redirect(return_url)
 
 @app.route("/add_shift", methods=["POST"])
 def add_shift():
