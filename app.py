@@ -2000,7 +2000,7 @@ INVOICE_TRANSLATIONS = {
         "invoices": "Fakture", "invoice_settings": "Podesavanja faktura", "invoice_text": "Tekst na fakturi",
         "payment_terms": "Modalitet placanja", "bank_account": "Racun za uplatu", "invoice_profiles": "Profili klijenata za fakture",
         "client_type": "Tip klijenta", "private_client": "Privatno lice", "pro_client": "Profesionalni klijent",
-        "hourly_rate": "Cijena po satu", "billing_section": "Podaci za fakturisanje", "invalid_hourly_rate": "Neispravna cijena po satu.", "email": "Email", "vat_rate": "TVA", "generate_invoice": "Generisi fakturu",
+        "hourly_rate": "Cijena po satu", "billing_section": "Podaci za fakturisanje", "invalid_hourly_rate": "Neispravna cijena po satu.", "save_failed": "Čuvanje nije uspjelo.", "client_already_exists": "Klijent sa tim imenom već postoji.", "client_added_flash": "✓ Klijent dodat: {name}", "email": "Email", "vat_rate": "TVA", "generate_invoice": "Generisi fakturu",
         "download_all_invoices": "Preuzmi sve fakture PDF", "annual_certificate": "Godisnji certifikat",
         "date_from": "Od datuma", "date_to": "Do datuma", "invoice_date": "Datum fakture",
         "invoice_number": "Broj fakture", "amount_without_vat": "Iznos bez TVA", "amount_with_vat": "Iznos sa TVA",
@@ -2093,7 +2093,7 @@ INVOICE_TRANSLATIONS["en"] = {
     "invoices": "Invoices", "invoice_settings": "Invoice settings", "invoice_text": "Invoice text",
     "payment_terms": "Payment terms", "bank_account": "Bank account", "invoice_profiles": "Client invoice profiles",
     "client_type": "Client type", "private_client": "Private client", "pro_client": "Professional client",
-    "hourly_rate": "Hourly rate", "billing_section": "Billing details", "invalid_hourly_rate": "Invalid hourly rate.", "email": "Email", "vat_rate": "VAT", "generate_invoice": "Generate invoice",
+    "hourly_rate": "Hourly rate", "billing_section": "Billing details", "invalid_hourly_rate": "Invalid hourly rate.", "save_failed": "Save failed.", "client_already_exists": "A client with this name already exists.", "client_added_flash": "✓ Client added: {name}", "email": "Email", "vat_rate": "VAT", "generate_invoice": "Generate invoice",
     "download_all_invoices": "Download all invoice PDFs", "annual_certificate": "Annual certificate",
     "date_from": "Date from", "date_to": "Date to", "invoice_date": "Invoice date",
     "invoice_number": "Invoice number", "amount_without_vat": "Amount without VAT", "amount_with_vat": "Amount with VAT",
@@ -2183,7 +2183,7 @@ INVOICE_TRANSLATIONS["fr"] = {
     "invoices": "Factures", "invoice_settings": "Parametres des factures", "invoice_text": "Texte sur la facture",
     "payment_terms": "Conditions et modalites de paiement", "bank_account": "Compte bancaire", "invoice_profiles": "Profils de facturation clients",
     "client_type": "Type de client", "private_client": "Client prive", "pro_client": "Client professionnel",
-    "hourly_rate": "Prix horaire", "billing_section": "Donnees de facturation", "invalid_hourly_rate": "Prix horaire invalide.", "email": "Email", "vat_rate": "TVA", "generate_invoice": "Generer facture",
+    "hourly_rate": "Prix horaire", "billing_section": "Donnees de facturation", "invalid_hourly_rate": "Prix horaire invalide.", "save_failed": "Enregistrement echoue.", "client_already_exists": "Un client avec ce nom existe deja.", "client_added_flash": "✓ Client ajoute : {name}", "email": "Email", "vat_rate": "TVA", "generate_invoice": "Generer facture",
     "download_all_invoices": "Telecharger toutes les factures PDF", "annual_certificate": "Certificat annuel",
     "date_from": "Date du", "date_to": "Date au", "invoice_date": "Date de facture",
     "invoice_number": "Facture no", "amount_without_vat": "Total HT", "amount_with_vat": "Total TTC",
@@ -2273,7 +2273,7 @@ INVOICE_TRANSLATIONS["de"] = {
     "invoices": "Rechnungen", "invoice_settings": "Rechnungseinstellungen", "invoice_text": "Rechnungstext",
     "payment_terms": "Zahlungsbedingungen", "bank_account": "Bankkonto", "invoice_profiles": "Kundenprofile fuer Rechnungen",
     "client_type": "Kundentyp", "private_client": "Privatkunde", "pro_client": "Gewerbekunde",
-    "hourly_rate": "Stundensatz", "billing_section": "Rechnungsangaben", "invalid_hourly_rate": "Ungultiger Stundensatz.", "email": "Email", "vat_rate": "MwSt.", "generate_invoice": "Rechnung erstellen",
+    "hourly_rate": "Stundensatz", "billing_section": "Rechnungsangaben", "invalid_hourly_rate": "Ungultiger Stundensatz.", "save_failed": "Speichern fehlgeschlagen.", "client_already_exists": "Ein Kunde mit diesem Namen existiert bereits.", "client_added_flash": "✓ Kunde hinzugefugt: {name}", "email": "Email", "vat_rate": "MwSt.", "generate_invoice": "Rechnung erstellen",
     "download_all_invoices": "Alle Rechnungen als PDF herunterladen", "annual_certificate": "Jahreszertifikat",
     "date_from": "Datum von", "date_to": "Datum bis", "invoice_date": "Rechnungsdatum",
     "invoice_number": "Rechnungsnummer", "amount_without_vat": "Betrag ohne MwSt.", "amount_with_vat": "Betrag mit MwSt.",
@@ -2363,7 +2363,7 @@ INVOICE_TRANSLATIONS["pt"] = {
     "invoices": "Faturas", "invoice_settings": "Definicoes de faturas", "invoice_text": "Texto na fatura",
     "payment_terms": "Condicoes de pagamento", "bank_account": "Conta bancaria", "invoice_profiles": "Perfis de clientes para faturas",
     "client_type": "Tipo de cliente", "private_client": "Cliente privado", "pro_client": "Cliente profissional",
-    "hourly_rate": "Preco por hora", "billing_section": "Dados de faturacao", "invalid_hourly_rate": "Preco por hora invalido.", "email": "Email", "vat_rate": "IVA", "generate_invoice": "Gerar fatura",
+    "hourly_rate": "Preco por hora", "billing_section": "Dados de faturacao", "invalid_hourly_rate": "Preco por hora invalido.", "save_failed": "Falha ao guardar.", "client_already_exists": "Ja existe um cliente com este nome.", "client_added_flash": "✓ Cliente adicionado: {name}", "email": "Email", "vat_rate": "IVA", "generate_invoice": "Gerar fatura",
     "download_all_invoices": "Descarregar todas as faturas PDF", "annual_certificate": "Certificado anual",
     "date_from": "Data de", "date_to": "Data ate", "invoice_date": "Data da fatura",
     "invoice_number": "Numero da fatura", "amount_without_vat": "Valor sem IVA", "amount_with_vat": "Valor com IVA",
@@ -3442,6 +3442,116 @@ def get_invoice_profiles(conn):
 
 def invoice_vat_rate(client_type):
     return 0.17 if client_type == "pro" else 0.08
+
+
+# Shared whitelist for the two client-type values. Both /add_client
+# and /edit_client — plus any future admin surface that writes to
+# client_invoice_profiles — must agree on the same vocabulary so a
+# typo cannot sneak a third variant into the DB.
+CLIENT_TYPES_ALLOWED = ("private", "pro")
+
+
+def normalize_client_type(raw, default="private"):
+    """Validate client_type against the shared whitelist.
+
+    Any value outside {private, pro} collapses to `default` ("private"
+    today, matching the schema default on client_invoice_profiles).
+    """
+    val = (raw or "").strip().lower()
+    return val if val in CLIENT_TYPES_ALLOWED else default
+
+
+def parse_hourly_rate_input(raw, *, missing_sentinel=object(),
+                             blank_action="reject"):
+    """Parse an hourly_rate form field into a float.
+
+    Accepts '.' or ',' as the decimal separator. Returns one of:
+      - a non-negative float on success,
+      - the string "__blank__" when the field was PRESENT but empty
+        AND blank_action="preserve" (callers like /edit_client treat
+        this as "keep stored value"),
+      - the string "__missing__" when the raw value is the sentinel
+        (field not in request at all — e.g. the dashboard quick-add
+        form, which must still work and fall back to 0),
+      - the string "__invalid__" on any garbage (NaN, inf, negative,
+        non-numeric text).
+
+    This gives callers one shared parser without forcing them into
+    the same error path — /add_client rejects blanks, /edit_client
+    preserves them, and the dashboard quick-add tolerates missing.
+    """
+    if raw is missing_sentinel:
+        return "__missing__"
+    text = (raw or "").strip().replace(",", ".")
+    if text == "":
+        return "__blank__" if blank_action == "preserve" else "__invalid__"
+    try:
+        value = float(text)
+    except (TypeError, ValueError):
+        return "__invalid__"
+    if value < 0 or not math.isfinite(value):
+        return "__invalid__"
+    return value
+
+
+def upsert_client_invoice_profile(cursor, client_name, *,
+                                    email=None, client_type=None,
+                                    hourly_rate=None):
+    """Upsert a client_invoice_profiles row, writing ONLY the fields
+    the caller passed (so the dashboard quick-add path doesn't
+    silently rewrite client_type/hourly_rate it never saw).
+
+    Guarantees exactly one profile per client_name (the PK already
+    enforces that; this helper is the single place that performs
+    the write-through, so both the add and edit screens stay in
+    sync and no caller forgets a column).
+    """
+    # Collect fields to actually touch; everything else is left to
+    # the DB default on INSERT or the existing value on UPDATE.
+    sets_update = []
+    update_values = []
+    insert_cols = ["client_name"]
+    insert_vals = [client_name]
+    insert_placeholders = ["?"]
+
+    def _add(col, val, default_literal):
+        insert_cols.append(col)
+        insert_vals.append(val)
+        insert_placeholders.append("?")
+        sets_update.append(f"{col} = excluded.{col}")
+        update_values.append(val)
+
+    # For INSERT path we need to supply SOMETHING per column that
+    # has no default we rely on. Email, client_type, hourly_rate all
+    # have schema defaults ('', 'private', 0) so when the caller
+    # omits one we fall back to those on insert and skip it in the
+    # UPDATE set — a true no-op for that column.
+    if email is not None:
+        _add("email", email, "''")
+    if client_type is not None:
+        _add("client_type", normalize_client_type(client_type), "'private'")
+    if hourly_rate is not None:
+        _add("hourly_rate", float(hourly_rate), "0")
+
+    if not sets_update:
+        # Caller passed nothing beyond client_name: nothing to touch,
+        # but ensure the row exists so FK-like reads find it.
+        cursor.execute(
+            "INSERT INTO client_invoice_profiles (client_name) "
+            "VALUES (?) ON CONFLICT(client_name) DO NOTHING",
+            (client_name,),
+        )
+        return
+
+    cols_sql   = ", ".join(insert_cols)
+    place_sql  = ", ".join(insert_placeholders)
+    update_sql = ", ".join(sets_update)
+    cursor.execute(
+        f"INSERT INTO client_invoice_profiles ({cols_sql}) "
+        f"VALUES ({place_sql}) "
+        f"ON CONFLICT(client_name) DO UPDATE SET {update_sql}",
+        tuple(insert_vals),
+    )
 
 
 _INVOICE_ADDR_POSTCODE_RE = re.compile(r"\bL[-\s]?(\d{4})\b", re.IGNORECASE)
@@ -15191,20 +15301,16 @@ def edit_client(name):
         # silently rewrite a saved rate to 0 just because the admin
         # left the field untouched. Any other garbage (non-numeric,
         # negative) fails with a flash and no partial save.
-        client_type_raw = (f.get("client_type", "private") or "private").strip().lower()
-        if client_type_raw not in ("private", "pro"):
-            client_type_raw = "private"
-        rate_raw = (f.get("hourly_rate", "") or "").strip().replace(",", ".")
-        hourly_rate_new = None  # None → keep existing value
-        if rate_raw != "":
-            try:
-                hourly_rate_new = float(rate_raw)
-                if hourly_rate_new < 0 or not math.isfinite(hourly_rate_new):
-                    raise ValueError("negative or non-finite")
-            except (TypeError, ValueError):
-                conn.close()
-                flash(tr.get("invalid_hourly_rate", "Neispravna cijena po satu."), "error")
-                return redirect("/edit_client/" + urllib.parse.quote(name))
+        client_type_raw = normalize_client_type(f.get("client_type"),
+                                                 default="private")
+        rate_parsed = parse_hourly_rate_input(
+            f.get("hourly_rate", ""), blank_action="preserve",
+        )
+        if rate_parsed == "__invalid__":
+            conn.close()
+            flash(tr.get("invalid_hourly_rate", "Neispravna cijena po satu."), "error")
+            return redirect("/edit_client/" + urllib.parse.quote(name))
+        hourly_rate_new = None if rate_parsed == "__blank__" else float(rate_parsed)
         if new_name:
             try:
                 # Phase 1: clients row (incl. optional rename).
@@ -15242,16 +15348,13 @@ def edit_client(name):
                 # Phase 4: upsert the profile — one write-through for
                 # email + client_type + hourly_rate. Still the single
                 # source of truth; the /invoices/profile page keeps
-                # editing the same row.
-                c.execute(
-                    "INSERT INTO client_invoice_profiles "
-                    "(client_name, email, client_type, hourly_rate) "
-                    "VALUES (?, ?, ?, ?) "
-                    "ON CONFLICT(client_name) DO UPDATE SET "
-                    "email = excluded.email, "
-                    "client_type = excluded.client_type, "
-                    "hourly_rate = excluded.hourly_rate",
-                    (new_name, email, client_type_raw, hourly_rate_to_store),
+                # editing the same row. Shared with /add_client via
+                # upsert_client_invoice_profile().
+                upsert_client_invoice_profile(
+                    c, new_name,
+                    email=email,
+                    client_type=client_type_raw,
+                    hourly_rate=hourly_rate_to_store,
                 )
                 conn.commit()
             except Exception:
@@ -15496,6 +15599,7 @@ def add_worker():
 def add_client():
     if session.get("role") != "admin":
         return redirect("/")
+    tr = t()
     f = request.form
     name    = f.get("client_name", "").strip()
     address = f.get("address", "").strip()
@@ -15505,8 +15609,40 @@ def add_client():
     cfrom   = f.get("contract_from", "").strip()
     cto     = f.get("contract_to", "").strip()
     notes   = f.get("notes", "").strip()
-    if name and address:
-        conn = get_conn(); c = conn.cursor()
+    if not (name and address):
+        return redirect("/clients")
+
+    # Discriminate "field missing from the request" (dashboard quick-
+    # add, which only submits name+address) from "field present but
+    # empty" (the full /clients form, where empty must fail). Shared
+    # whitelist + parser used by /edit_client so the two surfaces
+    # cannot diverge.
+    _MISSING = object()
+    client_type_in = f.get("client_type", _MISSING)
+    rate_raw       = f.get("hourly_rate", _MISSING)
+
+    client_type_val = normalize_client_type(
+        None if client_type_in is _MISSING else client_type_in,
+        default="private",
+    )
+    rate_parsed = parse_hourly_rate_input(
+        rate_raw, missing_sentinel=_MISSING, blank_action="reject",
+    )
+    if rate_parsed == "__missing__":
+        hourly_rate_val = 0.0  # dashboard quick-add path keeps 0 default
+    elif rate_parsed == "__invalid__":
+        flash(tr.get("invalid_hourly_rate", "Neispravna cijena po satu."),
+              "error")
+        return redirect("/clients")
+    else:
+        hourly_rate_val = float(rate_parsed)
+
+    conn = get_conn(); c = conn.cursor()
+    try:
+        # Atomic insert: if the clients row doesn't actually land
+        # (duplicate name under INSERT OR IGNORE → rowcount 0) we
+        # bail out without ever touching client_invoice_profiles,
+        # so no spurious profile is created for an existing client.
         c.execute(
             "INSERT OR IGNORE INTO clients "
             "(name, address, phone, email, contract_signed_at, "
@@ -15514,18 +15650,35 @@ def add_client():
             "VALUES (?,?,?,?,?,?,?,?)",
             (name, address, phone, email, csigned, cfrom, cto, notes),
         )
-        # Write-through: keep client_invoice_profiles.email in sync so
-        # the email-sending pipeline (which reads from there) picks up
-        # the new address. Always upsert — even when email is empty —
-        # so a re-add of a previously-deleted client doesn't inherit
-        # a stale profile email.
-        c.execute(
-            "INSERT INTO client_invoice_profiles (client_name, email) "
-            "VALUES (?, ?) ON CONFLICT(client_name) DO UPDATE SET "
-            "email = excluded.email",
-            (name, email),
+        inserted = (c.rowcount or 0) > 0
+        if not inserted:
+            conn.rollback(); conn.close()
+            flash(
+                tr.get("client_already_exists",
+                       "Klijent sa tim imenom već postoji.")
+                   .replace("{name}", name),
+                "error",
+            )
+            return redirect("/clients")
+        upsert_client_invoice_profile(
+            c, name,
+            email=email,
+            client_type=client_type_val,
+            hourly_rate=hourly_rate_val,
         )
-        conn.commit(); conn.close()
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        app.logger.exception("add_client: save failed for %r", name)
+        conn.close()
+        flash(tr.get("save_failed", "Čuvanje nije uspjelo."), "error")
+        return redirect("/clients")
+    conn.close()
+    flash(
+        tr.get("client_added_flash", "✓ Klijent dodat: {name}")
+          .replace("{name}", name),
+        "ok",
+    )
     return redirect("/clients")
 
 @app.route("/add_shift", methods=["POST"])
@@ -15977,6 +16130,20 @@ def clients_page():
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
           <input name="phone" placeholder="📞 {{ tr.get('phone','Telefon') }}">
           <input name="email" type="email" placeholder="✉ Email">
+        </div>
+        <div style="font-size:12px;font-weight:700;color:{{ '#94a3b8' if dark else '#64748b' }};
+                    text-transform:uppercase;letter-spacing:.04em;margin:4px 0 -4px;">
+          💶 {{ tr.get("billing_section","Podaci za fakturisanje") }}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <select name="client_type" aria-label="{{ tr.get('client_type','Tip klijenta') }}">
+            <option value="private">{{ tr.get("private_client","Privatno lice") }} — 8%</option>
+            <option value="pro">{{ tr.get("pro_client","Profesionalni klijent") }} — 17%</option>
+          </select>
+          <input name="hourly_rate" type="number" min="0" step="0.01"
+                 inputmode="decimal" required
+                 placeholder="{{ tr.get('hourly_rate','Cijena po satu') }} (EUR)"
+                 aria-label="{{ tr.get('hourly_rate','Cijena po satu') }}">
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
           <div style="display:flex;flex-direction:column;gap:4px;">
