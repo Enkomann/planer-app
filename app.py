@@ -15958,14 +15958,12 @@ def add_client():
     cfrom   = f.get("contract_from", "").strip()
     cto     = f.get("contract_to", "").strip()
     notes   = f.get("notes", "").strip()
-    # Where to send the admin back on both success and error. The
-    # dashboard card submits with next=/ so the admin stays on the
-    # home page and sees the flash there; /clients posts omit the
-    # field and continue to land on /clients. Guard: only accept
-    # same-origin local paths (must start with '/'); anything else
-    # falls back to /clients.
-    _nxt = (f.get("next") or "").strip()
-    return_url = _nxt if _nxt.startswith("/") and not _nxt.startswith("//") else "/clients"
+    # Where to send the admin back on both success and error.
+    # Only two valid landing pages: the dashboard (when the home
+    # page's add-client card posted) and /clients. Explicit
+    # two-value allowlist is simpler than parsing "safe local
+    # path" rules and leaves zero room for an open redirect.
+    return_url = "/" if f.get("next") == "/" else "/clients"
     if not (name and address):
         return redirect(return_url)
 
