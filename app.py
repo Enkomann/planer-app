@@ -395,6 +395,8 @@ TRANSLATIONS = {
         "email_type_invoice": "Faktura",
         "email_type_reminder": "Podsjetnik",
         "email_type_unknown": "Nepoznato",
+        "search_clients_placeholder": "Pretrazi klijente",
+        "clients_no_match": "Nema pronadenih klijenata",
         "invoice_date_basis": "Datum fakture",
         "work_period_basis": "Period rada",
         "clients_pdf_title": "Lista klijenata",
@@ -480,6 +482,8 @@ TRANSLATIONS["fr"].update({
     "email_type_invoice": "Facture",
     "email_type_reminder": "Rappel",
     "email_type_unknown": "Inconnu",
+    "search_clients_placeholder": "Rechercher un client",
+    "clients_no_match": "Aucun client trouve",
     "invoice_date_basis": "Date de facture",
     "work_period_basis": "Periode de travail",
     "clients_pdf_title": "Liste des clients",
@@ -540,6 +544,8 @@ TRANSLATIONS["en"].update({
     "email_type_invoice": "Invoice",
     "email_type_reminder": "Reminder",
     "email_type_unknown": "Unknown",
+    "search_clients_placeholder": "Search clients",
+    "clients_no_match": "No clients found",
     "invoice_date_basis": "Invoice date",
     "work_period_basis": "Work period",
     "clients_pdf_title": "Clients list",
@@ -567,6 +573,8 @@ TRANSLATIONS["de"].update({
     "email_type_invoice": "Rechnung",
     "email_type_reminder": "Erinnerung",
     "email_type_unknown": "Unbekannt",
+    "search_clients_placeholder": "Kunden suchen",
+    "clients_no_match": "Keine Kunden gefunden",
     "invoice_date_basis": "Rechnungsdatum",
     "work_period_basis": "Arbeitszeitraum",
     "clients_pdf_title": "Kundenliste",
@@ -600,6 +608,8 @@ TRANSLATIONS["pt"].update({
     "email_type_invoice": "Fatura",
     "email_type_reminder": "Lembrete",
     "email_type_unknown": "Desconhecido",
+    "search_clients_placeholder": "Pesquisar clientes",
+    "clients_no_match": "Nenhum cliente encontrado",
     "invoice_date_basis": "Data da fatura",
     "work_period_basis": "Periodo de trabalho",
     "clients_pdf_title": "Lista de clientes",
@@ -15315,11 +15325,51 @@ def clients_page():
     .add-client-card{background:{{ '#191919' if dark else '#f8fbff' }};
                      border:2px dashed {{ '#2c2c30' if dark else '#cbd5e1' }};
                      border-radius:12px;padding:20px;max-width:480px;}
+    .clients-search{position:relative;margin-top:16px;max-width:480px;}
+    .clients-search input{
+        width:100%;box-sizing:border-box;padding:10px 40px 10px 38px;
+        border-radius:10px;font-size:14px;
+        background:{{ '#1d1d1f' if dark else '#ffffff' }};
+        color:{{ '#e2e8f0' if dark else '#0f172a' }};
+        border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};
+        outline:none;
+    }
+    .clients-search input:focus{border-color:{{ '#60a5fa' if dark else '#2563eb' }};}
+    .clients-search .cs-icon{
+        position:absolute;left:12px;top:50%;transform:translateY(-50%);
+        pointer-events:none;font-size:16px;line-height:1;
+        color:{{ '#9ca3af' if dark else '#64748b' }};
+    }
+    .clients-search .cs-clear{
+        position:absolute;right:6px;top:50%;transform:translateY(-50%);
+        width:28px;height:28px;border-radius:999px;padding:0;
+        border:0;background:transparent;cursor:pointer;font-size:18px;
+        line-height:1;color:{{ '#9ca3af' if dark else '#64748b' }};
+        display:none;
+    }
+    .clients-search .cs-clear:hover{
+        background:{{ 'rgba(255,255,255,.06)' if dark else '#f1f5f9' }};
+        color:{{ '#e2e8f0' if dark else '#0f172a' }};
+    }
+    .clients-search.has-text .cs-clear{display:inline-flex;align-items:center;justify-content:center;}
+    .clients-no-match{display:none;padding:20px;color:{{ '#9ca3af' if dark else '#64748b' }};}
+    .clients-grid.is-empty + .clients-no-match{display:block;}
+    @media (max-width:720px){ .clients-search{max-width:none;} }
     </style>
     <h1>🏢 {{ tr["clients"] }}</h1>
     <a class="back-button" href="/">{{ tr["back"] }}</a>
     <a class="back-button" href="/clients/pdf" target="_blank" rel="noopener"
        style="margin-left:8px;">📄 {{ tr.get("clients_pdf","PDF lista klijenata") }}</a>
+
+    <div class="clients-search" id="clientsSearchBox">
+      <span class="cs-icon" aria-hidden="true">🔍</span>
+      <input type="search" id="clientsSearch" autocomplete="off" spellcheck="false"
+             placeholder="{{ tr.get('search_clients_placeholder','Pretrazi klijente') }}"
+             aria-label="{{ tr.get('search_clients_placeholder','Pretrazi klijente') }}">
+      <button type="button" class="cs-clear" id="clientsSearchClear"
+              title="{{ tr.get('search_clients_placeholder','Pretrazi klijente') }}"
+              aria-label="{{ tr.get('search_clients_placeholder','Pretrazi klijente') }}">×</button>
+    </div>
 
     <div class="add-client-card" style="margin-top:16px;">
       <h3 style="margin:0 0 12px;">+ {{ tr["add_client"] }}</h3>
@@ -15348,9 +15398,10 @@ def clients_page():
       </form>
     </div>
 
-    <div class="clients-grid">
+    <div class="clients-grid" id="clientsGrid">
       {% for cl in clients %}
-      <div class="client-card">
+      {% set _search = ((cl[0] or '') ~ ' ' ~ (cl[1] or '') ~ ' ' ~ (cl[2] or '') ~ ' ' ~ (cl[3] or '')) | lower %}
+      <div class="client-card" data-search="{{ _search }}">
         <a class="client-card-name" href="/clients/view/{{ cl[0]|urlencode }}"
            style="text-decoration:none;color:inherit;">🏢 {{ cl[0] }}</a>
         {% if cl[1] %}<div class="client-card-addr">📍 {{ cl[1] }}</div>{% endif %}
@@ -15371,6 +15422,66 @@ def clients_page():
       <div class="muted" style="padding:20px;">Nema unesenih klijenata.</div>
       {% endif %}
     </div>
+    <div class="clients-no-match" id="clientsNoMatch">
+      {{ tr.get("clients_no_match","Nema pronadenih klijenata") }}
+    </div>
+    <script>
+    (function () {
+      var box    = document.getElementById('clientsSearchBox');
+      var input  = document.getElementById('clientsSearch');
+      var clear  = document.getElementById('clientsSearchClear');
+      var grid   = document.getElementById('clientsGrid');
+      if (!input || !grid) return;
+      var cards  = grid.querySelectorAll('.client-card');
+
+      function normalize(s) {
+        s = String(s || '').toLowerCase();
+        try { s = s.normalize('NFD').replace(/[̀-ͯ]/g, ''); } catch (e) {}
+        return s;
+      }
+
+      // Pre-normalize card haystacks once, so each keystroke is O(n cards).
+      cards.forEach(function (card) {
+        card.dataset.searchNorm = normalize(card.dataset.search || '');
+      });
+
+      function applyFilter() {
+        var qRaw = (input.value || '').trim();
+        var q = normalize(qRaw);
+        box.classList.toggle('has-text', qRaw.length > 0);
+        var any = false;
+        if (!q) {
+          cards.forEach(function (card) { card.style.display = ''; });
+          any = cards.length > 0;
+        } else {
+          cards.forEach(function (card) {
+            var match = card.dataset.searchNorm.indexOf(q) !== -1;
+            card.style.display = match ? '' : 'none';
+            if (match) any = true;
+          });
+        }
+        // Flag the grid so the empty-state message appears via CSS.
+        grid.classList.toggle('is-empty', !any && cards.length > 0);
+      }
+
+      input.addEventListener('input', applyFilter);
+      input.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape' && input.value !== '') {
+          ev.stopPropagation();
+          input.value = '';
+          applyFilter();
+          input.focus();
+        }
+      });
+      clear.addEventListener('click', function () {
+        input.value = '';
+        applyFilter();
+        input.focus();
+      });
+
+      applyFilter();
+    })();
+    </script>
     """, tr=tr, dark=dark, clients=clients)
 
 
