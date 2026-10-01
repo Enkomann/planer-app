@@ -996,7 +996,7 @@ TRANSLATIONS["bos"].update({
     "clear_filter": "Ocisti filter",
     "filter_active": "Filter aktivan",
     "showing_all": "Prikaz svih sacuvanih faktura",
-    "inv_gen_no_rate": "Bez postavljene cijene", "inv_gen_empty": "Nema smjena ili klijenata sa postavljenom cijenom.",
+    "inv_gen_no_rate": "Bez postavljene cijene", "inv_gen_no_rate_help": "Ovi klijenti nemaju postavljenu cijenu po satu. Faktura nece biti generisana dok se ne unese cijena.", "inv_gen_empty": "Nema smjena ili klijenata sa postavljenom cijenom.",
     "inv_gen_failed": "Nije uspjelo upisivanje",
     "inv_convert_banner": "Uređuješ automatski generisanu fakturu br. {num} — sačuvaj da pretvoriš u ručnu fakturu.",
     "zip_unavail_title": "Dokumenti privremeno nisu dostupni",
@@ -1049,7 +1049,7 @@ TRANSLATIONS["en"].update({
     "clear_filter": "Clear filter",
     "filter_active": "Filter active",
     "showing_all": "Showing all saved invoices",
-    "inv_gen_no_rate": "No rate set", "inv_gen_empty": "No shifts or clients with a rate in this period.",
+    "inv_gen_no_rate": "No rate set", "inv_gen_no_rate_help": "These clients have no hourly rate set. No invoice will be generated until a rate is entered.", "inv_gen_empty": "No shifts or clients with a rate in this period.",
     "inv_gen_failed": "Could not save",
     "inv_convert_banner": "Editing auto-generated invoice #{num} — save to convert it to a manual invoice.",
     "zip_unavail_title": "Documents temporarily unavailable",
@@ -1102,7 +1102,7 @@ TRANSLATIONS["fr"].update({
     "clear_filter": "Effacer le filtre",
     "filter_active": "Filtre actif",
     "showing_all": "Toutes les factures enregistrees",
-    "inv_gen_no_rate": "Tarif non defini", "inv_gen_empty": "Aucune prestation ou tarif client absent.",
+    "inv_gen_no_rate": "Tarif non defini", "inv_gen_no_rate_help": "Ces clients n'ont pas de taux horaire. La facture ne sera pas generee tant que le taux n'est pas defini.", "inv_gen_empty": "Aucune prestation ou tarif client absent.",
     "inv_gen_failed": "Enregistrement impossible",
     "inv_convert_banner": "Modification facture auto n°{num} — sauvegarder pour convertir en facture manuelle.",
     "zip_unavail_title": "Documents temporairement indisponibles",
@@ -1155,7 +1155,7 @@ TRANSLATIONS["de"].update({
     "clear_filter": "Filter loeschen",
     "filter_active": "Filter aktiv",
     "showing_all": "Alle gespeicherten Rechnungen",
-    "inv_gen_no_rate": "Kein Tarif festgelegt", "inv_gen_empty": "Keine Schichten oder Tarife fuer diesen Zeitraum.",
+    "inv_gen_no_rate": "Kein Tarif festgelegt", "inv_gen_no_rate_help": "Diese Kunden haben keinen Stundensatz. Es wird keine Rechnung erzeugt, bis ein Satz hinterlegt ist.", "inv_gen_empty": "Keine Schichten oder Tarife fuer diesen Zeitraum.",
     "inv_gen_failed": "Speichern nicht moeglich",
     "inv_convert_banner": "Auto-Rechnung Nr. {num} bearbeiten — speichern zum Umwandeln in manuelle Rechnung.",
     "zip_unavail_title": "Dokumente vorübergehend nicht verfügbar",
@@ -1208,7 +1208,7 @@ TRANSLATIONS["pt"].update({
     "clear_filter": "Limpar filtro",
     "filter_active": "Filtro ativo",
     "showing_all": "Todas as faturas guardadas",
-    "inv_gen_no_rate": "Tarifa nao definida", "inv_gen_empty": "Sem servicos ou tarifas definidas para este periodo.",
+    "inv_gen_no_rate": "Tarifa nao definida", "inv_gen_no_rate_help": "Estes clientes nao tem preco por hora. A fatura nao sera gerada ate ser definido um preco.", "inv_gen_empty": "Sem servicos ou tarifas definidas para este periodo.",
     "inv_gen_failed": "Nao foi possivel guardar",
     "inv_convert_banner": "A editar fatura automatica n.°{num} — guarde para converter em fatura manual.",
     "zip_unavail_title": "Documentos temporariamente indisponíveis",
@@ -2000,7 +2000,7 @@ INVOICE_TRANSLATIONS = {
         "invoices": "Fakture", "invoice_settings": "Podesavanja faktura", "invoice_text": "Tekst na fakturi",
         "payment_terms": "Modalitet placanja", "bank_account": "Racun za uplatu", "invoice_profiles": "Profili klijenata za fakture",
         "client_type": "Tip klijenta", "private_client": "Privatno lice", "pro_client": "Profesionalni klijent",
-        "hourly_rate": "Cijena po satu", "billing_section": "Podaci za fakturisanje", "invalid_hourly_rate": "Neispravna cijena po satu.", "invalid_vat_rate": "Neispravna TVA stopa.", "save_failed": "Čuvanje nije uspjelo.", "client_already_exists": "Klijent sa tim imenom već postoji.", "client_added_flash": "✓ Klijent dodat: {name}", "email": "Email", "vat_rate": "TVA", "generate_invoice": "Generisi fakturu",
+        "hourly_rate": "Cijena po satu", "billing_section": "Podaci za fakturisanje", "invalid_hourly_rate": "Neispravna cijena po satu.", "invalid_vat_rate": "Neispravna TVA stopa.", "billing_future_only": "Primjenjuje se samo na buduce fakture.", "save_failed": "Čuvanje nije uspjelo.", "client_already_exists": "Klijent sa tim imenom već postoji.", "client_added_flash": "✓ Klijent dodat: {name}", "email": "Email", "vat_rate": "TVA", "generate_invoice": "Generisi fakturu",
         "download_all_invoices": "Preuzmi sve fakture PDF", "annual_certificate": "Godisnji certifikat",
         "date_from": "Od datuma", "date_to": "Do datuma", "invoice_date": "Datum fakture",
         "invoice_number": "Broj fakture", "amount_without_vat": "Iznos bez TVA", "amount_with_vat": "Iznos sa TVA",
@@ -2093,7 +2093,7 @@ INVOICE_TRANSLATIONS["en"] = {
     "invoices": "Invoices", "invoice_settings": "Invoice settings", "invoice_text": "Invoice text",
     "payment_terms": "Payment terms", "bank_account": "Bank account", "invoice_profiles": "Client invoice profiles",
     "client_type": "Client type", "private_client": "Private client", "pro_client": "Professional client",
-    "hourly_rate": "Hourly rate", "billing_section": "Billing details", "invalid_hourly_rate": "Invalid hourly rate.", "invalid_vat_rate": "Invalid VAT rate.", "save_failed": "Save failed.", "client_already_exists": "A client with this name already exists.", "client_added_flash": "✓ Client added: {name}", "email": "Email", "vat_rate": "VAT", "generate_invoice": "Generate invoice",
+    "hourly_rate": "Hourly rate", "billing_section": "Billing details", "invalid_hourly_rate": "Invalid hourly rate.", "invalid_vat_rate": "Invalid VAT rate.", "billing_future_only": "Applies only to future invoices.", "save_failed": "Save failed.", "client_already_exists": "A client with this name already exists.", "client_added_flash": "✓ Client added: {name}", "email": "Email", "vat_rate": "VAT", "generate_invoice": "Generate invoice",
     "download_all_invoices": "Download all invoice PDFs", "annual_certificate": "Annual certificate",
     "date_from": "Date from", "date_to": "Date to", "invoice_date": "Invoice date",
     "invoice_number": "Invoice number", "amount_without_vat": "Amount without VAT", "amount_with_vat": "Amount with VAT",
@@ -2183,7 +2183,7 @@ INVOICE_TRANSLATIONS["fr"] = {
     "invoices": "Factures", "invoice_settings": "Parametres des factures", "invoice_text": "Texte sur la facture",
     "payment_terms": "Conditions et modalites de paiement", "bank_account": "Compte bancaire", "invoice_profiles": "Profils de facturation clients",
     "client_type": "Type de client", "private_client": "Client prive", "pro_client": "Client professionnel",
-    "hourly_rate": "Prix horaire", "billing_section": "Donnees de facturation", "invalid_hourly_rate": "Prix horaire invalide.", "invalid_vat_rate": "Taux de TVA invalide.", "save_failed": "Enregistrement echoue.", "client_already_exists": "Un client avec ce nom existe deja.", "client_added_flash": "✓ Client ajoute : {name}", "email": "Email", "vat_rate": "TVA", "generate_invoice": "Generer facture",
+    "hourly_rate": "Prix horaire", "billing_section": "Donnees de facturation", "invalid_hourly_rate": "Prix horaire invalide.", "invalid_vat_rate": "Taux de TVA invalide.", "billing_future_only": "Applicable uniquement aux factures futures.", "save_failed": "Enregistrement echoue.", "client_already_exists": "Un client avec ce nom existe deja.", "client_added_flash": "✓ Client ajoute : {name}", "email": "Email", "vat_rate": "TVA", "generate_invoice": "Generer facture",
     "download_all_invoices": "Telecharger toutes les factures PDF", "annual_certificate": "Certificat annuel",
     "date_from": "Date du", "date_to": "Date au", "invoice_date": "Date de facture",
     "invoice_number": "Facture no", "amount_without_vat": "Total HT", "amount_with_vat": "Total TTC",
@@ -2273,7 +2273,7 @@ INVOICE_TRANSLATIONS["de"] = {
     "invoices": "Rechnungen", "invoice_settings": "Rechnungseinstellungen", "invoice_text": "Rechnungstext",
     "payment_terms": "Zahlungsbedingungen", "bank_account": "Bankkonto", "invoice_profiles": "Kundenprofile fuer Rechnungen",
     "client_type": "Kundentyp", "private_client": "Privatkunde", "pro_client": "Gewerbekunde",
-    "hourly_rate": "Stundensatz", "billing_section": "Rechnungsangaben", "invalid_hourly_rate": "Ungultiger Stundensatz.", "invalid_vat_rate": "Ungultiger MwSt.-Satz.", "save_failed": "Speichern fehlgeschlagen.", "client_already_exists": "Ein Kunde mit diesem Namen existiert bereits.", "client_added_flash": "✓ Kunde hinzugefugt: {name}", "email": "Email", "vat_rate": "MwSt.", "generate_invoice": "Rechnung erstellen",
+    "hourly_rate": "Stundensatz", "billing_section": "Rechnungsangaben", "invalid_hourly_rate": "Ungultiger Stundensatz.", "invalid_vat_rate": "Ungultiger MwSt.-Satz.", "billing_future_only": "Gilt nur fur zukunftige Rechnungen.", "save_failed": "Speichern fehlgeschlagen.", "client_already_exists": "Ein Kunde mit diesem Namen existiert bereits.", "client_added_flash": "✓ Kunde hinzugefugt: {name}", "email": "Email", "vat_rate": "MwSt.", "generate_invoice": "Rechnung erstellen",
     "download_all_invoices": "Alle Rechnungen als PDF herunterladen", "annual_certificate": "Jahreszertifikat",
     "date_from": "Datum von", "date_to": "Datum bis", "invoice_date": "Rechnungsdatum",
     "invoice_number": "Rechnungsnummer", "amount_without_vat": "Betrag ohne MwSt.", "amount_with_vat": "Betrag mit MwSt.",
@@ -2363,7 +2363,7 @@ INVOICE_TRANSLATIONS["pt"] = {
     "invoices": "Faturas", "invoice_settings": "Definicoes de faturas", "invoice_text": "Texto na fatura",
     "payment_terms": "Condicoes de pagamento", "bank_account": "Conta bancaria", "invoice_profiles": "Perfis de clientes para faturas",
     "client_type": "Tipo de cliente", "private_client": "Cliente privado", "pro_client": "Cliente profissional",
-    "hourly_rate": "Preco por hora", "billing_section": "Dados de faturacao", "invalid_hourly_rate": "Preco por hora invalido.", "invalid_vat_rate": "Taxa de IVA invalida.", "save_failed": "Falha ao guardar.", "client_already_exists": "Ja existe um cliente com este nome.", "client_added_flash": "✓ Cliente adicionado: {name}", "email": "Email", "vat_rate": "IVA", "generate_invoice": "Gerar fatura",
+    "hourly_rate": "Preco por hora", "billing_section": "Dados de faturacao", "invalid_hourly_rate": "Preco por hora invalido.", "invalid_vat_rate": "Taxa de IVA invalida.", "billing_future_only": "Aplica-se apenas a faturas futuras.", "save_failed": "Falha ao guardar.", "client_already_exists": "Ja existe um cliente com este nome.", "client_added_flash": "✓ Cliente adicionado: {name}", "email": "Email", "vat_rate": "IVA", "generate_invoice": "Gerar fatura",
     "download_all_invoices": "Descarregar todas as faturas PDF", "annual_certificate": "Certificado anual",
     "date_from": "Data de", "date_to": "Data ate", "invoice_date": "Data da fatura",
     "invoice_number": "Numero da fatura", "amount_without_vat": "Valor sem IVA", "amount_with_vat": "Valor com IVA",
@@ -3836,6 +3836,22 @@ def get_invoice_row_for_record(conn, record):
         row["amount"] = record["amount"]
         row["vat_amount"] = record["vat_amount"]
         row["total"] = record["total"]
+        # Historical VAT rate: derived from the stored amount /
+        # vat_amount pair so a profile rate change does NOT
+        # retroactively alter the percent on an already-issued
+        # invoice. amount==0 with vat==0 reads as 0% (both legal
+        # on a Luxembourgish free line); amount==0 with non-zero
+        # vat is treated as "unknown" and we fall back to the
+        # current profile rate for display, since there is no
+        # division we can safely do.
+        stored_amt = _dec(record.get("amount"))
+        stored_vat = _dec(record.get("vat_amount"))
+        if stored_amt == 0:
+            if stored_vat == 0:
+                row["vat_rate"] = 0.0
+            # else keep whatever build_invoice_rows set (current rate)
+        else:
+            row["vat_rate"] = float(stored_vat / stored_amt)
         row["sent"] = record.get("sent", False)
         return row, settings
     return None, settings
@@ -10410,6 +10426,12 @@ def invoices():
         </div>
     <div class="card" style="margin-top:16px;">
         <h3>{{ tr["invoice_profiles"] }}</h3>
+        <style>
+          .suffixed-input::after { content:attr(data-suffix);
+            position:absolute; right:10px; top:50%;
+            transform:translateY(-50%); pointer-events:none;
+            font-size:13px; color:{{ '#9ca3af' if dark else '#64748b' }}; }
+        </style>
         <form method="post" action="/invoices/profile">
             <label>{{ tr["search_client"] }}</label>
             <input id="invoiceClientSearch" list="invoiceClientList" placeholder="{{ tr['search_client'] }}" autocomplete="off" oninput="fillInvoiceProfile()">
@@ -10417,15 +10439,23 @@ def invoices():
             <input type="hidden" id="invoiceClientName" name="client_name">
             <input id="invoiceCustomAddress" name="custom_address" placeholder="{{ tr['address'] }}">
             <input id="invoiceEmail" name="email" placeholder="{{ tr['email'] }}">
+            <label for="invoiceClientType">{{ tr["client_type"] }}</label>
             <select id="invoiceClientType" name="client_type">
                 <option value="private">{{ tr["private_client"] }}</option>
                 <option value="pro">{{ tr["pro_client"] }}</option>
             </select>
-            <input id="invoiceVatRate" type="number" min="0" max="100" step="0.01"
-                   inputmode="decimal" name="vat_rate"
-                   placeholder="{{ tr.get('vat_rate','TVA') }} (%)">
-            <input id="invoiceHourlyRate" type="number" step="0.01" name="hourly_rate" placeholder="{{ tr['hourly_rate'] }}">
-            <button>{{ tr["save_client_profile"] }}</button>
+            <label for="invoiceVatRate">{{ tr.get("vat_rate","TVA") }} (%)</label>
+            <div class="suffixed-input" data-suffix="%" style="position:relative;">
+              <input id="invoiceVatRate" type="number" min="0" max="100" step="0.01"
+                     inputmode="decimal" name="vat_rate"
+                     style="padding-right:28px;width:100%;box-sizing:border-box;">
+            </div>
+            <label for="invoiceHourlyRate">{{ tr["hourly_rate"] }} (EUR)</label>
+            <input id="invoiceHourlyRate" type="number" step="0.01" name="hourly_rate">
+            <p style="margin:6px 0 0;font-size:11.5px;color:{{ '#9ca3af' if dark else '#64748b' }};">
+              {{ tr.get("billing_future_only","Primjenjuje se samo na buduce fakture.") }}
+            </p>
+            <button style="margin-top:10px;">{{ tr["save_client_profile"] }}</button>
         </form>
     </div>
     <script>
@@ -10652,7 +10682,7 @@ def _classify_generation_targets(conn, date_from, date_to):
     raw_rows = build_invoice_rows(conn, date_from, date_to, None, settings)
     will_generate, exact_match, overlapping, no_rate = [], [], [], []
     for row in raw_rows:
-        if row.get("hourly_rate", 0) == 0:
+        if (row.get("hourly_rate") or 0) <= 0:
             no_rate.append({"client": row["client"]})
             continue
         exact = c.execute(
@@ -10721,7 +10751,7 @@ def _generate_invoices(conn, date_from, date_to, invoice_date, force=False):
         else:
             c.execute("LOCK TABLE invoice_records IN EXCLUSIVE MODE")
         for row in raw_rows:
-            if row.get("hourly_rate", 0) == 0:
+            if (row.get("hourly_rate") or 0) <= 0:
                 no_rate_clients.append(row["client"])
                 continue
             attempted_clients.append(row["client"])
@@ -10892,9 +10922,18 @@ def invoices_generate():
             <div class="gp-section">
               <h3>∅ {{ tr.get("inv_gen_no_rate","Bez postavljene cijene") }}
                 <span class="gp-pill nor">{{ no_rate|length }}</span></h3>
+              <p style="margin:4px 0 10px;font-size:12.5px;color:{{ '#fbbf24' if dark else '#92400e' }};">
+                {{ tr.get("inv_gen_no_rate_help",
+                   "Ovi klijenti nemaju postavljenu cijenu po satu. Faktura neće biti generisana dok se ne unese cijena.") }}
+              </p>
               <table class="gp-table"><tbody>
                 {% for r in no_rate %}
-                <tr><td>{{ r.client }}</td></tr>
+                <tr><td>
+                  {{ r.client }}
+                  <a href="/edit_client/{{ r.client|urlencode }}" style="margin-left:10px;color:{{ '#93c5fd' if dark else '#1f4f82' }};font-weight:600;text-decoration:underline;">
+                    ✏️ {{ tr.get("edit","Uredi") }}
+                  </a>
+                </td></tr>
                 {% endfor %}
               </tbody></table>
             </div>
@@ -15584,6 +15623,15 @@ def edit_client(name):
                  border-radius:14px; padding:22px;
                  box-shadow:0 4px 14px rgba(0,0,0,.08); }
       .cf-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+      .cf-suffix { position:relative; }
+      .cf-suffix input { padding-right:28px; }
+      .cf-suffix::after { content:attr(data-suffix); position:absolute;
+                           right:10px; top:50%; transform:translateY(-50%);
+                           pointer-events:none; font-size:13px;
+                           color:{{ '#9ca3af' if dark else '#64748b' }}; }
+      .cf-help { margin:8px 0 0; font-size:11.5px;
+                 color:{{ '#9ca3af' if dark else '#64748b' }}; }
+      @media (max-width:720px){ .cf-row { grid-template-columns:1fr; } }
       .cf-label { display:block; font-size:12px; font-weight:700;
                   color:{{ '#94a3b8' if dark else '#64748b' }}; margin:14px 0 4px; }
       .cf-input, .cf-textarea {
@@ -15657,18 +15705,21 @@ def edit_client(name):
             </select>
           </div>
           <div>
-            <label class="cf-label">{{ tr.get("vat_rate","TVA") }} (%)</label>
-            <input class="cf-input" id="editClientVat" type="number" name="vat_rate"
-                   min="0" max="100" step="0.01" inputmode="decimal"
-                   value="{{ '%.2f'|format(client.vat_rate) }}">
+            <label class="cf-label" for="editClientVat">{{ tr.get("vat_rate","TVA") }} (%)</label>
+            <div class="cf-suffix" data-suffix="%">
+              <input class="cf-input" id="editClientVat" type="number" name="vat_rate"
+                     min="0" max="100" step="0.01" inputmode="decimal"
+                     value="{{ '%.2f'|format(client.vat_rate) }}">
+            </div>
           </div>
           <div>
-            <label class="cf-label">{{ tr.get("hourly_rate","Cijena po satu") }} (EUR)</label>
-            <input class="cf-input" type="number" name="hourly_rate"
+            <label class="cf-label" for="editClientRate">{{ tr.get("hourly_rate","Cijena po satu") }} (EUR)</label>
+            <input class="cf-input" id="editClientRate" type="number" name="hourly_rate"
                    min="0" step="0.01" inputmode="decimal"
                    value="{{ '%.2f'|format(client.hourly_rate) if client.hourly_rate else '' }}">
           </div>
         </div>
+        <p class="cf-help">{{ tr.get("billing_future_only","Primjenjuje se samo na buduce fakture.") }}</p>
         <script>
         (function () {
           var sel = document.getElementById('editClientType');
@@ -16295,6 +16346,19 @@ def clients_page():
     .add-client-card{background:{{ '#191919' if dark else '#f8fbff' }};
                      border:2px dashed {{ '#2c2c30' if dark else '#cbd5e1' }};
                      border-radius:12px;padding:20px;max-width:480px;}
+    .billing-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+    .billing-field{display:flex;flex-direction:column;gap:4px;min-width:0;}
+    .billing-label{font-size:11px;font-weight:700;letter-spacing:.03em;
+                   color:{{ '#94a3b8' if dark else '#64748b' }};}
+    .suffixed-input{position:relative;}
+    .suffixed-input input{padding-right:28px;width:100%;box-sizing:border-box;}
+    .suffixed-input::after{content:attr(data-suffix);position:absolute;
+                           right:10px;top:50%;transform:translateY(-50%);
+                           pointer-events:none;font-size:13px;
+                           color:{{ '#9ca3af' if dark else '#64748b' }};}
+    .billing-help{margin:6px 0 0;font-size:11.5px;
+                  color:{{ '#9ca3af' if dark else '#64748b' }};}
+    @media (max-width:720px){ .billing-row{grid-template-columns:1fr;} }
     .clients-search{position:relative;margin-top:16px;max-width:480px;}
     .clients-search input{
         width:100%;box-sizing:border-box;padding:10px 40px 10px 38px;
@@ -16354,20 +16418,29 @@ def clients_page():
                     text-transform:uppercase;letter-spacing:.04em;margin:4px 0 -4px;">
           💶 {{ tr.get("billing_section","Podaci za fakturisanje") }}
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
-          <select id="addClientType" name="client_type" aria-label="{{ tr.get('client_type','Tip klijenta') }}">
-            <option value="private">{{ tr.get("private_client","Privatno lice") }}</option>
-            <option value="pro">{{ tr.get("pro_client","Profesionalni klijent") }}</option>
-          </select>
-          <input id="addClientVat" name="vat_rate" type="number" min="0" max="100" step="0.01"
-                 inputmode="decimal" required value="8"
-                 placeholder="{{ tr.get('vat_rate','TVA') }} (%)"
-                 aria-label="{{ tr.get('vat_rate','TVA') }}">
-          <input name="hourly_rate" type="number" min="0" step="0.01"
-                 inputmode="decimal" required
-                 placeholder="{{ tr.get('hourly_rate','Cijena po satu') }} (EUR)"
-                 aria-label="{{ tr.get('hourly_rate','Cijena po satu') }}">
+        <div class="billing-row">
+          <div class="billing-field">
+            <label class="billing-label" for="addClientType">{{ tr.get("client_type","Tip klijenta") }}</label>
+            <select id="addClientType" name="client_type">
+              <option value="private">{{ tr.get("private_client","Privatno lice") }}</option>
+              <option value="pro">{{ tr.get("pro_client","Profesionalni klijent") }}</option>
+            </select>
+          </div>
+          <div class="billing-field">
+            <label class="billing-label" for="addClientVat">{{ tr.get("vat_rate","TVA") }} (%)</label>
+            <div class="suffixed-input" data-suffix="%">
+              <input id="addClientVat" name="vat_rate" type="number"
+                     min="0" max="100" step="0.01" inputmode="decimal"
+                     required value="8">
+            </div>
+          </div>
+          <div class="billing-field">
+            <label class="billing-label" for="addClientRate">{{ tr.get("hourly_rate","Cijena po satu") }} (EUR)</label>
+            <input id="addClientRate" name="hourly_rate" type="number"
+                   min="0" step="0.01" inputmode="decimal" required>
+          </div>
         </div>
+        <p class="billing-help">{{ tr.get("billing_future_only","Primjenjuje se samo na buduce fakture.") }}</p>
         <script>
         (function () {
           var sel = document.getElementById('addClientType');
