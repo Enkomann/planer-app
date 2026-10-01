@@ -4169,6 +4169,13 @@ def _vat_rate_from_record(record):
     rounded to the nearest percent so a 0.17000001 float still maps
     to the 17% bucket; invoices with amount=0 (free line) go to the
     0% bucket.
+
+    This helper only produces a SINGLE effective rate — it is
+    correct when every line on the invoice shares one VAT rate,
+    which is the only shape auto invoices ever have. For manual
+    invoices mixing (e.g.) 100 EUR at 8% + 50 EUR at 17%, this
+    would report 11% (= 16.50 / 150.00), which is bogus — use
+    _vat_breakdown_for_record instead for grouping.
     """
     amount = _dec(record.get("amount"))
     vat    = _dec(record.get("vat_amount"))
@@ -4177,6 +4184,78 @@ def _vat_rate_from_record(record):
     rate = (vat / amount).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
     pct = (rate * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
     return pct  # integer-valued Decimal: 0, 8, 17, …
+
+
+def _vat_breakdown_for_record(record, conn):
+    """Group this invoice's VAT precisely by stored per-item rate.
+
+    Return a list of (bucket_key, ht Decimal, vat Decimal) where
+    bucket_key is an int percent (0, 8, 17, ...) for a known rate
+    or the string "unknown" when the row has VAT but no reliable
+    rate attribution. Totals always reconcile to the row's stored
+    amount/vat_amount within 0.01 EUR — any residual drift between
+    the per-item sum and the stored stored vat_amount lands in an
+    "unknown" bucket so Σ buckets == stored row.
+
+    Manual invoices: read items_json from manual_invoice_drafts
+    and bucket each item on its own vat_rate (stored at issuance).
+    Auto invoices: single bucket from the row's amount/vat_amount.
+    Zero HT (free lines) never divides by zero.
+    """
+    source = (record.get("source") or "auto").lower()
+    inv_num = record.get("invoice_number") or ""
+    stored_ht  = _money(record.get("amount"))
+    stored_vat = _money(record.get("vat_amount"))
+
+    if source == "manual" and inv_num and conn is not None:
+        try:
+            row = conn.cursor().execute(
+                "SELECT items_json FROM manual_invoice_drafts "
+                "WHERE invoice_number=?",
+                (inv_num,),
+            ).fetchone()
+            if row and row[0]:
+                items = json.loads(row[0])
+                if isinstance(items, list) and items:
+                    buckets = {}
+                    for it in items:
+                        amt = _money(it.get("amount") or 0)
+                        vr_pct = _dec(it.get("vat_rate") or 0)
+                        key = int(vr_pct.quantize(Decimal("1"),
+                                                   rounding=ROUND_HALF_UP))
+                        vat = _money(amt * (vr_pct / Decimal("100")))
+                        b = buckets.setdefault(key, [Decimal("0"), Decimal("0")])
+                        b[0] += amt
+                        b[1] += vat
+                    # Reconcile against stored row totals (tolerance
+                    # 0.01 EUR) so the bucket sums ALWAYS add up to
+                    # what the invoice actually carries, independent
+                    # of any arithmetic drift between items_json and
+                    # the stored amount / vat_amount.
+                    sum_ht  = sum((b[0] for b in buckets.values()), Decimal("0"))
+                    sum_vat = sum((b[1] for b in buckets.values()), Decimal("0"))
+                    drift_ht  = stored_ht  - _money(sum_ht)
+                    drift_vat = stored_vat - _money(sum_vat)
+                    if abs(drift_ht) > _MONEY_Q or abs(drift_vat) > _MONEY_Q:
+                        u = buckets.setdefault("unknown",
+                                                [Decimal("0"), Decimal("0")])
+                        u[0] += drift_ht
+                        u[1] += drift_vat
+                    return [(k, _money(v[0]), _money(v[1]))
+                            for k, v in buckets.items()]
+        except Exception:
+            app.logger.exception(
+                "VAT breakdown: items_json parse failed for %r", inv_num,
+            )
+
+    # Auto / fallback: single bucket from stored amount/vat_amount.
+    if stored_ht == 0:
+        if stored_vat == 0:
+            return [(0, Decimal("0"), Decimal("0"))]
+        return [("unknown", Decimal("0"), stored_vat)]
+    pct = int((stored_vat / stored_ht * Decimal("100"))
+              .quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    return [(pct, stored_ht, stored_vat)]
 
 
 def _paid_amount_for_record(record):
@@ -4193,7 +4272,8 @@ def _paid_amount_for_record(record):
 
 def build_client_tax_overview_pdf(client_name, records, date_from, date_to,
                                   settings, tr=None,
-                                  client_address_block=""):
+                                  client_address_block="",
+                                  conn=None):
     """Yearly tax overview for a client.
 
     One table row per invoice with:
@@ -4291,23 +4371,44 @@ def build_client_tax_overview_pdf(client_name, records, date_from, date_to,
         ttc  = _money(r.get("total"))
         paid = _paid_amount_for_record(r)
         bal  = _money(ttc - paid)
-        rate = _vat_rate_from_record(r)
 
         total_ht   += ht
         total_vat  += vat
         total_ttc  += ttc
         total_paid += paid
         total_bal  += bal
-        bucket = totals_by_rate.setdefault(rate, {"ht": Decimal("0"), "vat": Decimal("0")})
-        bucket["ht"]  += ht
-        bucket["vat"] += vat
+
+        # Per-item VAT breakdown — correct for manual invoices that
+        # mix e.g. 100 EUR at 8% with 50 EUR at 17% (reconstructed
+        # from items_json). Auto invoices still produce a single
+        # bucket from the stored amount/vat_amount pair.
+        breakdown = _vat_breakdown_for_record(r, conn)
+        for key, b_ht, b_vat in breakdown:
+            bucket = totals_by_rate.setdefault(
+                key, {"ht": Decimal("0"), "vat": Decimal("0")},
+            )
+            bucket["ht"]  += b_ht
+            bucket["vat"] += b_vat
+
+        # Row-level TVA % cell: a single-rate invoice shows its
+        # rate; a manual invoice crossing two or more rates shows
+        # "mixte" so an admin never reads a bogus derived rate like
+        # "11%" out of a mixed 8%+17% invoice (ratio of totals).
+        known_keys = [k for (k, _h, _v) in breakdown if isinstance(k, int)]
+        if len(breakdown) == 1 and isinstance(breakdown[0][0], int):
+            rate_cell = f"{breakdown[0][0]:.0f}%"
+        elif breakdown and all(isinstance(k, int) for (k, _h, _v) in breakdown) \
+                and len(set(known_keys)) == 1:
+            rate_cell = f"{known_keys[0]:.0f}%"
+        else:
+            rate_cell = "mixte"
 
         data.append([
             Paragraph(format_date(r.get("invoice_date") or ""), cell_style),
             Paragraph(_html.escape(str(r.get("invoice_number") or "")), cell_style),
             Paragraph("Paye" if r.get("paid") else "Non paye", cell_style),
             Paragraph(f"{ht:.2f}",  cell_right),
-            Paragraph(f"{rate:.0f}%", cell_right),
+            Paragraph(rate_cell, cell_right),
             Paragraph(f"{vat:.2f}", cell_right),
             Paragraph(f"{ttc:.2f}", cell_right),
             Paragraph(f"{paid:.2f}", cell_right),
@@ -4337,10 +4438,16 @@ def build_client_tax_overview_pdf(client_name, records, date_from, date_to,
     sum_data = [[Paragraph("<b>Recapitulatif</b>", cell_style),
                  Paragraph("<b>HT</b>", header_style),
                  Paragraph("<b>TVA</b>", header_style)]]
-    for rate in sorted(totals_by_rate.keys(), key=lambda d: int(d)):
+    # Numeric rate buckets ascending, then "unknown" last so an
+    # admin always sees the clean part first.
+    def _sort_key(k):
+        return (1, 0) if k == "unknown" else (0, int(k))
+    for rate in sorted(totals_by_rate.keys(), key=_sort_key):
         buc = totals_by_rate[rate]
+        label = "TVA stopa nepoznata" if rate == "unknown" \
+                else f"TVA {int(rate):.0f}%"
         sum_data.append([
-            Paragraph(f"TVA {rate:.0f}%", cell_style),
+            Paragraph(label, cell_style),
             Paragraph(f"{_money(buc['ht']):.2f}",  cell_right),
             Paragraph(f"{_money(buc['vat']):.2f}", cell_right),
         ])
@@ -4408,6 +4515,7 @@ def _build_client_overview_pdf_for_email(conn, client, date_from, date_to, tr):
     buf = build_client_tax_overview_pdf(
         client, records, date_from, date_to, settings, tr=tr,
         client_address_block=client_block,
+        conn=conn,
     )
     year_part = ""
     try:
