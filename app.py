@@ -12,6 +12,7 @@ import calendar
 import json
 import math
 import html as _html
+from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 import zipfile
 import tempfile
 import urllib.parse
@@ -397,6 +398,10 @@ TRANSLATIONS = {
         "email_type_unknown": "Nepoznato",
         "search_clients_placeholder": "Pretrazi klijente",
         "clients_no_match": "Nema pronadenih klijenata",
+        "tax_overview_pdf": "Pregled faktura i TVA PDF",
+        "send_tax_overview_email": "Posalji pregled emailom",
+        "email_type_statement": "Pregled racuna",
+        "tax_overview_no_invoices": "Nema faktura u izabranom periodu.",
         "invoice_date_basis": "Datum fakture",
         "work_period_basis": "Period rada",
         "clients_pdf_title": "Lista klijenata",
@@ -484,6 +489,10 @@ TRANSLATIONS["fr"].update({
     "email_type_unknown": "Inconnu",
     "search_clients_placeholder": "Rechercher un client",
     "clients_no_match": "Aucun client trouve",
+    "tax_overview_pdf": "Resume factures & TVA PDF",
+    "send_tax_overview_email": "Envoyer le resume par email",
+    "email_type_statement": "Resume de compte",
+    "tax_overview_no_invoices": "Aucune facture sur la periode selectionnee.",
     "invoice_date_basis": "Date de facture",
     "work_period_basis": "Periode de travail",
     "clients_pdf_title": "Liste des clients",
@@ -546,6 +555,10 @@ TRANSLATIONS["en"].update({
     "email_type_unknown": "Unknown",
     "search_clients_placeholder": "Search clients",
     "clients_no_match": "No clients found",
+    "tax_overview_pdf": "Invoices & VAT overview PDF",
+    "send_tax_overview_email": "Send overview by email",
+    "email_type_statement": "Account overview",
+    "tax_overview_no_invoices": "No invoices in the selected period.",
     "invoice_date_basis": "Invoice date",
     "work_period_basis": "Work period",
     "clients_pdf_title": "Clients list",
@@ -575,6 +588,10 @@ TRANSLATIONS["de"].update({
     "email_type_unknown": "Unbekannt",
     "search_clients_placeholder": "Kunden suchen",
     "clients_no_match": "Keine Kunden gefunden",
+    "tax_overview_pdf": "Rechnungen & MwSt. Ubersicht PDF",
+    "send_tax_overview_email": "Ubersicht per E-Mail senden",
+    "email_type_statement": "Kontoubersicht",
+    "tax_overview_no_invoices": "Keine Rechnungen im gewahlten Zeitraum.",
     "invoice_date_basis": "Rechnungsdatum",
     "work_period_basis": "Arbeitszeitraum",
     "clients_pdf_title": "Kundenliste",
@@ -610,6 +627,10 @@ TRANSLATIONS["pt"].update({
     "email_type_unknown": "Desconhecido",
     "search_clients_placeholder": "Pesquisar clientes",
     "clients_no_match": "Nenhum cliente encontrado",
+    "tax_overview_pdf": "Resumo faturas e IVA PDF",
+    "send_tax_overview_email": "Enviar resumo por email",
+    "email_type_statement": "Resumo de conta",
+    "tax_overview_no_invoices": "Sem faturas no periodo selecionado.",
     "invoice_date_basis": "Data da fatura",
     "work_period_basis": "Periodo de trabalho",
     "clients_pdf_title": "Lista de clientes",
@@ -4113,6 +4134,293 @@ def build_client_statement_pdf(client_name, records, date_from, date_to):
     doc.build(elements)
     buffer.seek(0)
     return buffer
+
+
+_MONEY_Q = Decimal("0.01")
+
+def _dec(value):
+    """Coerce DB-origin money (float, Decimal, str, None) to Decimal.
+
+    Everything on the money math path uses Decimal with explicit
+    half-up rounding to two places so the tax summary is byte-stable
+    across SQLite (which stores floats) and PostgreSQL (which stores
+    numerics).
+    """
+    if value is None:
+        return Decimal("0")
+    if isinstance(value, Decimal):
+        return value
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return Decimal("0")
+
+
+def _money(value):
+    """Quantize to 2 decimals half-up for display and summation."""
+    return _dec(value).quantize(_MONEY_Q, rounding=ROUND_HALF_UP)
+
+
+def _vat_rate_from_record(record):
+    """Derive the VAT rate ACTUALLY stored on this invoice row.
+
+    We never read it from the current client profile — the row is
+    historical and must present the rate it was issued at. Rate is
+    rounded to the nearest percent so a 0.17000001 float still maps
+    to the 17% bucket; invoices with amount=0 (free line) go to the
+    0% bucket.
+    """
+    amount = _dec(record.get("amount"))
+    vat    = _dec(record.get("vat_amount"))
+    if amount == 0:
+        return Decimal("0")
+    rate = (vat / amount).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
+    pct = (rate * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    return pct  # integer-valued Decimal: 0, 8, 17, …
+
+
+def _paid_amount_for_record(record):
+    """Paid amount for this record.
+
+    Current schema has no partial-payment column, so paid means TTC
+    and unpaid means 0. If a `paid_amount` column is added later,
+    pick it up here before falling back to the TTC rule.
+    """
+    if "paid_amount" in record and record["paid_amount"] not in (None, ""):
+        return _money(record["paid_amount"])
+    return _money(record.get("total")) if record.get("paid") else _money(0)
+
+
+def build_client_tax_overview_pdf(client_name, records, date_from, date_to,
+                                  settings, tr=None,
+                                  client_address_block=""):
+    """Yearly tax overview for a client.
+
+    One table row per invoice with:
+      invoice_date | invoice_number | status | HT | VAT rate | VAT amount | TTC | paid | balance
+    Then a summary block with totals per VAT rate (separately), total
+    HT, total VAT, total TTC, total paid, total outstanding.
+
+    Uses the stored amount/vat_amount/total on each invoice_records
+    row — never recomputes from the current plan or current profile —
+    so running the report after a rate change does not retroactively
+    rewrite history. Cancelled / deleted invoices are already filtered
+    out by the caller (COALESCE(deleted,0)=0 in fetch_invoice_records).
+    """
+    tr = tr or {}
+    buffer = io.BytesIO()
+    title_fr = "Resume factures & TVA"
+    doc = pdf_doc(
+        buffer, f"{title_fr} — {client_name}", pagesize=A4,
+        rightMargin=1.4*cm, leftMargin=1.4*cm,
+        topMargin=1.4*cm,  bottomMargin=1.4*cm,
+    )
+    styles = getSampleStyleSheet()
+    header_style = ParagraphStyle("TaxHeader", parent=styles["Normal"],
+                                   fontName="Helvetica-Bold", fontSize=9,
+                                   leading=11, textColor=colors.white)
+    cell_style   = ParagraphStyle("TaxCell", parent=styles["Normal"],
+                                   fontName="Helvetica", fontSize=9, leading=11)
+    cell_right   = ParagraphStyle("TaxCellR", parent=cell_style, alignment=TA_RIGHT)
+    elements = []
+
+    # ── Header: company + logo ────────────────────────────────────
+    co_name  = (settings or {}).get("company_name", "") or ""
+    co_addr  = (settings or {}).get("company_address", "") or ""
+    co_phone = (settings or {}).get("company_phone", "") or ""
+    co_vat   = (settings or {}).get("vat_number", "") or ""
+    co_block = _html.escape(co_name) + ("<br/>" + _html.escape(co_addr).replace("\n","<br/>") if co_addr else "")
+    if co_phone: co_block += "<br/>Tel: " + _html.escape(co_phone)
+    if co_vat:   co_block += "<br/>N° TVA: " + _html.escape(co_vat)
+    logo_cell = ""
+    if os.path.exists("static/logo.png"):
+        logo_cell = Image("static/logo.png", width=3.2*cm, height=1.6*cm)
+    head = Table(
+        [[Paragraph(co_block, cell_style), logo_cell]],
+        colWidths=[12*cm, 6*cm],
+    )
+    head.setStyle(TableStyle([("VALIGN", (0,0), (-1,-1), "TOP")]))
+    elements += [head, Spacer(1, 10)]
+
+    # ── Title + period + issued date ──────────────────────────────
+    elements += [
+        Paragraph(f"<b>{title_fr}</b>", styles["Title"]),
+        Spacer(1, 4),
+        Paragraph(f"<b>{_html.escape(client_name or '-')}</b>", styles["Heading3"]),
+    ]
+    if client_address_block:
+        elements += [Paragraph(_html.escape(client_address_block).replace("\n","<br/>"), cell_style)]
+    period_fr = f"Periode: {format_date(date_from)} — {format_date(date_to)}"
+    issued_fr = f"Date du resume: {format_date(lux_now().strftime('%Y-%m-%d'))}"
+    elements += [Spacer(1, 6),
+                 Paragraph(period_fr, cell_style),
+                 Paragraph(issued_fr, cell_style),
+                 Spacer(1, 10)]
+
+    if not records:
+        elements.append(Paragraph(
+            tr.get("tax_overview_no_invoices",
+                   "Aucune facture sur la periode selectionnee."),
+            styles["Normal"],
+        ))
+        doc.build(elements); buffer.seek(0); return buffer
+
+    # ── Per-invoice table ─────────────────────────────────────────
+    data = [[
+        Paragraph("Date facture", header_style),
+        Paragraph("N° facture",   header_style),
+        Paragraph("Statut",       header_style),
+        Paragraph("HT",           header_style),
+        Paragraph("TVA %",        header_style),
+        Paragraph("TVA",          header_style),
+        Paragraph("TTC",          header_style),
+        Paragraph("Paye",         header_style),
+        Paragraph("Solde",        header_style),
+    ]]
+
+    totals_by_rate = {}  # Decimal(pct) → {ht, vat}
+    total_ht   = Decimal("0")
+    total_vat  = Decimal("0")
+    total_ttc  = Decimal("0")
+    total_paid = Decimal("0")
+    total_bal  = Decimal("0")
+
+    for r in records:
+        ht   = _money(r.get("amount"))
+        vat  = _money(r.get("vat_amount"))
+        ttc  = _money(r.get("total"))
+        paid = _paid_amount_for_record(r)
+        bal  = _money(ttc - paid)
+        rate = _vat_rate_from_record(r)
+
+        total_ht   += ht
+        total_vat  += vat
+        total_ttc  += ttc
+        total_paid += paid
+        total_bal  += bal
+        bucket = totals_by_rate.setdefault(rate, {"ht": Decimal("0"), "vat": Decimal("0")})
+        bucket["ht"]  += ht
+        bucket["vat"] += vat
+
+        data.append([
+            Paragraph(format_date(r.get("invoice_date") or ""), cell_style),
+            Paragraph(_html.escape(str(r.get("invoice_number") or "")), cell_style),
+            Paragraph("Paye" if r.get("paid") else "Non paye", cell_style),
+            Paragraph(f"{ht:.2f}",  cell_right),
+            Paragraph(f"{rate:.0f}%", cell_right),
+            Paragraph(f"{vat:.2f}", cell_right),
+            Paragraph(f"{ttc:.2f}", cell_right),
+            Paragraph(f"{paid:.2f}", cell_right),
+            Paragraph(f"{bal:.2f}",  cell_right),
+        ])
+
+    col_widths = [2.3*cm, 2.0*cm, 1.9*cm, 1.9*cm, 1.4*cm, 1.9*cm, 2.0*cm, 1.9*cm, 2.0*cm]
+    table = Table(data, colWidths=col_widths, repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#1f4f82")),
+        ("TEXTCOLOR",  (0,0), (-1,0), colors.white),
+        ("GRID",       (0,0), (-1,-1), 0.4, colors.grey),
+        ("FONTNAME",   (0,0), (-1,0), "Helvetica-Bold"),
+        ("VALIGN",     (0,0), (-1,-1), "TOP"),
+        ("ALIGN",      (3,0), (-1,-1), "RIGHT"),
+        ("ROWBACKGROUNDS", (0,1), (-1,-1),
+         [colors.whitesmoke, colors.HexColor("#eef5ff")]),
+        ("FONTSIZE",   (0,0), (-1,-1), 9),
+        ("LEFTPADDING",  (0,0), (-1,-1), 4),
+        ("RIGHTPADDING", (0,0), (-1,-1), 4),
+        ("TOPPADDING",   (0,0), (-1,-1), 3),
+        ("BOTTOMPADDING",(0,0), (-1,-1), 3),
+    ]))
+    elements += [table, Spacer(1, 14)]
+
+    # ── Summary: per-rate breakdown + grand totals ────────────────
+    sum_data = [[Paragraph("<b>Recapitulatif</b>", cell_style),
+                 Paragraph("<b>HT</b>", header_style),
+                 Paragraph("<b>TVA</b>", header_style)]]
+    for rate in sorted(totals_by_rate.keys(), key=lambda d: int(d)):
+        buc = totals_by_rate[rate]
+        sum_data.append([
+            Paragraph(f"TVA {rate:.0f}%", cell_style),
+            Paragraph(f"{_money(buc['ht']):.2f}",  cell_right),
+            Paragraph(f"{_money(buc['vat']):.2f}", cell_right),
+        ])
+    sum_data += [
+        [Paragraph("<b>Total HT</b>",   cell_style),
+         Paragraph(f"<b>{_money(total_ht):.2f}</b>",  cell_right), ""],
+        [Paragraph("<b>Total TVA</b>",  cell_style),
+         "", Paragraph(f"<b>{_money(total_vat):.2f}</b>", cell_right)],
+        [Paragraph("<b>Total TTC</b>",  cell_style),
+         Paragraph(f"<b>{_money(total_ttc):.2f}</b>", cell_right), ""],
+        [Paragraph("<b>Total paye</b>", cell_style),
+         Paragraph(f"<b>{_money(total_paid):.2f}</b>", cell_right), ""],
+        [Paragraph("<b>Solde</b>",      cell_style),
+         Paragraph(f"<b>{_money(total_bal):.2f}</b>",  cell_right), ""],
+    ]
+    sum_tbl = Table(sum_data, colWidths=[7*cm, 4*cm, 4*cm])
+    sum_tbl.setStyle(TableStyle([
+        ("BACKGROUND", (1,0), (2,0), colors.HexColor("#1f4f82")),
+        ("GRID",       (0,0), (-1,-1), 0.4, colors.grey),
+        ("ALIGN",      (1,0), (-1,-1), "RIGHT"),
+        ("VALIGN",     (0,0), (-1,-1), "MIDDLE"),
+        ("FONTSIZE",   (0,0), (-1,-1), 10),
+        ("LEFTPADDING",  (0,0), (-1,-1), 5),
+        ("RIGHTPADDING", (0,0), (-1,-1), 5),
+        ("TOPPADDING",   (0,0), (-1,-1), 4),
+        ("BOTTOMPADDING",(0,0), (-1,-1), 4),
+    ]))
+    elements.append(sum_tbl)
+    doc.build(elements); buffer.seek(0); return buffer
+
+
+def _previous_calendar_year_range():
+    """(YYYY-01-01, YYYY-12-31) for the year BEFORE lux_now()."""
+    y = lux_now().year - 1
+    return (f"{y:04d}-01-01", f"{y:04d}-12-31")
+
+
+def _fetch_overview_records(conn, client, date_from, date_to):
+    """Pull overview rows filtered by INVOICE_DATE (not work period)."""
+    return fetch_invoice_records(
+        conn, date_from or None, date_to or None, client, "all",
+        date_basis="invoice_date",
+    )
+
+
+def _build_client_overview_pdf_for_email(conn, client, date_from, date_to, tr):
+    """Return (bytes, filename, has_records) for the overview PDF.
+
+    Used by both the direct download route and the email composer so
+    the attached PDF matches the one the admin would download.
+    """
+    records = _fetch_overview_records(conn, client, date_from, date_to)
+    settings = get_invoice_settings(conn)
+    client_block = ""
+    try:
+        prof = conn.cursor().execute(
+            "SELECT COALESCE(custom_address,''), COALESCE(email,'') "
+            "FROM client_invoice_profiles WHERE client_name=?",
+            (client,)
+        ).fetchone()
+        if prof and prof[0]:
+            client_block = prof[0]
+    except Exception:
+        pass
+    buf = build_client_tax_overview_pdf(
+        client, records, date_from, date_to, settings, tr=tr,
+        client_address_block=client_block,
+    )
+    year_part = ""
+    try:
+        if date_from and date_to and date_from[:4] == date_to[:4]:
+            year_part = date_from[:4]
+    except Exception:
+        pass
+    fname = safe_pdf_name(
+        "pregled_faktura", client,
+        year_part if year_part else (date_from or ""),
+        "" if year_part else (date_to or ""),
+    ) + ".pdf"
+    return buf.getvalue(), fname, bool(records)
 
 
 def next_invoice_number(conn):
@@ -10393,6 +10701,8 @@ def invoices_client():
                 </h2>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
                   <a href="/invoices/client_statement?client={{ client|urlencode }}&date_from={{ date_from|urlencode }}&date_to={{ date_to|urlencode }}&status={{ status|urlencode }}&doc={{ doc_filter|urlencode }}" style="background:{{ '#1d4ed8' if dark else '#1f4f82' }};color:white;padding:10px 14px;border-radius:6px;text-decoration:none;font-weight:600;">📄 {{ tr.get("client_statement_pdf","Releve de compte client PDF") }}</a>
+                  <a href="/invoices/client_overview?client={{ client|urlencode }}&date_from={{ date_from|urlencode }}&date_to={{ date_to|urlencode }}" target="_blank" rel="noopener" style="background:#0ea5e9;color:white;padding:10px 14px;border-radius:6px;text-decoration:none;font-weight:600;">📊 {{ tr.get("tax_overview_pdf","Pregled faktura i TVA PDF") }}</a>
+                  <a href="/invoices/email?client={{ client|urlencode }}&type=account_statement&date_from={{ date_from|urlencode }}&date_to={{ date_to|urlencode }}" style="background:#0284c7;color:white;padding:10px 14px;border-radius:6px;text-decoration:none;font-weight:600;">✉ {{ tr.get("send_tax_overview_email","Posalji pregled emailom") }}</a>
                   {% if total_unpaid > 0 %}
                   <a href="/invoices/reminder?client={{ client|urlencode }}" style="background:#f97316;color:white;padding:10px 14px;border-radius:6px;text-decoration:none;font-weight:600;">⬇ {{ tr.get("download_reminder","Rappel PDF") }}</a>
                   <a href="/invoices/email?client={{ client|urlencode }}&type=reminder" style="background:#fb923c;color:white;padding:10px 14px;border-radius:6px;text-decoration:none;font-weight:600;">📮 {{ tr.get("send_reminder_email","Poslati Rappel emailom") }}</a>
@@ -11041,6 +11351,13 @@ Tel: {{ view_ctx.company_phone }}{% endif %}{% if view_ctx.company_email %}
                                      font-weight:700;font-size:11px;">
                           📮 {{ tr.get("email_type_reminder","Podsjetnik") }}
                         </span>
+                      {% elif lg.email_type == 'account_statement' %}
+                        <span style="display:inline-block;padding:2px 8px;border-radius:999px;
+                                     background:{{ 'rgba(14,165,233,.18)' if dark else '#e0f2fe' }};
+                                     color:{{ '#7dd3fc' if dark else '#075985' }};
+                                     font-weight:700;font-size:11px;">
+                          📊 {{ tr.get("email_type_statement","Pregled racuna") }}
+                        </span>
                       {% elif lg.email_type == 'invoice' %}
                         <span style="display:inline-block;padding:2px 8px;border-radius:999px;
                                      background:{{ 'rgba(37,99,235,.18)' if dark else '#dbeafe' }};
@@ -11150,6 +11467,35 @@ def invoices_client_statement():
     pdf = build_client_statement_pdf(client, records, date_from, date_to)
     fname = f"releve_{client}_{date_from or 'all'}_{date_to or 'all'}.pdf"
     return send_file(pdf, as_attachment=True, download_name=fname, mimetype="application/pdf")
+
+
+@app.route("/invoices/client_overview")
+def invoices_client_overview():
+    """Yearly tax overview PDF for a client (invoice_date-based).
+
+    Default period is the previous calendar year when the admin
+    does not pass date_from / date_to, so a single click after
+    year-end produces a complete tax recap.
+    """
+    if session.get("role") != "admin":
+        return redirect("/")
+    tr = t()
+    client = request.args.get("client", "").strip()
+    if not client:
+        return redirect("/invoices")
+    date_from = request.args.get("date_from", "").strip()
+    date_to   = request.args.get("date_to",   "").strip()
+    if not date_from or not date_to:
+        default_from, default_to = _previous_calendar_year_range()
+        if not date_from: date_from = default_from
+        if not date_to:   date_to   = default_to
+    conn = get_conn()
+    pdf_bytes, fname, _ = _build_client_overview_pdf_for_email(
+        conn, client, date_from, date_to, tr,
+    )
+    conn.close()
+    return send_file(io.BytesIO(pdf_bytes), as_attachment=False,
+                     download_name=fname, mimetype="application/pdf")
 
 
 @app.route("/invoices/export_options")
@@ -12948,13 +13294,22 @@ def invoices_email():
     invoice_number = request.args.get("invoice_number", "").strip()
     bulk_client    = request.args.get("client", "").strip()
     email_type     = (request.args.get("type", "invoice") or "invoice").strip()
-    if email_type not in ("invoice", "reminder"):
+    if email_type not in ("invoice", "reminder", "account_statement"):
         email_type = "invoice"
-    is_reminder = (email_type == "reminder")
-    # Bulk (client-only) mode is reminder-specific: a regular invoice email
-    # has nothing to attach without an invoice_number. Drop the client param
-    # if someone hits the page with ?client=X&type=invoice.
-    if bulk_client and not is_reminder:
+    is_reminder  = (email_type == "reminder")
+    is_statement = (email_type == "account_statement")
+    # Account-statement period: default to previous calendar year.
+    stmt_from = request.args.get("date_from", "").strip()
+    stmt_to   = request.args.get("date_to",   "").strip()
+    if is_statement and (not stmt_from or not stmt_to):
+        _df, _dt = _previous_calendar_year_range()
+        if not stmt_from: stmt_from = _df
+        if not stmt_to:   stmt_to   = _dt
+    # Bulk (client-only) mode is reminder- OR statement-specific: a
+    # regular invoice email has nothing to attach without an
+    # invoice_number. Drop the client param if someone hits the page
+    # with ?client=X&type=invoice.
+    if bulk_client and not (is_reminder or is_statement):
         bulk_client = ""
     is_bulk = bool(bulk_client) and not invoice_number
     if not invoice_number and not is_bulk:
@@ -12962,7 +13317,13 @@ def invoices_email():
 
     conn = get_conn(); c = conn.cursor()
 
-    if is_bulk:
+    if is_bulk and is_statement:
+        # Account-statement bulk: don't require any unpaid rows; we
+        # just need the client identity for recipient lookup.
+        rec = ("", bulk_client, "", "", "", 0, 0, 0, 0, "", "auto")
+        client_for_lookup = bulk_client
+        unpaid = []
+    elif is_bulk:
         # Bulk reminder for all unpaid invoices of a client
         unpaid = _unpaid_invoices_for_client(conn, bulk_client)
         if not unpaid:
@@ -12999,7 +13360,31 @@ def invoices_email():
     if lang not in ("fr", "en", "bos", "de", "pt"):
         lang = "fr"
 
-    if is_reminder and is_bulk:
+    if is_statement:
+        # Pre-fill subject / body for the yearly tax recap. Keep the
+        # placeholders ASCII so _render_email_template can substitute
+        # them regardless of the admin's current UI language.
+        settings = get_invoice_settings(conn)
+        ctx = {
+            "client_name":  bulk_client or "",
+            "period_from":  format_date(stmt_from),
+            "period_to":    format_date(stmt_to),
+            "period_label": f"{format_date(stmt_from)} — {format_date(stmt_to)}",
+            "company_name": settings.get("company_name", "") or "",
+        }
+        subject_tpl = (
+            "Resume factures & TVA — {client_name} ({period_from} — {period_to})"
+        )
+        body_tpl = (
+            "Cher Client,\n\n"
+            "Veuillez trouver ci-joint le resume de vos factures et de la TVA "
+            "pour la periode {period_from} — {period_to}, utile pour votre "
+            "declaration d'impots.\n\n"
+            "N'hesitez pas a nous contacter en cas de questions.\n\n"
+            "Cordialement,\n{company_name}"
+        )
+        unpaid_count = 0
+    elif is_reminder and is_bulk:
         # Bulk reminder: aggregated context across all unpaid invoices.
         # 'unpaid' was already loaded above.
         total_due = sum(float(r.get("total") or 0) for r in unpaid)
@@ -13178,7 +13563,7 @@ def invoices_email():
       {% endfor %}
       {% endwith %}
       <div class="em-card">
-        <h2>{% if is_reminder %}📮 {{ tr.get("send_reminder","Poslati podsjetnik") }}{% else %}✉ {{ tr.get("send_email","Poslati fakturu emailom") }}{% endif %}</h2>
+        <h2>{% if is_statement %}📊 {{ tr.get("send_tax_overview_email","Posalji pregled emailom") }}{% elif is_reminder %}📮 {{ tr.get("send_reminder","Poslati podsjetnik") }}{% else %}✉ {{ tr.get("send_email","Poslati fakturu emailom") }}{% endif %}</h2>
         <div class="em-meta">
           {% if is_bulk %}
             <b>{{ bulk_client }}</b> — {{ tr.get("unpaid","Nije placena") }}: {{ unpaid_count }}
@@ -13194,6 +13579,10 @@ def invoices_email():
         <form method="post" action="/invoices/email/send">
           <input type="hidden" name="invoice_number" value="{{ invoice_number }}">
           <input type="hidden" name="email_type" value="{{ email_type }}">
+          {% if is_statement %}
+          <input type="hidden" name="stmt_from" value="{{ stmt_from }}">
+          <input type="hidden" name="stmt_to"   value="{{ stmt_to }}">
+          {% endif %}
           {% if is_bulk %}<input type="hidden" name="client" value="{{ bulk_client }}">{% endif %}
 
           <label class="em-label">{{ tr.get("email_to","Primalac") }} <span style="color:#ef4444;">*</span></label>
@@ -13682,9 +14071,11 @@ def invoices_email():
     """, tr=tr, dark=dark, rec=rec, invoice_number=invoice_number, recipient=recipient,
          subject=subject, body=body, smtp_ready=smtp_ready,
          is_reminder=is_reminder, is_bulk=is_bulk, bulk_client=bulk_client,
+         is_statement=is_statement, stmt_from=stmt_from, stmt_to=stmt_to,
          email_type=email_type, unpaid_count=unpaid_count,
          lang_locale=lang_locale,
-         pdf_name=(f"rappel_{invoice_number or bulk_client}.pdf"
+         pdf_name=(f"pregled_faktura_{bulk_client}.pdf" if is_statement else
+                   f"rappel_{invoice_number or bulk_client}.pdf"
                    if is_reminder
                    else f"{invoice_number}-facture.pdf"))
 
@@ -13697,9 +14088,16 @@ def invoices_email_send():
     invoice_number = request.form.get("invoice_number", "").strip()
     bulk_client    = request.form.get("client", "").strip()
     email_type     = (request.form.get("email_type", "invoice") or "invoice").strip()
-    if email_type not in ("invoice", "reminder"):
+    if email_type not in ("invoice", "reminder", "account_statement"):
         email_type = "invoice"
-    is_reminder = (email_type == "reminder")
+    is_reminder  = (email_type == "reminder")
+    is_statement = (email_type == "account_statement")
+    stmt_from = (request.form.get("stmt_from", "") or "").strip()
+    stmt_to   = (request.form.get("stmt_to",   "") or "").strip()
+    if is_statement and (not stmt_from or not stmt_to):
+        _df, _dt = _previous_calendar_year_range()
+        if not stmt_from: stmt_from = _df
+        if not stmt_to:   stmt_to   = _dt
     # Same rule as the GET composer: client-only submission makes sense
     # only for reminders. Drop a stray client= on a plain invoice POST.
     if bulk_client and not is_reminder:
@@ -13764,7 +14162,11 @@ def invoices_email_send():
     conn = get_conn(); c = conn.cursor()
 
     if action == "send_now":
-        if is_reminder:
+        if is_statement:
+            pdf_bytes, pdf_name, _ = _build_client_overview_pdf_for_email(
+                conn, bulk_client, stmt_from, stmt_to, tr,
+            )
+        elif is_reminder:
             settings = get_invoice_settings(conn)
             lang_for_pdf = session.get("lang", "fr")
             if lang_for_pdf not in REMINDER_PDF_STRINGS:
@@ -13815,9 +14217,11 @@ def invoices_email_send():
         """, (invoice_number or bulk_client, recipient, subject,
               "sent" if ok else "failed", err if not ok else "", now_str,
               msg_id, pdf_sha, imap_saved, imap_error,
-              "reminder" if is_reminder else "invoice"))
+              "account_statement" if is_statement
+                  else ("reminder" if is_reminder else "invoice")))
         # Only mark invoice 'sent' for real invoice emails, not reminders
-        if ok and invoice_number and not is_reminder:
+        # or statement overviews.
+        if ok and invoice_number and not is_reminder and not is_statement:
             c.execute(
                 "UPDATE invoice_records SET sent=1, sent_date=? WHERE invoice_number=?",
                 (lux_now().strftime("%Y-%m-%d"), invoice_number)
