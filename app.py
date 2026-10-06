@@ -13068,10 +13068,15 @@ function miPeriodSuffix(){
 }
 function miApplyDesignationSuggestion(){
   // Fill the FIRST line item's designation from the picked client's
-  // default description + the current period's month label. Fires
-  // ONLY when the field is empty and has never been touched —
-  // dirty flag + non-empty value both skip, so an edited invoice
-  // (items_json pre-filled the field) is never auto-rewritten.
+  // default description + the current period's month label. The
+  // replacement rule is NOT "only when empty" — otherwise changing
+  // the period after a client has already been picked would leave
+  // "octobre'26" frozen in the field. Instead:
+  //    update if the field is NOT dirty AND
+  //    (field is empty OR field still holds the previous suggestion)
+  // Dirty is stamped the first time the admin types; items_json
+  // pre-fill is also stamped dirty on load (see end of script),
+  // so an existing invoice is never auto-rewritten.
   try {
     var name = (document.getElementById('miClientSearch') || {}).value || "";
     var hidden = document.getElementById('miClientName');
@@ -13083,12 +13088,17 @@ function miApplyDesignationSuggestion(){
     var desigEl = firstRow.querySelector('.mi-desig');
     if (!desigEl) return;
     if (desigEl.dataset.dirty === "1") return;
-    if ((desigEl.value || "").trim() !== "") return;
     var base = (p.service_description || "").trim();
     if (!base) return;
-    desigEl.value = base + miPeriodSuffix();
-    if (typeof autoGrow === "function") autoGrow(desigEl);
-    if (typeof recalc  === "function") recalc();
+    var next = base + miPeriodSuffix();
+    var cur  = (desigEl.value || "").trim();
+    var last = desigEl.dataset.lastSuggestion || "";
+    if (cur === "" || cur === last) {
+      desigEl.value = next;
+      desigEl.dataset.lastSuggestion = next;
+      if (typeof autoGrow === "function") autoGrow(desigEl);
+      if (typeof recalc  === "function") recalc();
+    }
   } catch (e) { /* non-fatal, admin can still type manually */ }
 }
 function fillMiClient(){
@@ -13371,6 +13381,13 @@ prefillItems.forEach(function(it){
   var amt = (it.amount !== '' && it.amount !== undefined && it.amount !== null) ? it.amount : '';
   var vr  = (it.vat_rate !== undefined && it.vat_rate !== null) ? it.vat_rate : 17;
   addItem(it.designation, amt, vr);
+});
+// Any designation that arrived with content from items_json (the
+// admin is editing an existing invoice) is treated as authored
+// text from the first keystroke — never auto-rewrite it from a
+// profile description or a date tweak.
+document.querySelectorAll('.mi-desig').forEach(function (el) {
+  if ((el.value || "").trim() !== "") el.dataset.dirty = "1";
 });
 
 // Surface validation errors — when 'required' fields are empty, scroll to them
