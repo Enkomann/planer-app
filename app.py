@@ -13045,31 +13045,39 @@ var miNoItems      = {{ tr.get("mi_modal_no_items","Aucun article correspondant.
 var miArchiveLabel   = {{ tr.get("mi_modal_archive","Archiver")|tojson }};
 var miUnarchiveLabel = {{ tr.get("mi_modal_unarchive","Restaurer")|tojson }};
 
-// French month names, used to synthesize "pour le mois X'YY" when
-// the admin picks a client on an untouched designation input.
+// French month names + "pour le mois X'YY" synthesizer. Mirrors
+// server-side invoice_service_title(from, to, prefix): the suffix
+// comes from the PERIOD (date_from), not the invoice issue date.
+// invoice_date is only used as a fallback when both period fields
+// are empty — matches /diagram's "period or invoice_date" rule.
 var MI_FR_MONTHS = ["janvier","fevrier","mars","avril","mai","juin",
                      "juillet","aout","septembre","octobre","novembre","decembre"];
-function miServiceSuffix(dateStr){
-  // dateStr is YYYY-MM-DD from the <input type=date>, or empty.
-  var d = dateStr ? new Date(dateStr + "T00:00:00") : new Date();
+function miPeriodSuffix(){
+  var from  = (document.getElementById('miDateFrom') || {}).value || "";
+  var to    = (document.getElementById('miDateTo')   || {}).value || "";
+  var fallback = (document.getElementById('miInvDate') || {}).value || "";
+  // Server-side helper only reads the start date for the month
+  // label; multi-month periods already fall back to the start.
+  var src = from || to || fallback;
+  var d = src ? new Date(src + "T00:00:00") : new Date();
   if (isNaN(d.getTime())) d = new Date();
   var m = MI_FR_MONTHS[d.getMonth()] || "";
   var vowel = m && "aeiou".indexOf(m.charAt(0).toLowerCase()) !== -1;
   var yy = String(d.getFullYear()).slice(-2);
   return " pour le mois " + (vowel ? "d'" : "de ") + m + "'" + yy;
 }
-function fillMiClient(){
-  var name = document.getElementById('miClientSearch').value;
-  var p = miProfiles.find(function(x){ return x.client === name; });
-  if(!p) return;
-  document.getElementById('miClientName').value = p.client || '';
-  document.getElementById('miClientAddress').value = p.address || '';
-  // Suggest the client's default designation on the FIRST line
-  // item, but only when it is empty AND has never been touched by
-  // the admin. The row's own data-dirty flag (set on any input)
-  // keeps a manual edit from being overwritten by a later client
-  // reselect.
+function miApplyDesignationSuggestion(){
+  // Fill the FIRST line item's designation from the picked client's
+  // default description + the current period's month label. Fires
+  // ONLY when the field is empty and has never been touched —
+  // dirty flag + non-empty value both skip, so an edited invoice
+  // (items_json pre-filled the field) is never auto-rewritten.
   try {
+    var name = (document.getElementById('miClientSearch') || {}).value || "";
+    var hidden = document.getElementById('miClientName');
+    if (!name && hidden) name = hidden.value || "";
+    var p = miProfiles.find(function(x){ return x.client === name; });
+    if (!p) return;
     var firstRow = document.querySelector('.mi-item-row');
     if (!firstRow) return;
     var desigEl = firstRow.querySelector('.mi-desig');
@@ -13078,18 +13086,37 @@ function fillMiClient(){
     if ((desigEl.value || "").trim() !== "") return;
     var base = (p.service_description || "").trim();
     if (!base) return;
-    var invDate = (document.getElementById('miInvDate') || {}).value || "";
-    desigEl.value = base + miServiceSuffix(invDate);
+    desigEl.value = base + miPeriodSuffix();
     if (typeof autoGrow === "function") autoGrow(desigEl);
     if (typeof recalc  === "function") recalc();
   } catch (e) { /* non-fatal, admin can still type manually */ }
 }
+function fillMiClient(){
+  var name = document.getElementById('miClientSearch').value;
+  var p = miProfiles.find(function(x){ return x.client === name; });
+  if(!p) return;
+  document.getElementById('miClientName').value = p.client || '';
+  document.getElementById('miClientAddress').value = p.address || '';
+  miApplyDesignationSuggestion();
+}
 // Mark any designation input as dirty the first time the admin
-// touches it, so fillMiClient won't later clobber their edit.
+// touches it, so fillMiClient / date-change listeners won't later
+// clobber their edit.
 document.addEventListener('input', function (ev) {
   var t = ev.target;
   if (t && t.classList && t.classList.contains('mi-desig')) {
     t.dataset.dirty = "1";
+  }
+});
+// Re-run the suggestion when the admin changes the period dates,
+// but only if the first designation is still untouched — an edited
+// invoice (dirty or pre-filled from items_json) stays as the admin
+// wrote it. Covers both the "no client selected yet" case (listener
+// is a no-op) and the "client picked, now adjust the month" case.
+document.addEventListener('change', function (ev) {
+  var t = ev.target;
+  if (t && (t.id === 'miDateFrom' || t.id === 'miDateTo')) {
+    miApplyDesignationSuggestion();
   }
 });
 
