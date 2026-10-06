@@ -8283,10 +8283,12 @@ def index():
             (function () {
               var btn = document.getElementById('shiftPdfShare');
               if (!btn) return;
-              // Feature detection: Web Share API with files. If the
-              // browser can't share a File, we fall back to a plain
-              // download via blob URL — the button still works, but
-              // the system share sheet is not available.
+              // Feature detection: Web Share API with files. We never
+              // sniff the user-agent string; instead we require BOTH
+              // a touch-first phone-shaped viewport AND the browser
+              // reporting it can actually share a PDF file. On
+              // desktop the existing "PDF - Pretraga smjena" link
+              // stays as the only (and sufficient) action.
               var canShareFiles = false;
               try {
                 if (typeof navigator !== 'undefined' && navigator.canShare) {
@@ -8295,10 +8297,26 @@ def index():
                   canShareFiles = navigator.canShare({ files: [probe] });
                 }
               } catch (e) { canShareFiles = false; }
-              // Show the button unconditionally — the fallback path
-              // downloads the PDF, which is useful on desktop too.
-              btn.hidden = false;
-              btn.style.display = 'inline-flex';
+              function isPhoneViewport() {
+                try {
+                  // "hover: none" + "pointer: coarse" together mean a
+                  // touch-primary device with no mouse — the ONLY
+                  // place a system share sheet is meaningful.
+                  var mq = window.matchMedia(
+                    '(hover: none) and (pointer: coarse)');
+                  return !!(mq && mq.matches);
+                } catch (e) { return false; }
+              }
+              function syncVisibility() {
+                var show = canShareFiles && isPhoneViewport();
+                btn.hidden = !show;
+                btn.style.display = show ? 'inline-flex' : 'none';
+              }
+              syncVisibility();
+              // Re-evaluate when the viewport changes (orientation
+              // flip, Chrome DevTools device toolbar, split-screen).
+              window.addEventListener('resize', syncVisibility);
+              window.addEventListener('orientationchange', syncVisibility);
 
               var inFlight = false;
               function setBusy(busy) {
@@ -8337,6 +8355,7 @@ def index():
               }
               btn.addEventListener('click', async function () {
                 if (inFlight) return;
+                if (!canShareFiles || !isPhoneViewport()) return;
                 inFlight = true;
                 setBusy(true);
                 try {
