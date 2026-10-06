@@ -2000,7 +2000,7 @@ INVOICE_TRANSLATIONS = {
         "invoices": "Fakture", "invoice_settings": "Podesavanja faktura", "invoice_text": "Tekst na fakturi",
         "payment_terms": "Modalitet placanja", "bank_account": "Racun za uplatu", "invoice_profiles": "Profili klijenata za fakture",
         "client_type": "Tip klijenta", "private_client": "Privatno lice", "pro_client": "Profesionalni klijent",
-        "hourly_rate": "Cijena po satu", "billing_section": "Podaci za fakturisanje", "invalid_hourly_rate": "Neispravna cijena po satu.", "invalid_vat_rate": "Neispravna TVA stopa.", "billing_future_only": "Primjenjuje se samo na buduce fakture.", "save_failed": "Čuvanje nije uspjelo.", "client_already_exists": "Klijent sa tim imenom već postoji.", "client_added_flash": "✓ Klijent dodat: {name}", "email": "Email", "vat_rate": "TVA", "generate_invoice": "Generisi fakturu",
+        "hourly_rate": "Cijena po satu", "billing_section": "Podaci za fakturisanje", "invalid_hourly_rate": "Neispravna cijena po satu.", "invalid_vat_rate": "Neispravna TVA stopa.", "billing_future_only": "Primjenjuje se samo na buduce fakture.", "share_pdf_btn": "Podijeli / sacuvaj PDF", "share_pdf_preparing": "Priprema PDF-a...", "share_pdf_failed": "Dijeljenje PDF-a nije uspjelo. PDF ce se otvoriti u novom tabu.", "save_failed": "Čuvanje nije uspjelo.", "client_already_exists": "Klijent sa tim imenom već postoji.", "client_added_flash": "✓ Klijent dodat: {name}", "email": "Email", "vat_rate": "TVA", "generate_invoice": "Generisi fakturu",
         "download_all_invoices": "Preuzmi sve fakture PDF", "annual_certificate": "Godisnji certifikat",
         "date_from": "Od datuma", "date_to": "Do datuma", "invoice_date": "Datum fakture",
         "invoice_number": "Broj fakture", "amount_without_vat": "Iznos bez TVA", "amount_with_vat": "Iznos sa TVA",
@@ -2093,7 +2093,7 @@ INVOICE_TRANSLATIONS["en"] = {
     "invoices": "Invoices", "invoice_settings": "Invoice settings", "invoice_text": "Invoice text",
     "payment_terms": "Payment terms", "bank_account": "Bank account", "invoice_profiles": "Client invoice profiles",
     "client_type": "Client type", "private_client": "Private client", "pro_client": "Professional client",
-    "hourly_rate": "Hourly rate", "billing_section": "Billing details", "invalid_hourly_rate": "Invalid hourly rate.", "invalid_vat_rate": "Invalid VAT rate.", "billing_future_only": "Applies only to future invoices.", "save_failed": "Save failed.", "client_already_exists": "A client with this name already exists.", "client_added_flash": "✓ Client added: {name}", "email": "Email", "vat_rate": "VAT", "generate_invoice": "Generate invoice",
+    "hourly_rate": "Hourly rate", "billing_section": "Billing details", "invalid_hourly_rate": "Invalid hourly rate.", "invalid_vat_rate": "Invalid VAT rate.", "billing_future_only": "Applies only to future invoices.", "share_pdf_btn": "Share / save PDF", "share_pdf_preparing": "Preparing PDF...", "share_pdf_failed": "PDF sharing failed. The PDF will open in a new tab.", "save_failed": "Save failed.", "client_already_exists": "A client with this name already exists.", "client_added_flash": "✓ Client added: {name}", "email": "Email", "vat_rate": "VAT", "generate_invoice": "Generate invoice",
     "download_all_invoices": "Download all invoice PDFs", "annual_certificate": "Annual certificate",
     "date_from": "Date from", "date_to": "Date to", "invoice_date": "Invoice date",
     "invoice_number": "Invoice number", "amount_without_vat": "Amount without VAT", "amount_with_vat": "Amount with VAT",
@@ -2183,7 +2183,7 @@ INVOICE_TRANSLATIONS["fr"] = {
     "invoices": "Factures", "invoice_settings": "Parametres des factures", "invoice_text": "Texte sur la facture",
     "payment_terms": "Conditions et modalites de paiement", "bank_account": "Compte bancaire", "invoice_profiles": "Profils de facturation clients",
     "client_type": "Type de client", "private_client": "Client prive", "pro_client": "Client professionnel",
-    "hourly_rate": "Prix horaire", "billing_section": "Donnees de facturation", "invalid_hourly_rate": "Prix horaire invalide.", "invalid_vat_rate": "Taux de TVA invalide.", "billing_future_only": "Applicable uniquement aux factures futures.", "save_failed": "Enregistrement echoue.", "client_already_exists": "Un client avec ce nom existe deja.", "client_added_flash": "✓ Client ajoute : {name}", "email": "Email", "vat_rate": "TVA", "generate_invoice": "Generer facture",
+    "hourly_rate": "Prix horaire", "billing_section": "Donnees de facturation", "invalid_hourly_rate": "Prix horaire invalide.", "invalid_vat_rate": "Taux de TVA invalide.", "billing_future_only": "Applicable uniquement aux factures futures.", "share_pdf_btn": "Partager / enregistrer PDF", "share_pdf_preparing": "Preparation du PDF...", "share_pdf_failed": "Partage du PDF impossible. Le PDF sera ouvert dans un nouvel onglet.", "save_failed": "Enregistrement echoue.", "client_already_exists": "Un client avec ce nom existe deja.", "client_added_flash": "✓ Client ajoute : {name}", "email": "Email", "vat_rate": "TVA", "generate_invoice": "Generer facture",
     "download_all_invoices": "Telecharger toutes les factures PDF", "annual_certificate": "Certificat annuel",
     "date_from": "Date du", "date_to": "Date au", "invoice_date": "Date de facture",
     "invoice_number": "Facture no", "amount_without_vat": "Total HT", "amount_with_vat": "Total TTC",
@@ -2273,7 +2273,7 @@ INVOICE_TRANSLATIONS["de"] = {
     "invoices": "Rechnungen", "invoice_settings": "Rechnungseinstellungen", "invoice_text": "Rechnungstext",
     "payment_terms": "Zahlungsbedingungen", "bank_account": "Bankkonto", "invoice_profiles": "Kundenprofile fuer Rechnungen",
     "client_type": "Kundentyp", "private_client": "Privatkunde", "pro_client": "Gewerbekunde",
-    "hourly_rate": "Stundensatz", "billing_section": "Rechnungsangaben", "invalid_hourly_rate": "Ungultiger Stundensatz.", "invalid_vat_rate": "Ungultiger MwSt.-Satz.", "billing_future_only": "Gilt nur fur zukunftige Rechnungen.", "save_failed": "Speichern fehlgeschlagen.", "client_already_exists": "Ein Kunde mit diesem Namen existiert bereits.", "client_added_flash": "✓ Kunde hinzugefugt: {name}", "email": "Email", "vat_rate": "MwSt.", "generate_invoice": "Rechnung erstellen",
+    "hourly_rate": "Stundensatz", "billing_section": "Rechnungsangaben", "invalid_hourly_rate": "Ungultiger Stundensatz.", "invalid_vat_rate": "Ungultiger MwSt.-Satz.", "billing_future_only": "Gilt nur fur zukunftige Rechnungen.", "share_pdf_btn": "PDF teilen / speichern", "share_pdf_preparing": "PDF wird vorbereitet...", "share_pdf_failed": "PDF-Freigabe fehlgeschlagen. Das PDF wird in einem neuen Tab geoffnet.", "save_failed": "Speichern fehlgeschlagen.", "client_already_exists": "Ein Kunde mit diesem Namen existiert bereits.", "client_added_flash": "✓ Kunde hinzugefugt: {name}", "email": "Email", "vat_rate": "MwSt.", "generate_invoice": "Rechnung erstellen",
     "download_all_invoices": "Alle Rechnungen als PDF herunterladen", "annual_certificate": "Jahreszertifikat",
     "date_from": "Datum von", "date_to": "Datum bis", "invoice_date": "Rechnungsdatum",
     "invoice_number": "Rechnungsnummer", "amount_without_vat": "Betrag ohne MwSt.", "amount_with_vat": "Betrag mit MwSt.",
@@ -2363,7 +2363,7 @@ INVOICE_TRANSLATIONS["pt"] = {
     "invoices": "Faturas", "invoice_settings": "Definicoes de faturas", "invoice_text": "Texto na fatura",
     "payment_terms": "Condicoes de pagamento", "bank_account": "Conta bancaria", "invoice_profiles": "Perfis de clientes para faturas",
     "client_type": "Tipo de cliente", "private_client": "Cliente privado", "pro_client": "Cliente profissional",
-    "hourly_rate": "Preco por hora", "billing_section": "Dados de faturacao", "invalid_hourly_rate": "Preco por hora invalido.", "invalid_vat_rate": "Taxa de IVA invalida.", "billing_future_only": "Aplica-se apenas a faturas futuras.", "save_failed": "Falha ao guardar.", "client_already_exists": "Ja existe um cliente com este nome.", "client_added_flash": "✓ Cliente adicionado: {name}", "email": "Email", "vat_rate": "IVA", "generate_invoice": "Gerar fatura",
+    "hourly_rate": "Preco por hora", "billing_section": "Dados de faturacao", "invalid_hourly_rate": "Preco por hora invalido.", "invalid_vat_rate": "Taxa de IVA invalida.", "billing_future_only": "Aplica-se apenas a faturas futuras.", "share_pdf_btn": "Partilhar / guardar PDF", "share_pdf_preparing": "A preparar PDF...", "share_pdf_failed": "Partilha de PDF falhou. O PDF sera aberto num novo separador.", "save_failed": "Falha ao guardar.", "client_already_exists": "Ja existe um cliente com este nome.", "client_added_flash": "✓ Cliente adicionado: {name}", "email": "Email", "vat_rate": "IVA", "generate_invoice": "Gerar fatura",
     "download_all_invoices": "Descarregar todas as faturas PDF", "annual_certificate": "Certificado anual",
     "date_from": "Data de", "date_to": "Data ate", "invoice_date": "Data da fatura",
     "invoice_number": "Numero da fatura", "amount_without_vat": "Valor sem IVA", "amount_with_vat": "Valor com IVA",
@@ -8254,11 +8254,131 @@ def index():
             </form>
             <a class="reset-link" href="/">{{ tr["reset"] }}</a>
             {% if search_date_from or search_date_to or client_filter or request.args.get('q') or (is_admin and worker_filter) %}
-            <div style="margin-top:12px;">
-                <a href="/shifts_search_pdf?search_date_from={{ search_date_from|urlencode }}&search_date_to={{ search_date_to|urlencode }}&worker={{ worker_filter|urlencode }}&client={{ client_filter|urlencode }}&q={{ request.args.get('q','')|urlencode }}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:#1f4f82;color:white;border-radius:8px;font-weight:700;text-decoration:none;">
+            {% set _pdf_url = "/shifts_search_pdf?search_date_from=" ~ search_date_from|urlencode ~ "&search_date_to=" ~ search_date_to|urlencode ~ "&worker=" ~ worker_filter|urlencode ~ "&client=" ~ client_filter|urlencode ~ "&q=" ~ request.args.get('q','')|urlencode %}
+            <div class="shift-pdf-actions" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+                <a id="shiftPdfOpen" href="{{ _pdf_url }}" target="_blank"
+                   style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:#1f4f82;color:white;border-radius:8px;font-weight:700;text-decoration:none;">
                     📄 {{ tr.get("pdf","PDF") }} — {{ tr["search_shifts"] }}
                 </a>
+                <button id="shiftPdfShare" type="button" hidden
+                        data-url="{{ _pdf_url }}"
+                        data-from="{{ search_date_from }}"
+                        data-to="{{ search_date_to }}"
+                        data-worker="{{ worker_filter }}"
+                        data-ready-label="📤 {{ tr.get('share_pdf_btn','Podijeli / sacuvaj PDF') }}"
+                        data-busy-label="⏳ {{ tr.get('share_pdf_preparing','Priprema PDF-a...') }}"
+                        data-fail-msg="{{ tr.get('share_pdf_failed','Dijeljenje PDF-a nije uspjelo.')|replace('\"','&quot;') }}"
+                        style="display:none;align-items:center;gap:6px;padding:8px 16px;background:#16a34a;color:white;border:0;border-radius:8px;font-weight:700;font-family:inherit;cursor:pointer;">
+                    📤 {{ tr.get("share_pdf_btn","Podijeli / sacuvaj PDF") }}
+                </button>
             </div>
+            <style>
+              @media (max-width:720px){
+                .shift-pdf-actions{flex-direction:column;}
+                .shift-pdf-actions > a,
+                .shift-pdf-actions > button{width:100%;justify-content:center;}
+              }
+            </style>
+            <script>
+            (function () {
+              var btn = document.getElementById('shiftPdfShare');
+              if (!btn) return;
+              // Feature detection: Web Share API with files. If the
+              // browser can't share a File, we fall back to a plain
+              // download via blob URL — the button still works, but
+              // the system share sheet is not available.
+              var canShareFiles = false;
+              try {
+                if (typeof navigator !== 'undefined' && navigator.canShare) {
+                  var probe = new File([new Blob(['%PDF-1.4\\n'])], 'probe.pdf',
+                                       { type: 'application/pdf' });
+                  canShareFiles = navigator.canShare({ files: [probe] });
+                }
+              } catch (e) { canShareFiles = false; }
+              // Show the button unconditionally — the fallback path
+              // downloads the PDF, which is useful on desktop too.
+              btn.hidden = false;
+              btn.style.display = 'inline-flex';
+
+              var inFlight = false;
+              function setBusy(busy) {
+                btn.disabled = busy;
+                btn.textContent = busy ? btn.dataset.busyLabel
+                                       : btn.dataset.readyLabel;
+              }
+              function sanitizeFilename(name) {
+                return (name || '').replace(/[^A-Za-z0-9_.-]+/g, '_')
+                                    .replace(/^_+|_+$/g, '') || 'raspored_smjena';
+              }
+              function buildFilename(cd) {
+                // Prefer the server-stamped Content-Disposition filename
+                // (goes through safe_pdf_name on the backend). Fall back
+                // to a client-constructed one that mirrors the task
+                // spec: raspored_smjena_<from>_<to>[_<worker>].pdf.
+                if (cd) {
+                  var m = /filename\\*?=(?:UTF-8'')?\\"?([^\\";]+)\\"?/i.exec(cd);
+                  if (m && m[1]) return sanitizeFilename(decodeURIComponent(m[1]));
+                }
+                var parts = ['raspored_smjena'];
+                if (btn.dataset.from) parts.push(btn.dataset.from);
+                if (btn.dataset.to)   parts.push(btn.dataset.to);
+                if (btn.dataset.worker) parts.push(btn.dataset.worker);
+                return sanitizeFilename(parts.join('_')) + '.pdf';
+              }
+              function downloadFallback(blob, filename) {
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+              }
+              btn.addEventListener('click', async function () {
+                if (inFlight) return;
+                inFlight = true;
+                setBusy(true);
+                try {
+                  var resp = await fetch(btn.dataset.url,
+                                         { credentials: 'same-origin' });
+                  if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                  var blob = await resp.blob();
+                  var filename = buildFilename(resp.headers.get('Content-Disposition'));
+                  if (canShareFiles) {
+                    var file = new File([blob], filename,
+                                        { type: 'application/pdf' });
+                    try {
+                      await navigator.share({
+                        title: 'PDF',
+                        text: filename,
+                        files: [file],
+                      });
+                    } catch (shareErr) {
+                      // Share cancelled by the user is not an error.
+                      if (shareErr && shareErr.name === 'AbortError') {
+                        // no-op
+                      } else {
+                        downloadFallback(blob, filename);
+                      }
+                    }
+                  } else {
+                    downloadFallback(blob, filename);
+                  }
+                } catch (err) {
+                  // Fetch or decoding failed: fall back to opening the
+                  // existing PDF URL in a new tab so the admin still
+                  // has access. Don't log the PDF or personal data.
+                  try { window.open(btn.dataset.url, '_blank', 'noopener'); }
+                  catch (e) { /* ignore */ }
+                  if (btn.dataset.failMsg) alert(btn.dataset.failMsg);
+                } finally {
+                  setBusy(false);
+                  inFlight = false;
+                }
+              });
+            })();
+            </script>
             {% endif %}
         </div>
 
