@@ -11396,6 +11396,11 @@ def invoices_view():
     """, (invoice_number,)).fetchone()
     if not record_row:
         conn.close()
+        app.logger.warning(
+            "invoices_view: invoice_number %r not found (deleted or never issued)",
+            invoice_number,
+        )
+        flash(tr.get("invoice_not_found", "Faktura nije pronadjena."), "error")
         return redirect("/invoices")
     record = invoice_record_to_dict(record_row)
     is_manual = record.get("source") == "manual"
@@ -11410,6 +11415,9 @@ def invoices_view():
         ).fetchone()
         if not draft_exists:
             conn.close()
+            app.logger.warning(
+                "invoices_view: manual draft missing for %r", invoice_number,
+            )
             flash(tr.get("invoice_not_found", "Faktura nije pronadjena."), "error")
             return redirect("/invoices")
         settings = get_invoice_settings(conn)
@@ -11425,7 +11433,9 @@ def invoices_view():
         }
         pdf_url      = f"/invoices/manual/pdf?invoice_number={urllib.parse.quote(invoice_number)}&inline=1"
         download_url = f"/invoices/manual/pdf?invoice_number={urllib.parse.quote(invoice_number)}"
-        edit_url     = f"/invoices/manual?invoice_number={urllib.parse.quote(invoice_number)}"
+        # Manual invoice: open the manual editor pre-filled with the
+        # saved draft. Save in-place keeps the same invoice_number.
+        edit_url     = url_for("invoices_manual", invoice_number=invoice_number)
     else:
         row, settings = get_invoice_row_for_record(conn, record)
         conn.close()
@@ -11435,6 +11445,12 @@ def invoices_view():
             # happened to share the same generated invoice_number (the
             # #4385 → TELUS bug). Tell the admin instead of showing a
             # stranger's invoice.
+            app.logger.warning(
+                "invoices_view: auto invoice %r cannot be rebuilt from plan "
+                "(client=%r, period=%s..%s)",
+                invoice_number, record.get("client"),
+                record.get("date_from"), record.get("date_to"),
+            )
             flash(
                 tr.get(
                     "invoice_cannot_rebuild",
@@ -11447,7 +11463,14 @@ def invoices_view():
             return redirect("/invoices")
         pdf_url      = f"/invoices/preview_pdf?invoice_number={urllib.parse.quote(invoice_number)}"
         download_url = f"/invoices/download?invoice_number={urllib.parse.quote(invoice_number)}&client={urllib.parse.quote(row['client'])}&date_from={record['date_from']}&date_to={record['date_to']}&invoice_date={record['invoice_date']}"
-        edit_url     = "/invoices#invoice-profiles"   # auto invoices edit via settings panel
+        # Auto invoice: Modifier opens the manual editor pre-filled
+        # from THIS auto invoice via /invoices/manual?load_auto=<n>.
+        # The editor keeps the same invoice_number so a Save updates
+        # the record in place (and the source becomes 'manual' from
+        # that point on, which matches the admin's intent to tweak
+        # the invoice contents). No new row is created on GET —
+        # invoices_manual load_auto path only populates the form.
+        edit_url     = url_for("invoices_manual", load_auto=invoice_number)
 
     # Mark paid/sent now go through POST forms instead of GET links so a
     # stray prefetch or third-party rel=preconnect can't silently flip
