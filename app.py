@@ -3895,14 +3895,17 @@ def get_invoice_row_for_record(conn, record):
         # generation time. A profile description change must not
         # rewrite the title on an invoice that has already left the
         # building. Pre-snapshot invoices (empty column) fall back
-        # to the current build_invoice_rows() output.
+        # to the LEGACY default ("Entretien et nettoyage de la
+        # maison"), never to the current profile — the current
+        # profile might read "du restaurant" today and we must not
+        # paint that over a historical "maison" invoice.
         stored_desc = record.get("service_description") or ""
-        if stored_desc:
-            row["service_description"] = stored_desc
-            row["service_title"] = invoice_service_title(
-                record.get("date_from", ""), record.get("date_to", ""),
-                prefix=stored_desc,
-            )
+        historical_prefix = stored_desc or SERVICE_DESCRIPTION_DEFAULT
+        row["service_description"] = stored_desc
+        row["service_title"] = invoice_service_title(
+            record.get("date_from", ""), record.get("date_to", ""),
+            prefix=historical_prefix,
+        )
         row["sent"] = record.get("sent", False)
         return row, settings
     return None, settings
@@ -4258,10 +4261,15 @@ def build_invoice_pdf(row, settings, invoice_date, date_from, date_to, document_
     detail_lines = invoice_designation_lines(row)
     if settings.get("invoice_text"):
         pass
+    # ReportLab's Paragraph interprets '<' / '&' as mini-HTML; a
+    # service description containing "A & B <Luxembourg>" would
+    # otherwise raise or render incorrectly. Escape each line, then
+    # join with our own <br/> markup so visual line breaks survive.
+    designation_html = "<br/>".join(_html.escape(l) for l in detail_lines)
 
     invoice_table = Table([
         [Paragraph("<b>D\u00c9SIGNATION</b>", normal), Paragraph("<b>MONTANT</b>", normal)],
-        [Paragraph("<br/>".join(detail_lines), normal), Paragraph(f"{row['amount']:.2f}", normal)],
+        [Paragraph(designation_html, normal), Paragraph(f"{row['amount']:.2f}", normal)],
         [Paragraph("Total HT", normal), Paragraph(f"{row['amount']:.2f}", normal)],
         [Paragraph(f"TVA {row['vat_rate']*100:.1f}%", normal), Paragraph(f"{row['vat_amount']:.2f}", normal)],
         [Paragraph("<b>TOTAL TTC</b>", styles["Heading2"]), Paragraph(f"<b>{row['total']:.2f} \u20ac</b>", styles["Heading2"])],
@@ -5262,7 +5270,12 @@ def build_manual_invoice_pdf(draft, settings):
         total_vat += amt * vr
         if abs(vr_pct) > 0.0001:
             vat_rates_seen.add(round(vr_pct, 2))
-        desig_html = (item.get("designation") or "").replace("\n", "<br/>") or "-"
+        # Escape before splitting on \n so an item designation that
+        # happens to contain '<', '&', or '"' cannot break the
+        # ReportLab Paragraph parser or inject markup. Line breaks
+        # authored by the admin stay as <br/>.
+        desig_raw = (item.get("designation") or "").strip() or "-"
+        desig_html = _html.escape(desig_raw).replace("\n", "<br/>")
         table_data.append([
             Paragraph(desig_html, normal),
             Paragraph(f"{amt:.2f}", normal),
@@ -12720,24 +12733,24 @@ def invoices_manual():
             ).fetchone()
             client_addr = (prof[0] if prof else "") or (auto_row.get("address") if auto_row else "") or ""
             vr = round(record["vat_amount"] / record["amount"] * 100, 2) if record["amount"] else 17.0
-            # Prefer the snapshotted service_description. When present
-            # (any invoice issued after this feature shipped), it is
-            # the authoritative description for load_auto so the
-            # editor opens with the exact title the invoice was issued
-            # under — not the current profile description.
-            if auto_row and record.get("service_description"):
+            # Historical designation for load_auto: prefer the
+            # record's snapshot; otherwise fall back to the LEGACY
+            # default (never the current profile) so a profile
+            # description typed years after this invoice was issued
+            # cannot leak into an older invoice's editor.
+            historical_prefix = (record.get("service_description")
+                                 or SERVICE_DESCRIPTION_DEFAULT)
+            if auto_row:
                 _auto_row_overlay = dict(auto_row)
                 _auto_row_overlay["service_title"] = invoice_service_title(
                     record.get("date_from", ""), record.get("date_to", ""),
-                    prefix=record["service_description"],
+                    prefix=historical_prefix,
                 )
                 designation = invoice_designation_text(_auto_row_overlay)
-            elif auto_row:
-                designation = invoice_designation_text(auto_row)
             else:
                 designation = invoice_service_title(
                     record["date_from"], record["date_to"],
-                    prefix=record.get("service_description"),
+                    prefix=historical_prefix,
                 )
             draft = {
                 "invoice_number": record["invoice_number"],
@@ -12896,7 +12909,7 @@ def invoices_manual():
           </div>
           <div>
             <div class="mi-label">{{ tr["invoice_date"] }}</div>
-            <input class="mi-input" type="date" name="invoice_date"
+            <input id="miInvDate" class="mi-input" type="date" name="invoice_date"
                    value="{{ draft.invoice_date or today }}">
           </div>
         </div>
@@ -13032,13 +13045,53 @@ var miNoItems      = {{ tr.get("mi_modal_no_items","Aucun article correspondant.
 var miArchiveLabel   = {{ tr.get("mi_modal_archive","Archiver")|tojson }};
 var miUnarchiveLabel = {{ tr.get("mi_modal_unarchive","Restaurer")|tojson }};
 
+// French month names, used to synthesize "pour le mois X'YY" when
+// the admin picks a client on an untouched designation input.
+var MI_FR_MONTHS = ["janvier","fevrier","mars","avril","mai","juin",
+                     "juillet","aout","septembre","octobre","novembre","decembre"];
+function miServiceSuffix(dateStr){
+  // dateStr is YYYY-MM-DD from the <input type=date>, or empty.
+  var d = dateStr ? new Date(dateStr + "T00:00:00") : new Date();
+  if (isNaN(d.getTime())) d = new Date();
+  var m = MI_FR_MONTHS[d.getMonth()] || "";
+  var vowel = m && "aeiou".indexOf(m.charAt(0).toLowerCase()) !== -1;
+  var yy = String(d.getFullYear()).slice(-2);
+  return " pour le mois " + (vowel ? "d'" : "de ") + m + "'" + yy;
+}
 function fillMiClient(){
   var name = document.getElementById('miClientSearch').value;
   var p = miProfiles.find(function(x){ return x.client === name; });
   if(!p) return;
   document.getElementById('miClientName').value = p.client || '';
   document.getElementById('miClientAddress').value = p.address || '';
+  // Suggest the client's default designation on the FIRST line
+  // item, but only when it is empty AND has never been touched by
+  // the admin. The row's own data-dirty flag (set on any input)
+  // keeps a manual edit from being overwritten by a later client
+  // reselect.
+  try {
+    var firstRow = document.querySelector('.mi-item-row');
+    if (!firstRow) return;
+    var desigEl = firstRow.querySelector('.mi-desig');
+    if (!desigEl) return;
+    if (desigEl.dataset.dirty === "1") return;
+    if ((desigEl.value || "").trim() !== "") return;
+    var base = (p.service_description || "").trim();
+    if (!base) return;
+    var invDate = (document.getElementById('miInvDate') || {}).value || "";
+    desigEl.value = base + miServiceSuffix(invDate);
+    if (typeof autoGrow === "function") autoGrow(desigEl);
+    if (typeof recalc  === "function") recalc();
+  } catch (e) { /* non-fatal, admin can still type manually */ }
 }
+// Mark any designation input as dirty the first time the admin
+// touches it, so fillMiClient won't later clobber their edit.
+document.addEventListener('input', function (ev) {
+  var t = ev.target;
+  if (t && t.classList && t.classList.contains('mi-desig')) {
+    t.dataset.dirty = "1";
+  }
+});
 
 function fmtN(n){ return n.toFixed(2) + ' €'; }
 
