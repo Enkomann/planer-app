@@ -2000,7 +2000,7 @@ INVOICE_TRANSLATIONS = {
         "invoices": "Fakture", "invoice_settings": "Podesavanja faktura", "invoice_text": "Tekst na fakturi",
         "payment_terms": "Modalitet placanja", "bank_account": "Racun za uplatu", "invoice_profiles": "Profili klijenata za fakture",
         "client_type": "Tip klijenta", "private_client": "Privatno lice", "pro_client": "Profesionalni klijent",
-        "hourly_rate": "Cijena po satu", "billing_section": "Podaci za fakturisanje", "invalid_hourly_rate": "Neispravna cijena po satu.", "invalid_vat_rate": "Neispravna TVA stopa.", "billing_future_only": "Primjenjuje se samo na buduce fakture.", "share_pdf_btn": "Podijeli / sacuvaj PDF", "share_pdf_preparing": "Priprema PDF-a...", "share_pdf_failed": "Dijeljenje PDF-a nije uspjelo. PDF ce se otvoriti u novom tabu.", "save_failed": "Čuvanje nije uspjelo.", "client_already_exists": "Klijent sa tim imenom već postoji.", "client_added_flash": "✓ Klijent dodat: {name}", "email": "Email", "vat_rate": "TVA", "generate_invoice": "Generisi fakturu",
+        "hourly_rate": "Cijena po satu", "billing_section": "Podaci za fakturisanje", "invalid_hourly_rate": "Neispravna cijena po satu.", "invalid_vat_rate": "Neispravna TVA stopa.", "billing_future_only": "Primjenjuje se samo na buduce fakture.", "invoice_service_description_label": "Podrazumijevani opis usluge na fakturi", "share_pdf_btn": "Podijeli / sacuvaj PDF", "share_pdf_preparing": "Priprema PDF-a...", "share_pdf_failed": "Dijeljenje PDF-a nije uspjelo. PDF ce se otvoriti u novom tabu.", "save_failed": "Čuvanje nije uspjelo.", "client_already_exists": "Klijent sa tim imenom već postoji.", "client_added_flash": "✓ Klijent dodat: {name}", "email": "Email", "vat_rate": "TVA", "generate_invoice": "Generisi fakturu",
         "download_all_invoices": "Preuzmi sve fakture PDF", "annual_certificate": "Godisnji certifikat",
         "date_from": "Od datuma", "date_to": "Do datuma", "invoice_date": "Datum fakture",
         "invoice_number": "Broj fakture", "amount_without_vat": "Iznos bez TVA", "amount_with_vat": "Iznos sa TVA",
@@ -2093,7 +2093,7 @@ INVOICE_TRANSLATIONS["en"] = {
     "invoices": "Invoices", "invoice_settings": "Invoice settings", "invoice_text": "Invoice text",
     "payment_terms": "Payment terms", "bank_account": "Bank account", "invoice_profiles": "Client invoice profiles",
     "client_type": "Client type", "private_client": "Private client", "pro_client": "Professional client",
-    "hourly_rate": "Hourly rate", "billing_section": "Billing details", "invalid_hourly_rate": "Invalid hourly rate.", "invalid_vat_rate": "Invalid VAT rate.", "billing_future_only": "Applies only to future invoices.", "share_pdf_btn": "Share / save PDF", "share_pdf_preparing": "Preparing PDF...", "share_pdf_failed": "PDF sharing failed. The PDF will open in a new tab.", "save_failed": "Save failed.", "client_already_exists": "A client with this name already exists.", "client_added_flash": "✓ Client added: {name}", "email": "Email", "vat_rate": "VAT", "generate_invoice": "Generate invoice",
+    "hourly_rate": "Hourly rate", "billing_section": "Billing details", "invalid_hourly_rate": "Invalid hourly rate.", "invalid_vat_rate": "Invalid VAT rate.", "billing_future_only": "Applies only to future invoices.", "invoice_service_description_label": "Default invoice service description", "share_pdf_btn": "Share / save PDF", "share_pdf_preparing": "Preparing PDF...", "share_pdf_failed": "PDF sharing failed. The PDF will open in a new tab.", "save_failed": "Save failed.", "client_already_exists": "A client with this name already exists.", "client_added_flash": "✓ Client added: {name}", "email": "Email", "vat_rate": "VAT", "generate_invoice": "Generate invoice",
     "download_all_invoices": "Download all invoice PDFs", "annual_certificate": "Annual certificate",
     "date_from": "Date from", "date_to": "Date to", "invoice_date": "Invoice date",
     "invoice_number": "Invoice number", "amount_without_vat": "Amount without VAT", "amount_with_vat": "Amount with VAT",
@@ -2183,7 +2183,7 @@ INVOICE_TRANSLATIONS["fr"] = {
     "invoices": "Factures", "invoice_settings": "Parametres des factures", "invoice_text": "Texte sur la facture",
     "payment_terms": "Conditions et modalites de paiement", "bank_account": "Compte bancaire", "invoice_profiles": "Profils de facturation clients",
     "client_type": "Type de client", "private_client": "Client prive", "pro_client": "Client professionnel",
-    "hourly_rate": "Prix horaire", "billing_section": "Donnees de facturation", "invalid_hourly_rate": "Prix horaire invalide.", "invalid_vat_rate": "Taux de TVA invalide.", "billing_future_only": "Applicable uniquement aux factures futures.", "share_pdf_btn": "Partager / enregistrer PDF", "share_pdf_preparing": "Preparation du PDF...", "share_pdf_failed": "Partage du PDF impossible. Le PDF sera ouvert dans un nouvel onglet.", "save_failed": "Enregistrement echoue.", "client_already_exists": "Un client avec ce nom existe deja.", "client_added_flash": "✓ Client ajoute : {name}", "email": "Email", "vat_rate": "TVA", "generate_invoice": "Generer facture",
+    "hourly_rate": "Prix horaire", "billing_section": "Donnees de facturation", "invalid_hourly_rate": "Prix horaire invalide.", "invalid_vat_rate": "Taux de TVA invalide.", "billing_future_only": "Applicable uniquement aux factures futures.", "invoice_service_description_label": "Description de service par defaut sur la facture", "share_pdf_btn": "Partager / enregistrer PDF", "share_pdf_preparing": "Preparation du PDF...", "share_pdf_failed": "Partage du PDF impossible. Le PDF sera ouvert dans un nouvel onglet.", "save_failed": "Enregistrement echoue.", "client_already_exists": "Un client avec ce nom existe deja.", "client_added_flash": "✓ Client ajoute : {name}", "email": "Email", "vat_rate": "TVA", "generate_invoice": "Generer facture",
     "download_all_invoices": "Telecharger toutes les factures PDF", "annual_certificate": "Certificat annuel",
     "date_from": "Date du", "date_to": "Date au", "invoice_date": "Date de facture",
     "invoice_number": "Facture no", "amount_without_vat": "Total HT", "amount_with_vat": "Total TTC",
@@ -2273,7 +2273,7 @@ INVOICE_TRANSLATIONS["de"] = {
     "invoices": "Rechnungen", "invoice_settings": "Rechnungseinstellungen", "invoice_text": "Rechnungstext",
     "payment_terms": "Zahlungsbedingungen", "bank_account": "Bankkonto", "invoice_profiles": "Kundenprofile fuer Rechnungen",
     "client_type": "Kundentyp", "private_client": "Privatkunde", "pro_client": "Gewerbekunde",
-    "hourly_rate": "Stundensatz", "billing_section": "Rechnungsangaben", "invalid_hourly_rate": "Ungultiger Stundensatz.", "invalid_vat_rate": "Ungultiger MwSt.-Satz.", "billing_future_only": "Gilt nur fur zukunftige Rechnungen.", "share_pdf_btn": "PDF teilen / speichern", "share_pdf_preparing": "PDF wird vorbereitet...", "share_pdf_failed": "PDF-Freigabe fehlgeschlagen. Das PDF wird in einem neuen Tab geoffnet.", "save_failed": "Speichern fehlgeschlagen.", "client_already_exists": "Ein Kunde mit diesem Namen existiert bereits.", "client_added_flash": "✓ Kunde hinzugefugt: {name}", "email": "Email", "vat_rate": "MwSt.", "generate_invoice": "Rechnung erstellen",
+    "hourly_rate": "Stundensatz", "billing_section": "Rechnungsangaben", "invalid_hourly_rate": "Ungultiger Stundensatz.", "invalid_vat_rate": "Ungultiger MwSt.-Satz.", "billing_future_only": "Gilt nur fur zukunftige Rechnungen.", "invoice_service_description_label": "Standardbeschreibung der Leistung auf der Rechnung", "share_pdf_btn": "PDF teilen / speichern", "share_pdf_preparing": "PDF wird vorbereitet...", "share_pdf_failed": "PDF-Freigabe fehlgeschlagen. Das PDF wird in einem neuen Tab geoffnet.", "save_failed": "Speichern fehlgeschlagen.", "client_already_exists": "Ein Kunde mit diesem Namen existiert bereits.", "client_added_flash": "✓ Kunde hinzugefugt: {name}", "email": "Email", "vat_rate": "MwSt.", "generate_invoice": "Rechnung erstellen",
     "download_all_invoices": "Alle Rechnungen als PDF herunterladen", "annual_certificate": "Jahreszertifikat",
     "date_from": "Datum von", "date_to": "Datum bis", "invoice_date": "Rechnungsdatum",
     "invoice_number": "Rechnungsnummer", "amount_without_vat": "Betrag ohne MwSt.", "amount_with_vat": "Betrag mit MwSt.",
@@ -2363,7 +2363,7 @@ INVOICE_TRANSLATIONS["pt"] = {
     "invoices": "Faturas", "invoice_settings": "Definicoes de faturas", "invoice_text": "Texto na fatura",
     "payment_terms": "Condicoes de pagamento", "bank_account": "Conta bancaria", "invoice_profiles": "Perfis de clientes para faturas",
     "client_type": "Tipo de cliente", "private_client": "Cliente privado", "pro_client": "Cliente profissional",
-    "hourly_rate": "Preco por hora", "billing_section": "Dados de faturacao", "invalid_hourly_rate": "Preco por hora invalido.", "invalid_vat_rate": "Taxa de IVA invalida.", "billing_future_only": "Aplica-se apenas a faturas futuras.", "share_pdf_btn": "Partilhar / guardar PDF", "share_pdf_preparing": "A preparar PDF...", "share_pdf_failed": "Partilha de PDF falhou. O PDF sera aberto num novo separador.", "save_failed": "Falha ao guardar.", "client_already_exists": "Ja existe um cliente com este nome.", "client_added_flash": "✓ Cliente adicionado: {name}", "email": "Email", "vat_rate": "IVA", "generate_invoice": "Gerar fatura",
+    "hourly_rate": "Preco por hora", "billing_section": "Dados de faturacao", "invalid_hourly_rate": "Preco por hora invalido.", "invalid_vat_rate": "Taxa de IVA invalida.", "billing_future_only": "Aplica-se apenas a faturas futuras.", "invoice_service_description_label": "Descricao padrao do servico na fatura", "share_pdf_btn": "Partilhar / guardar PDF", "share_pdf_preparing": "A preparar PDF...", "share_pdf_failed": "Partilha de PDF falhou. O PDF sera aberto num novo separador.", "save_failed": "Falha ao guardar.", "client_already_exists": "Ja existe um cliente com este nome.", "client_added_flash": "✓ Cliente adicionado: {name}", "email": "Email", "vat_rate": "IVA", "generate_invoice": "Gerar fatura",
     "download_all_invoices": "Descarregar todas as faturas PDF", "annual_certificate": "Certificado anual",
     "date_from": "Data de", "date_to": "Data ate", "invoice_date": "Data da fatura",
     "invoice_number": "Numero da fatura", "amount_without_vat": "Valor sem IVA", "amount_with_vat": "Valor com IVA",
@@ -3423,7 +3423,8 @@ def get_invoice_profiles(conn):
     c = conn.cursor()
     rows = c.execute("""
         SELECT c.name, c.address, p.email, p.client_type, p.hourly_rate,
-               p.custom_address, p.vat_rate
+               p.custom_address, p.vat_rate,
+               COALESCE(p.invoice_service_description, '')
         FROM clients c
         LEFT JOIN client_invoice_profiles p ON p.client_name = c.name
         ORDER BY c.name
@@ -3448,6 +3449,7 @@ def get_invoice_profiles(conn):
             "hourly_rate": float(row[4] or 0),
             "address": row[5] or row[1] or "",
             "vat_rate": vat_pct,  # stored as percent (8.00, 17.00, …)
+            "service_description": row[7] or "",
         })
     return profiles
 
@@ -3560,7 +3562,8 @@ def parse_vat_rate_input(raw, *, missing_sentinel=object(),
 
 def upsert_client_invoice_profile(cursor, client_name, *,
                                     email=None, client_type=None,
-                                    hourly_rate=None, vat_rate=None):
+                                    hourly_rate=None, vat_rate=None,
+                                    invoice_service_description=None):
     """Upsert a client_invoice_profiles row, writing ONLY the fields
     the caller passed (so the dashboard quick-add path doesn't
     silently rewrite client_type/hourly_rate it never saw).
@@ -3598,6 +3601,9 @@ def upsert_client_invoice_profile(cursor, client_name, *,
         _add("hourly_rate", float(hourly_rate), "0")
     if vat_rate is not None:
         _add("vat_rate", float(vat_rate), "8.00")
+    if invoice_service_description is not None:
+        _add("invoice_service_description",
+             parse_service_description(invoice_service_description), "''")
 
     if not sets_update:
         # Caller passed nothing beyond client_name: nothing to touch,
@@ -3676,14 +3682,43 @@ def format_invoice_address(address):
     return f"{street}\n{postal}" if street and postal else (street or postal)
 
 
-def invoice_service_title(date_from, date_to):
+SERVICE_DESCRIPTION_DEFAULT = "Entretien et nettoyage de la maison"
+SERVICE_DESCRIPTION_MAX = 300
+
+SERVICE_DESCRIPTION_PRESETS = (
+    "Entretien et nettoyage de la maison",
+    "Entretien et nettoyage de l'appartement",
+    "Entretien et nettoyage des bureaux",
+    "Entretien et nettoyage du restaurant",
+)
+
+
+def parse_service_description(raw, max_len=SERVICE_DESCRIPTION_MAX):
+    """Trim, cap length, and normalize an admin-typed service
+    description. Empty / whitespace-only input is normalized to '',
+    which callers treat as "fall back to the legacy default".
+    """
+    text = str(raw or "").strip()
+    if len(text) > max_len:
+        text = text[:max_len].rstrip()
+    return text
+
+
+def invoice_service_title(date_from, _date_to=None, prefix=None):
+    """Compose the "service pour le mois X'YY" header for an auto
+    invoice. `prefix` is the per-client description stored on
+    client_invoice_profiles; when empty, the legacy
+    "Entretien et nettoyage de la maison" phrasing is used so
+    existing clients see no visual change.
+    """
     try:
         start = datetime.strptime(date_from, "%Y-%m-%d")
     except Exception:
         start = lux_now()
     month = month_name(start.month, "fr")
-    prefix = "d'" if month[:1].lower() in "aeiou" else "de "
-    return f"Entretien et nettoyage de la maison pour le mois {prefix}{month}'{str(start.year)[-2:]}"
+    date_part = "d'" if month[:1].lower() in "aeiou" else "de "
+    body = parse_service_description(prefix) or SERVICE_DESCRIPTION_DEFAULT
+    return f"{body} pour le mois {date_part}{month}'{str(start.year)[-2:]}"
 
 
 def invoice_designation_lines(row):
@@ -3747,7 +3782,10 @@ def build_invoice_rows(conn, date_from, date_to, fixed_amount=None, settings=Non
             "vat_amount": vat_amount,
             "total": base_amount + vat_amount,
             "details": details_by_client.get(client, []),
-            "service_title": invoice_service_title(date_from, date_to),
+            "service_title": invoice_service_title(
+                date_from, date_to,
+                prefix=profile.get("service_description")),
+            "service_description": profile.get("service_description") or "",
             "paid": paid_map.get(str(number), False),
         })
     return rows
@@ -3795,6 +3833,7 @@ def invoice_record_to_dict(record):
         "sent": bool(record[10]) if len(record) > 10 else False,
         "sent_date": record[11] if len(record) > 11 and record[11] else "",
         "source": record[12] if len(record) > 12 and record[12] else "auto",
+        "service_description": record[13] if len(record) > 13 and record[13] else "",
     }
 
 
@@ -3852,6 +3891,18 @@ def get_invoice_row_for_record(conn, record):
             # else keep whatever build_invoice_rows set (current rate)
         else:
             row["vat_rate"] = float(stored_vat / stored_amt)
+        # Historical designation: honour the snapshot captured at
+        # generation time. A profile description change must not
+        # rewrite the title on an invoice that has already left the
+        # building. Pre-snapshot invoices (empty column) fall back
+        # to the current build_invoice_rows() output.
+        stored_desc = record.get("service_description") or ""
+        if stored_desc:
+            row["service_description"] = stored_desc
+            row["service_title"] = invoice_service_title(
+                record.get("date_from", ""), record.get("date_to", ""),
+                prefix=stored_desc,
+            )
         row["sent"] = record.get("sent", False)
         return row, settings
     return None, settings
@@ -5636,7 +5687,8 @@ def init_db():
             client_type TEXT DEFAULT 'private',
             hourly_rate REAL DEFAULT 0,
             custom_address TEXT DEFAULT '',
-            vat_rate REAL DEFAULT 8.00
+            vat_rate REAL DEFAULT 8.00,
+            invoice_service_description TEXT DEFAULT ''
         )
     """)
     c.execute("""
@@ -5654,7 +5706,8 @@ def init_db():
             sent INTEGER DEFAULT 0,
             sent_date TEXT DEFAULT '',
             deleted INTEGER DEFAULT 0,
-            source TEXT DEFAULT 'auto'
+            source TEXT DEFAULT 'auto',
+            service_description TEXT DEFAULT ''
         )
     """)
     c.execute("""
@@ -5818,8 +5871,33 @@ def init_db():
                 "THEN 17.00 ELSE 8.00 END "
                 "WHERE vat_rate IS NULL"
             )
+        # Per-client default designation prefix for auto invoices.
+        # NULL / empty falls back to the legacy "Entretien et
+        # nettoyage de la maison" string at render time.
+        if "invoice_service_description" not in profile_cols:
+            c.execute(
+                "ALTER TABLE client_invoice_profiles "
+                "ADD COLUMN invoice_service_description TEXT DEFAULT ''"
+            )
     except Exception:
         app.logger.exception("client_invoice_profiles.vat_rate migration failed")
+        try: conn.rollback()
+        except Exception: pass
+    # invoice_records.service_description — frozen snapshot of the
+    # designation prefix used at generation time. Set at auto-generate,
+    # read on view/PDF/email so a later profile change never rewrites
+    # a historical invoice's description.
+    try:
+        rec_cols = [row[1] for row in c.execute(
+            "PRAGMA table_info(invoice_records)"
+        ).fetchall()]
+        if "service_description" not in rec_cols:
+            c.execute(
+                "ALTER TABLE invoice_records "
+                "ADD COLUMN service_description TEXT DEFAULT ''"
+            )
+    except Exception:
+        app.logger.exception("invoice_records.service_description migration failed")
         try: conn.rollback()
         except Exception: pass
     invoice_cols = [row[1] for row in c.execute("PRAGMA table_info(invoice_settings)").fetchall()]
@@ -8198,6 +8276,21 @@ def index():
                 <label class="pc-label" for="dashCTo">{{ tr.get("contract_to","Ugovor do") }}</label>
                 <input id="dashCTo" name="contract_to" type="date">
               </div>
+            </div>
+            <div class="pc-field">
+              <label class="pc-label" for="dashClientServiceDesc">
+                {{ tr.get("invoice_service_description_label","Podrazumijevani opis usluge na fakturi") }}
+              </label>
+              <input id="dashClientServiceDesc" name="invoice_service_description"
+                     type="text" maxlength="300" autocomplete="off"
+                     list="dashServiceDescPresets"
+                     placeholder="Entretien et nettoyage de la maison">
+              <datalist id="dashServiceDescPresets">
+                <option value="Entretien et nettoyage de la maison">
+                <option value="Entretien et nettoyage de l'appartement">
+                <option value="Entretien et nettoyage des bureaux">
+                <option value="Entretien et nettoyage du restaurant">
+              </datalist>
             </div>
             <p class="pc-help">{{ tr.get("billing_future_only","Primjenjuje se samo na buduce fakture.") }}</p>
             <button>{{ tr["add_client"] }}</button>
@@ -10686,6 +10779,19 @@ def invoices():
             </div>
             <label for="invoiceHourlyRate">{{ tr["hourly_rate"] }} (EUR)</label>
             <input id="invoiceHourlyRate" type="number" step="0.01" name="hourly_rate">
+            <label for="invoiceServiceDesc">
+              {{ tr.get("invoice_service_description_label","Podrazumijevani opis usluge na fakturi") }}
+            </label>
+            <input id="invoiceServiceDesc" type="text" maxlength="300"
+                   autocomplete="off" name="invoice_service_description"
+                   list="profileServiceDescPresets"
+                   placeholder="Entretien et nettoyage de la maison">
+            <datalist id="profileServiceDescPresets">
+              <option value="Entretien et nettoyage de la maison">
+              <option value="Entretien et nettoyage de l'appartement">
+              <option value="Entretien et nettoyage des bureaux">
+              <option value="Entretien et nettoyage du restaurant">
+            </datalist>
             <p style="margin:6px 0 0;font-size:11.5px;color:{{ '#9ca3af' if dark else '#64748b' }};">
               {{ tr.get("billing_future_only","Primjenjuje se samo na buduce fakture.") }}
             </p>
@@ -11017,10 +11123,12 @@ def _generate_invoices(conn, date_from, date_to, invoice_date, force=False):
             inv_num = next_invoice_number(conn)
             c.execute("""INSERT INTO invoice_records
                 (invoice_number, client_name, date_from, date_to, invoice_date,
-                 amount, vat_amount, total, paid, sent, deleted, source)
-                VALUES (?,?,?,?,?,?,?,?,0,0,0,'auto')""",
+                 amount, vat_amount, total, paid, sent, deleted, source,
+                 service_description)
+                VALUES (?,?,?,?,?,?,?,?,0,0,0,'auto',?)""",
                 (inv_num, row["client"], date_from, date_to, invoice_date,
-                 row["amount"], row["vat_amount"], row["total"]))
+                 row["amount"], row["vat_amount"], row["total"],
+                 parse_service_description(row.get("service_description"))))
             generated += 1
         conn.commit()
     except Exception as e:
@@ -11391,7 +11499,11 @@ def invoices_view():
     invoice_number = request.args.get("invoice_number", "").strip()
     conn = get_conn(); c = conn.cursor()
     record_row = c.execute("""
-        SELECT invoice_number, client_name, date_from, date_to, invoice_date, amount, vat_amount, total, paid, paid_date, COALESCE(sent,0), COALESCE(sent_date,''), COALESCE(source,'auto')
+        SELECT invoice_number, client_name, date_from, date_to, invoice_date,
+               amount, vat_amount, total, paid, paid_date,
+               COALESCE(sent,0), COALESCE(sent_date,''),
+               COALESCE(source,'auto'),
+               COALESCE(service_description,'')
         FROM invoice_records WHERE invoice_number = ? AND COALESCE(deleted, 0) = 0
     """, (invoice_number,)).fetchone()
     if not record_row:
@@ -12608,7 +12720,25 @@ def invoices_manual():
             ).fetchone()
             client_addr = (prof[0] if prof else "") or (auto_row.get("address") if auto_row else "") or ""
             vr = round(record["vat_amount"] / record["amount"] * 100, 2) if record["amount"] else 17.0
-            designation = invoice_designation_text(auto_row) if auto_row else invoice_service_title(record["date_from"], record["date_to"])
+            # Prefer the snapshotted service_description. When present
+            # (any invoice issued after this feature shipped), it is
+            # the authoritative description for load_auto so the
+            # editor opens with the exact title the invoice was issued
+            # under — not the current profile description.
+            if auto_row and record.get("service_description"):
+                _auto_row_overlay = dict(auto_row)
+                _auto_row_overlay["service_title"] = invoice_service_title(
+                    record.get("date_from", ""), record.get("date_to", ""),
+                    prefix=record["service_description"],
+                )
+                designation = invoice_designation_text(_auto_row_overlay)
+            elif auto_row:
+                designation = invoice_designation_text(auto_row)
+            else:
+                designation = invoice_service_title(
+                    record["date_from"], record["date_to"],
+                    prefix=record.get("service_description"),
+                )
             draft = {
                 "invoice_number": record["invoice_number"],
                 "client_name": record["client"],
@@ -13750,19 +13880,24 @@ def invoices_profile():
                             else default_vat_pct_for_client_type(client_type_val))
         else:
             vat_rate_val = float(vat_parsed)
+        service_desc_val = parse_service_description(
+            request.form.get("invoice_service_description", ""),
+        )
         c.execute(
             "INSERT INTO client_invoice_profiles "
-            "(client_name, email, client_type, hourly_rate, custom_address, vat_rate) "
-            "VALUES (?, ?, ?, ?, ?, ?) "
+            "(client_name, email, client_type, hourly_rate, custom_address, "
+            " vat_rate, invoice_service_description) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT(client_name) DO UPDATE SET "
             "email = excluded.email, client_type = excluded.client_type, "
             "hourly_rate = excluded.hourly_rate, "
             "custom_address = excluded.custom_address, "
-            "vat_rate = excluded.vat_rate",
+            "vat_rate = excluded.vat_rate, "
+            "invoice_service_description = excluded.invoice_service_description",
             (client_name, request.form.get("email", "").strip(),
              client_type_val, hourly_rate_val,
              request.form.get("custom_address", "").strip(),
-             vat_rate_val),
+             vat_rate_val, service_desc_val),
         )
         conn.commit()
     except Exception:
@@ -15771,6 +15906,9 @@ def edit_client(name):
             flash(tr.get("invalid_vat_rate", "Neispravna TVA stopa."), "error")
             return redirect("/edit_client/" + urllib.parse.quote(name))
         vat_rate_new = None if vat_parsed == "__blank__" else float(vat_parsed)
+        service_desc_new = parse_service_description(
+            f.get("invoice_service_description", ""),
+        )
         if new_name:
             try:
                 # Phase 1: clients row (incl. optional rename).
@@ -15834,6 +15972,7 @@ def edit_client(name):
                     client_type=client_type_raw,
                     hourly_rate=hourly_rate_to_store,
                     vat_rate=vat_rate_to_store,
+                    invoice_service_description=service_desc_new,
                 )
                 conn.commit()
             except Exception:
@@ -15854,7 +15993,8 @@ def edit_client(name):
     # same table used by /invoices/profile, so both screens edit the
     # same record.
     profile_row = c.execute(
-        "SELECT COALESCE(client_type,'private'), COALESCE(hourly_rate,0), vat_rate "
+        "SELECT COALESCE(client_type,'private'), COALESCE(hourly_rate,0), vat_rate, "
+        "       COALESCE(invoice_service_description,'') "
         "FROM client_invoice_profiles WHERE client_name=?",
         (name,)
     ).fetchone()
@@ -15871,6 +16011,7 @@ def edit_client(name):
         "client_type": _ptype,
         "hourly_rate": (float(profile_row[1]) if profile_row and profile_row[1] is not None else 0.0),
         "vat_rate": float(_pvat),
+        "invoice_service_description": (profile_row[3] if profile_row else ""),
     }
     return render_template_string(BASE_STYLE + header_html() + """
     <style>
@@ -15976,6 +16117,20 @@ def edit_client(name):
                    value="{{ '%.2f'|format(client.hourly_rate) if client.hourly_rate else '' }}">
           </div>
         </div>
+        <label class="cf-label" for="editClientServiceDesc">
+          {{ tr.get("invoice_service_description_label","Podrazumijevani opis usluge na fakturi") }}
+        </label>
+        <input class="cf-input" id="editClientServiceDesc"
+               name="invoice_service_description" type="text" maxlength="300"
+               autocomplete="off" list="editServiceDescPresets"
+               value="{{ client.invoice_service_description or '' }}"
+               placeholder="Entretien et nettoyage de la maison">
+        <datalist id="editServiceDescPresets">
+          <option value="Entretien et nettoyage de la maison">
+          <option value="Entretien et nettoyage de l'appartement">
+          <option value="Entretien et nettoyage des bureaux">
+          <option value="Entretien et nettoyage du restaurant">
+        </datalist>
         <p class="cf-help">{{ tr.get("billing_future_only","Primjenjuje se samo na buduce fakture.") }}</p>
         <script>
         (function () {
@@ -16166,6 +16321,9 @@ def add_client():
         return redirect(return_url)
     else:
         vat_rate_val = float(vat_parsed)
+    service_desc_val = parse_service_description(
+        f.get("invoice_service_description", ""),
+    )
 
     conn = get_conn(); c = conn.cursor()
     try:
@@ -16196,6 +16354,7 @@ def add_client():
             client_type=client_type_val,
             hourly_rate=hourly_rate_val,
             vat_rate=vat_rate_val,
+            invoice_service_description=service_desc_val,
         )
         conn.commit()
     except Exception:
@@ -16702,6 +16861,21 @@ def clients_page():
             <input id="addClientRate" name="hourly_rate" type="number"
                    min="0" step="0.01" inputmode="decimal" required>
           </div>
+        </div>
+        <div class="billing-field" style="margin-top:4px;">
+          <label class="billing-label" for="addClientServiceDesc">
+            {{ tr.get("invoice_service_description_label","Podrazumijevani opis usluge na fakturi") }}
+          </label>
+          <input id="addClientServiceDesc" name="invoice_service_description"
+                 type="text" maxlength="300" autocomplete="off"
+                 list="serviceDescPresets"
+                 placeholder="Entretien et nettoyage de la maison">
+          <datalist id="serviceDescPresets">
+            <option value="Entretien et nettoyage de la maison">
+            <option value="Entretien et nettoyage de l'appartement">
+            <option value="Entretien et nettoyage des bureaux">
+            <option value="Entretien et nettoyage du restaurant">
+          </datalist>
         </div>
         <p class="billing-help">{{ tr.get("billing_future_only","Primjenjuje se samo na buduce fakture.") }}</p>
         <script>
