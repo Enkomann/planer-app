@@ -2788,6 +2788,158 @@ AUTO_PLANNING_DRAFT_TRANSLATIONS = {
 for _lang, _values in AUTO_PLANNING_DRAFT_TRANSLATIONS.items():
     TRANSLATIONS[_lang].update(_values)
 
+# Phase 5 keeps its UI text isolated from the preparatory translation block.
+# No existing translation keys are replaced outside the auto-planning scope.
+AUTO_PLANNING_PHASE5_TRANSLATIONS = {
+    "bos": {
+        "auto_plan_select": "Izaberi",
+        "auto_plan_accept_selected": "Prihvati izabrane",
+        "auto_plan_apply_selection": "Primijeni izabrane u raspored",
+        "auto_plan_select_for_apply": "Primijeni",
+        "auto_plan_mark_pending": "Vrati na cekanje",
+        "auto_plan_cancel_edit": "Ponisti izmjene",
+        "auto_plan_lock_after_apply": "Zakljucaj nakon primjene",
+        "auto_plan_cancel_draft": "Otkazi nacrt",
+        "auto_plan_cancel_confirm": "Otkazati ovaj nacrt? Postojece intervencije nece biti promijenjene.",
+        "auto_plan_cancelled": "Nacrt je otkazan.",
+        "auto_plan_draft_cancelled": "Ovaj nacrt je otkazan i vise se ne moze primijeniti.",
+        "auto_plan_draft_applied": "Ovaj nacrt je vec primijenjen.",
+        "auto_plan_changes_saved": "Izmjene prijedloga su sacuvane.",
+        "auto_plan_proposal_accepted": "Prijedlog je prihvacen.",
+        "auto_plan_proposal_rejected": "Prijedlog je odbijen.",
+        "auto_plan_selected_accepted": "Izabrani prijedlozi su prihvaceni: {count}.",
+        "auto_plan_no_selection": "Izaberite najmanje jedan prijedlog.",
+        "auto_plan_apply_blocked": "Primjena je zaustavljena: rijesite blokirajuce konflikte.",
+        "auto_plan_invalid_proposal": "Podaci prijedloga nisu ispravni.",
+        "auto_plan_csrf_failed": "Sigurnosni token nedostaje ili nije ispravan. Osvjezite stranicu.",
+        "auto_plan_lock_success": "Intervencija je zakljucana.",
+        "auto_plan_unlock_success": "Intervencija je otkljucana.",
+        "auto_plan_locked_delete_blocked": "Zakljucanu intervenciju prvo morate otkljucati.",
+        "auto_plan_applied_count": "U raspored je dodano {count} intervencija.",
+        "auto_plan_apply_failed": "Primjena nije uspjela. Nijedna intervencija nije dodana.",
+        "auto_plan_issue_duplicate_existing": "Ista intervencija vec postoji",
+        "auto_plan_issue_manual_validation_required": "Potrebna je izricita rucna potvrda",
+    },
+    "fr": {
+        "auto_plan_select": "Sélectionner",
+        "auto_plan_accept_selected": "Accepter la sélection",
+        "auto_plan_apply_selection": "Appliquer la sélection au planning",
+        "auto_plan_select_for_apply": "Appliquer",
+        "auto_plan_mark_pending": "Remettre en attente",
+        "auto_plan_cancel_edit": "Annuler les modifications",
+        "auto_plan_lock_after_apply": "Verrouiller après application",
+        "auto_plan_cancel_draft": "Annuler le brouillon",
+        "auto_plan_cancel_confirm": "Annuler ce brouillon ? Les interventions existantes ne seront pas modifiées.",
+        "auto_plan_cancelled": "Le brouillon a été annulé.",
+        "auto_plan_draft_cancelled": "Ce brouillon est annulé et ne peut plus être appliqué.",
+        "auto_plan_draft_applied": "Ce brouillon a déjà été appliqué.",
+        "auto_plan_changes_saved": "Les modifications de la proposition ont été enregistrées.",
+        "auto_plan_proposal_accepted": "La proposition a été acceptée.",
+        "auto_plan_proposal_rejected": "La proposition a été refusée.",
+        "auto_plan_selected_accepted": "Propositions sélectionnées acceptées : {count}.",
+        "auto_plan_no_selection": "Sélectionnez au moins une proposition.",
+        "auto_plan_apply_blocked": "Application arrêtée : corrigez les conflits bloquants.",
+        "auto_plan_invalid_proposal": "Les données de la proposition sont invalides.",
+        "auto_plan_csrf_failed": "Jeton de sécurité absent ou invalide. Actualisez la page.",
+        "auto_plan_lock_success": "L'intervention a été verrouillée.",
+        "auto_plan_unlock_success": "L'intervention a été déverrouillée.",
+        "auto_plan_locked_delete_blocked": "Déverrouillez l'intervention avant de la supprimer.",
+        "auto_plan_applied_count": "{count} intervention(s) ajoutée(s) au planning.",
+        "auto_plan_apply_failed": "L'application a échoué. Aucune intervention n'a été ajoutée.",
+        "auto_plan_issue_duplicate_existing": "La même intervention existe déjà",
+        "auto_plan_issue_manual_validation_required": "Validation manuelle explicite requise",
+    },
+    "en": {
+        "auto_plan_select": "Select",
+        "auto_plan_accept_selected": "Accept selected",
+        "auto_plan_apply_selection": "Apply selection to schedule",
+        "auto_plan_select_for_apply": "Apply",
+        "auto_plan_mark_pending": "Return to pending",
+        "auto_plan_cancel_edit": "Cancel edits",
+        "auto_plan_lock_after_apply": "Lock after applying",
+        "auto_plan_cancel_draft": "Cancel draft",
+        "auto_plan_cancel_confirm": "Cancel this draft? Existing jobs will not be changed.",
+        "auto_plan_cancelled": "The draft was cancelled.",
+        "auto_plan_draft_cancelled": "This draft is cancelled and can no longer be applied.",
+        "auto_plan_draft_applied": "This draft has already been applied.",
+        "auto_plan_changes_saved": "Proposal changes were saved.",
+        "auto_plan_proposal_accepted": "The proposal was accepted.",
+        "auto_plan_proposal_rejected": "The proposal was rejected.",
+        "auto_plan_selected_accepted": "Selected proposals accepted: {count}.",
+        "auto_plan_no_selection": "Select at least one proposal.",
+        "auto_plan_apply_blocked": "Application stopped: resolve the blocking conflicts.",
+        "auto_plan_invalid_proposal": "The proposal data is invalid.",
+        "auto_plan_csrf_failed": "The security token is missing or invalid. Refresh the page.",
+        "auto_plan_lock_success": "The job was locked.",
+        "auto_plan_unlock_success": "The job was unlocked.",
+        "auto_plan_locked_delete_blocked": "Unlock the job before deleting it.",
+        "auto_plan_applied_count": "{count} job(s) added to the schedule.",
+        "auto_plan_apply_failed": "Application failed. No jobs were added.",
+        "auto_plan_issue_duplicate_existing": "The same job already exists",
+        "auto_plan_issue_manual_validation_required": "Explicit manual validation is required",
+    },
+    "de": {
+        "auto_plan_select": "Auswählen",
+        "auto_plan_accept_selected": "Auswahl annehmen",
+        "auto_plan_apply_selection": "Auswahl in den Plan übernehmen",
+        "auto_plan_select_for_apply": "Übernehmen",
+        "auto_plan_mark_pending": "Auf ausstehend setzen",
+        "auto_plan_cancel_edit": "Änderungen verwerfen",
+        "auto_plan_lock_after_apply": "Nach Übernahme sperren",
+        "auto_plan_cancel_draft": "Entwurf stornieren",
+        "auto_plan_cancel_confirm": "Diesen Entwurf stornieren? Bestehende Einsätze bleiben unverändert.",
+        "auto_plan_cancelled": "Der Entwurf wurde storniert.",
+        "auto_plan_draft_cancelled": "Dieser Entwurf ist storniert und kann nicht mehr übernommen werden.",
+        "auto_plan_draft_applied": "Dieser Entwurf wurde bereits übernommen.",
+        "auto_plan_changes_saved": "Die Änderungen am Vorschlag wurden gespeichert.",
+        "auto_plan_proposal_accepted": "Der Vorschlag wurde angenommen.",
+        "auto_plan_proposal_rejected": "Der Vorschlag wurde abgelehnt.",
+        "auto_plan_selected_accepted": "Ausgewählte Vorschläge angenommen: {count}.",
+        "auto_plan_no_selection": "Wählen Sie mindestens einen Vorschlag aus.",
+        "auto_plan_apply_blocked": "Übernahme gestoppt: Beheben Sie die blockierenden Konflikte.",
+        "auto_plan_invalid_proposal": "Die Vorschlagsdaten sind ungültig.",
+        "auto_plan_csrf_failed": "Sicherheitstoken fehlt oder ist ungültig. Laden Sie die Seite neu.",
+        "auto_plan_lock_success": "Der Einsatz wurde gesperrt.",
+        "auto_plan_unlock_success": "Der Einsatz wurde entsperrt.",
+        "auto_plan_locked_delete_blocked": "Entsperren Sie den Einsatz vor dem Löschen.",
+        "auto_plan_applied_count": "{count} Einsatz/Einsätze zum Plan hinzugefügt.",
+        "auto_plan_apply_failed": "Übernahme fehlgeschlagen. Es wurde kein Einsatz hinzugefügt.",
+        "auto_plan_issue_duplicate_existing": "Derselbe Einsatz ist bereits vorhanden",
+        "auto_plan_issue_manual_validation_required": "Ausdrückliche manuelle Bestätigung erforderlich",
+    },
+    "pt": {
+        "auto_plan_select": "Selecionar",
+        "auto_plan_accept_selected": "Aceitar selecionados",
+        "auto_plan_apply_selection": "Aplicar seleção ao horário",
+        "auto_plan_select_for_apply": "Aplicar",
+        "auto_plan_mark_pending": "Voltar a pendente",
+        "auto_plan_cancel_edit": "Cancelar alterações",
+        "auto_plan_lock_after_apply": "Bloquear após aplicar",
+        "auto_plan_cancel_draft": "Cancelar rascunho",
+        "auto_plan_cancel_confirm": "Cancelar este rascunho? Os serviços existentes não serão alterados.",
+        "auto_plan_cancelled": "O rascunho foi cancelado.",
+        "auto_plan_draft_cancelled": "Este rascunho foi cancelado e já não pode ser aplicado.",
+        "auto_plan_draft_applied": "Este rascunho já foi aplicado.",
+        "auto_plan_changes_saved": "As alterações da proposta foram guardadas.",
+        "auto_plan_proposal_accepted": "A proposta foi aceite.",
+        "auto_plan_proposal_rejected": "A proposta foi recusada.",
+        "auto_plan_selected_accepted": "Propostas selecionadas aceites: {count}.",
+        "auto_plan_no_selection": "Selecione pelo menos uma proposta.",
+        "auto_plan_apply_blocked": "Aplicação interrompida: resolva os conflitos bloqueadores.",
+        "auto_plan_invalid_proposal": "Os dados da proposta são inválidos.",
+        "auto_plan_csrf_failed": "O token de segurança está ausente ou inválido. Atualize a página.",
+        "auto_plan_lock_success": "O serviço foi bloqueado.",
+        "auto_plan_unlock_success": "O serviço foi desbloqueado.",
+        "auto_plan_locked_delete_blocked": "Desbloqueie o serviço antes de o eliminar.",
+        "auto_plan_applied_count": "{count} serviço(s) adicionado(s) ao horário.",
+        "auto_plan_apply_failed": "A aplicação falhou. Nenhum serviço foi adicionado.",
+        "auto_plan_issue_duplicate_existing": "O mesmo serviço já existe",
+        "auto_plan_issue_manual_validation_required": "É necessária validação manual explícita",
+    },
+}
+for _lang, _values in AUTO_PLANNING_PHASE5_TRANSLATIONS.items():
+    TRANSLATIONS[_lang].update(_values)
+
 MONTH_NAMES = {
     "bos": ["", "Januar", "Februar", "Mart", "April", "Maj", "Juni", "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"],
     "en": ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
@@ -16335,8 +16487,31 @@ def delete_client(name):
 
 @app.route("/delete_shift/<int:id>", methods=["POST"])
 def delete_shift(id):
-    if session.get("role") != "admin": return redirect("/")
-    conn = get_conn(); c = conn.cursor(); c.execute("DELETE FROM shifts WHERE id = ?", (id,)); conn.commit(); conn.close(); return redirect(request.referrer or "/")
+    if session.get("role") != "admin":
+        return redirect("/")
+    conn = get_conn()
+    try:
+        ap_lock_shift_mutations(conn)
+        cursor = conn.cursor()
+        if ap_check_shift_locked(conn, id):
+            flash(t().get(
+                "auto_plan_locked_delete_blocked",
+                "Unlock the job before deleting it.",
+            ), "warning")
+            conn.rollback()
+            return redirect(request.referrer or "/")
+        # Keep lock cleanup in the same transaction as the shift delete.
+        # This is intentionally executed even for an apparently unlocked
+        # shift so a stale/orphan-prone row can never survive deletion.
+        cursor.execute("DELETE FROM shift_locks WHERE shift_id = ?", (id,))
+        cursor.execute("DELETE FROM shifts WHERE id = ?", (id,))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+    return redirect(request.referrer or "/")
 
 @app.route("/edit_worker/<path:name>", methods=["GET", "POST"])
 def edit_worker(name):
@@ -19338,7 +19513,72 @@ def ap_run_checks(conn, proposals, target_week_start):
 
 AP_DRAFT_OWNER_NOTE = "draft_owner"
 AP_DRAFT_SESSION_KEY = "auto_plan_draft_owner"
+AP_CSRF_SESSION_KEY = "auto_plan_csrf_token"
+AP_BATCH_CANCELLED_PREFIX = "cancelled:"
 _AP_DRAFT_LOCK = threading.Lock()
+_AP_BATCH_MUTATION_LOCK = threading.RLock()
+
+
+class AutoPlanConflict(Exception):
+    """Raised when a phase-5 mutation cannot be completed safely."""
+
+
+def ap_csrf_token():
+    """Return a session-bound CSRF token scoped to auto-planning routes."""
+    token = str(session.get(AP_CSRF_SESSION_KEY, "") or "")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session[AP_CSRF_SESSION_KEY] = token
+    return token
+
+
+def ap_validate_csrf(token):
+    """Constant-time validation for POSTs introduced by auto-planning."""
+    expected = str(session.get(AP_CSRF_SESSION_KEY, "") or "")
+    supplied = str(token or "")
+    return bool(expected and supplied and secrets.compare_digest(
+        expected, supplied,
+    ))
+
+
+def ap_batch_state(batch):
+    """Return ``open``, ``applied`` or ``cancelled`` for a draft batch."""
+    marker = str((batch or {}).get("applied_at", "") or "")
+    if marker.startswith(AP_BATCH_CANCELLED_PREFIX):
+        return "cancelled"
+    return "applied" if marker else "open"
+
+
+def _ap_batch_mutation_lock_key(batch_id):
+    raw = f"auto-plan-batch|{int(batch_id)}".encode("ascii")
+    return int.from_bytes(hashlib.sha256(raw).digest()[:8], "big", signed=True)
+
+
+def ap_lock_batch_mutation(conn, batch_id):
+    """Serialize mutations of one batch across PostgreSQL workers."""
+    if USE_POSTGRES:
+        conn.cursor().execute(
+            "SELECT pg_advisory_xact_lock(?)",
+            (_ap_batch_mutation_lock_key(batch_id),),
+        )
+
+
+def ap_lock_shift_mutations(conn):
+    """Serialize safety-critical shift checks and their following writes."""
+    cursor = conn.cursor()
+    if USE_POSTGRES:
+        # Regular INSERT/UPDATE/DELETE statements take ROW EXCLUSIVE; this
+        # transaction-level lock therefore keeps the validation snapshot
+        # stable until commit while still allowing planning pages to read.
+        cursor.execute("LOCK TABLE shifts IN EXCLUSIVE MODE")
+    else:
+        # Tests and local development use SQLite. Acquire its write
+        # reservation before reading current shifts, not after validation.
+        cursor.execute("BEGIN IMMEDIATE")
+
+
+def _ap_phase5_timestamp():
+    return lux_now().strftime("%Y-%m-%d %H:%M:%S")
 
 
 def ap_json_list(value):
@@ -19597,6 +19837,315 @@ def ap_fetch_existing_week(conn, target_week_start):
     } for row in rows]
 
 
+# ---------------------------------------------------------------------------
+# AUTO-PLANNING — phase 5 draft mutations and atomic application
+# ---------------------------------------------------------------------------
+
+def _ap_form_workers(form):
+    raw_values = form.getlist("workers") if hasattr(form, "getlist") else []
+    if not raw_values and isinstance(form, dict):
+        raw_values = form.get("workers", [])
+        if isinstance(raw_values, str):
+            raw_values = [raw_values]
+    workers = []
+    seen = set()
+    for raw_value in raw_values:
+        for worker_name in split_workers(str(raw_value or "")):
+            if worker_name not in seen:
+                workers.append(worker_name)
+                seen.add(worker_name)
+    return workers
+
+
+def _ap_strict_hhmm(value):
+    value = str(value or "").strip()
+    try:
+        parsed = datetime.strptime(value, "%H:%M")
+    except (TypeError, ValueError):
+        raise ValueError("invalid time")
+    if parsed.strftime("%H:%M") != value:
+        raise ValueError("time must use HH:MM")
+    return value
+
+
+def ap_validate_proposal_form(conn, batch, form):
+    """Validate all editable proposal fields against current DB records."""
+    workers = _ap_form_workers(form)
+    client = str(form.get("client", "") or "").strip()
+    target_date = str(form.get("target_date", "") or "").strip()
+    start_time = _ap_strict_hhmm(form.get("start_time", ""))
+    end_time = _ap_strict_hhmm(form.get("end_time", ""))
+    time_range = f"{start_time}-{end_time}"
+    if not workers or not client or _ap_time_bounds(time_range) is None:
+        raise ValueError("missing or invalid proposal fields")
+
+    cursor = conn.cursor()
+    known_workers = {
+        str(row[0]) for row in cursor.execute(
+            "SELECT name FROM workers WHERE name <> 'admin'"
+        ).fetchall()
+    }
+    if any(worker_name not in known_workers for worker_name in workers):
+        raise ValueError("unknown worker")
+    if cursor.execute(
+        "SELECT name FROM clients WHERE name = ?", (client,),
+    ).fetchone() is None:
+        raise ValueError("unknown client")
+
+    target_day = _ap_date(target_date)
+    week_start = _ap_date(batch["target_week_start"])
+    if target_day < week_start or target_day > week_start + timedelta(days=6):
+        raise ValueError("date outside target week")
+    return {
+        "worker": join_workers(workers),
+        "client": client,
+        "target_date": target_day.isoformat(),
+        "time": time_range,
+        "is_locked": 1 if str(form.get("is_locked", "")) == "1" else 0,
+    }
+
+
+def ap_revalidate_draft(conn, batch):
+    """Re-run current checks for every proposal and persist fresh issues."""
+    proposals = ap_load_draft_proposals(conn, batch["id"])
+    checked = ap_run_checks(conn, proposals, batch["target_week_start"])
+    updated_at = _ap_phase5_timestamp()
+    cursor = conn.cursor()
+    for proposal in checked:
+        cursor.execute(
+            "UPDATE shift_proposals SET issues = ?, updated_at = ? "
+            "WHERE id = ? AND batch_id = ?",
+            (
+                json.dumps(proposal.get("issues", []), ensure_ascii=False),
+                updated_at, int(proposal["id"]), int(batch["id"]),
+            ),
+        )
+    return checked
+
+
+def ap_update_proposal_fields(conn, batch, proposal_id, values):
+    """Update one proposal only; callers revalidate the complete draft."""
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE shift_proposals SET worker = ?, client = ?, target_date = ?, "
+        "time = ?, is_locked = ?, manual_override = 1, status = 'proposed', "
+        "updated_at = ? WHERE id = ? AND batch_id = ? "
+        "AND applied_shift_id IS NULL",
+        (
+            values["worker"], values["client"], values["target_date"],
+            values["time"], int(values["is_locked"]),
+            _ap_phase5_timestamp(), int(proposal_id), int(batch["id"]),
+        ),
+    )
+    if cursor.rowcount != 1:
+        raise AutoPlanConflict("proposal not editable")
+
+
+def ap_set_proposal_status(conn, batch_id, proposal_ids, status,
+                           manual_override=False):
+    """Set an allowlisted phase-5 status on owned proposal identifiers."""
+    if status not in ("proposed", "accepted", "rejected"):
+        raise ValueError("invalid proposal status")
+    cursor = conn.cursor()
+    updated_at = _ap_phase5_timestamp()
+    for proposal_id in proposal_ids:
+        cursor.execute(
+            "UPDATE shift_proposals SET status = ?, manual_override = ?, "
+            "updated_at = ? WHERE id = ? AND batch_id = ? "
+            "AND applied_shift_id IS NULL",
+            (
+                status, 1 if manual_override else 0, updated_at,
+                int(proposal_id), int(batch_id),
+            ),
+        )
+        if cursor.rowcount != 1:
+            raise AutoPlanConflict("proposal status update failed")
+
+
+def ap_get_proposal(proposals, proposal_id):
+    return next(
+        (item for item in proposals if int(item["id"]) == int(proposal_id)),
+        None,
+    )
+
+
+def ap_prepare_apply_selection(conn, batch, proposal_ids):
+    """Reload and revalidate an explicitly accepted application selection."""
+    selected_ids = []
+    seen = set()
+    for raw_id in proposal_ids:
+        proposal_id = int(raw_id)
+        if proposal_id > 0 and proposal_id not in seen:
+            selected_ids.append(proposal_id)
+            seen.add(proposal_id)
+    if not selected_ids:
+        raise ValueError("empty selection")
+
+    proposals = ap_load_draft_proposals(conn, batch["id"])
+    by_id = {int(item["id"]): item for item in proposals}
+    if any(proposal_id not in by_id for proposal_id in selected_ids):
+        raise AutoPlanConflict("selection does not belong to batch")
+    selected = [by_id[proposal_id] for proposal_id in selected_ids]
+    if any(
+        item["status"] != "accepted" or item.get("applied_shift_id")
+        for item in selected
+    ):
+        raise AutoPlanConflict("selection contains unaccepted proposals")
+
+    checked = ap_run_checks(conn, selected, batch["target_week_start"])
+    for proposal in checked:
+        needs_explicit_review = (
+            proposal.get("confidence", 0) < AP_DEFAULT_MIN_CONFIDENCE
+            or any(
+                isinstance(issue, dict) and issue.get("code") == "exceptional"
+                for issue in proposal.get("issues", [])
+            )
+        )
+        if needs_explicit_review and not proposal.get("manual_override"):
+            proposal.setdefault("issues", []).append(_ap_issue(
+                "manual_validation_required", "blocking",
+            ))
+        if duplicate_shift_exists(
+            conn, proposal["worker"], proposal["client"],
+            proposal["target_date"], proposal["time"],
+        ):
+            proposal.setdefault("issues", []).append(_ap_issue(
+                "duplicate_existing", "blocking",
+            ))
+        proposal["issues"] = _ap_dedupe_issues(proposal.get("issues", []))
+        proposal["has_blocking_issues"] = ap_has_blocking_issues(proposal)
+
+    cursor = conn.cursor()
+    updated_at = _ap_phase5_timestamp()
+    for proposal in checked:
+        cursor.execute(
+            "UPDATE shift_proposals SET issues = ?, updated_at = ? "
+            "WHERE id = ? AND batch_id = ?",
+            (
+                json.dumps(proposal.get("issues", []), ensure_ascii=False),
+                updated_at, int(proposal["id"]), int(batch["id"]),
+            ),
+        )
+    return checked
+
+
+def ap_insert_shift_from_proposal(conn, proposal):
+    """Insert one validated proposal without triggering unrelated systems."""
+    cursor = conn.cursor()
+    params = (
+        proposal["worker"], proposal["client"], proposal["target_date"],
+        proposal["time"], "planned",
+    )
+    sql = (
+        "INSERT INTO shifts (worker, client, date, time, status) "
+        "VALUES (?, ?, ?, ?, ?)"
+    )
+    if USE_POSTGRES:
+        row = cursor.execute(sql + " RETURNING id", params).fetchone()
+        return int(row[0])
+    cursor.execute(sql, params)
+    return int(cursor.lastrowid)
+
+
+def ap_apply_selected_proposals(conn, batch, proposals, username):
+    """Atomically insert a fully validated selection and close its batch."""
+    if ap_batch_state(batch) != "open" or not proposals:
+        raise AutoPlanConflict("batch is closed or selection is empty")
+    if any(ap_has_blocking_issues(proposal) for proposal in proposals):
+        raise AutoPlanConflict("selection has blocking issues")
+
+    cursor = conn.cursor()
+    applied_at = _ap_phase5_timestamp()
+    inserted = []
+    for proposal in proposals:
+        if duplicate_shift_exists(
+            conn, proposal["worker"], proposal["client"],
+            proposal["target_date"], proposal["time"],
+        ):
+            raise AutoPlanConflict("duplicate appeared during application")
+        shift_id = ap_insert_shift_from_proposal(conn, proposal)
+        if proposal.get("is_locked"):
+            cursor.execute(
+                "INSERT INTO shift_locks (shift_id, locked_at, locked_by) "
+                "VALUES (?, ?, ?) ON CONFLICT(shift_id) DO UPDATE SET "
+                "locked_at = excluded.locked_at, locked_by = excluded.locked_by",
+                (shift_id, applied_at, str(username)),
+            )
+        cursor.execute(
+            "UPDATE shift_proposals SET status = 'applied', "
+            "applied_shift_id = ?, updated_at = ? "
+            "WHERE id = ? AND batch_id = ? AND status = 'accepted' "
+            "AND applied_shift_id IS NULL",
+            (shift_id, applied_at, int(proposal["id"]), int(batch["id"])),
+        )
+        if cursor.rowcount != 1:
+            raise AutoPlanConflict("proposal changed during application")
+        inserted.append(shift_id)
+
+    cursor.execute(
+        "UPDATE shift_proposal_batches SET applied_at = ? "
+        "WHERE id = ? AND (applied_at IS NULL OR applied_at = '')",
+        (applied_at, int(batch["id"])),
+    )
+    if cursor.rowcount != 1:
+        raise AutoPlanConflict("batch changed during application")
+    return inserted
+
+
+def ap_cancel_draft(conn, batch, username):
+    """Close an unapplied owned draft without touching real shifts."""
+    if ap_batch_state(batch) != "open":
+        raise AutoPlanConflict("batch is already closed")
+    cancelled_at = _ap_phase5_timestamp()
+    notes = list(batch.get("analysis_notes", []))
+    notes.append({
+        "code": "cancelled", "cancelled_at": cancelled_at,
+        "cancelled_by": str(username),
+    })
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE shift_proposal_batches SET applied_at = ?, analysis_notes = ? "
+        "WHERE id = ? AND (applied_at IS NULL OR applied_at = '')",
+        (
+            AP_BATCH_CANCELLED_PREFIX + cancelled_at,
+            json.dumps(notes, ensure_ascii=False), int(batch["id"]),
+        ),
+    )
+    if cursor.rowcount != 1:
+        raise AutoPlanConflict("batch changed during cancellation")
+
+
+def ap_shift_belongs_to_batch_week(conn, batch, shift_id):
+    row = conn.cursor().execute(
+        "SELECT date FROM shifts WHERE id = ?", (int(shift_id),),
+    ).fetchone()
+    if not row:
+        return False
+    week_start = _ap_date(batch["target_week_start"])
+    shift_day = _ap_date(row[0])
+    return week_start <= shift_day <= week_start + timedelta(days=6)
+
+
+def ap_set_shift_lock(conn, shift_id, locked, username):
+    """Lock or unlock one existing shift after route-level ownership checks."""
+    cursor = conn.cursor()
+    if cursor.execute(
+        "SELECT id FROM shifts WHERE id = ?", (int(shift_id),),
+    ).fetchone() is None:
+        raise AutoPlanConflict("shift not found")
+    if locked:
+        cursor.execute(
+            "INSERT INTO shift_locks (shift_id, locked_at, locked_by) "
+            "VALUES (?, ?, ?) ON CONFLICT(shift_id) DO UPDATE SET "
+            "locked_at = excluded.locked_at, locked_by = excluded.locked_by",
+            (int(shift_id), _ap_phase5_timestamp(), str(username)),
+        )
+    else:
+        cursor.execute(
+            "DELETE FROM shift_locks WHERE shift_id = ?", (int(shift_id),),
+        )
+
+
 def ap_recurrence_label(proposal, tr):
     issues = proposal.get("issues", [])
     if any(
@@ -19674,6 +20223,7 @@ AUTO_PLAN_GENERATE_TEMPLATE = """
   <section class="ap-form-panel" aria-labelledby="ap-generate-heading">
     <h2 id="ap-generate-heading">{{ tr.get('auto_plan_generate','Generate automatically') }}</h2>
     <form method="post" action="{{ url_for('auto_plan_generate') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <div class="ap-form-grid">
         <div>
           <label class="ap-label" for="ap-target-week">{{ tr.get('auto_plan_target_week','Target week') }}</label>
@@ -19720,7 +20270,8 @@ AUTO_PLAN_REVIEW_TEMPLATE = """
   .apr-proposal{position:relative;display:grid;grid-template-columns:minmax(150px,1.15fr) minmax(145px,1fr) minmax(118px,.7fr) minmax(118px,.7fr);gap:12px;padding:15px 0;border-bottom:1px solid {{ '#303036' if dark else '#e2e8f0' }}}
   .apr-proposal[data-blocked="1"]{border-left:4px solid #dc2626;padding-left:12px}
   .apr-field label{display:block;font-size:11px;text-transform:uppercase;font-weight:800;color:{{ '#a5b4fc' if dark else '#64748b' }};margin-bottom:4px}
-  .apr-field input{height:40px;margin:0;background:{{ '#1b1b1f' if dark else '#fff' }}}
+  .apr-field input,.apr-field select{height:40px;margin:0;background:{{ '#1b1b1f' if dark else '#fff' }};width:100%;box-sizing:border-box}
+  .apr-field select[multiple]{height:96px;padding:5px}
   .apr-field input[readonly]{cursor:default}
   .apr-summary{grid-column:1/-1;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .apr-chip{display:inline-flex;align-items:center;min-height:26px;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:800;background:{{ '#27272a' if dark else '#eef2f7' }};color:{{ '#e5e7eb' if dark else '#334155' }}}
@@ -19732,6 +20283,23 @@ AUTO_PLAN_REVIEW_TEMPLATE = """
   .apr-empty{padding:18px;border:1px dashed {{ '#3f3f46' if dark else '#cbd5e1' }};border-radius:7px;color:{{ '#a1a1aa' if dark else '#64748b' }}}
   .apr-future-note{font-size:12px;color:{{ '#a1a1aa' if dark else '#64748b' }};margin-top:8px}
   .apr-flash{padding:12px 14px;margin:0 0 14px;border-radius:6px;background:{{ '#1e3a5f' if dark else '#dbeafe' }};color:{{ '#bfdbfe' if dark else '#1e3a8a' }}}
+  .apr-proposal-form{display:contents}
+  .apr-card-actions{grid-column:1/-1;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .apr-card-actions button{width:auto;margin:0;padding:8px 11px;min-height:38px}
+  .apr-card-actions .accept{background:#15803d}.apr-card-actions .reject{background:#b91c1c}.apr-card-actions .pending{background:#6b7280}
+  .apr-status{display:inline-flex;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:800;text-transform:uppercase}
+  .apr-status.proposed{background:{{ '#2b3340' if dark else '#e2e8f0' }};color:{{ '#dbeafe' if dark else '#334155' }}}
+  .apr-status.accepted{background:{{ '#153c28' if dark else '#dcfce7' }};color:{{ '#bbf7d0' if dark else '#166534' }}}
+  .apr-status.rejected{background:{{ '#431b1b' if dark else '#fee2e2' }};color:{{ '#fecaca' if dark else '#991b1b' }}}
+  .apr-status.applied{background:{{ '#17375e' if dark else '#dbeafe' }};color:{{ '#bfdbfe' if dark else '#1d4ed8' }}}
+  .apr-selection{display:inline-flex;align-items:center;gap:6px;margin:0;padding:6px 9px;border:1px solid {{ '#3f3f46' if dark else '#cbd5e1' }};border-radius:6px;font-size:13px;font-weight:700}
+  .apr-selection input,.apr-lock-choice input{width:18px;height:18px;margin:0}
+  .apr-lock-choice{display:inline-flex;align-items:center;gap:6px;margin:0;font-size:13px;font-weight:700}
+  .apr-workflow{margin-top:22px;padding:16px;border:1px solid {{ '#303036' if dark else '#dbe2ea' }};background:{{ '#18181b' if dark else '#fff' }};border-radius:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .apr-workflow form{display:inline-flex;margin:0;gap:8px}.apr-workflow button{width:auto;margin:0}
+  .apr-cancel-draft{background:#991b1b!important}
+  .apr-closed{margin:14px 0;padding:14px;border-left:4px solid #b45309;background:{{ '#3b2f0e' if dark else '#fffbeb' }};color:{{ '#fde68a' if dark else '#78350f' }};border-radius:4px;font-weight:700}
+  .apr-existing-actions form{display:inline;margin:0}.apr-existing-actions button{width:auto;margin:0;padding:6px 9px}
   @media(max-width:760px){.apr-proposal{grid-template-columns:1fr 1fr}.apr-existing{display:block;overflow-x:auto}.apr-actions{width:100%}.apr-actions a{flex:1;text-align:center}}
   @media(max-width:480px){.apr-proposal{grid-template-columns:1fr}.apr-summary{grid-column:1}.apr-field input{font-size:16px}}
 </style>
@@ -19758,13 +20326,15 @@ AUTO_PLAN_REVIEW_TEMPLATE = """
     <strong>{{ tr.get('auto_plan_draft_read_only','Draft only.') }}</strong><br>
     {{ tr.get('auto_plan_existing_preserved','Existing jobs are preserved.') }}
   </div>
+  {% if batch_state == 'cancelled' %}<div class="apr-closed" role="status">{{ tr.get('auto_plan_draft_cancelled','This draft is cancelled and can no longer be applied.') }}</div>{% endif %}
+  {% if batch_state == 'applied' %}<div class="apr-closed" role="status">{{ tr.get('auto_plan_draft_applied','This draft has already been applied.') }}</div>{% endif %}
 
   <section class="apr-section" aria-labelledby="apr-existing-heading">
     <h2 id="apr-existing-heading">{{ tr.get('auto_plan_existing','Existing jobs') }}</h2>
     {% if existing_shifts %}
     <table class="apr-existing">
-      <thead><tr><th>{{ tr.get('date','Date') }}</th><th>{{ tr.get('client','Client') }}</th><th>{{ tr.get('workers','Workers') }}</th><th>{{ tr.get('time','Time') }}</th><th>{{ tr.get('status','Status') }}</th></tr></thead>
-      <tbody>{% for s in existing_shifts %}<tr data-existing-shift-id="{{ s.id }}"><td>{{ format_date(s.date) }}</td><td>{{ s.client }}</td><td>{{ s.worker }}</td><td>{{ s.time }}</td><td>{{ s.status }} {% if s.is_locked %}<span class="apr-lock">{{ tr.get('auto_plan_locked','Locked') }}</span>{% endif %}</td></tr>{% endfor %}</tbody>
+      <thead><tr><th>{{ tr.get('date','Date') }}</th><th>{{ tr.get('client','Client') }}</th><th>{{ tr.get('workers','Workers') }}</th><th>{{ tr.get('time','Time') }}</th><th>{{ tr.get('status','Status') }}</th><th>{{ tr.get('actions','Actions') }}</th></tr></thead>
+      <tbody>{% for s in existing_shifts %}<tr data-existing-shift-id="{{ s.id }}"><td>{{ format_date(s.date) }}</td><td>{{ s.client }}</td><td>{{ s.worker }}</td><td>{{ s.time }}</td><td>{{ s.status }} {% if s.is_locked %}<span class="apr-lock">{{ tr.get('auto_plan_locked','Locked') }}</span>{% endif %}</td><td class="apr-existing-actions">{% if batch_state == 'open' %}<form method="post" action="{{ url_for('auto_plan_unlock_shift', batch_id=batch.id, shift_id=s.id) if s.is_locked else url_for('auto_plan_lock_shift', batch_id=batch.id, shift_id=s.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit">{{ tr.get('auto_plan_unlock','Unlock') if s.is_locked else tr.get('auto_plan_lock','Lock') }}</button></form>{% else %}—{% endif %}</td></tr>{% endfor %}</tbody>
     </table>
     {% else %}<div class="apr-empty">{{ tr.get('auto_plan_no_existing','No existing jobs.') }}</div>{% endif %}
   </section>
@@ -19776,25 +20346,57 @@ AUTO_PLAN_REVIEW_TEMPLATE = """
       <section class="apr-day" data-target-date="{{ day.date }}">
         <h3 class="apr-day-title"><span>{{ day.name }} · {{ format_date(day.date) }}</span><span class="apr-day-count">{{ day.proposals|length }}</span></h3>
         {% for p in day.proposals %}
-        <article class="apr-proposal" data-proposal-id="{{ p.id }}" data-blocked="{{ 1 if p.has_blocking_issues else 0 }}">
-          <div class="apr-field"><label for="ap-client-{{ p.id }}">{{ tr.get('client','Client') }}</label><input id="ap-client-{{ p.id }}" data-field="client" value="{{ p.client }}" readonly></div>
-          <div class="apr-field"><label for="ap-worker-{{ p.id }}">{{ tr.get('workers','Workers') }}</label><input id="ap-worker-{{ p.id }}" data-field="worker" value="{{ p.worker }}" readonly></div>
-          <div class="apr-field"><label for="ap-date-{{ p.id }}">{{ tr.get('date','Date') }}</label><input id="ap-date-{{ p.id }}" data-field="target_date" type="date" value="{{ p.target_date }}" readonly></div>
-          <div class="apr-field"><label>{{ tr.get('time','Time') }}</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><input aria-label="{{ tr.get('start_time','Start') }}" data-field="start_time" type="time" value="{{ p.start_time }}" readonly><input aria-label="{{ tr.get('end_time','End') }}" data-field="end_time" type="time" value="{{ p.end_time }}" readonly></div></div>
-          <div class="apr-summary">
-            <span class="apr-chip">{{ recurrence_label(p, tr) }}</span>
-            <span class="apr-chip">{{ tr.get('auto_plan_duration','Duration') }} {{ p.duration_text }}</span>
-            <span class="apr-chip">{{ tr.get('auto_plan_confidence','Confidence') }} {{ p.confidence_percent }}%</span>
-            <span class="apr-confidence" style="--confidence:{{ p.confidence_percent }}%" aria-hidden="true"><span></span></span>
-            {% if p.requires_manual_validation %}<span class="apr-chip manual">{{ tr.get('auto_plan_manual_review','Manual review required') }}</span>{% endif %}
-            {% for issue in p.display_issues %}<span class="apr-chip {{ 'blocking' if issue.severity == 'blocking' else 'warning' }}" data-issue-code="{{ issue.code }}">{{ issue_label(issue, tr) }}</span>{% endfor %}
-          </div>
-          <div class="apr-summary apr-future-note">{{ tr.get('auto_plan_last_seen','Last seen') }}: {{ format_date(p.source_last_seen) }}</div>
+        <article class="apr-proposal" data-proposal-id="{{ p.id }}" data-blocked="{{ 1 if p.has_blocking_issues else 0 }}" data-status="{{ p.status }}">
+          <form class="apr-proposal-form" method="post" action="{{ url_for('auto_plan_update_proposal', batch_id=batch.id, proposal_id=p.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <div class="apr-field"><label for="ap-client-{{ p.id }}">{{ tr.get('client','Client') }}</label><select id="ap-client-{{ p.id }}" data-field="client" name="client" {% if batch_state != 'open' %}disabled{% endif %}>{% for client_name in clients %}<option value="{{ client_name }}" {% if client_name == p.client %}selected{% endif %}>{{ client_name }}</option>{% endfor %}</select></div>
+            <div class="apr-field"><label for="ap-worker-{{ p.id }}">{{ tr.get('workers','Workers') }}</label><select id="ap-worker-{{ p.id }}" data-field="worker" name="workers" multiple {% if batch_state != 'open' %}disabled{% endif %}>{% for worker_name in workers %}<option value="{{ worker_name }}" {% if worker_name in p.selected_workers %}selected{% endif %}>{{ worker_name }}</option>{% endfor %}</select></div>
+            <div class="apr-field"><label for="ap-date-{{ p.id }}">{{ tr.get('date','Date') }}</label><input id="ap-date-{{ p.id }}" data-field="target_date" name="target_date" type="date" value="{{ p.target_date }}" {% if batch_state != 'open' %}disabled{% endif %} required></div>
+            <div class="apr-field"><label>{{ tr.get('time','Time') }}</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><input aria-label="{{ tr.get('start_time','Start') }}" data-field="start_time" name="start_time" type="time" step="60" value="{{ p.start_time }}" {% if batch_state != 'open' %}disabled{% endif %} required><input aria-label="{{ tr.get('end_time','End') }}" data-field="end_time" name="end_time" type="time" step="60" value="{{ p.end_time }}" {% if batch_state != 'open' %}disabled{% endif %} required></div></div>
+            <div class="apr-summary">
+              <span class="apr-status {{ p.status }}">{{ tr.get('auto_plan_status_' ~ p.status, p.status) }}</span>
+              <span class="apr-chip">{{ recurrence_label(p, tr) }}</span>
+              <span class="apr-chip">{{ tr.get('auto_plan_duration','Duration') }} {{ p.duration_text }}</span>
+              <span class="apr-chip">{{ tr.get('auto_plan_confidence','Confidence') }} {{ p.confidence_percent }}%</span>
+              <span class="apr-confidence" style="--confidence:{{ p.confidence_percent }}%" aria-hidden="true"><span></span></span>
+              {% if p.requires_manual_validation %}<span class="apr-chip manual">{{ tr.get('auto_plan_manual_review','Manual review required') }}</span>{% endif %}
+              {% for issue in p.display_issues %}<span class="apr-chip {{ 'blocking' if issue.severity == 'blocking' else 'warning' }}" data-issue-code="{{ issue.code }}">{{ issue_label(issue, tr) }}</span>{% endfor %}
+            </div>
+            <div class="apr-summary apr-future-note">{{ tr.get('auto_plan_last_seen','Last seen') }}: {{ format_date(p.source_last_seen) }}</div>
+            {% if batch_state == 'open' and p.status != 'applied' %}
+            <div class="apr-card-actions">
+              <label class="apr-lock-choice"><input type="checkbox" name="is_locked" value="1" {% if p.is_locked %}checked{% endif %}>{{ tr.get('auto_plan_lock_after_apply','Lock after applying') }}</label>
+              <button type="submit" name="action" value="save">{{ tr.get('auto_plan_save','Save') }}</button>
+              <button class="accept" type="submit" name="action" value="accept">{{ tr.get('auto_plan_accept','Accept') }}</button>
+              <button class="reject" type="submit" name="action" value="reject" formnovalidate>{{ tr.get('auto_plan_reject','Reject') }}</button>
+              <button class="pending" type="submit" name="action" value="pending" formnovalidate>{{ tr.get('auto_plan_mark_pending','Return to pending') }}</button>
+              <button type="reset">{{ tr.get('auto_plan_cancel_edit','Cancel edits') }}</button>
+              {% if p.status != 'rejected' %}<label class="apr-selection"><input type="checkbox" name="proposal_ids" value="{{ p.id }}" form="ap-bulk-form">{{ tr.get('auto_plan_select','Select') }}</label>{% endif %}
+              {% if p.status == 'accepted' %}<label class="apr-selection"><input type="checkbox" name="proposal_ids" value="{{ p.id }}" form="ap-apply-form">{{ tr.get('auto_plan_select_for_apply','Apply') }}</label>{% endif %}
+            </div>
+            {% endif %}
+          </form>
         </article>
         {% endfor %}
       </section>
     {% endif %}{% endfor %}
   </section>
+  {% if batch_state == 'open' %}
+  <div class="apr-workflow" aria-label="{{ tr.get('actions','Actions') }}">
+    <form id="ap-bulk-form" method="post" action="{{ url_for('auto_plan_bulk_accept', batch_id=batch.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit">{{ tr.get('auto_plan_accept_selected','Accept selected') }}</button>
+    </form>
+    <form id="ap-apply-form" method="post" action="{{ url_for('auto_plan_apply', batch_id=batch.id) }}" onsubmit='return confirm({{ tr.get("auto_plan_apply_confirm","Apply selected proposals?")|tojson }});'>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit">{{ tr.get('auto_plan_apply_selection','Apply selection to schedule') }}</button>
+    </form>
+    <form id="ap-cancel-form" method="post" action="{{ url_for('auto_plan_cancel', batch_id=batch.id) }}" onsubmit='return confirm({{ tr.get("auto_plan_cancel_confirm","Cancel this draft?")|tojson }});'>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button class="apr-cancel-draft" type="submit">{{ tr.get('auto_plan_cancel_draft','Cancel draft') }}</button>
+    </form>
+  </div>
+  {% endif %}
 </main>
 """
 
@@ -19809,6 +20411,15 @@ def auto_plan_generate():
     # Establish ownership while rendering the form, before two tabs can
     # submit concurrent generations from the same authenticated session.
     owner_token = _ap_session_draft_owner()
+    csrf_token = ap_csrf_token()
+
+    if request.method == "POST" and not ap_validate_csrf(
+        request.form.get("csrf_token", "")
+    ):
+        return t().get(
+            "auto_plan_csrf_failed",
+            "The security token is missing or invalid. Refresh the page.",
+        ), 400
 
     tr = t()
     dark = get_theme() == "dark"
@@ -19830,6 +20441,7 @@ def auto_plan_generate():
             tr=tr, dark=dark, target_week=default_target,
             lookback_weeks=AP_DEFAULT_LOOKBACK_WEEKS,
             lookback_options=AP_LOOKBACK_OPTIONS, include_exceptional=False,
+            csrf_token=csrf_token,
         )
 
     try:
@@ -19844,6 +20456,7 @@ def auto_plan_generate():
             lookback_weeks=lookback_weeks,
             lookback_options=AP_LOOKBACK_OPTIONS,
             include_exceptional=include_exceptional,
+            csrf_token=csrf_token,
         ), 400
 
     username = str(session.get("user", ""))
@@ -19922,6 +20535,12 @@ def auto_plan_review():
         existing_shifts = ap_fetch_existing_week(
             conn, batch["target_week_start"]
         )
+        workers = [str(row[0]) for row in conn.cursor().execute(
+            "SELECT name FROM workers WHERE name <> 'admin' ORDER BY name"
+        ).fetchall()]
+        clients = [str(row[0]) for row in conn.cursor().execute(
+            "SELECT name FROM clients ORDER BY name"
+        ).fetchall()]
     finally:
         conn.close()
 
@@ -19943,6 +20562,7 @@ def auto_plan_review():
             if proposal["target_date"] == day_iso
         ]
         for proposal in day_proposals:
+            proposal["selected_workers"] = split_workers(proposal["worker"])
             proposal["confidence_percent"] = max(
                 0, min(100, int(round(proposal["confidence"] * 100)))
             )
@@ -19963,7 +20583,345 @@ def auto_plan_review():
         proposals=proposals, proposal_count=len(proposals),
         existing_shifts=existing_shifts, format_date=format_date,
         recurrence_label=ap_recurrence_label, issue_label=ap_issue_label,
+        workers=workers, clients=clients,
+        batch_state=ap_batch_state(batch), csrf_token=ap_csrf_token(),
     )
+
+
+def _ap_phase5_post_guard():
+    if "user" not in session:
+        return redirect("/login")
+    if session.get("role") != "admin":
+        return "Forbidden", 403
+    if not ap_validate_csrf(request.form.get("csrf_token", "")):
+        return t().get(
+            "auto_plan_csrf_failed",
+            "The security token is missing or invalid. Refresh the page.",
+        ), 400
+    return None
+
+
+def _ap_request_proposal_ids():
+    values = request.form.getlist("proposal_ids")
+    proposal_ids = []
+    seen = set()
+    for raw_value in values:
+        try:
+            proposal_id = int(raw_value)
+        except (TypeError, ValueError):
+            raise ValueError("invalid proposal id")
+        if proposal_id < 1 or proposal_id in seen:
+            raise ValueError("invalid proposal id")
+        proposal_ids.append(proposal_id)
+        seen.add(proposal_id)
+    return proposal_ids
+
+
+def _ap_owned_batch_for_mutation(conn, batch_id):
+    return ap_load_owned_batch(
+        conn, int(batch_id), str(session.get("user", "")),
+        _ap_session_draft_owner(),
+    )
+
+
+@app.route(
+    "/plan/review/<int:batch_id>/proposal/<int:proposal_id>/update",
+    methods=["POST"],
+)
+def auto_plan_update_proposal(batch_id, proposal_id):
+    guard = _ap_phase5_post_guard()
+    if guard is not None:
+        return guard
+    action = str(request.form.get("action", "save") or "save")
+    if action not in ("save", "accept", "reject", "pending"):
+        return t().get("auto_plan_invalid_proposal", "Invalid proposal."), 400
+
+    conn = get_conn()
+    try:
+        with _AP_BATCH_MUTATION_LOCK:
+            ap_lock_batch_mutation(conn, batch_id)
+            batch = _ap_owned_batch_for_mutation(conn, batch_id)
+            if batch is None:
+                return "Not Found", 404
+            if ap_batch_state(batch) != "open":
+                return t().get("auto_plan_draft_applied", "Draft is closed."), 409
+            proposal = conn.cursor().execute(
+                "SELECT id FROM shift_proposals "
+                "WHERE id = ? AND batch_id = ? AND applied_shift_id IS NULL",
+                (proposal_id, batch_id),
+            ).fetchone()
+            if proposal is None:
+                return "Not Found", 404
+
+            if action in ("save", "accept"):
+                try:
+                    values = ap_validate_proposal_form(conn, batch, request.form)
+                except (TypeError, ValueError):
+                    conn.rollback()
+                    return t().get(
+                        "auto_plan_invalid_proposal",
+                        "The proposal data is invalid.",
+                    ), 400
+                ap_update_proposal_fields(
+                    conn, batch, proposal_id, values,
+                )
+            elif action == "reject":
+                ap_set_proposal_status(
+                    conn, batch_id, [proposal_id], "rejected",
+                )
+            else:
+                ap_set_proposal_status(
+                    conn, batch_id, [proposal_id], "proposed",
+                )
+
+            checked = ap_revalidate_draft(conn, batch)
+            checked_proposal = ap_get_proposal(checked, proposal_id)
+            if checked_proposal is None:
+                raise AutoPlanConflict("proposal vanished during update")
+            if action == "accept":
+                if ap_has_blocking_issues(checked_proposal):
+                    conn.commit()
+                    flash(t().get(
+                        "auto_plan_apply_blocked",
+                        "Resolve the blocking conflicts.",
+                    ), "warning")
+                    return redirect(url_for("auto_plan_review", batch=batch_id))
+                ap_set_proposal_status(
+                    conn, batch_id, [proposal_id], "accepted",
+                    manual_override=True,
+                )
+            conn.commit()
+    except AutoPlanConflict:
+        conn.rollback()
+        return "Conflict", 409
+    except Exception:
+        conn.rollback()
+        app.logger.exception(
+            "Auto-planning proposal update failed for batch=%s proposal=%s",
+            batch_id, proposal_id,
+        )
+        return t().get("auto_plan_apply_failed", "Update failed."), 500
+    finally:
+        conn.close()
+
+    message_key = {
+        "accept": "auto_plan_proposal_accepted",
+        "reject": "auto_plan_proposal_rejected",
+        "save": "auto_plan_changes_saved",
+        "pending": "auto_plan_changes_saved",
+    }[action]
+    flash(t().get(message_key, "Saved."), "ok")
+    return redirect(url_for("auto_plan_review", batch=batch_id))
+
+
+@app.route("/plan/review/<int:batch_id>/bulk-accept", methods=["POST"])
+def auto_plan_bulk_accept(batch_id):
+    guard = _ap_phase5_post_guard()
+    if guard is not None:
+        return guard
+    try:
+        proposal_ids = _ap_request_proposal_ids()
+    except ValueError:
+        return t().get("auto_plan_invalid_proposal", "Invalid proposal."), 400
+    if not proposal_ids:
+        flash(t().get("auto_plan_no_selection", "Select a proposal."), "warning")
+        return redirect(url_for("auto_plan_review", batch=batch_id))
+
+    conn = get_conn()
+    try:
+        with _AP_BATCH_MUTATION_LOCK:
+            ap_lock_batch_mutation(conn, batch_id)
+            batch = _ap_owned_batch_for_mutation(conn, batch_id)
+            if batch is None:
+                return "Not Found", 404
+            if ap_batch_state(batch) != "open":
+                return t().get("auto_plan_draft_applied", "Draft is closed."), 409
+            proposals = ap_load_draft_proposals(conn, batch_id)
+            selected = [
+                ap_get_proposal(proposals, proposal_id)
+                for proposal_id in proposal_ids
+            ]
+            if any(item is None or item.get("applied_shift_id") for item in selected):
+                return "Not Found", 404
+            checked = ap_revalidate_draft(conn, batch)
+            selected_checked = [
+                ap_get_proposal(checked, proposal_id)
+                for proposal_id in proposal_ids
+            ]
+            if any(ap_has_blocking_issues(item) for item in selected_checked):
+                conn.commit()
+                flash(t().get(
+                    "auto_plan_apply_blocked",
+                    "Resolve the blocking conflicts.",
+                ), "warning")
+                return redirect(url_for("auto_plan_review", batch=batch_id))
+            ap_set_proposal_status(
+                conn, batch_id, proposal_ids, "accepted",
+                manual_override=True,
+            )
+            conn.commit()
+    except AutoPlanConflict:
+        conn.rollback()
+        return "Conflict", 409
+    except Exception:
+        conn.rollback()
+        app.logger.exception("Auto-planning bulk acceptance failed")
+        return t().get("auto_plan_apply_failed", "Update failed."), 500
+    finally:
+        conn.close()
+
+    flash(t().get(
+        "auto_plan_selected_accepted",
+        "Selected proposals accepted: {count}.",
+    ).format(count=len(proposal_ids)), "ok")
+    return redirect(url_for("auto_plan_review", batch=batch_id))
+
+
+@app.route("/plan/review/<int:batch_id>/apply", methods=["POST"])
+def auto_plan_apply(batch_id):
+    guard = _ap_phase5_post_guard()
+    if guard is not None:
+        return guard
+    try:
+        proposal_ids = _ap_request_proposal_ids()
+    except ValueError:
+        return t().get("auto_plan_invalid_proposal", "Invalid proposal."), 400
+    if not proposal_ids:
+        flash(t().get("auto_plan_no_selection", "Select a proposal."), "warning")
+        return redirect(url_for("auto_plan_review", batch=batch_id))
+
+    conn = get_conn()
+    try:
+        with _AP_BATCH_MUTATION_LOCK:
+            ap_lock_batch_mutation(conn, batch_id)
+            ap_lock_shift_mutations(conn)
+            batch = _ap_owned_batch_for_mutation(conn, batch_id)
+            if batch is None:
+                return "Not Found", 404
+            state = ap_batch_state(batch)
+            if state != "open":
+                key = (
+                    "auto_plan_draft_cancelled"
+                    if state == "cancelled" else "auto_plan_draft_applied"
+                )
+                return t().get(key, "Draft is closed."), 409
+            try:
+                selected = ap_prepare_apply_selection(
+                    conn, batch, proposal_ids,
+                )
+            except ValueError:
+                conn.rollback()
+                return t().get("auto_plan_no_selection", "Select a proposal."), 400
+            if any(ap_has_blocking_issues(item) for item in selected):
+                # Refreshed issues are useful draft state. No shift has been
+                # inserted at this point, so committing them preserves the
+                # all-or-nothing guarantee for the real schedule.
+                conn.commit()
+                flash(t().get(
+                    "auto_plan_apply_blocked",
+                    "Resolve the blocking conflicts.",
+                ), "warning")
+                return redirect(url_for("auto_plan_review", batch=batch_id))
+            inserted = ap_apply_selected_proposals(
+                conn, batch, selected, str(session.get("user", "")),
+            )
+            conn.commit()
+    except AutoPlanConflict:
+        conn.rollback()
+        return "Conflict", 409
+    except Exception:
+        conn.rollback()
+        app.logger.exception("Auto-planning application failed for %s", batch_id)
+        flash(t().get(
+            "auto_plan_apply_failed",
+            "Application failed. No jobs were added.",
+        ), "error")
+        return redirect(url_for("auto_plan_review", batch=batch_id))
+    finally:
+        conn.close()
+
+    flash(t().get(
+        "auto_plan_applied_count",
+        "{count} job(s) added to the schedule.",
+    ).format(count=len(inserted)), "ok")
+    return redirect(url_for("auto_plan_review", batch=batch_id))
+
+
+@app.route("/plan/review/<int:batch_id>/cancel", methods=["POST"])
+def auto_plan_cancel(batch_id):
+    guard = _ap_phase5_post_guard()
+    if guard is not None:
+        return guard
+    conn = get_conn()
+    try:
+        with _AP_BATCH_MUTATION_LOCK:
+            ap_lock_batch_mutation(conn, batch_id)
+            batch = _ap_owned_batch_for_mutation(conn, batch_id)
+            if batch is None:
+                return "Not Found", 404
+            ap_cancel_draft(conn, batch, str(session.get("user", "")))
+            conn.commit()
+    except AutoPlanConflict:
+        conn.rollback()
+        return "Conflict", 409
+    except Exception:
+        conn.rollback()
+        app.logger.exception("Auto-planning cancellation failed")
+        return t().get("auto_plan_apply_failed", "Cancellation failed."), 500
+    finally:
+        conn.close()
+    flash(t().get("auto_plan_cancelled", "The draft was cancelled."), "ok")
+    return redirect(url_for("auto_plan_review", batch=batch_id))
+
+
+def _auto_plan_change_shift_lock(batch_id, shift_id, locked):
+    guard = _ap_phase5_post_guard()
+    if guard is not None:
+        return guard
+    conn = get_conn()
+    try:
+        with _AP_BATCH_MUTATION_LOCK:
+            ap_lock_batch_mutation(conn, batch_id)
+            ap_lock_shift_mutations(conn)
+            batch = _ap_owned_batch_for_mutation(conn, batch_id)
+            if batch is None:
+                return "Not Found", 404
+            if ap_batch_state(batch) != "open":
+                return t().get("auto_plan_draft_applied", "Draft is closed."), 409
+            if not ap_shift_belongs_to_batch_week(conn, batch, shift_id):
+                return "Not Found", 404
+            ap_set_shift_lock(
+                conn, shift_id, locked, str(session.get("user", "")),
+            )
+            conn.commit()
+    except AutoPlanConflict:
+        conn.rollback()
+        return "Conflict", 409
+    except Exception:
+        conn.rollback()
+        app.logger.exception("Auto-planning shift lock mutation failed")
+        return t().get("auto_plan_apply_failed", "Lock update failed."), 500
+    finally:
+        conn.close()
+    key = "auto_plan_lock_success" if locked else "auto_plan_unlock_success"
+    flash(t().get(key, "Saved."), "ok")
+    return redirect(url_for("auto_plan_review", batch=batch_id))
+
+
+@app.route(
+    "/plan/review/<int:batch_id>/shift/<int:shift_id>/lock",
+    methods=["POST"],
+)
+def auto_plan_lock_shift(batch_id, shift_id):
+    return _auto_plan_change_shift_lock(batch_id, shift_id, True)
+
+
+@app.route(
+    "/plan/review/<int:batch_id>/shift/<int:shift_id>/unlock",
+    methods=["POST"],
+)
+def auto_plan_unlock_shift(batch_id, shift_id):
+    return _auto_plan_change_shift_lock(batch_id, shift_id, False)
 
 
 if __name__ == "__main__":

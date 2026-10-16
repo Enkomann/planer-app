@@ -1,9 +1,8 @@
 # Plan — Génération automatique du planning hebdomadaire
 
-Statut : **phase 1 partiellement réalisée**. Codex a préparé les traductions
-et le schéma dans `app.py` ; ces changements sont **non committés** et seront
-conservés tels quels. Rien n'a été migré en base, rien n'a été déployé.
-Aucune route web n'est encore implémentée.
+Statut : **phases 1 à 4 validées ; phase 5 implémentée localement et en attente
+de validation**. Rien n'a été migré manuellement en production, poussé ou
+déployé.
 
 Décisions prises par le propriétaire — voir section 0.
 
@@ -21,7 +20,7 @@ Décisions prises par le propriétaire — voir section 0.
 
 ---
 
-## 1. Travaux Codex déjà en place (non committés, à conserver)
+## 1. Préparatifs de la phase 1 (désormais committés)
 
 ### 1.1 `app.py` — hunk 1 @ ligne ~2455 (+247 lignes)
 
@@ -342,4 +341,39 @@ Avant de valider la feature complète :
 
 ---
 
-Fin du plan. En attente de validation pour lancer la phase 2.
+Fin du plan initial. Voir l'état d'implémentation ci-dessous.
+
+---
+
+## 7. État d'implémentation local
+
+Les phases 1 à 4 ont été validées et committées sur la branche
+`feature/auto-planning`. La phase 5 est maintenant implémentée localement et
+doit encore être validée par le propriétaire avant le démarrage de la phase 6.
+
+### Phase 5 — modification, validation et application
+
+- Chaque proposition peut être modifiée indépendamment (client, équipe,
+  date, heure et statut) sans écrire dans `shifts`.
+- Les actions accepter, refuser, remettre en attente, accepter une sélection,
+  appliquer une sélection et annuler le brouillon sont disponibles.
+- Toute modification est revalidée et les contrôles sont relancés juste avant
+  l'application. Les conflits bloquants, absences, employés manquants,
+  doublons et interventions verrouillées empêchent l'insertion.
+- L'application est atomique et idempotente. Elle sérialise les mutations du
+  batch et les vérifications/écritures de `shifts`, puis insère uniquement les
+  propositions explicitement acceptées et sélectionnées.
+- Les brouillons appliqués ou annulés sont fermés et ne peuvent plus être
+  modifiés ni appliqués une seconde fois.
+- Les nouvelles routes POST du planning automatique utilisent un jeton CSRF
+  lié à la session. Elles vérifient aussi le rôle administrateur ainsi que le
+  propriétaire et la session d'origine du brouillon.
+- Les interventions réelles peuvent être verrouillées/déverrouillées depuis
+  la revue. Une intervention verrouillée ne peut pas être supprimée ; le
+  nettoyage de `shift_locks` et la suppression de `shifts` sont réalisés dans
+  une même transaction après déverrouillage.
+- Aucune migration supplémentaire n'est nécessaire pour cette phase. Aucun
+  accès à PostgreSQL de production, push ou déploiement n'est effectué.
+
+Tests locaux : la suite utilise une base SQLite temporaire et couvre les
+20 scénarios obligatoires de la phase 5, en plus des tests des phases 2 à 4.

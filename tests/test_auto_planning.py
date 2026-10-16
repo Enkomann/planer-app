@@ -2,9 +2,12 @@ import os
 import shutil
 import sqlite3
 import tempfile
+import threading
 import unittest
 import urllib.parse
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
+from unittest import mock
 
 
 # Importing app.py runs its existing idempotent init_db(). Point it at an
@@ -428,6 +431,12 @@ class Phase4DraftRoutesTests(unittest.TestCase):
             flask_session["role"] = role
             flask_session["lang"] = "en"
 
+    def csrf_token(self, client=None):
+        client = client or self.client
+        client.get("/plan/generate")
+        with client.session_transaction() as flask_session:
+            return flask_session[app.AP_CSRF_SESSION_KEY]
+
     def seed_weekly_history(self, worker="Aida", client="Client A",
                             add_worker=True):
         conn = app.get_conn()
@@ -453,6 +462,7 @@ class Phase4DraftRoutesTests(unittest.TestCase):
         data = {
             "target_week_start": self.TARGET_WEEK,
             "lookback_weeks": str(lookback),
+            "csrf_token": self.csrf_token(),
         }
         if include_exceptional:
             data["include_exceptional"] = "1"
@@ -658,11 +668,536 @@ class Phase4DraftRoutesTests(unittest.TestCase):
     def test_invalid_non_monday_target_is_rejected_without_draft(self):
         response = self.client.post("/plan/generate", data={
             "target_week_start": "2026-11-03", "lookback_weeks": "8",
+            "csrf_token": self.csrf_token(),
         })
         self.assertEqual(response.status_code, 400)
         self.assertEqual(
             self.db_rows("SELECT COUNT(*) FROM shift_proposal_batches")[0][0], 0
         )
+
+
+class Phase5DraftWorkflowTests(unittest.TestCase):
+    TARGET_WEEK = "2026-11-02"
+    HISTORY_DATES = Phase4DraftRoutesTests.HISTORY_DATES
+
+    def setUp(self):
+        conn = app.get_conn()
+        for table in (
+            "shift_proposals", "shift_proposal_batches", "shift_locks",
+            "shifts", "absences", "leave_requests", "holidays",
+            "workers", "clients",
+        ):
+            conn.execute(f"DELETE FROM {table}")
+        for worker in ("Aida", "Bea", "Cara"):
+            conn.execute(
+                "INSERT INTO workers (name, contract_end_date) VALUES (?, '')",
+                (worker,),
+            )
+        for client_name in ("Client A", "Client B", "Client C"):
+            conn.execute(
+                "INSERT INTO clients (name, contract_from, contract_to) "
+                "VALUES (?, '2026-01-01', '2026-12-31')",
+                (client_name,),
+            )
+        conn.commit()
+        conn.close()
+        self.client = app.app.test_client()
+        self.login(self.client)
+
+    def login(self, client, username="admin", role="admin",
+              owner_token=None, csrf_token=None):
+        with client.session_transaction() as flask_session:
+            flask_session["user"] = username
+            flask_session["role"] = role
+            flask_session["lang"] = "en"
+            if owner_token is not None:
+                flask_session[app.AP_DRAFT_SESSION_KEY] = owner_token
+            if csrf_token is not None:
+                flask_session[app.AP_CSRF_SESSION_KEY] = csrf_token
+
+    def csrf_token(self, client=None):
+        client = client or self.client
+        client.get("/plan/generate")
+        with client.session_transaction() as flask_session:
+            return flask_session[app.AP_CSRF_SESSION_KEY]
+
+    def session_security(self):
+        self.csrf_token()
+        with self.client.session_transaction() as flask_session:
+            return (
+                flask_session[app.AP_DRAFT_SESSION_KEY],
+                flask_session[app.AP_CSRF_SESSION_KEY],
+            )
+
+    def db_rows(self, query, params=()):
+        conn = app.get_conn()
+        try:
+            return conn.execute(query, params).fetchall()
+        finally:
+            conn.close()
+
+    def seed_history(self, worker="Aida", client="Client A",
+                     hours="08:00-10:00"):
+        conn = app.get_conn()
+        conn.executemany(
+            "INSERT INTO shifts (worker, client, date, time, status) "
+            "VALUES (?, ?, ?, ?, 'done')",
+            [(worker, client, day, hours) for day in self.HISTORY_DATES],
+        )
+        conn.commit()
+        conn.close()
+
+    def generate(self, lookback=8):
+        response = self.client.post("/plan/generate", data={
+            "target_week_start": self.TARGET_WEEK,
+            "lookback_weeks": str(lookback),
+            "csrf_token": self.csrf_token(),
+        })
+        self.assertEqual(response.status_code, 302)
+        return int(urllib.parse.parse_qs(
+            urllib.parse.urlparse(response.headers["Location"]).query
+        )["batch"][0])
+
+    def proposals(self, batch_id):
+        return self.db_rows(
+            "SELECT id, target_date, time, client, worker, status, "
+            "manual_override, is_locked, issues, applied_shift_id "
+            "FROM shift_proposals WHERE batch_id = ? ORDER BY id",
+            (batch_id,),
+        )
+
+    def proposal_form(self, proposal_row, action="save", **changes):
+        start_time, end_time = proposal_row[2].split("-", 1)
+        data = {
+            "csrf_token": self.csrf_token(),
+            "action": action,
+            "workers": changes.pop(
+                "workers", [name.strip() for name in proposal_row[4].split(",")]
+            ),
+            "client": changes.pop("client", proposal_row[3]),
+            "target_date": changes.pop("target_date", proposal_row[1]),
+            "start_time": changes.pop("start_time", start_time),
+            "end_time": changes.pop("end_time", end_time),
+        }
+        data.update(changes)
+        return data
+
+    def update(self, batch_id, proposal_id, action="save", **changes):
+        row = next(
+            row for row in self.proposals(batch_id) if row[0] == proposal_id
+        )
+        return self.client.post(
+            f"/plan/review/{batch_id}/proposal/{proposal_id}/update",
+            data=self.proposal_form(row, action=action, **changes),
+        )
+
+    def accept(self, batch_id, proposal_id, **changes):
+        response = self.update(
+            batch_id, proposal_id, action="accept", **changes,
+        )
+        self.assertEqual(response.status_code, 302)
+        return response
+
+    def apply(self, batch_id, proposal_ids, client=None, csrf=None):
+        target_client = client or self.client
+        return target_client.post(
+            f"/plan/review/{batch_id}/apply",
+            data={
+                "csrf_token": csrf or self.csrf_token(target_client),
+                "proposal_ids": [str(value) for value in proposal_ids],
+            },
+        )
+
+    def target_shifts(self):
+        return self.db_rows(
+            "SELECT id, worker, client, date, time, status FROM shifts "
+            "WHERE date >= ? AND date <= '2026-11-08' ORDER BY id",
+            (self.TARGET_WEEK,),
+        )
+
+    def test_modify_one_worker_without_changing_other_proposals(self):
+        self.seed_history()
+        self.seed_history("Cara", "Client B", "11:00-13:00")
+        batch_id = self.generate()
+        first, second = self.proposals(batch_id)
+        response = self.update(batch_id, first[0], workers=["Bea"])
+        self.assertEqual(response.status_code, 302)
+        after = self.proposals(batch_id)
+        self.assertEqual(after[0][4], "Bea")
+        self.assertEqual(after[1][4], second[4])
+
+    def test_replace_multi_worker_team(self):
+        self.seed_history()
+        batch_id = self.generate()
+        proposal_id = self.proposals(batch_id)[0][0]
+        self.update(batch_id, proposal_id, workers=["Bea", "Cara"])
+        self.assertEqual(self.proposals(batch_id)[0][4], "Bea, Cara")
+
+    def test_modify_client(self):
+        self.seed_history()
+        batch_id = self.generate()
+        proposal_id = self.proposals(batch_id)[0][0]
+        self.update(batch_id, proposal_id, client="Client B")
+        self.assertEqual(self.proposals(batch_id)[0][3], "Client B")
+
+    def test_modify_date_and_hhmm_time(self):
+        self.seed_history()
+        batch_id = self.generate()
+        proposal_id = self.proposals(batch_id)[0][0]
+        self.update(
+            batch_id, proposal_id, target_date="2026-11-03",
+            start_time="10:15", end_time="12:45",
+        )
+        row = self.proposals(batch_id)[0]
+        self.assertEqual(row[1], "2026-11-03")
+        self.assertEqual(row[2], "10:15-12:45")
+
+    def test_tampered_proposal_fields_are_rejected_server_side(self):
+        self.seed_history()
+        batch_id = self.generate()
+        original = self.proposals(batch_id)[0]
+        proposal_id = original[0]
+        invalid_changes = (
+            {"workers": ["Removed Worker"]},
+            {"client": "Missing Client"},
+            {"target_date": "2026-11-09"},
+            {"start_time": "8:00"},
+            {"end_time": "08:00"},
+        )
+        for changes in invalid_changes:
+            with self.subTest(changes=changes):
+                response = self.update(batch_id, proposal_id, **changes)
+                self.assertEqual(response.status_code, 400)
+                current = self.proposals(batch_id)[0]
+                self.assertEqual(current[1:8], original[1:8])
+
+    def test_explicit_acceptance_marks_manual_validation(self):
+        self.seed_history()
+        batch_id = self.generate()
+        proposal_id = self.proposals(batch_id)[0][0]
+        conn = app.get_conn()
+        conn.execute(
+            "UPDATE shift_proposals SET confidence = 0.25 WHERE id = ?",
+            (proposal_id,),
+        )
+        conn.commit(); conn.close()
+        self.accept(batch_id, proposal_id)
+        row = self.proposals(batch_id)[0]
+        self.assertEqual(row[5], "accepted")
+        self.assertEqual(row[6], 1)
+
+    def test_reject_proposal_and_keep_it_out_of_schedule(self):
+        self.seed_history()
+        batch_id = self.generate()
+        proposal_id = self.proposals(batch_id)[0][0]
+        response = self.update(batch_id, proposal_id, action="reject")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self.proposals(batch_id)[0][5], "rejected")
+        self.assertEqual(self.target_shifts(), [])
+
+    def test_partial_application_only_inserts_selected_accepted_rows(self):
+        self.seed_history()
+        self.seed_history("Bea", "Client B", "11:00-13:00")
+        batch_id = self.generate()
+        first, second = self.proposals(batch_id)
+        self.accept(batch_id, first[0])
+        self.accept(batch_id, second[0])
+        response = self.apply(batch_id, [first[0]])
+        self.assertEqual(response.status_code, 302)
+        target = self.target_shifts()
+        self.assertEqual(len(target), 1)
+        self.assertEqual(target[0][2], first[3])
+        states = self.proposals(batch_id)
+        self.assertEqual(states[0][5], "applied")
+        self.assertEqual(states[1][5], "accepted")
+
+    def test_manual_replacement_revalidates_missing_worker_issue(self):
+        self.seed_history("Former Worker", "Client A")
+        batch_id = self.generate()
+        proposal_id = self.proposals(batch_id)[0][0]
+        self.assertIn("worker_missing", self.proposals(batch_id)[0][8])
+        self.accept(batch_id, proposal_id, workers=["Aida"])
+        row = self.proposals(batch_id)[0]
+        self.assertEqual(row[5], "accepted")
+        self.assertNotIn("worker_missing", row[8])
+
+    def test_absence_added_after_generation_blocks_application(self):
+        self.seed_history()
+        batch_id = self.generate()
+        proposal_id = self.proposals(batch_id)[0][0]
+        self.accept(batch_id, proposal_id)
+        conn = app.get_conn()
+        conn.execute(
+            "INSERT INTO absences (worker, type, date_from, date_to, note) "
+            "VALUES ('Aida', 'vacation', ?, ?, '')",
+            (self.TARGET_WEEK, self.TARGET_WEEK),
+        )
+        conn.commit(); conn.close()
+        response = self.apply(batch_id, [proposal_id])
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self.target_shifts(), [])
+        self.assertIn("absence", self.proposals(batch_id)[0][8])
+        self.assertEqual(
+            self.db_rows(
+                "SELECT applied_at FROM shift_proposal_batches WHERE id = ?",
+                (batch_id,),
+            )[0][0], "",
+        )
+
+    def test_conflict_added_after_generation_blocks_application(self):
+        self.seed_history()
+        batch_id = self.generate()
+        proposal_id = self.proposals(batch_id)[0][0]
+        self.accept(batch_id, proposal_id)
+        conn = app.get_conn()
+        conn.execute(
+            "INSERT INTO shifts (worker, client, date, time, status) "
+            "VALUES ('Aida', 'Client B', ?, '09:00-11:00', 'planned')",
+            (self.TARGET_WEEK,),
+        )
+        conn.commit(); conn.close()
+        self.apply(batch_id, [proposal_id])
+        target = self.target_shifts()
+        self.assertEqual(len(target), 1)
+        self.assertEqual(target[0][2], "Client B")
+        self.assertIn("overlap_existing", self.proposals(batch_id)[0][8])
+
+    def test_existing_locked_shift_is_never_overwritten(self):
+        self.seed_history()
+        batch_id = self.generate()
+        proposal_id = self.proposals(batch_id)[0][0]
+        self.accept(batch_id, proposal_id)
+        conn = app.get_conn()
+        cursor = conn.execute(
+            "INSERT INTO shifts (worker, client, date, time, status) "
+            "VALUES ('Aida', 'Client C', ?, '09:00-11:00', 'planned')",
+            (self.TARGET_WEEK,),
+        )
+        shift_id = cursor.lastrowid
+        conn.execute(
+            "INSERT INTO shift_locks (shift_id, locked_at, locked_by) "
+            "VALUES (?, 'now', 'admin')", (shift_id,),
+        )
+        conn.commit(); conn.close()
+        self.apply(batch_id, [proposal_id])
+        self.assertEqual(len(self.target_shifts()), 1)
+        self.assertEqual(
+            self.db_rows("SELECT COUNT(*) FROM shift_locks WHERE shift_id = ?", (shift_id,))[0][0],
+            1,
+        )
+        self.assertIn("locked", self.proposals(batch_id)[0][8])
+
+    def test_repeated_application_never_creates_duplicates(self):
+        self.seed_history()
+        batch_id = self.generate()
+        proposal_id = self.proposals(batch_id)[0][0]
+        self.accept(batch_id, proposal_id)
+        self.assertEqual(self.apply(batch_id, [proposal_id]).status_code, 302)
+        self.assertEqual(self.apply(batch_id, [proposal_id]).status_code, 409)
+        self.assertEqual(len(self.target_shifts()), 1)
+
+    def test_two_concurrent_apply_requests_insert_once(self):
+        self.seed_history()
+        batch_id = self.generate()
+        proposal_id = self.proposals(batch_id)[0][0]
+        self.accept(batch_id, proposal_id)
+        owner_token, csrf_token = self.session_security()
+        clients = [app.app.test_client(), app.app.test_client()]
+        for client in clients:
+            self.login(
+                client, owner_token=owner_token, csrf_token=csrf_token,
+            )
+        barrier = threading.Barrier(2)
+
+        def submit(client):
+            barrier.wait(timeout=5)
+            return client.post(
+                f"/plan/review/{batch_id}/apply",
+                data={
+                    "csrf_token": csrf_token,
+                    "proposal_ids": [str(proposal_id)],
+                },
+            ).status_code
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            statuses = list(executor.map(submit, clients))
+        self.assertEqual(sorted(statuses), [302, 409])
+        self.assertEqual(len(self.target_shifts()), 1)
+
+    def test_apply_rolls_back_all_rows_when_second_insert_fails(self):
+        self.seed_history()
+        self.seed_history("Bea", "Client B", "11:00-13:00")
+        batch_id = self.generate()
+        proposal_ids = [row[0] for row in self.proposals(batch_id)]
+        for proposal_id in proposal_ids:
+            self.accept(batch_id, proposal_id)
+        original_insert = app.ap_insert_shift_from_proposal
+        calls = {"count": 0}
+
+        def fail_second(conn, proposal):
+            calls["count"] += 1
+            if calls["count"] == 2:
+                raise RuntimeError("forced second insert failure")
+            return original_insert(conn, proposal)
+
+        with self.assertLogs(app.app.logger, level="ERROR") as captured_logs:
+            with mock.patch.object(
+                app, "ap_insert_shift_from_proposal", side_effect=fail_second,
+            ):
+                response = self.apply(batch_id, proposal_ids)
+        self.assertIn(
+            "Auto-planning application failed",
+            "\n".join(captured_logs.output),
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self.target_shifts(), [])
+        self.assertTrue(all(row[9] is None for row in self.proposals(batch_id)))
+        self.assertEqual(
+            self.db_rows(
+                "SELECT applied_at FROM shift_proposal_batches WHERE id = ?",
+                (batch_id,),
+            )[0][0], "",
+        )
+
+    def test_other_user_or_browser_session_cannot_mutate_draft(self):
+        self.seed_history()
+        batch_id = self.generate()
+        proposal_id = self.proposals(batch_id)[0][0]
+        same_user_new_session = app.app.test_client()
+        self.login(same_user_new_session)
+        csrf = self.csrf_token(same_user_new_session)
+        response = same_user_new_session.post(
+            f"/plan/review/{batch_id}/proposal/{proposal_id}/update",
+            data={"csrf_token": csrf, "action": "reject"},
+        )
+        self.assertEqual(response.status_code, 404)
+        other_user = app.app.test_client()
+        self.login(other_user, username="other-admin")
+        csrf = self.csrf_token(other_user)
+        response = other_user.post(
+            f"/plan/review/{batch_id}/cancel",
+            data={"csrf_token": csrf},
+        )
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(self.proposals(batch_id)[0][5], "proposed")
+
+    def test_phase5_posts_require_valid_csrf_and_admin_role(self):
+        self.seed_history()
+        batch_id = self.generate()
+        proposal_id = self.proposals(batch_id)[0][0]
+        conn = app.get_conn()
+        cursor = conn.execute(
+            "INSERT INTO shifts (worker, client, date, time, status) "
+            "VALUES ('Bea', 'Client B', ?, '12:00-13:00', 'planned')",
+            (self.TARGET_WEEK,),
+        )
+        shift_id = cursor.lastrowid
+        conn.commit(); conn.close()
+        endpoints = [
+            (f"/plan/review/{batch_id}/proposal/{proposal_id}/update", {"action": "reject"}),
+            (f"/plan/review/{batch_id}/bulk-accept", {"proposal_ids": [str(proposal_id)]}),
+            (f"/plan/review/{batch_id}/apply", {"proposal_ids": [str(proposal_id)]}),
+            (f"/plan/review/{batch_id}/cancel", {}),
+            (f"/plan/review/{batch_id}/shift/{shift_id}/lock", {}),
+        ]
+        for endpoint, data in endpoints:
+            self.assertEqual(self.client.post(endpoint, data=data).status_code, 400)
+            invalid = dict(data); invalid["csrf_token"] = "wrong"
+            self.assertEqual(self.client.post(endpoint, data=invalid).status_code, 400)
+        self.assertEqual(
+            self.client.post("/plan/generate", data={
+                "target_week_start": self.TARGET_WEEK,
+                "lookback_weeks": "8",
+            }).status_code,
+            400,
+        )
+        worker_client = app.app.test_client()
+        self.login(
+            worker_client, username="Aida", role="worker",
+            owner_token="worker-owner", csrf_token="worker-csrf",
+        )
+        self.assertEqual(worker_client.post(
+            f"/plan/review/{batch_id}/cancel",
+            data={"csrf_token": "worker-csrf"},
+        ).status_code, 403)
+
+    def test_lock_unlock_and_delete_cleanup_are_transactional(self):
+        self.seed_history()
+        batch_id = self.generate()
+        conn = app.get_conn()
+        cursor = conn.execute(
+            "INSERT INTO shifts (worker, client, date, time, status) "
+            "VALUES ('Bea', 'Client B', ?, '12:00-13:00', 'planned')",
+            (self.TARGET_WEEK,),
+        )
+        shift_id = cursor.lastrowid
+        conn.commit(); conn.close()
+        token = self.csrf_token()
+        self.assertEqual(self.client.post(
+            f"/plan/review/{batch_id}/shift/{shift_id}/lock",
+            data={"csrf_token": token},
+        ).status_code, 302)
+        self.client.post(f"/delete_shift/{shift_id}")
+        self.assertEqual(len(self.db_rows("SELECT id FROM shifts WHERE id = ?", (shift_id,))), 1)
+        self.assertEqual(self.client.post(
+            f"/plan/review/{batch_id}/shift/{shift_id}/unlock",
+            data={"csrf_token": token},
+        ).status_code, 302)
+        self.client.post(f"/delete_shift/{shift_id}")
+        self.assertEqual(self.db_rows("SELECT id FROM shifts WHERE id = ?", (shift_id,)), [])
+        self.assertEqual(self.db_rows("SELECT shift_id FROM shift_locks WHERE shift_id = ?", (shift_id,)), [])
+
+    def test_cancelled_draft_cannot_be_applied(self):
+        self.seed_history()
+        batch_id = self.generate()
+        proposal_id = self.proposals(batch_id)[0][0]
+        self.accept(batch_id, proposal_id)
+        response = self.client.post(
+            f"/plan/review/{batch_id}/cancel",
+            data={"csrf_token": self.csrf_token()},
+        )
+        self.assertEqual(response.status_code, 302)
+        marker = self.db_rows(
+            "SELECT applied_at FROM shift_proposal_batches WHERE id = ?",
+            (batch_id,),
+        )[0][0]
+        self.assertTrue(marker.startswith(app.AP_BATCH_CANCELLED_PREFIX))
+        self.assertEqual(self.apply(batch_id, [proposal_id]).status_code, 409)
+        self.assertEqual(self.target_shifts(), [])
+
+    def test_applied_batch_cannot_be_applied_or_edited_again(self):
+        self.seed_history()
+        batch_id = self.generate()
+        proposal_id = self.proposals(batch_id)[0][0]
+        self.accept(batch_id, proposal_id)
+        self.apply(batch_id, [proposal_id])
+        self.assertEqual(self.apply(batch_id, [proposal_id]).status_code, 409)
+        self.assertEqual(
+            self.update(batch_id, proposal_id, action="pending").status_code,
+            409,
+        )
+        self.assertEqual(len(self.target_shifts()), 1)
+
+    def test_application_has_no_invoice_email_or_pdf_side_effects(self):
+        self.seed_history()
+        batch_id = self.generate()
+        proposal_id = self.proposals(batch_id)[0][0]
+        self.accept(batch_id, proposal_id)
+        tables = (
+            "invoice_records", "manual_invoice_drafts",
+            "invoice_email_queue", "invoice_email_logs",
+        )
+        before = {
+            table: self.db_rows(f"SELECT COUNT(*) FROM {table}")[0][0]
+            for table in tables
+        }
+        self.apply(batch_id, [proposal_id])
+        after = {
+            table: self.db_rows(f"SELECT COUNT(*) FROM {table}")[0][0]
+            for table in tables
+        }
+        self.assertEqual(after, before)
+        self.assertEqual(len(self.target_shifts()), 1)
 
 
 if __name__ == "__main__":
