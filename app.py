@@ -18688,6 +18688,284 @@ def delete_user(user_id):
     conn.commit(); conn.close(); return redirect("/admin")
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# AUTO-PLANNING — recurrence engine (phases 2/3)
+# ═══════════════════════════════════════════════════════════════════════════
+
+AP_LOOKBACK_OPTIONS = (2, 4, 8)
+AP_DEFAULT_LOOKBACK_WEEKS = 8
+AP_DEFAULT_MIN_CONFIDENCE = 0.70
+AP_RECURRENCE_PERIODS = (1, 2, 3, 4)
+
+
+def _ap_date(value):
+    """Return a date from an ISO value without applying a timezone shift."""
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, dt_date):
+        return value
+    return datetime.strptime(str(value), "%Y-%m-%d").date()
+
+
+def ap_lookback_bounds(target_week_start, weeks):
+    """Return the inclusive history window ending before the target week.
+
+    All planner dates are local Europe/Luxembourg calendar dates stored as
+    ``YYYY-MM-DD``. Date-only arithmetic deliberately avoids UTC conversion,
+    so a daylight-saving transition cannot move an intervention to another
+    day. ``target_week_start`` must be a Monday and ``weeks`` one of 2/4/8.
+    """
+    target = _ap_date(target_week_start)
+    weeks = int(weeks)
+    if target.weekday() != 0:
+        raise ValueError("target_week_start must be a Monday")
+    if weeks not in AP_LOOKBACK_OPTIONS:
+        raise ValueError("lookback weeks must be 2, 4 or 8")
+    return target - timedelta(weeks=weeks), target - timedelta(days=1)
+
+
+def ap_fetch_history(conn, start_date, end_date):
+    """Read valid historical shifts in chronological order.
+
+    Explicit columns preserve the six-column legacy shape and keep this
+    helper independent from future schema additions.
+    """
+    start_iso = _ap_date(start_date).isoformat()
+    end_iso = _ap_date(end_date).isoformat()
+    return conn.cursor().execute(
+        "SELECT id, worker, client, date, time, status "
+        "FROM shifts WHERE date >= ? AND date <= ? "
+        "ORDER BY date, time, id",
+        (start_iso, end_iso),
+    ).fetchall()
+
+
+def _ap_shift_values(shift):
+    """Extract the recurrence fields from a tuple or mapping-like row."""
+    if isinstance(shift, dict):
+        return (
+            shift.get("worker", ""), shift.get("client", ""),
+            shift.get("date", ""), shift.get("time", ""),
+        )
+    return shift[1], shift[2], shift[3], shift[4]
+
+
+def ap_recurrence_key(shift):
+    """Build the stable client/team/day/time identity for one shift.
+
+    The team is represented by ``worker_signature`` so ``A, B`` and ``B, A``
+    are the same historical team. Invalid or incomplete rows return ``None``
+    rather than causing the generator to invent missing values.
+    """
+    try:
+        worker_text, client, date_value, time_range = _ap_shift_values(shift)
+        day = _ap_date(date_value)
+        start, end = split_time_range(str(time_range))
+        workers = worker_signature(worker_text)
+        if not client or not workers or not start or not end:
+            return None
+        datetime.strptime(start, "%H:%M")
+        datetime.strptime(end, "%H:%M")
+        if parse_shift_hours(f"{start}-{end}") <= 0:
+            return None
+        return (str(client).strip(), workers, day.weekday(), start, end)
+    except (IndexError, TypeError, ValueError):
+        return None
+
+
+def ap_group_by_key(shifts):
+    """Group distinct occurrence dates by recurrence key.
+
+    Duplicate historical rows on the same date do not artificially increase
+    recurrence confidence. Rows with missing/invalid values are skipped.
+    """
+    grouped = {}
+    for shift in shifts:
+        key = ap_recurrence_key(shift)
+        if key is None:
+            continue
+        try:
+            occurrence = _ap_date(_ap_shift_values(shift)[2]).isoformat()
+        except (TypeError, ValueError):
+            continue
+        grouped.setdefault(key, set()).add(occurrence)
+    return {key: sorted(dates) for key, dates in grouped.items()}
+
+
+def ap_period_weeks(dates):
+    """Infer a 1–4 week cycle from the median gap between occurrences.
+
+    A cycle is returned only when every date falls on a whole-week boundary
+    and each observed gap is a multiple of the inferred period. This avoids
+    labelling irregular work as recurrent merely because two dates happen to
+    be close together.
+    """
+    parsed = sorted({_ap_date(value) for value in dates})
+    if len(parsed) < 2:
+        return None
+    gaps = []
+    for previous, current in zip(parsed, parsed[1:]):
+        days = (current - previous).days
+        if days <= 0 or days % 7:
+            return None
+        gaps.append(days // 7)
+    # Calendar-monthly work on a fixed weekday naturally alternates between
+    # four and five weeks. Persist it as period 4 (the schema's monthly
+    # category) while projection separately checks the ordinal weekday.
+    if len(gaps) >= 2 and all(gap in (4, 5) for gap in gaps):
+        return 4
+    ordered = sorted(gaps)
+    middle = len(ordered) // 2
+    if len(ordered) % 2:
+        median = float(ordered[middle])
+    else:
+        median = (ordered[middle - 1] + ordered[middle]) / 2.0
+    period = int(round(median))
+    if period in AP_RECURRENCE_PERIODS and all(
+        gap % period == 0 for gap in gaps
+    ):
+        return period
+    # A missed occurrence produces gaps such as [1, 2] for a weekly job or
+    # [2, 4] for a biweekly one. The greatest common divisor recovers the
+    # underlying cadence; confidence still drops because occurrences are
+    # missing, so the proposal is visibly marked for manual validation.
+    cadence = gaps[0]
+    for gap in gaps[1:]:
+        cadence = math.gcd(cadence, gap)
+    return cadence if cadence in AP_RECURRENCE_PERIODS else None
+
+
+def _ap_is_calendar_monthly(dates):
+    """Whether dates follow the same ordinal weekday in successive months."""
+    parsed = sorted({_ap_date(value) for value in dates})
+    if len(parsed) < 2:
+        return False
+    ordinal = (parsed[0].day - 1) // 7
+    if any(day.weekday() != parsed[0].weekday() for day in parsed):
+        return False
+    if any((day.day - 1) // 7 != ordinal for day in parsed):
+        return False
+    month_numbers = [day.year * 12 + day.month for day in parsed]
+    return all(
+        current > previous and current - previous <= 2
+        for previous, current in zip(month_numbers, month_numbers[1:])
+    )
+
+
+def ap_confidence(occurrences, period_weeks, lookback_weeks):
+    """Return observed/expected occurrences, clamped to the 0..1 range."""
+    try:
+        count = max(0, int(occurrences))
+        period = int(period_weeks)
+        window = int(lookback_weeks)
+    except (TypeError, ValueError):
+        return 0.0
+    if count <= 0 or period <= 0 or window <= 0:
+        return 0.0
+    expected = max(1, int(math.ceil(window / float(period))))
+    return max(0.0, min(1.0, count / float(expected)))
+
+
+def ap_classify(occurrences, period_weeks, confidence):
+    """Classify a pattern while keeping low-confidence cycles reviewable.
+
+    A one-shot or an unrecognisable period is exceptional. A recognised
+    1/2/3/4-week cycle keeps its period even below the 0.70 threshold; the
+    projector marks it for mandatory manual review instead of hiding it.
+    """
+    try:
+        count = int(occurrences)
+        period = int(period_weeks) if period_weeks is not None else None
+        score = float(confidence)
+    except (TypeError, ValueError):
+        return "exceptional", 0.0
+    if count <= 1 or period not in AP_RECURRENCE_PERIODS:
+        return "exceptional", max(0.0, min(1.0, score))
+    return period, max(0.0, min(1.0, score))
+
+
+def ap_project(groups, target_week_start, include_exceptional=False,
+               min_confidence=AP_DEFAULT_MIN_CONFIDENCE,
+               lookback_weeks=AP_DEFAULT_LOOKBACK_WEEKS):
+    """Project historical recurrence groups into a target week.
+
+    Recognised cycles below ``min_confidence`` remain visible with
+    ``requires_manual_validation=True``. True one-shot/irregular work is
+    omitted unless the administrator explicitly includes exceptional jobs.
+    """
+    target = _ap_date(target_week_start)
+    if target.weekday() != 0:
+        raise ValueError("target_week_start must be a Monday")
+    min_confidence = float(min_confidence)
+    proposals = []
+    for key, raw_dates in groups.items():
+        client, team, weekday, start, end = key
+        dates = sorted({_ap_date(value) for value in raw_dates})
+        if not dates:
+            continue
+        period = ap_period_weeks(dates)
+        confidence = ap_confidence(len(dates), period, lookback_weeks)
+        category, confidence = ap_classify(len(dates), period, confidence)
+        target_date = target + timedelta(days=int(weekday))
+        exceptional = category == "exceptional"
+        calendar_monthly = period == 4 and _ap_is_calendar_monthly(dates)
+        if exceptional:
+            if not include_exceptional:
+                continue
+            due = True
+            recurrence_period = 0
+        elif calendar_monthly:
+            last_month = dates[-1].year * 12 + dates[-1].month
+            target_month = target_date.year * 12 + target_date.month
+            due = (
+                target_month > last_month
+                and (target_date.day - 1) // 7 == (dates[-1].day - 1) // 7
+            )
+            recurrence_period = 4
+        else:
+            weeks_since_last = (target_date - dates[-1]).days // 7
+            due = target_date > dates[-1] and weeks_since_last % int(category) == 0
+            recurrence_period = int(category)
+        if not due:
+            continue
+        proposals.append({
+            "target_date": target_date.isoformat(),
+            "time": f"{start}-{end}",
+            "client": client,
+            "worker": join_workers(team),
+            "recurrence_period": recurrence_period,
+            "confidence": round(confidence, 4),
+            "occurrences": len(dates),
+            "source_last_seen": dates[-1].isoformat(),
+            "duration_hours": parse_shift_hours(f"{start}-{end}"),
+            "calendar_monthly": calendar_monthly,
+            "requires_manual_validation": exceptional or confidence < min_confidence,
+            "issues": ([{"code": "exceptional", "severity": "warning"}]
+                       if exceptional or confidence < min_confidence else []),
+        })
+    return sorted(
+        proposals,
+        key=lambda item: (item["target_date"], item["time"], item["client"],
+                          worker_signature(item["worker"])),
+    )
+
+
+def ap_generate_recurrence_proposals(conn, target_week_start,
+                                     lookback_weeks=AP_DEFAULT_LOOKBACK_WEEKS,
+                                     include_exceptional=False,
+                                     min_confidence=AP_DEFAULT_MIN_CONFIDENCE):
+    """Convenience read-only pipeline used by the future draft route."""
+    start_date, end_date = ap_lookback_bounds(target_week_start, lookback_weeks)
+    history = ap_fetch_history(conn, start_date, end_date)
+    groups = ap_group_by_key(history)
+    return ap_project(
+        groups, target_week_start,
+        include_exceptional=include_exceptional,
+        min_confidence=min_confidence,
+        lookback_weeks=lookback_weeks,
+    )
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
