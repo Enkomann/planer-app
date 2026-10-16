@@ -22,6 +22,7 @@ import smtplib
 import ssl
 import imaplib
 import hashlib
+import threading
 from email.message import EmailMessage
 from email.utils import formataddr, parseaddr, make_msgid
 from datetime import datetime, timedelta, date as dt_date
@@ -2697,6 +2698,94 @@ AUTO_PLANNING_TRANSLATIONS = {
     },
 }
 for _lang, _values in AUTO_PLANNING_TRANSLATIONS.items():
+    TRANSLATIONS[_lang].update(_values)
+
+# Phase-4-only labels are kept separate from the original auto-planning
+# translation block so the preparatory phase remains easy to compare with
+# AUTO_PLANNING_PLAN.md.
+AUTO_PLANNING_DRAFT_TRANSLATIONS = {
+    "bos": {
+        "auto_plan_duration": "Trajanje",
+        "auto_plan_manual_review": "Obavezna rucna provjera",
+        "auto_plan_draft_read_only": "Ovo je samo nacrt. Nijedna intervencija jos nije upisana u raspored.",
+        "auto_plan_history_weeks": "{count} sedmice",
+        "auto_plan_recurrence_monthly": "mjesecna intervencija",
+        "auto_plan_issue_leave_approved": "Radnik ima odobreno odsustvo",
+        "auto_plan_issue_worker_missing": "Istorijski radnik vise ne postoji ili je preimenovan: {worker}",
+        "auto_plan_issue_worker_contract": "Ugovor radnika je istekao: {worker}",
+        "auto_plan_issue_invalid_data": "Prijedlog sadrzi nepotpune ili neispravne podatke",
+        "auto_plan_issue_outside_target_week": "Datum nije u izabranoj sedmici",
+        "auto_plan_generation_failed": "Nacrt nije mogao biti generisan. Pokusajte ponovo.",
+        "auto_plan_draft_reused": "Postojeci nacrt za isti izbor je ponovo otvoren.",
+        "auto_plan_no_existing": "Nema postojecih intervencija u ovoj sedmici.",
+        "auto_plan_conflicts": "Upozorenja i konflikti",
+    },
+    "fr": {
+        "auto_plan_duration": "Durée",
+        "auto_plan_manual_review": "Validation manuelle obligatoire",
+        "auto_plan_draft_read_only": "Ceci est uniquement un brouillon. Aucune intervention n'a été enregistrée dans le planning.",
+        "auto_plan_history_weeks": "{count} semaines",
+        "auto_plan_recurrence_monthly": "intervention mensuelle",
+        "auto_plan_issue_leave_approved": "L'employé dispose d'un congé approuvé",
+        "auto_plan_issue_worker_missing": "L'employé historique n'existe plus ou a été renommé : {worker}",
+        "auto_plan_issue_worker_contract": "Le contrat de l'employé est expiré : {worker}",
+        "auto_plan_issue_invalid_data": "La proposition contient des données incomplètes ou invalides",
+        "auto_plan_issue_outside_target_week": "La date se trouve hors de la semaine cible",
+        "auto_plan_generation_failed": "Le brouillon n'a pas pu être généré. Veuillez réessayer.",
+        "auto_plan_draft_reused": "Le brouillon existant pour ces paramètres a été rouvert.",
+        "auto_plan_no_existing": "Aucune intervention existante cette semaine.",
+        "auto_plan_conflicts": "Avertissements et conflits",
+    },
+    "en": {
+        "auto_plan_duration": "Duration",
+        "auto_plan_manual_review": "Manual review required",
+        "auto_plan_draft_read_only": "This is a draft only. No job has been saved to the schedule.",
+        "auto_plan_history_weeks": "{count} weeks",
+        "auto_plan_recurrence_monthly": "monthly job",
+        "auto_plan_issue_leave_approved": "Worker has approved leave",
+        "auto_plan_issue_worker_missing": "Historical worker no longer exists or was renamed: {worker}",
+        "auto_plan_issue_worker_contract": "Worker contract has expired: {worker}",
+        "auto_plan_issue_invalid_data": "Proposal contains incomplete or invalid data",
+        "auto_plan_issue_outside_target_week": "Date is outside the target week",
+        "auto_plan_generation_failed": "The draft could not be generated. Please try again.",
+        "auto_plan_draft_reused": "The existing draft for these settings was reopened.",
+        "auto_plan_no_existing": "There are no existing jobs in this week.",
+        "auto_plan_conflicts": "Warnings and conflicts",
+    },
+    "de": {
+        "auto_plan_duration": "Dauer",
+        "auto_plan_manual_review": "Manuelle Prüfung erforderlich",
+        "auto_plan_draft_read_only": "Dies ist nur ein Entwurf. Es wurde noch kein Einsatz im Plan gespeichert.",
+        "auto_plan_history_weeks": "{count} Wochen",
+        "auto_plan_recurrence_monthly": "monatlicher Einsatz",
+        "auto_plan_issue_leave_approved": "Mitarbeiter hat genehmigten Urlaub",
+        "auto_plan_issue_worker_missing": "Historischer Mitarbeiter existiert nicht mehr oder wurde umbenannt: {worker}",
+        "auto_plan_issue_worker_contract": "Mitarbeitervertrag ist abgelaufen: {worker}",
+        "auto_plan_issue_invalid_data": "Vorschlag enthält unvollständige oder ungültige Daten",
+        "auto_plan_issue_outside_target_week": "Datum liegt außerhalb der Zielwoche",
+        "auto_plan_generation_failed": "Der Entwurf konnte nicht erstellt werden. Bitte erneut versuchen.",
+        "auto_plan_draft_reused": "Der vorhandene Entwurf für diese Auswahl wurde erneut geöffnet.",
+        "auto_plan_no_existing": "In dieser Woche gibt es keine vorhandenen Einsätze.",
+        "auto_plan_conflicts": "Warnungen und Konflikte",
+    },
+    "pt": {
+        "auto_plan_duration": "Duração",
+        "auto_plan_manual_review": "Revisão manual obrigatória",
+        "auto_plan_draft_read_only": "Este é apenas um rascunho. Nenhum serviço foi guardado no horário.",
+        "auto_plan_history_weeks": "{count} semanas",
+        "auto_plan_recurrence_monthly": "serviço mensal",
+        "auto_plan_issue_leave_approved": "O trabalhador tem ausência aprovada",
+        "auto_plan_issue_worker_missing": "O trabalhador histórico já não existe ou foi renomeado: {worker}",
+        "auto_plan_issue_worker_contract": "O contrato do trabalhador terminou: {worker}",
+        "auto_plan_issue_invalid_data": "A proposta contém dados incompletos ou inválidos",
+        "auto_plan_issue_outside_target_week": "A data está fora da semana alvo",
+        "auto_plan_generation_failed": "Não foi possível gerar o rascunho. Tente novamente.",
+        "auto_plan_draft_reused": "O rascunho existente para estas opções foi reaberto.",
+        "auto_plan_no_existing": "Não existem serviços nesta semana.",
+        "auto_plan_conflicts": "Avisos e conflitos",
+    },
+}
+for _lang, _values in AUTO_PLANNING_DRAFT_TRANSLATIONS.items():
     TRANSLATIONS[_lang].update(_values)
 
 MONTH_NAMES = {
@@ -8125,6 +8214,10 @@ def login():
             conn.close()
             session["user"] = user[0]
             session["role"] = user[2]
+            # Draft ownership is scoped to this authenticated browser
+            # session. A fresh login must never inherit another session's
+            # auto-planning batch, even for the same username.
+            session["auto_plan_draft_owner"] = secrets.token_urlsafe(32)
             # "Remember me" → permanent session (cookie picks up the
             # PERMANENT_SESSION_LIFETIME=30d). Without the checkbox
             # Flask falls back to a browser-session cookie. Failed
@@ -19237,6 +19330,640 @@ def ap_run_checks(conn, proposals, target_week_start):
         proposal["issues"] = _ap_dedupe_issues(issues)
         proposal["has_blocking_issues"] = ap_has_blocking_issues(proposal)
     return checked
+
+
+# ---------------------------------------------------------------------------
+# AUTO-PLANNING — phase 4 draft persistence (never writes to shifts)
+# ---------------------------------------------------------------------------
+
+AP_DRAFT_OWNER_NOTE = "draft_owner"
+AP_DRAFT_SESSION_KEY = "auto_plan_draft_owner"
+_AP_DRAFT_LOCK = threading.Lock()
+
+
+def ap_json_list(value):
+    """Decode one of the draft JSON TEXT columns, safely returning a list."""
+    if isinstance(value, list):
+        return value
+    if not value:
+        return []
+    try:
+        decoded = json.loads(value)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return []
+    return decoded if isinstance(decoded, list) else []
+
+
+def ap_default_target_week_start(today=None):
+    """Return the Monday following the supplied Luxembourg calendar date."""
+    local_day = _ap_date(today or lux_now().date())
+    return local_day - timedelta(days=local_day.weekday()) + timedelta(days=7)
+
+
+def _ap_draft_owner_fingerprint(owner_token):
+    return hashlib.sha256(str(owner_token).encode("utf-8")).hexdigest()
+
+
+def _ap_draft_owner_note(owner_token):
+    return {
+        "code": AP_DRAFT_OWNER_NOTE,
+        "fingerprint": _ap_draft_owner_fingerprint(owner_token),
+    }
+
+
+def _ap_session_draft_owner():
+    """Get the per-browser-session draft token, creating it when necessary."""
+    owner_token = session.get(AP_DRAFT_SESSION_KEY, "")
+    if not owner_token:
+        owner_token = secrets.token_urlsafe(32)
+        session[AP_DRAFT_SESSION_KEY] = owner_token
+    return owner_token
+
+
+def _ap_batch_values(row):
+    return {
+        "id": int(row[0]),
+        "target_week_start": str(row[1]),
+        "lookback_weeks": int(row[2]),
+        "include_exceptional": bool(row[3]),
+        "created_at": str(row[4] or ""),
+        "created_by": str(row[5] or ""),
+        "applied_at": str(row[6] or ""),
+        "analysis_notes": ap_json_list(row[7]),
+    }
+
+
+def ap_batch_is_owned(batch, username, owner_token):
+    """Require both the authenticated user and the originating session."""
+    if not batch or batch.get("created_by") != str(username or ""):
+        return False
+    expected = _ap_draft_owner_fingerprint(owner_token)
+    return any(
+        isinstance(note, dict)
+        and note.get("code") == AP_DRAFT_OWNER_NOTE
+        and secrets.compare_digest(str(note.get("fingerprint", "")), expected)
+        for note in batch.get("analysis_notes", [])
+    )
+
+
+def ap_find_open_draft(conn, username, owner_token, target_week_start,
+                       lookback_weeks, include_exceptional):
+    """Find an equivalent unapplied draft owned by this browser session."""
+    rows = conn.cursor().execute(
+        "SELECT id, target_week_start, lookback_weeks, include_exceptional, "
+        "created_at, created_by, applied_at, analysis_notes "
+        "FROM shift_proposal_batches "
+        "WHERE target_week_start = ? AND lookback_weeks = ? "
+        "AND include_exceptional = ? AND created_by = ? "
+        "AND (applied_at IS NULL OR applied_at = '') ORDER BY id DESC",
+        (
+            _ap_date(target_week_start).isoformat(), int(lookback_weeks),
+            1 if include_exceptional else 0, str(username),
+        ),
+    ).fetchall()
+    for row in rows:
+        batch = _ap_batch_values(row)
+        if ap_batch_is_owned(batch, username, owner_token):
+            return batch
+    return None
+
+
+def _ap_advisory_lock_key(username, owner_token, target_week_start,
+                          lookback_weeks, include_exceptional):
+    raw = "|".join([
+        str(username), _ap_draft_owner_fingerprint(owner_token),
+        _ap_date(target_week_start).isoformat(), str(int(lookback_weeks)),
+        "1" if include_exceptional else "0",
+    ]).encode("utf-8")
+    return int.from_bytes(hashlib.sha256(raw).digest()[:8], "big", signed=True)
+
+
+def ap_lock_draft_generation(conn, username, owner_token, target_week_start,
+                             lookback_weeks, include_exceptional):
+    """Serialize equivalent PostgreSQL generations for the transaction."""
+    if not USE_POSTGRES:
+        return
+    conn.cursor().execute(
+        "SELECT pg_advisory_xact_lock(?)",
+        (_ap_advisory_lock_key(
+            username, owner_token, target_week_start,
+            lookback_weeks, include_exceptional,
+        ),),
+    )
+
+
+def ap_create_draft(conn, username, owner_token, target_week_start,
+                    lookback_weeks, include_exceptional, proposals):
+    """Persist a checked proposal batch without touching the shifts table."""
+    created_at = lux_now().strftime("%Y-%m-%d %H:%M:%S")
+    notes = [
+        _ap_draft_owner_note(owner_token),
+        {
+            "code": "engine",
+            "min_confidence": AP_DEFAULT_MIN_CONFIDENCE,
+            "proposal_count": len(proposals),
+        },
+    ]
+    cursor = conn.cursor()
+    params = (
+        _ap_date(target_week_start).isoformat(), int(lookback_weeks),
+        1 if include_exceptional else 0, created_at, str(username),
+        json.dumps(notes, ensure_ascii=False),
+    )
+    insert_sql = (
+        "INSERT INTO shift_proposal_batches "
+        "(target_week_start, lookback_weeks, include_exceptional, created_at, "
+        "created_by, applied_at, analysis_notes) VALUES (?, ?, ?, ?, ?, '', ?)"
+    )
+    if USE_POSTGRES:
+        batch_row = cursor.execute(insert_sql + " RETURNING id", params).fetchone()
+        batch_id = int(batch_row[0])
+    else:
+        cursor.execute(insert_sql, params)
+        batch_id = int(cursor.lastrowid)
+
+    for proposal in proposals:
+        issues = [dict(issue) for issue in proposal.get("issues", [])
+                  if isinstance(issue, dict)]
+        if proposal.get("calendar_monthly"):
+            issues.append({"code": "calendar_monthly", "severity": "info"})
+        issues = _ap_dedupe_issues(issues)
+        alternatives = proposal.get("alternative_workers", [])
+        if not isinstance(alternatives, list):
+            alternatives = []
+        cursor.execute(
+            "INSERT INTO shift_proposals "
+            "(batch_id, target_date, time, client, worker, recurrence_period, "
+            "confidence, status, issues, source_last_seen, is_locked, "
+            "manual_override, alternative_workers, applied_shift_id, "
+            "created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, 'proposed', ?, ?, 0, 0, ?, NULL, ?, ?)",
+            (
+                batch_id, str(proposal.get("target_date", "")),
+                str(proposal.get("time", "")),
+                str(proposal.get("client", "")),
+                str(proposal.get("worker", "")),
+                int(proposal.get("recurrence_period", 0) or 0),
+                float(proposal.get("confidence", 0) or 0),
+                json.dumps(issues, ensure_ascii=False),
+                str(proposal.get("source_last_seen", "")),
+                json.dumps(alternatives, ensure_ascii=False),
+                created_at, created_at,
+            ),
+        )
+    return batch_id
+
+
+def ap_load_owned_batch(conn, batch_id, username, owner_token):
+    """Load a batch only when it belongs to this user and browser session."""
+    row = conn.cursor().execute(
+        "SELECT id, target_week_start, lookback_weeks, include_exceptional, "
+        "created_at, created_by, applied_at, analysis_notes "
+        "FROM shift_proposal_batches WHERE id = ?",
+        (int(batch_id),),
+    ).fetchone()
+    if not row:
+        return None
+    batch = _ap_batch_values(row)
+    return batch if ap_batch_is_owned(batch, username, owner_token) else None
+
+
+def ap_load_draft_proposals(conn, batch_id):
+    """Load proposal rows and tolerate malformed historical JSON fields."""
+    rows = conn.cursor().execute(
+        "SELECT id, batch_id, target_date, time, client, worker, "
+        "recurrence_period, confidence, status, issues, source_last_seen, "
+        "is_locked, manual_override, alternative_workers, applied_shift_id, "
+        "created_at, updated_at FROM shift_proposals "
+        "WHERE batch_id = ? ORDER BY target_date, time, client, id",
+        (int(batch_id),),
+    ).fetchall()
+    proposals = []
+    for row in rows:
+        item = {
+            "id": int(row[0]), "batch_id": int(row[1]),
+            "target_date": str(row[2]), "time": str(row[3]),
+            "client": str(row[4]), "worker": str(row[5]),
+            "recurrence_period": int(row[6] or 0),
+            "confidence": float(row[7] or 0),
+            "status": str(row[8] or "proposed"),
+            "issues": ap_json_list(row[9]),
+            "source_last_seen": str(row[10] or ""),
+            "is_locked": bool(row[11]), "manual_override": bool(row[12]),
+            "alternative_workers": ap_json_list(row[13]),
+            "applied_shift_id": row[14], "created_at": str(row[15] or ""),
+            "updated_at": str(row[16] or ""),
+        }
+        try:
+            start_time, end_time = split_time_range(item["time"])
+        except (TypeError, ValueError):
+            start_time, end_time = "", ""
+        item["start_time"] = start_time
+        item["end_time"] = end_time
+        item["duration_hours"] = parse_shift_hours(item["time"])
+        item["has_blocking_issues"] = ap_has_blocking_issues(item)
+        item["requires_manual_validation"] = (
+            item["has_blocking_issues"]
+            or item["confidence"] < AP_DEFAULT_MIN_CONFIDENCE
+            or any(
+                isinstance(issue, dict) and issue.get("code") == "exceptional"
+                for issue in item["issues"]
+            )
+        )
+        item["display_issues"] = [
+            issue for issue in item["issues"]
+            if isinstance(issue, dict) and issue.get("severity") != "info"
+        ]
+        proposals.append(item)
+    return proposals
+
+
+def ap_fetch_existing_week(conn, target_week_start):
+    """Read existing target-week shifts and their lock state."""
+    week_start = _ap_date(target_week_start)
+    week_end = week_start + timedelta(days=6)
+    rows = conn.cursor().execute(
+        "SELECT s.id, s.worker, s.client, s.date, s.time, s.status, "
+        "CASE WHEN sl.shift_id IS NULL THEN 0 ELSE 1 END "
+        "FROM shifts s LEFT JOIN shift_locks sl ON sl.shift_id = s.id "
+        "WHERE s.date >= ? AND s.date <= ? ORDER BY s.date, s.time, s.id",
+        (week_start.isoformat(), week_end.isoformat()),
+    ).fetchall()
+    return [{
+        "id": int(row[0]), "worker": str(row[1] or ""),
+        "client": str(row[2] or ""), "date": str(row[3] or ""),
+        "time": str(row[4] or ""), "status": str(row[5] or ""),
+        "is_locked": bool(row[6]),
+    } for row in rows]
+
+
+def ap_recurrence_label(proposal, tr):
+    issues = proposal.get("issues", [])
+    if any(
+        isinstance(issue, dict) and issue.get("code") == "calendar_monthly"
+        for issue in issues
+    ):
+        return tr.get("auto_plan_recurrence_monthly", "Monthly")
+    period = int(proposal.get("recurrence_period", 0) or 0)
+    if period in AP_RECURRENCE_PERIODS:
+        return tr.get(f"auto_plan_recurrence_{period}", f"Every {period} week(s)")
+    return tr.get("auto_plan_recurrence_exceptional", "Exceptional")
+
+
+def ap_issue_label(issue, tr):
+    """Render a safe, understandable label for one structured issue."""
+    if not isinstance(issue, dict):
+        return str(issue or "")
+    code = str(issue.get("code", ""))
+    key = f"auto_plan_issue_{code}"
+    fallback = code.replace("_", " ").strip().capitalize()
+    template = tr.get(key, fallback)
+    values = {
+        "worker": str(issue.get("worker", "")).strip() or "?",
+        "count": issue.get("count", 0),
+    }
+    try:
+        label = template.format(**values)
+    except (KeyError, ValueError):
+        label = template
+    if code in ("absence", "leave_approved") and issue.get("worker"):
+        label += f" — {issue['worker']}"
+    elif code == "holiday" and issue.get("name"):
+        label += f" — {issue['name']}"
+    elif code == "overlap_existing":
+        details = " ".join(
+            value for value in (
+                str(issue.get("client", "")).strip(),
+                str(issue.get("time", "")).strip(),
+            ) if value
+        )
+        if details:
+            label += f" — {details}"
+    return label
+
+
+AUTO_PLAN_GENERATE_TEMPLATE = """
+<style>
+  .ap-shell{max-width:980px;margin:0 auto;padding-bottom:44px}
+  .ap-topline{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+  .ap-topline h1{margin:0;font-size:clamp(24px,4vw,34px)}
+  .ap-form-panel{background:{{ '#18181b' if dark else '#fff' }};border:1px solid {{ '#303036' if dark else '#dbe2ea' }};border-radius:8px;padding:22px;box-shadow:0 8px 24px rgba(0,0,0,.08)}
+  .ap-form-grid{display:grid;grid-template-columns:minmax(220px,1fr) minmax(280px,1.4fr);gap:20px;align-items:end}
+  .ap-label{display:block;font-weight:700;margin-bottom:6px;color:{{ '#e5e7eb' if dark else '#1f2937' }}}
+  .ap-history{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid {{ '#3f3f46' if dark else '#cbd5e1' }};border-radius:8px;overflow:hidden}
+  .ap-history label{position:relative;margin:0;border-right:1px solid {{ '#3f3f46' if dark else '#cbd5e1' }}}
+  .ap-history label:last-child{border-right:0}
+  .ap-history input{position:absolute;opacity:0;pointer-events:none}
+  .ap-history span{display:flex;min-height:42px;align-items:center;justify-content:center;padding:6px 10px;font-weight:700;background:{{ '#202024' if dark else '#f8fafc' }};cursor:pointer}
+  .ap-history input:checked+span{background:#1f5d96;color:#fff}
+  .ap-toggle{display:flex;align-items:flex-start;gap:10px;margin:20px 0;padding:14px;background:{{ '#202024' if dark else '#f8fafc' }};border:1px solid {{ '#303036' if dark else '#e2e8f0' }};border-radius:8px}
+  .ap-toggle input{width:18px;height:18px;flex:0 0 auto;margin:1px 0}
+  .ap-preserve{margin:18px 0;padding:13px 15px;border-left:4px solid #0f766e;background:{{ '#16302d' if dark else '#ecfdf5' }};color:{{ '#a7f3d0' if dark else '#14532d' }};border-radius:4px}
+  .ap-submit{display:inline-flex;width:auto;min-width:220px;align-items:center;justify-content:center;background:#1f5d96;font-weight:800;padding:12px 18px}
+  .ap-flash{padding:12px 14px;margin:0 0 14px;border-radius:6px;background:{{ '#3b2f0e' if dark else '#fef3c7' }};color:{{ '#fde68a' if dark else '#78350f' }}}
+  @media(max-width:700px){.ap-form-grid{grid-template-columns:1fr}.ap-form-panel{padding:16px}.ap-submit{width:100%}}
+</style>
+<main class="ap-shell">
+  <div class="ap-topline">
+    <h1>{{ tr.get('auto_plan_title','Auto planning') }}</h1>
+    <a class="back-button" href="/week">{{ tr.get('back','Back') }}</a>
+  </div>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}<div class="ap-flash" role="status">{{ message }}</div>{% endfor %}
+  {% endwith %}
+  <section class="ap-form-panel" aria-labelledby="ap-generate-heading">
+    <h2 id="ap-generate-heading">{{ tr.get('auto_plan_generate','Generate automatically') }}</h2>
+    <form method="post" action="{{ url_for('auto_plan_generate') }}">
+      <div class="ap-form-grid">
+        <div>
+          <label class="ap-label" for="ap-target-week">{{ tr.get('auto_plan_target_week','Target week') }}</label>
+          <input id="ap-target-week" type="date" name="target_week_start" value="{{ target_week }}" required>
+        </div>
+        <fieldset style="border:0;padding:0;margin:0;min-width:0">
+          <legend class="ap-label">{{ tr.get('auto_plan_history','History') }}</legend>
+          <div class="ap-history">
+            {% for option in lookback_options %}
+              <label><input type="radio" name="lookback_weeks" value="{{ option }}" {% if option == lookback_weeks %}checked{% endif %}><span>{{ tr.get('auto_plan_history_weeks','{count} weeks').format(count=option) }}</span></label>
+            {% endfor %}
+          </div>
+        </fieldset>
+      </div>
+      <label class="ap-toggle">
+        <input type="checkbox" name="include_exceptional" value="1" {% if include_exceptional %}checked{% endif %}>
+        <span>{{ tr.get('auto_plan_include_exceptional','Include exceptional jobs') }}</span>
+      </label>
+      <div class="ap-preserve">{{ tr.get('auto_plan_existing_preserved','Existing and locked jobs are never overwritten.') }}</div>
+      <button class="ap-submit" type="submit">{{ tr.get('auto_plan_create_draft','Generate draft') }}</button>
+    </form>
+  </section>
+</main>
+"""
+
+
+AUTO_PLAN_REVIEW_TEMPLATE = """
+<style>
+  .apr-shell{max-width:1240px;margin:0 auto;padding-bottom:48px}
+  .apr-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+  .apr-head h1{margin:0 0 6px;font-size:clamp(24px,4vw,34px)}
+  .apr-meta{display:flex;gap:8px;flex-wrap:wrap;color:{{ '#cbd5e1' if dark else '#475569' }};font-size:14px}
+  .apr-meta span{padding:6px 9px;border:1px solid {{ '#3f3f46' if dark else '#dbe2ea' }};border-radius:6px;background:{{ '#1d1d21' if dark else '#fff' }}}
+  .apr-actions{display:flex;gap:8px;flex-wrap:wrap}.apr-actions a{margin:0;padding:10px 13px;border-radius:7px;background:#1f5d96;color:#fff}
+  .apr-readonly{margin:14px 0 22px;padding:13px 15px;border-left:4px solid #0f766e;background:{{ '#16302d' if dark else '#ecfdf5' }};color:{{ '#a7f3d0' if dark else '#14532d' }};border-radius:4px}
+  .apr-section{margin-top:26px}.apr-section>h2{display:flex;align-items:center;gap:9px;margin-bottom:12px}
+  .apr-existing{width:100%;border-collapse:collapse;background:{{ '#18181b' if dark else '#fff' }};border:1px solid {{ '#303036' if dark else '#dbe2ea' }}}
+  .apr-existing th,.apr-existing td{text-align:left;padding:10px;border-bottom:1px solid {{ '#303036' if dark else '#e2e8f0' }};vertical-align:top}
+  .apr-existing th{font-size:12px;text-transform:uppercase;color:{{ '#a5b4fc' if dark else '#475569' }}}
+  .apr-lock{display:inline-flex;padding:4px 7px;border-radius:999px;background:{{ '#422006' if dark else '#fef3c7' }};color:{{ '#fde68a' if dark else '#92400e' }};font-size:12px;font-weight:800}
+  .apr-day{margin-top:18px;border-top:2px solid {{ '#34343a' if dark else '#cbd5e1' }};padding-top:12px}
+  .apr-day-title{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:0 0 9px;font-size:18px}
+  .apr-day-count{font-size:12px;color:{{ '#a1a1aa' if dark else '#64748b' }}}
+  .apr-proposal{position:relative;display:grid;grid-template-columns:minmax(150px,1.15fr) minmax(145px,1fr) minmax(118px,.7fr) minmax(118px,.7fr);gap:12px;padding:15px 0;border-bottom:1px solid {{ '#303036' if dark else '#e2e8f0' }}}
+  .apr-proposal[data-blocked="1"]{border-left:4px solid #dc2626;padding-left:12px}
+  .apr-field label{display:block;font-size:11px;text-transform:uppercase;font-weight:800;color:{{ '#a5b4fc' if dark else '#64748b' }};margin-bottom:4px}
+  .apr-field input{height:40px;margin:0;background:{{ '#1b1b1f' if dark else '#fff' }}}
+  .apr-field input[readonly]{cursor:default}
+  .apr-summary{grid-column:1/-1;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .apr-chip{display:inline-flex;align-items:center;min-height:26px;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:800;background:{{ '#27272a' if dark else '#eef2f7' }};color:{{ '#e5e7eb' if dark else '#334155' }}}
+  .apr-chip.manual{background:{{ '#4a300d' if dark else '#fef3c7' }};color:{{ '#fde68a' if dark else '#92400e' }}}
+  .apr-chip.blocking{background:{{ '#491616' if dark else '#fee2e2' }};color:{{ '#fecaca' if dark else '#991b1b' }}}
+  .apr-chip.warning{background:{{ '#3b2f0e' if dark else '#fff7d6' }};color:{{ '#fde68a' if dark else '#854d0e' }}}
+  .apr-confidence{width:110px;height:7px;overflow:hidden;border-radius:999px;background:{{ '#3f3f46' if dark else '#dbe2ea' }}}
+  .apr-confidence span{display:block;width:var(--confidence);height:100%;background:#16a34a}
+  .apr-empty{padding:18px;border:1px dashed {{ '#3f3f46' if dark else '#cbd5e1' }};border-radius:7px;color:{{ '#a1a1aa' if dark else '#64748b' }}}
+  .apr-future-note{font-size:12px;color:{{ '#a1a1aa' if dark else '#64748b' }};margin-top:8px}
+  .apr-flash{padding:12px 14px;margin:0 0 14px;border-radius:6px;background:{{ '#1e3a5f' if dark else '#dbeafe' }};color:{{ '#bfdbfe' if dark else '#1e3a8a' }}}
+  @media(max-width:760px){.apr-proposal{grid-template-columns:1fr 1fr}.apr-existing{display:block;overflow-x:auto}.apr-actions{width:100%}.apr-actions a{flex:1;text-align:center}}
+  @media(max-width:480px){.apr-proposal{grid-template-columns:1fr}.apr-summary{grid-column:1}.apr-field input{font-size:16px}}
+</style>
+<main class="apr-shell">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}<div class="apr-flash" role="status">{{ message }}</div>{% endfor %}
+  {% endwith %}
+  <header class="apr-head">
+    <div>
+      <h1>{{ tr.get('auto_plan_review','Review draft') }}</h1>
+      <div class="apr-meta">
+        <span>{{ tr.get('auto_plan_target_week','Target week') }}: {{ format_date(batch.target_week_start) }} – {{ format_date(week_end) }}</span>
+        <span>{{ tr.get('auto_plan_history','History') }}: {{ tr.get('auto_plan_history_weeks','{count} weeks').format(count=batch.lookback_weeks) }}</span>
+        <span>#{{ batch.id }}</span>
+      </div>
+    </div>
+    <nav class="apr-actions" aria-label="Planning draft">
+      <a href="{{ url_for('auto_plan_generate') }}">{{ tr.get('auto_plan_generate','Generate') }}</a>
+      <a href="/week?start={{ batch.target_week_start }}">{{ tr.get('week_calendar','Week') }}</a>
+    </nav>
+  </header>
+
+  <div class="apr-readonly" role="note">
+    <strong>{{ tr.get('auto_plan_draft_read_only','Draft only.') }}</strong><br>
+    {{ tr.get('auto_plan_existing_preserved','Existing jobs are preserved.') }}
+  </div>
+
+  <section class="apr-section" aria-labelledby="apr-existing-heading">
+    <h2 id="apr-existing-heading">{{ tr.get('auto_plan_existing','Existing jobs') }}</h2>
+    {% if existing_shifts %}
+    <table class="apr-existing">
+      <thead><tr><th>{{ tr.get('date','Date') }}</th><th>{{ tr.get('client','Client') }}</th><th>{{ tr.get('workers','Workers') }}</th><th>{{ tr.get('time','Time') }}</th><th>{{ tr.get('status','Status') }}</th></tr></thead>
+      <tbody>{% for s in existing_shifts %}<tr data-existing-shift-id="{{ s.id }}"><td>{{ format_date(s.date) }}</td><td>{{ s.client }}</td><td>{{ s.worker }}</td><td>{{ s.time }}</td><td>{{ s.status }} {% if s.is_locked %}<span class="apr-lock">{{ tr.get('auto_plan_locked','Locked') }}</span>{% endif %}</td></tr>{% endfor %}</tbody>
+    </table>
+    {% else %}<div class="apr-empty">{{ tr.get('auto_plan_no_existing','No existing jobs.') }}</div>{% endif %}
+  </section>
+
+  <section class="apr-section" aria-labelledby="apr-proposals-heading">
+    <h2 id="apr-proposals-heading">{{ tr.get('auto_plan_proposals','Proposed jobs') }} <span class="apr-day-count">{{ proposal_count }}</span></h2>
+    {% if proposal_count == 0 %}<div class="apr-empty">{{ tr.get('auto_plan_no_proposals','No proposals found.') }}</div>{% endif %}
+    {% for day in days %}{% if day.proposals %}
+      <section class="apr-day" data-target-date="{{ day.date }}">
+        <h3 class="apr-day-title"><span>{{ day.name }} · {{ format_date(day.date) }}</span><span class="apr-day-count">{{ day.proposals|length }}</span></h3>
+        {% for p in day.proposals %}
+        <article class="apr-proposal" data-proposal-id="{{ p.id }}" data-blocked="{{ 1 if p.has_blocking_issues else 0 }}">
+          <div class="apr-field"><label for="ap-client-{{ p.id }}">{{ tr.get('client','Client') }}</label><input id="ap-client-{{ p.id }}" data-field="client" value="{{ p.client }}" readonly></div>
+          <div class="apr-field"><label for="ap-worker-{{ p.id }}">{{ tr.get('workers','Workers') }}</label><input id="ap-worker-{{ p.id }}" data-field="worker" value="{{ p.worker }}" readonly></div>
+          <div class="apr-field"><label for="ap-date-{{ p.id }}">{{ tr.get('date','Date') }}</label><input id="ap-date-{{ p.id }}" data-field="target_date" type="date" value="{{ p.target_date }}" readonly></div>
+          <div class="apr-field"><label>{{ tr.get('time','Time') }}</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><input aria-label="{{ tr.get('start_time','Start') }}" data-field="start_time" type="time" value="{{ p.start_time }}" readonly><input aria-label="{{ tr.get('end_time','End') }}" data-field="end_time" type="time" value="{{ p.end_time }}" readonly></div></div>
+          <div class="apr-summary">
+            <span class="apr-chip">{{ recurrence_label(p, tr) }}</span>
+            <span class="apr-chip">{{ tr.get('auto_plan_duration','Duration') }} {{ p.duration_text }}</span>
+            <span class="apr-chip">{{ tr.get('auto_plan_confidence','Confidence') }} {{ p.confidence_percent }}%</span>
+            <span class="apr-confidence" style="--confidence:{{ p.confidence_percent }}%" aria-hidden="true"><span></span></span>
+            {% if p.requires_manual_validation %}<span class="apr-chip manual">{{ tr.get('auto_plan_manual_review','Manual review required') }}</span>{% endif %}
+            {% for issue in p.display_issues %}<span class="apr-chip {{ 'blocking' if issue.severity == 'blocking' else 'warning' }}" data-issue-code="{{ issue.code }}">{{ issue_label(issue, tr) }}</span>{% endfor %}
+          </div>
+          <div class="apr-summary apr-future-note">{{ tr.get('auto_plan_last_seen','Last seen') }}: {{ format_date(p.source_last_seen) }}</div>
+        </article>
+        {% endfor %}
+      </section>
+    {% endif %}{% endfor %}
+  </section>
+</main>
+"""
+
+
+@app.route("/plan/generate", methods=["GET", "POST"])
+def auto_plan_generate():
+    if "user" not in session:
+        return redirect("/login")
+    if session.get("role") != "admin":
+        return "Forbidden", 403
+
+    # Establish ownership while rendering the form, before two tabs can
+    # submit concurrent generations from the same authenticated session.
+    owner_token = _ap_session_draft_owner()
+
+    tr = t()
+    dark = get_theme() == "dark"
+    default_target = ap_default_target_week_start().isoformat()
+    target_week = request.form.get("target_week_start", default_target).strip()
+    try:
+        lookback_weeks = int(request.form.get(
+            "lookback_weeks", AP_DEFAULT_LOOKBACK_WEEKS
+        ))
+    except (TypeError, ValueError):
+        lookback_weeks = AP_DEFAULT_LOOKBACK_WEEKS
+    if lookback_weeks not in AP_LOOKBACK_OPTIONS:
+        lookback_weeks = AP_DEFAULT_LOOKBACK_WEEKS
+    include_exceptional = request.form.get("include_exceptional") == "1"
+
+    if request.method == "GET":
+        return render_template_string(
+            BASE_STYLE + header_html() + AUTO_PLAN_GENERATE_TEMPLATE,
+            tr=tr, dark=dark, target_week=default_target,
+            lookback_weeks=AP_DEFAULT_LOOKBACK_WEEKS,
+            lookback_options=AP_LOOKBACK_OPTIONS, include_exceptional=False,
+        )
+
+    try:
+        target_day = _ap_date(target_week)
+        if target_day.weekday() != 0:
+            raise ValueError("target week is not Monday")
+    except (TypeError, ValueError):
+        flash(tr.get("auto_plan_invalid_week", "Select a valid Monday."), "warning")
+        return render_template_string(
+            BASE_STYLE + header_html() + AUTO_PLAN_GENERATE_TEMPLATE,
+            tr=tr, dark=dark, target_week=target_week,
+            lookback_weeks=lookback_weeks,
+            lookback_options=AP_LOOKBACK_OPTIONS,
+            include_exceptional=include_exceptional,
+        ), 400
+
+    username = str(session.get("user", ""))
+    conn = None
+    batch_id = None
+    reused = False
+    try:
+        with _AP_DRAFT_LOCK:
+            conn = get_conn()
+            ap_lock_draft_generation(
+                conn, username, owner_token, target_day,
+                lookback_weeks, include_exceptional,
+            )
+            existing = ap_find_open_draft(
+                conn, username, owner_token, target_day,
+                lookback_weeks, include_exceptional,
+            )
+            if existing:
+                batch_id = existing["id"]
+                reused = True
+            else:
+                proposals = ap_generate_recurrence_proposals(
+                    conn, target_day,
+                    lookback_weeks=lookback_weeks,
+                    include_exceptional=include_exceptional,
+                    min_confidence=AP_DEFAULT_MIN_CONFIDENCE,
+                )
+                checked = ap_run_checks(conn, proposals, target_day)
+                batch_id = ap_create_draft(
+                    conn, username, owner_token, target_day,
+                    lookback_weeks, include_exceptional, checked,
+                )
+            conn.commit()
+    except Exception:
+        if conn is not None:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+        app.logger.exception("Auto-planning draft generation failed")
+        flash(tr.get(
+            "auto_plan_generation_failed",
+            "The draft could not be generated. Please try again.",
+        ), "error")
+        return redirect(url_for("auto_plan_generate"))
+    finally:
+        if conn is not None:
+            conn.close()
+
+    if reused:
+        flash(tr.get(
+            "auto_plan_draft_reused",
+            "The existing draft for these settings was reopened.",
+        ), "info")
+    return redirect(url_for("auto_plan_review", batch=batch_id))
+
+
+@app.route("/plan/review")
+def auto_plan_review():
+    if "user" not in session:
+        return redirect("/login")
+    if session.get("role") != "admin":
+        return "Forbidden", 403
+    batch_id = request.args.get("batch", type=int)
+    if not batch_id or batch_id < 1:
+        return "Not Found", 404
+
+    username = str(session.get("user", ""))
+    owner_token = _ap_session_draft_owner()
+    conn = get_conn()
+    try:
+        batch = ap_load_owned_batch(conn, batch_id, username, owner_token)
+        if batch is None:
+            return "Not Found", 404
+        proposals = ap_load_draft_proposals(conn, batch_id)
+        existing_shifts = ap_fetch_existing_week(
+            conn, batch["target_week_start"]
+        )
+    finally:
+        conn.close()
+
+    tr = t()
+    dark = get_theme() == "dark"
+    week_start = _ap_date(batch["target_week_start"])
+    week_end = (week_start + timedelta(days=6)).isoformat()
+    day_names = [
+        tr.get("monday", "Mon"), tr.get("tuesday", "Tue"),
+        tr.get("wednesday", "Wed"), tr.get("thursday", "Thu"),
+        tr.get("friday", "Fri"), tr.get("saturday", "Sat"),
+        tr.get("sunday", "Sun"),
+    ]
+    days = []
+    for offset in range(7):
+        day_iso = (week_start + timedelta(days=offset)).isoformat()
+        day_proposals = [
+            proposal for proposal in proposals
+            if proposal["target_date"] == day_iso
+        ]
+        for proposal in day_proposals:
+            proposal["confidence_percent"] = max(
+                0, min(100, int(round(proposal["confidence"] * 100)))
+            )
+            duration_minutes = max(0, int(round(
+                proposal["duration_hours"] * 60
+            )))
+            proposal["duration_text"] = (
+                f"{duration_minutes // 60:02d}:{duration_minutes % 60:02d}"
+            )
+        days.append({
+            "date": day_iso, "name": day_names[offset],
+            "proposals": day_proposals,
+        })
+
+    return render_template_string(
+        BASE_STYLE + header_html() + AUTO_PLAN_REVIEW_TEMPLATE,
+        tr=tr, dark=dark, batch=batch, week_end=week_end, days=days,
+        proposals=proposals, proposal_count=len(proposals),
+        existing_shifts=existing_shifts, format_date=format_date,
+        recurrence_label=ap_recurrence_label, issue_label=ap_issue_label,
+    )
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@ import shutil
 import sqlite3
 import tempfile
 import unittest
+import urllib.parse
 from datetime import date
 
 
@@ -399,6 +400,269 @@ class ConstraintChecksTests(unittest.TestCase):
         )
         self.assertIn("outside_target_week", self.issue_codes(checked[0]))
         self.assertIn("invalid_data", self.issue_codes(checked[1]))
+
+
+class Phase4DraftRoutesTests(unittest.TestCase):
+    TARGET_WEEK = "2026-11-02"
+    HISTORY_DATES = [
+        "2026-09-07", "2026-09-14", "2026-09-21", "2026-09-28",
+        "2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26",
+    ]
+
+    def setUp(self):
+        conn = app.get_conn()
+        for table in (
+            "shift_proposals", "shift_proposal_batches", "shift_locks",
+            "shifts", "absences", "leave_requests", "holidays",
+            "workers", "clients",
+        ):
+            conn.execute(f"DELETE FROM {table}")
+        conn.commit()
+        conn.close()
+        self.client = app.app.test_client()
+        self.login(self.client)
+
+    def login(self, client, username="admin", role="admin"):
+        with client.session_transaction() as flask_session:
+            flask_session["user"] = username
+            flask_session["role"] = role
+            flask_session["lang"] = "en"
+
+    def seed_weekly_history(self, worker="Aida", client="Client A",
+                            add_worker=True):
+        conn = app.get_conn()
+        if add_worker:
+            conn.execute(
+                "INSERT INTO workers (name, contract_end_date) VALUES (?, '')",
+                (worker,),
+            )
+        conn.execute(
+            "INSERT INTO clients (name, contract_from, contract_to) "
+            "VALUES (?, '2026-01-01', '2026-12-31')",
+            (client,),
+        )
+        conn.executemany(
+            "INSERT INTO shifts (worker, client, date, time, status) "
+            "VALUES (?, ?, ?, '08:00-10:00', 'done')",
+            [(worker, client, day) for day in self.HISTORY_DATES],
+        )
+        conn.commit()
+        conn.close()
+
+    def generate(self, lookback=8, include_exceptional=False):
+        data = {
+            "target_week_start": self.TARGET_WEEK,
+            "lookback_weeks": str(lookback),
+        }
+        if include_exceptional:
+            data["include_exceptional"] = "1"
+        return self.client.post("/plan/generate", data=data)
+
+    def batch_id_from_response(self, response):
+        parsed = urllib.parse.urlparse(response.headers["Location"])
+        return int(urllib.parse.parse_qs(parsed.query)["batch"][0])
+
+    def db_rows(self, query, params=()):
+        conn = app.get_conn()
+        try:
+            return conn.execute(query, params).fetchall()
+        finally:
+            conn.close()
+
+    def test_generate_target_week_creates_reviewable_draft_without_shift_writes(self):
+        self.seed_weekly_history()
+        before = self.db_rows(
+            "SELECT id, worker, client, date, time, status FROM shifts "
+            "ORDER BY id"
+        )
+
+        response = self.generate(8)
+
+        self.assertEqual(response.status_code, 302)
+        batch_id = self.batch_id_from_response(response)
+        batch = self.db_rows(
+            "SELECT target_week_start, lookback_weeks, include_exceptional "
+            "FROM shift_proposal_batches WHERE id = ?", (batch_id,),
+        )[0]
+        proposals = self.db_rows(
+            "SELECT target_date, client, worker, time FROM shift_proposals "
+            "WHERE batch_id = ?", (batch_id,),
+        )
+        after = self.db_rows(
+            "SELECT id, worker, client, date, time, status FROM shifts "
+            "ORDER BY id"
+        )
+        self.assertEqual(batch, (self.TARGET_WEEK, 8, 0))
+        self.assertEqual(
+            proposals, [(self.TARGET_WEEK, "Client A", "Aida", "08:00-10:00")]
+        )
+        self.assertEqual(after, before)
+
+        review = self.client.get(response.headers["Location"])
+        self.assertEqual(review.status_code, 200)
+        self.assertIn(b'data-proposal-id="', review.data)
+        self.assertIn(b'Client A', review.data)
+        self.assertIn(b'value="2026-11-02"', review.data)
+
+    def test_history_choices_2_4_and_8_are_persisted_and_generate(self):
+        self.seed_weekly_history()
+        batch_ids = [
+            self.batch_id_from_response(self.generate(weeks))
+            for weeks in (2, 4, 8)
+        ]
+        rows = self.db_rows(
+            "SELECT lookback_weeks FROM shift_proposal_batches "
+            "WHERE id IN (?, ?, ?) ORDER BY lookback_weeks", tuple(batch_ids),
+        )
+        counts = self.db_rows(
+            "SELECT batch_id, COUNT(*) FROM shift_proposals "
+            "WHERE batch_id IN (?, ?, ?) GROUP BY batch_id", tuple(batch_ids),
+        )
+        self.assertEqual(rows, [(2,), (4,), (8,)])
+        self.assertEqual(sorted(count for _, count in counts), [1, 1, 1])
+
+    def test_next_week_is_the_generate_form_default(self):
+        expected = app.ap_default_target_week_start().isoformat().encode()
+        response = self.client.get("/plan/generate")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'value="' + expected + b'"', response.data)
+        self.assertIn(b'value="8" checked', response.data)
+
+    def test_permissions_restrict_generate_and_review_to_admin(self):
+        anonymous = app.app.test_client()
+        self.assertEqual(anonymous.get("/plan/generate").status_code, 302)
+        self.assertIn("/login", anonymous.get("/plan/generate").headers["Location"])
+
+        worker = app.app.test_client()
+        self.login(worker, username="Aida", role="worker")
+        self.assertEqual(worker.get("/plan/generate").status_code, 403)
+        self.assertEqual(worker.post("/plan/generate").status_code, 403)
+        self.assertEqual(worker.get("/plan/review?batch=1").status_code, 403)
+
+    def test_constraint_warnings_are_stored_and_rendered(self):
+        self.seed_weekly_history()
+        conn = app.get_conn()
+        conn.execute(
+            "INSERT INTO absences (worker, type, date_from, date_to, note) "
+            "VALUES ('Aida', 'vacation', ?, ?, '')",
+            (self.TARGET_WEEK, self.TARGET_WEEK),
+        )
+        conn.commit()
+        conn.close()
+
+        response = self.generate()
+        batch_id = self.batch_id_from_response(response)
+        issue_text = self.db_rows(
+            "SELECT issues FROM shift_proposals WHERE batch_id = ?", (batch_id,),
+        )[0][0]
+        self.assertIn('"code": "absence"', issue_text)
+        review = self.client.get(response.headers["Location"])
+        self.assertIn(b'data-issue-code="absence"', review.data)
+        self.assertIn(b'Manual review required', review.data)
+
+    def test_confidence_below_threshold_is_clearly_manual(self):
+        self.seed_weekly_history()
+        conn = app.get_conn()
+        conn.execute(
+            "DELETE FROM shifts WHERE date < '2026-10-19'"
+        )
+        conn.commit()
+        conn.close()
+
+        response = self.generate(8)
+        batch_id = self.batch_id_from_response(response)
+        confidence = self.db_rows(
+            "SELECT confidence FROM shift_proposals WHERE batch_id = ?",
+            (batch_id,),
+        )[0][0]
+        self.assertLess(confidence, app.AP_DEFAULT_MIN_CONFIDENCE)
+        review = self.client.get(response.headers["Location"])
+        self.assertIn(b'Manual review required', review.data)
+        self.assertIn(b'25%', review.data)
+
+    def test_removed_or_renamed_historical_worker_is_actionable(self):
+        self.seed_weekly_history(worker="Former Worker", add_worker=False)
+        response = self.generate()
+        batch_id = self.batch_id_from_response(response)
+        issue_text = self.db_rows(
+            "SELECT issues FROM shift_proposals WHERE batch_id = ?", (batch_id,),
+        )[0][0]
+        self.assertIn('"code": "worker_missing"', issue_text)
+        review = self.client.get(response.headers["Location"])
+        self.assertIn(b'data-issue-code="worker_missing"', review.data)
+        self.assertIn(b'Former Worker', review.data)
+        self.assertIn(b'no longer exists or was renamed', review.data)
+
+    def test_repeated_generation_reuses_same_batch_without_duplicates(self):
+        self.seed_weekly_history()
+        first = self.generate()
+        second = self.generate()
+        self.assertEqual(first.headers["Location"], second.headers["Location"])
+        self.assertEqual(
+            self.db_rows("SELECT COUNT(*) FROM shift_proposal_batches")[0][0], 1
+        )
+        self.assertEqual(
+            self.db_rows("SELECT COUNT(*) FROM shift_proposals")[0][0], 1
+        )
+
+    def test_draft_is_private_to_user_and_originating_session(self):
+        self.seed_weekly_history()
+        response = self.generate()
+        location = response.headers["Location"]
+        self.assertEqual(self.client.get(location).status_code, 200)
+
+        same_user_new_session = app.app.test_client()
+        self.login(same_user_new_session, username="admin", role="admin")
+        self.assertEqual(same_user_new_session.get(location).status_code, 404)
+
+        other_admin = app.app.test_client()
+        self.login(other_admin, username="other-admin", role="admin")
+        self.assertEqual(other_admin.get(location).status_code, 404)
+
+    def test_existing_locked_shift_is_preserved_and_reported(self):
+        self.seed_weekly_history()
+        conn = app.get_conn()
+        cursor = conn.execute(
+            "INSERT INTO shifts (worker, client, date, time, status) "
+            "VALUES ('Aida', 'Existing Client', ?, '09:00-11:00', 'planned')",
+            (self.TARGET_WEEK,),
+        )
+        existing_id = cursor.lastrowid
+        conn.execute(
+            "INSERT INTO shift_locks (shift_id, locked_at, locked_by) "
+            "VALUES (?, 'now', 'admin')", (existing_id,),
+        )
+        conn.commit()
+        conn.close()
+        before = self.db_rows(
+            "SELECT id, worker, client, date, time, status FROM shifts "
+            "WHERE id = ?", (existing_id,),
+        )[0]
+
+        response = self.generate()
+
+        after = self.db_rows(
+            "SELECT id, worker, client, date, time, status FROM shifts "
+            "WHERE id = ?", (existing_id,),
+        )[0]
+        issue_text = self.db_rows(
+            "SELECT issues FROM shift_proposals ORDER BY id DESC LIMIT 1"
+        )[0][0]
+        self.assertEqual(after, before)
+        self.assertIn('"code": "overlap_existing"', issue_text)
+        self.assertIn('"code": "locked"', issue_text)
+        review = self.client.get(response.headers["Location"])
+        self.assertIn(b'data-existing-shift-id="', review.data)
+        self.assertIn(b'Locked', review.data)
+
+    def test_invalid_non_monday_target_is_rejected_without_draft(self):
+        response = self.client.post("/plan/generate", data={
+            "target_week_start": "2026-11-03", "lookback_weeks": "8",
+        })
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            self.db_rows("SELECT COUNT(*) FROM shift_proposal_batches")[0][0], 0
+        )
 
 
 if __name__ == "__main__":
