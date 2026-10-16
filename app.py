@@ -18966,6 +18966,279 @@ def ap_generate_recurrence_proposals(conn, target_week_start,
     )
 
 
+AP_BLOCKING_ISSUES = frozenset({
+    "overlap_batch", "overlap_existing", "absence", "leave_approved",
+    "locked", "invalid_data", "outside_target_week", "worker_missing",
+    "worker_contract",
+})
+
+
+def _ap_time_bounds(time_range):
+    """Return minute offsets for a valid same-day HH:MM-HH:MM range."""
+    try:
+        start, end = split_time_range(str(time_range))
+        start_dt = datetime.strptime(start, "%H:%M")
+        end_dt = datetime.strptime(end, "%H:%M")
+        start_minute = start_dt.hour * 60 + start_dt.minute
+        end_minute = end_dt.hour * 60 + end_dt.minute
+        if end_minute <= start_minute:
+            return None
+        return start_minute, end_minute
+    except (TypeError, ValueError):
+        return None
+
+
+def _ap_ranges_overlap(first, second):
+    first_bounds = _ap_time_bounds(first)
+    second_bounds = _ap_time_bounds(second)
+    if first_bounds is None or second_bounds is None:
+        return False
+    return first_bounds[0] < second_bounds[1] and second_bounds[0] < first_bounds[1]
+
+
+def _ap_issue(code, severity, **details):
+    issue = {"code": code, "severity": severity}
+    issue.update(details)
+    return issue
+
+
+def ap_check_overlap_batch(proposals):
+    """Return intra-batch overlap issues indexed by proposal position."""
+    issues = {index: [] for index in range(len(proposals))}
+    for left_index, left in enumerate(proposals):
+        if left.get("status") in ("rejected", "applied"):
+            continue
+        left_workers = set(split_workers(left.get("worker", "")))
+        if not left_workers or _ap_time_bounds(left.get("time", "")) is None:
+            continue
+        for right_index in range(left_index + 1, len(proposals)):
+            right = proposals[right_index]
+            if right.get("status") in ("rejected", "applied"):
+                continue
+            if left.get("target_date") != right.get("target_date"):
+                continue
+            shared = sorted(
+                left_workers.intersection(split_workers(right.get("worker", "")))
+            )
+            if not shared or not _ap_ranges_overlap(
+                left.get("time", ""), right.get("time", "")
+            ):
+                continue
+            left_ref = left.get("id", left_index + 1)
+            right_ref = right.get("id", right_index + 1)
+            issues[left_index].append(_ap_issue(
+                "overlap_batch", "blocking", workers=shared,
+                other_proposal=right_ref,
+            ))
+            issues[right_index].append(_ap_issue(
+                "overlap_batch", "blocking", workers=shared,
+                other_proposal=left_ref,
+            ))
+    return issues
+
+
+def ap_check_shift_locked(conn, shift_id):
+    """Return True when a shift has an explicit row in shift_locks."""
+    if shift_id in (None, ""):
+        return False
+    row = conn.cursor().execute(
+        "SELECT shift_id FROM shift_locks WHERE shift_id = ?",
+        (shift_id,),
+    ).fetchone()
+    return row is not None
+
+
+def ap_check_overlap_existing(conn, proposal):
+    """Return blocking issues for target-week shifts sharing a worker."""
+    target_date = str(proposal.get("target_date", ""))
+    proposed_workers = set(split_workers(proposal.get("worker", "")))
+    time_range = proposal.get("time", "")
+    if not target_date or not proposed_workers or _ap_time_bounds(time_range) is None:
+        return []
+    rows = conn.cursor().execute(
+        "SELECT id, worker, client, date, time, status "
+        "FROM shifts WHERE date = ? ORDER BY time, id",
+        (target_date,),
+    ).fetchall()
+    issues = []
+    for row in rows:
+        shared = sorted(proposed_workers.intersection(split_workers(row[1])))
+        if not shared or not _ap_ranges_overlap(time_range, row[4]):
+            continue
+        issues.append(_ap_issue(
+            "overlap_existing", "blocking", shift_id=row[0],
+            workers=shared, client=row[2], time=row[4],
+        ))
+        if ap_check_shift_locked(conn, row[0]):
+            issues.append(_ap_issue(
+                "locked", "blocking", shift_id=row[0], workers=shared,
+            ))
+    return issues
+
+
+def ap_check_absence(conn, worker_name, target_date):
+    """Whether an explicit absence covers the local target date."""
+    row = conn.cursor().execute(
+        "SELECT id FROM absences "
+        "WHERE worker = ? AND date_from <= ? AND date_to >= ? LIMIT 1",
+        (worker_name, str(target_date), str(target_date)),
+    ).fetchone()
+    return row is not None
+
+
+def ap_check_leave_approved(conn, worker_name, target_date):
+    """Whether an approved leave request covers the local target date."""
+    row = conn.cursor().execute(
+        "SELECT id FROM leave_requests "
+        "WHERE worker = ? AND status = 'approved' "
+        "AND date_from <= ? AND date_to >= ? LIMIT 1",
+        (worker_name, str(target_date), str(target_date)),
+    ).fetchone()
+    return row is not None
+
+
+def ap_check_holiday(conn, target_date):
+    """Return the holiday name for a date, or an empty string."""
+    row = conn.cursor().execute(
+        "SELECT name FROM holidays WHERE date = ?",
+        (str(target_date),),
+    ).fetchone()
+    return (row[0] or "") if row else ""
+
+
+def ap_check_contract_window(conn, client_name, target_date):
+    """Return contract bounds when target_date falls outside them."""
+    row = conn.cursor().execute(
+        "SELECT contract_from, contract_to FROM clients WHERE name = ?",
+        (client_name,),
+    ).fetchone()
+    if not row:
+        return None
+    date_iso = str(target_date)
+    contract_from = row[0] or ""
+    contract_to = row[1] or ""
+    if contract_from and date_iso < contract_from:
+        return {"contract_from": contract_from, "contract_to": contract_to}
+    if contract_to and date_iso > contract_to:
+        return {"contract_from": contract_from, "contract_to": contract_to}
+    return None
+
+
+def _ap_check_worker_record(conn, worker_name, target_date):
+    """Return a blocking worker issue for missing/expired contracts."""
+    row = conn.cursor().execute(
+        "SELECT contract_end_date FROM workers WHERE name = ?",
+        (worker_name,),
+    ).fetchone()
+    if row is None:
+        return _ap_issue("worker_missing", "blocking", worker=worker_name)
+    contract_end = row[0] or ""
+    if contract_end and str(target_date) > contract_end:
+        return _ap_issue(
+            "worker_contract", "blocking", worker=worker_name,
+            contract_end_date=contract_end,
+        )
+    return None
+
+
+def _ap_dedupe_issues(issues):
+    unique = []
+    seen = set()
+    for issue in issues:
+        try:
+            marker = json.dumps(issue, sort_keys=True, ensure_ascii=False)
+        except (TypeError, ValueError):
+            marker = repr(issue)
+        if marker not in seen:
+            seen.add(marker)
+            unique.append(issue)
+    return unique
+
+
+def ap_has_blocking_issues(proposal_or_issues):
+    """Return True if a proposal (or issue list) has a blocking issue."""
+    issues = (
+        proposal_or_issues.get("issues", [])
+        if isinstance(proposal_or_issues, dict)
+        else proposal_or_issues
+    )
+    return any(
+        issue.get("severity") == "blocking"
+        or issue.get("code") in AP_BLOCKING_ISSUES
+        for issue in (issues or [])
+        if isinstance(issue, dict)
+    )
+
+
+def ap_run_checks(conn, proposals, target_week_start):
+    """Decorate proposal copies with all phase-3 constraint issues.
+
+    This function is read-only. It never inserts, updates, or deletes shifts,
+    locks, absences, or leave requests. Existing ``exceptional`` warnings from
+    the recurrence engine are retained; prior constraint issues are rebuilt so
+    repeated checks after a manual edit cannot accumulate duplicates.
+    """
+    week_start = _ap_date(target_week_start)
+    if week_start.weekday() != 0:
+        raise ValueError("target_week_start must be a Monday")
+    week_end = week_start + timedelta(days=6)
+    checked = []
+    for proposal in proposals:
+        item = dict(proposal)
+        item["issues"] = [
+            dict(issue) for issue in (proposal.get("issues", []) or [])
+            if isinstance(issue, dict) and issue.get("code") == "exceptional"
+        ]
+        checked.append(item)
+
+    batch_issues = ap_check_overlap_batch(checked)
+    for index, proposal in enumerate(checked):
+        issues = list(proposal["issues"])
+        target_date = proposal.get("target_date", "")
+        workers = split_workers(proposal.get("worker", ""))
+        client = str(proposal.get("client", "")).strip()
+        valid_time = _ap_time_bounds(proposal.get("time", ""))
+        try:
+            target_day = _ap_date(target_date)
+        except (TypeError, ValueError):
+            target_day = None
+        if not workers or not client or valid_time is None or target_day is None:
+            issues.append(_ap_issue("invalid_data", "blocking"))
+            proposal["issues"] = _ap_dedupe_issues(issues)
+            proposal["has_blocking_issues"] = True
+            continue
+        if target_day < week_start or target_day > week_end:
+            issues.append(_ap_issue(
+                "outside_target_week", "blocking",
+                target_week_start=week_start.isoformat(),
+            ))
+        for worker_name in workers:
+            worker_issue = _ap_check_worker_record(conn, worker_name, target_date)
+            if worker_issue:
+                issues.append(worker_issue)
+            if ap_check_absence(conn, worker_name, target_date):
+                issues.append(_ap_issue(
+                    "absence", "blocking", worker=worker_name,
+                ))
+            if ap_check_leave_approved(conn, worker_name, target_date):
+                issues.append(_ap_issue(
+                    "leave_approved", "blocking", worker=worker_name,
+                ))
+        issues.extend(ap_check_overlap_existing(conn, proposal))
+        issues.extend(batch_issues.get(index, []))
+        holiday_name = ap_check_holiday(conn, target_date)
+        if holiday_name:
+            issues.append(_ap_issue(
+                "holiday", "warning", name=holiday_name,
+            ))
+        contract = ap_check_contract_window(conn, client, target_date)
+        if contract:
+            issues.append(_ap_issue("contract", "warning", **contract))
+        proposal["issues"] = _ap_dedupe_issues(issues)
+        proposal["has_blocking_issues"] = ap_has_blocking_issues(proposal)
+    return checked
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
