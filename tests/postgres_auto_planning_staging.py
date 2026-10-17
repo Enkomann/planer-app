@@ -90,6 +90,8 @@ import app  # noqa: E402
 
 if not app.USE_POSTGRES:
     _abort("app.py did not enter PostgreSQL mode.")
+if not app.auto_planning_enabled():
+    _abort("AUTO_PLANNING_ENABLED must be explicitly enabled for staging tests.")
 
 app.app.config.update(TESTING=True)
 RUN_ID = secrets.token_hex(4)

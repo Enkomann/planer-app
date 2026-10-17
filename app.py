@@ -1,4 +1,4 @@
-from flask import Flask, request, redirect, render_template_string, session, send_file, url_for, flash, after_this_request
+from flask import Flask, request, redirect, render_template_string, session, send_file, url_for, flash, after_this_request, abort
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -329,6 +329,36 @@ app.config.update(
     SESSION_REFRESH_EACH_REQUEST=True,
 )
 app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_UPLOAD_MB", "600")) * 1024 * 1024
+
+AUTO_PLANNING_ENABLED_VALUES = frozenset(("true", "1", "yes", "on"))
+
+
+def parse_auto_planning_enabled(value):
+    """Return True only for the explicitly supported opt-in values."""
+    if isinstance(value, bool):
+        return value
+    return str(value or "").strip().lower() in AUTO_PLANNING_ENABLED_VALUES
+
+
+app.config["AUTO_PLANNING_ENABLED"] = parse_auto_planning_enabled(
+    os.environ.get("AUTO_PLANNING_ENABLED")
+)
+
+
+def auto_planning_enabled():
+    """Read the runtime flag without treating arbitrary strings as truthy."""
+    return parse_auto_planning_enabled(
+        app.config.get("AUTO_PLANNING_ENABLED", False)
+    )
+
+
+@app.before_request
+def require_auto_planning_feature():
+    """Hide every auto-planning endpoint while the feature is disabled."""
+    if (
+        request.path == "/plan" or request.path.startswith("/plan/")
+    ) and not auto_planning_enabled():
+        abort(404)
 
 @app.context_processor
 def inject_header_globals():
@@ -8448,10 +8478,11 @@ def login():
             conn.close()
             session["user"] = user[0]
             session["role"] = user[2]
-            # Draft ownership is scoped to this authenticated browser
-            # session. A fresh login must never inherit another session's
-            # auto-planning batch, even for the same username.
-            session["auto_plan_draft_owner"] = secrets.token_urlsafe(32)
+            # Draft ownership is created only when the feature is enabled.
+            # Existing tokens are intentionally left untouched while the
+            # flag is off so a disable/re-enable cycle does not orphan data.
+            if auto_planning_enabled():
+                session["auto_plan_draft_owner"] = secrets.token_urlsafe(32)
             # "Remember me" → permanent session (cookie picks up the
             # PERMANENT_SESSION_LIFETIME=30d). Without the checkbox
             # Flask falls back to a browser-session cookie. Failed
@@ -8677,6 +8708,7 @@ def index():
     tr = t()
     dark = get_theme() == "dark"
     data = load_index_data()
+    data["auto_planning_enabled"] = auto_planning_enabled()
 
     return render_template_string(BASE_STYLE + header_html() + """
     <div class="page-content">
@@ -8838,7 +8870,7 @@ def index():
             {% endif %}
             <div class="section-title"><h2>{{ tr["quick_actions"] }}</h2></div>
 
-    {% if is_admin %}
+    {% if is_admin and auto_planning_enabled %}
     <style>
       .auto-plan-quickbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 0 16px;padding:14px 16px;border-left:4px solid #2563eb;background:{{ '#171d2a' if dark else '#eff6ff' }};color:{{ '#dbeafe' if dark else '#1e3a8a' }};border-radius:6px}
       .auto-plan-quickbar strong{display:block;font-size:15px;margin-bottom:2px}
@@ -9547,7 +9579,7 @@ def week_view():
     <h1>{{ tr["week_calendar"] }}</h1>
     <div class="week-toolbar">
         <a class="back-button" href="/">{{ tr["back"] }}</a>
-        {% if session.get('role') == 'admin' %}<a href="/month?year={{ start_year }}&month={{ start_month }}">{{ tr["month_calendar"] }}</a><a class="week-auto-plan" data-auto-plan-entry="week" href="{{ url_for('auto_plan_generate') }}">{{ tr.get('auto_plan_generate','Generate automatically') }}</a>{% endif %}
+        {% if session.get('role') == 'admin' %}<a href="/month?year={{ start_year }}&month={{ start_month }}">{{ tr["month_calendar"] }}</a>{% endif %}{% if is_admin and auto_planning_enabled %}<a class="week-auto-plan" data-auto-plan-entry="week" href="{{ url_for('auto_plan_generate') }}">{{ tr.get('auto_plan_generate','Generate automatically') }}</a>{% endif %}
         <a class="pdf-link" href="/week_pdf?start={{ week_days[0] }}" target="_blank">PDF {{ tr["week_calendar"] }}</a>
     </div>
     <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin:16px 0; flex-wrap:wrap;">
@@ -9692,7 +9724,7 @@ def week_view():
       }
     });
     </script>
-    """, tr=tr, dark=dark, week_days=week_days, shifts=shifts, worker_colors=worker_colors, client_cities=client_cities, client_addresses=client_addresses, format_date=format_date, holidays_map=holidays_map, day_names=day_names, status_colors=STATUS_COLORS, get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers, is_weekend=is_weekend, is_admin=is_admin, locked_shift_ids=locked_shift_ids, prev_week=prev_week, next_week=next_week, current_week=current_week, start_year=start_week.year, start_month=start_week.month, workers=workers, clients=clients, time_hours=time_hours())
+    """, tr=tr, dark=dark, week_days=week_days, shifts=shifts, worker_colors=worker_colors, client_cities=client_cities, client_addresses=client_addresses, format_date=format_date, holidays_map=holidays_map, day_names=day_names, status_colors=STATUS_COLORS, get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers, is_weekend=is_weekend, is_admin=is_admin, auto_planning_enabled=auto_planning_enabled(), locked_shift_ids=locked_shift_ids, prev_week=prev_week, next_week=next_week, current_week=current_week, start_year=start_week.year, start_month=start_week.month, workers=workers, clients=clients, time_hours=time_hours())
 
 
 @app.route("/month")
@@ -9760,7 +9792,7 @@ def month_view():
         #monthWdBar .month-weekday:nth-child(6) { animation-delay: -1.0s; }
         #monthWdBar .month-weekday:nth-child(7) { animation-delay: -1.2s; }
     </style>
-    <div class="week-toolbar"><a class="back-button" href="/">{{ tr["back"] }}</a><a href="/week">{{ tr["week_calendar"] }}</a><a href="/month_pdf?year={{ year }}&month={{ month }}" target="_blank">{{ tr["month_pdf"] }}</a><a class="week-auto-plan" data-auto-plan-entry="month" href="{{ url_for('auto_plan_generate') }}">{{ tr.get('auto_plan_generate','Generate automatically') }}</a></div>
+    <div class="week-toolbar"><a class="back-button" href="/">{{ tr["back"] }}</a><a href="/week">{{ tr["week_calendar"] }}</a><a href="/month_pdf?year={{ year }}&month={{ month }}" target="_blank">{{ tr["month_pdf"] }}</a>{% if auto_planning_enabled %}<a class="week-auto-plan" data-auto-plan-entry="month" href="{{ url_for('auto_plan_generate') }}">{{ tr.get('auto_plan_generate','Generate automatically') }}</a>{% endif %}</div>
     <div style="display:flex; justify-content:space-between; align-items:center; margin:16px 0; gap:12px;"><a href="/month?year={{ prev_year }}&month={{ prev_month }}">{{ tr["prev_month"] }}</a><h2>{{ tr["month_calendar"] }} - {{ format_month_year(year, month) }}</h2><a href="/month?year={{ next_year }}&month={{ next_month }}">{{ tr["next_month"] }}</a></div>
     <div id="monthWdBar">
         {% for dn in day_names %}<div class="card month-weekday">{{ dn }}</div>{% endfor %}
@@ -9924,7 +9956,7 @@ def month_view():
       }
     });
     </script>
-    """, tr=tr, dark=dark, year=year, month=month, prev_year=prev_year, prev_month=prev_month, next_year=next_year, next_month=next_month, month_days=month_days, day_names=day_names, shifts_by_date=shifts_by_date, worker_colors=worker_colors, client_cities=client_cities, holidays_map=holidays_map, is_admin=is_admin, copied_shift_id=copied_shift_id, get_auto_status=get_auto_status, split_workers=split_workers, format_month_year=format_month_year, workers=workers, clients=clients, time_hours=time_hours())
+    """, tr=tr, dark=dark, year=year, month=month, prev_year=prev_year, prev_month=prev_month, next_year=next_year, next_month=next_month, month_days=month_days, day_names=day_names, shifts_by_date=shifts_by_date, worker_colors=worker_colors, client_cities=client_cities, holidays_map=holidays_map, is_admin=is_admin, auto_planning_enabled=auto_planning_enabled(), copied_shift_id=copied_shift_id, get_auto_status=get_auto_status, split_workers=split_workers, format_month_year=format_month_year, workers=workers, clients=clients, time_hours=time_hours())
 
 
 

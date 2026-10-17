@@ -69,6 +69,7 @@ volontairement pas fournies dans ce document.
 | `PYTHON_VERSION` | meme version que le service valide | Actuellement `3.12.7` dans `render.yaml`. |
 | `STORAGE_ROOT` | chemin staging ou valeur par defaut | Aucun disque production partage. |
 | `MAX_UPLOAD_MB` | valeur de test | Sans importance pour l'auto-planning. |
+| `AUTO_PLANNING_ENABLED` | `true` | Active explicitement l'interface et les routes uniquement sur le staging. |
 | `AUTO_PLANNING_STAGING_CONFIRM` | `STAGING_ONLY_I_UNDERSTAND` | A activer uniquement pendant le banc staging. |
 | `AUTO_PLANNING_PRODUCTION_DATABASE_SHA256` | empreinte optionnelle | Defense supplementaire ; jamais l'URL elle-meme. |
 | `RENDER_SERVICE_NAME` | fourni par Render | Doit contenir `staging` ou `test`. |
@@ -82,6 +83,30 @@ Variables a laisser absentes ou vides pour cette recette :
 
 Le script de test retire aussi ces variables de son propre processus avant
 d'importer `app.py`. Il ne peut donc ni envoyer un email ni archiver un message.
+
+### Feature flag et configuration Render
+
+`AUTO_PLANNING_ENABLED` est desactive par defaut. Seules les valeurs
+`true`, `1`, `yes` et `on` (sans distinction de casse, espaces exterieurs
+ignores) activent la fonctionnalite. Une variable absente, vide ou toute autre
+valeur laisse l'auto-planning invisible et toutes les routes `/plan/*`
+retournent HTTP 404.
+
+Configuration recommandee :
+
+- production : laisser la variable absente ou la definir a `false` ;
+- staging : definir explicitement `AUTO_PLANNING_ENABLED=true` ;
+- apres changement dans Render, attendre le redemarrage du service avant de
+  verifier l'interface ;
+- ne jamais partager la variable via un Environment Group commun aux deux
+  environnements.
+
+Changer ce flag ne cree, ne migre et ne supprime aucune donnee. Les tables
+`shift_proposal_batches`, `shift_proposals` et `shift_locks` restent presentes.
+Les protections serveur des interventions deja verrouillees restent actives
+meme lorsque le flag est desactive : deplacement, modification et suppression
+sont refuses. Pour deverrouiller depuis l'interface auto-planning, il faut
+reactiver temporairement la fonctionnalite avec une procedure autorisee.
 
 ## 4. Controles anti-production avant toute connexion
 
@@ -172,7 +197,7 @@ Validation locale a executer d'abord depuis la racine du depot :
 .\.venv\Scripts\python.exe -m py_compile app.py tests\test_auto_planning.py tests\postgres_auto_planning_staging.py
 ```
 
-Etat de cette preparation : **71 tests SQLite reussis** et compilation Python
+Etat de cette preparation : **79 tests SQLite reussis** et compilation Python
 reussie. Le banc PostgreSQL n'a pas ete lance. Un essai sans les variables de
 confirmation s'arrete avant l'import de `app.py`, comme prevu.
 
@@ -180,6 +205,7 @@ Dans un shell du service staging, apres la checklist :
 
 ```powershell
 $env:APP_ENV = "staging"
+$env:AUTO_PLANNING_ENABLED = "true"
 $env:AUTO_PLANNING_STAGING_CONFIRM = "STAGING_ONLY_I_UNDERSTAND"
 python tests/postgres_auto_planning_staging.py
 ```

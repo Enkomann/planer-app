@@ -434,6 +434,12 @@ class Phase4DraftRoutesTests(unittest.TestCase):
     ]
 
     def setUp(self):
+        previous_flag = app.app.config.get("AUTO_PLANNING_ENABLED", False)
+        app.app.config["AUTO_PLANNING_ENABLED"] = True
+        self.addCleanup(
+            app.app.config.__setitem__,
+            "AUTO_PLANNING_ENABLED", previous_flag,
+        )
         conn = app.get_conn()
         for table in (
             "shift_proposals", "shift_proposal_batches", "shift_locks",
@@ -702,6 +708,12 @@ class Phase5DraftWorkflowTests(unittest.TestCase):
     HISTORY_DATES = Phase4DraftRoutesTests.HISTORY_DATES
 
     def setUp(self):
+        previous_flag = app.app.config.get("AUTO_PLANNING_ENABLED", False)
+        app.app.config["AUTO_PLANNING_ENABLED"] = True
+        self.addCleanup(
+            app.app.config.__setitem__,
+            "AUTO_PLANNING_ENABLED", previous_flag,
+        )
         conn = app.get_conn()
         for table in (
             "shift_proposals", "shift_proposal_batches", "shift_locks",
@@ -1669,6 +1681,368 @@ class Phase5DraftWorkflowTests(unittest.TestCase):
             self.assertTrue(required.issubset(app.TRANSLATIONS[language]))
             self.assertTrue(all(app.TRANSLATIONS[language][key]
                                 for key in required))
+
+
+class AutoPlanningFeatureFlagTests(unittest.TestCase):
+    TARGET_WEEK = "2026-11-02"
+    HISTORY_DATES = Phase4DraftRoutesTests.HISTORY_DATES
+    INVOICE_NUMBER = "AP-FLAG-SMOKE"
+    LOGIN_USER = "auto-flag-admin"
+
+    def setUp(self):
+        previous_flag = app.app.config.get("AUTO_PLANNING_ENABLED", False)
+        app.app.config["AUTO_PLANNING_ENABLED"] = False
+        self.addCleanup(
+            app.app.config.__setitem__,
+            "AUTO_PLANNING_ENABLED", previous_flag,
+        )
+        conn = app.get_conn()
+        try:
+            for table in (
+                "shift_proposals", "shift_proposal_batches", "shift_locks",
+                "shifts", "absences", "leave_requests", "holidays",
+                "workers", "clients",
+            ):
+                conn.execute(f"DELETE FROM {table}")
+            conn.execute(
+                "DELETE FROM invoice_records WHERE invoice_number = ?",
+                (self.INVOICE_NUMBER,),
+            )
+            conn.execute(
+                "DELETE FROM client_invoice_profiles "
+                "WHERE client_name = 'Client A'"
+            )
+            conn.execute("DELETE FROM users WHERE username = ?", (self.LOGIN_USER,))
+            conn.execute(
+                "INSERT INTO users (username, password, role) VALUES (?, ?, 'admin')",
+                (self.LOGIN_USER, app.hash_password("flag-test-password")),
+            )
+            conn.execute(
+                "INSERT INTO workers (name, contract_end_date) "
+                "VALUES ('Aida', '')"
+            )
+            conn.execute(
+                "INSERT INTO clients (name, contract_from, contract_to) "
+                "VALUES ('Client A', '2026-01-01', '2026-12-31')"
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        self.addCleanup(self._cleanup_fixture_rows)
+        self.client = app.app.test_client()
+        self.login_session(self.client)
+
+    def _cleanup_fixture_rows(self):
+        conn = app.get_conn()
+        try:
+            conn.execute(
+                "DELETE FROM invoice_records WHERE invoice_number = ?",
+                (self.INVOICE_NUMBER,),
+            )
+            conn.execute(
+                "DELETE FROM client_invoice_profiles "
+                "WHERE client_name = 'Client A'"
+            )
+            conn.execute("DELETE FROM users WHERE username = ?", (self.LOGIN_USER,))
+            conn.commit()
+        finally:
+            conn.close()
+
+    def login_session(self, client):
+        with client.session_transaction() as flask_session:
+            flask_session["user"] = "admin"
+            flask_session["role"] = "admin"
+            flask_session["lang"] = "en"
+
+    def db_rows(self, query, params=()):
+        conn = app.get_conn()
+        try:
+            return conn.execute(query, params).fetchall()
+        finally:
+            conn.close()
+
+    def insert_shift(self, day="2026-11-02", hours="08:00-10:00"):
+        conn = app.get_conn()
+        try:
+            cursor = conn.execute(
+                "INSERT INTO shifts (worker, client, date, time, status) "
+                "VALUES ('Aida', 'Client A', ?, ?, 'planned')",
+                (day, hours),
+            )
+            conn.commit()
+            return cursor.lastrowid
+        finally:
+            conn.close()
+
+    def seed_history(self):
+        conn = app.get_conn()
+        try:
+            conn.executemany(
+                "INSERT INTO shifts (worker, client, date, time, status) "
+                "VALUES ('Aida', 'Client A', ?, '08:00-10:00', 'done')",
+                [(day,) for day in self.HISTORY_DATES],
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def test_flag_parser_is_disabled_by_default_and_strictly_opt_in(self):
+        for value in ("true", "TRUE", " 1 ", "yes", "Yes", "on", "ON"):
+            with self.subTest(value=value):
+                self.assertTrue(app.parse_auto_planning_enabled(value))
+        for value in (None, "", "false", "0", "no", "off", "enabled", "2"):
+            with self.subTest(value=value):
+                self.assertFalse(app.parse_auto_planning_enabled(value))
+
+    def test_disabled_ui_hides_every_auto_planning_entry(self):
+        for path in (
+            "/", f"/week?start={self.TARGET_WEEK}",
+            "/month?year=2026&month=11",
+        ):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, 200)
+                self.assertNotIn(b"data-auto-plan-entry", response.data)
+                self.assertNotIn(b'href="/plan/generate"', response.data)
+        week = self.client.get(f"/week?start={self.TARGET_WEEK}")
+        self.assertIn(b"/week_pdf?start=2026-11-02", week.data)
+
+    def test_disabled_plan_routes_are_404_and_create_nothing(self):
+        shift_id = self.insert_shift()
+        before = {
+            table: self.db_rows(f"SELECT COUNT(*) FROM {table}")[0][0]
+            for table in (
+                "shift_proposal_batches", "shift_proposals", "shift_locks",
+                "shifts",
+            )
+        }
+        routes = (
+            ("GET", "/plan/generate"),
+            ("POST", "/plan/generate"),
+            ("GET", "/plan/review?batch=1"),
+            ("POST", "/plan/review/1/proposal/1/update"),
+            ("POST", "/plan/review/1/bulk-accept"),
+            ("POST", "/plan/review/1/apply"),
+            ("POST", "/plan/review/1/cancel"),
+            ("POST", f"/plan/review/1/shift/{shift_id}/lock"),
+            ("POST", f"/plan/review/1/shift/{shift_id}/unlock"),
+            ("GET", "/plan/not-a-real-route"),
+        )
+        for method, path in routes:
+            with self.subTest(method=method, path=path):
+                self.assertEqual(
+                    self.client.open(path, method=method).status_code, 404
+                )
+        after = {
+            table: self.db_rows(f"SELECT COUNT(*) FROM {table}")[0][0]
+            for table in before
+        }
+        self.assertEqual(after, before)
+
+    def test_disabled_login_does_not_create_draft_or_csrf_tokens(self):
+        client = app.app.test_client()
+        response = client.post("/login", data={
+            "username": self.LOGIN_USER,
+            "password": "flag-test-password",
+        })
+        self.assertEqual(response.status_code, 302)
+        with client.session_transaction() as flask_session:
+            self.assertNotIn(app.AP_DRAFT_SESSION_KEY, flask_session)
+            self.assertNotIn(app.AP_CSRF_SESSION_KEY, flask_session)
+
+    def test_disabled_unlocked_legacy_shift_remains_fully_editable(self):
+        shift_id = self.insert_shift()
+        moved = self.client.post("/move_shift", data={
+            "shift_id": str(shift_id), "date": "2026-11-03",
+        })
+        self.assertEqual(moved.status_code, 200)
+
+        edited = self.client.post(f"/edit_shift/{shift_id}", data={
+            "workers": ["Aida"], "client": "Client A",
+            "date": "2026-11-04", "start_hour": "09",
+            "start_minute": "00", "end_hour": "11",
+            "end_minute": "00", "status": "done", "return_to": "/week",
+        })
+        self.assertEqual(edited.status_code, 302)
+        self.assertEqual(
+            self.db_rows(
+                "SELECT date, time, status FROM shifts WHERE id = ?",
+                (shift_id,),
+            ),
+            [("2026-11-04", "09:00-11:00", "done")],
+        )
+
+        deleted = self.client.post(f"/delete_shift/{shift_id}")
+        self.assertEqual(deleted.status_code, 302)
+        self.assertEqual(
+            self.db_rows("SELECT COUNT(*) FROM shifts WHERE id = ?", (shift_id,))[0][0],
+            0,
+        )
+        self.assertEqual(
+            self.db_rows(
+                "SELECT COUNT(*) FROM shift_locks WHERE shift_id = ?",
+                (shift_id,),
+            )[0][0],
+            0,
+        )
+
+    def test_disabled_locked_shift_remains_protected_server_side(self):
+        shift_id = self.insert_shift()
+        conn = app.get_conn()
+        try:
+            conn.execute(
+                "INSERT INTO shift_locks (shift_id, locked_at, locked_by) "
+                "VALUES (?, '2026-11-01 12:00:00', 'admin')",
+                (shift_id,),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        before = self.db_rows(
+            "SELECT worker, client, date, time, status FROM shifts WHERE id = ?",
+            (shift_id,),
+        )
+
+        self.assertEqual(self.client.post("/move_shift", data={
+            "shift_id": str(shift_id), "date": "2026-11-03",
+        }).status_code, 409)
+        self.assertEqual(self.client.post(f"/edit_shift/{shift_id}", data={
+            "workers": ["Aida"], "client": "Client A",
+            "date": "2026-11-04", "start_hour": "09",
+            "start_minute": "00", "end_hour": "11",
+            "end_minute": "00", "status": "done", "return_to": "/week",
+        }).status_code, 302)
+        self.assertEqual(
+            self.client.post(f"/delete_shift/{shift_id}").status_code, 302
+        )
+        self.assertEqual(
+            self.db_rows(
+                "SELECT worker, client, date, time, status FROM shifts WHERE id = ?",
+                (shift_id,),
+            ),
+            before,
+        )
+        self.assertEqual(
+            self.db_rows(
+                "SELECT COUNT(*) FROM shift_locks WHERE shift_id = ?",
+                (shift_id,),
+            )[0][0],
+            1,
+        )
+        week = self.client.get(f"/week?start={self.TARGET_WEEK}")
+        self.assertIn(f'data-shift-id="{shift_id}" data-locked="1"'.encode(), week.data)
+        self.assertNotIn(b"data-auto-plan-entry", week.data)
+
+    def test_disabled_existing_modules_and_pdfs_remain_available(self):
+        self.seed_history()
+        conn = app.get_conn()
+        try:
+            conn.execute(
+                "INSERT INTO client_invoice_profiles "
+                "(client_name, email, client_type, hourly_rate, custom_address, "
+                "vat_rate, invoice_service_description) "
+                "VALUES ('Client A', 'flag-test@example.invalid', 'private', "
+                "28, '', 8, 'Entretien et nettoyage des bureaux')"
+            )
+            conn.execute(
+                "INSERT INTO invoice_records "
+                "(invoice_number, client_name, date_from, date_to, "
+                "invoice_date, amount, vat_amount, total, paid, paid_date, "
+                "sent, sent_date, deleted, source, service_description) "
+                "VALUES (?, 'Client A', '2026-09-07', '2026-10-26', "
+                "'2026-10-31', 448, 35.84, 483.84, 0, '', 0, '', 0, "
+                "'auto', 'Entretien et nettoyage des bureaux')",
+                (self.INVOICE_NUMBER,),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        queue_before = self.db_rows(
+            "SELECT COUNT(*) FROM invoice_email_queue"
+        )[0][0]
+        logs_before = self.db_rows(
+            "SELECT COUNT(*) FROM invoice_email_logs"
+        )[0][0]
+
+        with mock.patch.object(app, "_smtp_send") as smtp_send:
+            html_paths = (
+                f"/week?start={self.TARGET_WEEK}",
+                "/month?year=2026&month=11", "/clients", "/workers",
+                "/invoices", "/invoices/manual",
+                f"/invoices/view?invoice_number={self.INVOICE_NUMBER}",
+                f"/invoices/email?invoice_number={self.INVOICE_NUMBER}",
+            )
+            for path in html_paths:
+                with self.subTest(path=path):
+                    response = self.client.get(path)
+                    self.assertEqual(response.status_code, 200)
+                    self.assertIn("text/html", response.content_type)
+            for path in (
+                f"/invoices/preview_pdf?invoice_number={self.INVOICE_NUMBER}",
+                f"/week_pdf?start={self.TARGET_WEEK}",
+                "/month_pdf?year=2026&month=11",
+            ):
+                with self.subTest(path=path):
+                    response = self.client.get(path)
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(response.mimetype, "application/pdf")
+                    self.assertTrue(response.data.startswith(b"%PDF"))
+            smtp_send.assert_not_called()
+
+        self.assertEqual(
+            self.db_rows("SELECT COUNT(*) FROM invoice_email_queue")[0][0],
+            queue_before,
+        )
+        self.assertEqual(
+            self.db_rows("SELECT COUNT(*) FROM invoice_email_logs")[0][0],
+            logs_before,
+        )
+
+    def test_enable_disable_reenable_preserves_and_reopens_same_draft(self):
+        self.seed_history()
+        app.app.config["AUTO_PLANNING_ENABLED"] = "yes"
+        form = self.client.get("/plan/generate")
+        self.assertEqual(form.status_code, 200)
+        with self.client.session_transaction() as flask_session:
+            owner_before = flask_session[app.AP_DRAFT_SESSION_KEY]
+            csrf_token = flask_session[app.AP_CSRF_SESSION_KEY]
+        generated = self.client.post("/plan/generate", data={
+            "target_week_start": self.TARGET_WEEK,
+            "lookback_weeks": "8", "csrf_token": csrf_token,
+        })
+        self.assertEqual(generated.status_code, 302)
+        location = generated.headers["Location"]
+        batch_count = self.db_rows(
+            "SELECT COUNT(*) FROM shift_proposal_batches"
+        )[0][0]
+        proposal_count = self.db_rows(
+            "SELECT COUNT(*) FROM shift_proposals"
+        )[0][0]
+        self.assertGreater(proposal_count, 0)
+
+        app.app.config["AUTO_PLANNING_ENABLED"] = "off"
+        self.assertEqual(self.client.get(location).status_code, 404)
+        self.assertEqual(
+            self.db_rows("SELECT COUNT(*) FROM shift_proposal_batches")[0][0],
+            batch_count,
+        )
+        self.assertEqual(
+            self.db_rows("SELECT COUNT(*) FROM shift_proposals")[0][0],
+            proposal_count,
+        )
+        with self.client.session_transaction() as flask_session:
+            self.assertEqual(
+                flask_session[app.AP_DRAFT_SESSION_KEY], owner_before
+            )
+
+        app.app.config["AUTO_PLANNING_ENABLED"] = "on"
+        reopened = self.client.get(location)
+        self.assertEqual(reopened.status_code, 200)
+        self.assertIn(b"Client A", reopened.data)
+        self.assertEqual(
+            self.db_rows("SELECT COUNT(*) FROM shift_proposal_batches")[0][0],
+            batch_count,
+        )
 
 
 if __name__ == "__main__":
