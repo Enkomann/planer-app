@@ -38,6 +38,27 @@ def shift(row_id, workers, client, day, hours="08:00-10:00"):
 
 
 class RecurrenceEngineTests(unittest.TestCase):
+    def test_postgres_translation_contract_for_auto_planning_sql(self):
+        class RecordingCursor:
+            def execute(self, _query, _params=()):
+                return None
+
+        cursor = app._PgCursor(RecordingCursor())
+        self.assertEqual(
+            cursor._translate("SELECT pg_advisory_xact_lock(?)"),
+            "SELECT pg_advisory_xact_lock(%s)",
+        )
+        self.assertEqual(
+            cursor._translate("LOCK TABLE shifts IN EXCLUSIVE MODE"),
+            "LOCK TABLE shifts IN EXCLUSIVE MODE",
+        )
+        self.assertIn(
+            "SERIAL PRIMARY KEY",
+            cursor._translate(
+                "CREATE TABLE sample (id INTEGER PRIMARY KEY AUTOINCREMENT)"
+            ),
+        )
+
     def test_lookback_bounds_are_date_only_across_dst_changes(self):
         self.assertEqual(
             app.ap_lookback_bounds("2026-03-30", 2),
@@ -1540,6 +1561,103 @@ class Phase5DraftWorkflowTests(unittest.TestCase):
         self.assertEqual(week.status_code, 200)
         self.assertIn(b'Client A', week.data)
         self.assertIn(b'08:00-10:00', week.data)
+
+    def test_phase7_regression_smoke_for_planning_invoice_email_and_pdfs(self):
+        invoice_number = "AP-P7-SMOKE"
+        self.seed_history()
+        conn = app.get_conn()
+        try:
+            conn.execute(
+                "INSERT INTO client_invoice_profiles "
+                "(client_name, email, client_type, hourly_rate, custom_address, "
+                "vat_rate, invoice_service_description) "
+                "VALUES (?, ?, 'private', 28, '', 8, ?) "
+                "ON CONFLICT(client_name) DO UPDATE SET "
+                "email=excluded.email, hourly_rate=excluded.hourly_rate, "
+                "vat_rate=excluded.vat_rate, "
+                "invoice_service_description="
+                "excluded.invoice_service_description",
+                (
+                    "Client A", "staging-only@example.invalid",
+                    "Entretien et nettoyage des bureaux",
+                ),
+            )
+            conn.execute(
+                "INSERT INTO invoice_records "
+                "(invoice_number, client_name, date_from, date_to, "
+                "invoice_date, amount, vat_amount, total, paid, paid_date, "
+                "sent, sent_date, deleted, source, service_description) "
+                "VALUES (?, 'Client A', '2026-09-07', '2026-10-26', "
+                "'2026-10-31', 448, 35.84, 483.84, 0, '', 0, '', 0, "
+                "'auto', 'Entretien et nettoyage des bureaux')",
+                (invoice_number,),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        count_queries = {
+            "queue": "SELECT COUNT(*) FROM invoice_email_queue",
+            "logs": "SELECT COUNT(*) FROM invoice_email_logs",
+        }
+        before = {
+            key: self.db_rows(query)[0][0]
+            for key, query in count_queries.items()
+        }
+        try:
+            with mock.patch.object(app, "_smtp_send") as smtp_send:
+                html_paths = (
+                    f"/week?start={self.TARGET_WEEK}",
+                    "/month?year=2026&month=11",
+                    "/invoices",
+                    f"/invoices/view?invoice_number={invoice_number}",
+                    "/invoices/manual",
+                    f"/invoices/email?invoice_number={invoice_number}",
+                )
+                for path in html_paths:
+                    with self.subTest(path=path):
+                        response = self.client.get(path)
+                        self.assertEqual(response.status_code, 200)
+                        self.assertIn("text/html", response.content_type)
+
+                pdf_paths = (
+                    f"/invoices/preview_pdf?invoice_number={invoice_number}",
+                    f"/week_pdf?start={self.TARGET_WEEK}",
+                    "/month_pdf?year=2026&month=11",
+                )
+                for path in pdf_paths:
+                    with self.subTest(path=path):
+                        response = self.client.get(path)
+                        self.assertEqual(response.status_code, 200)
+                        self.assertEqual(response.mimetype, "application/pdf")
+                        self.assertTrue(response.data.startswith(b"%PDF"))
+                smtp_send.assert_not_called()
+
+            after = {
+                key: self.db_rows(query)[0][0]
+                for key, query in count_queries.items()
+            }
+            self.assertEqual(after, before)
+            stored = self.db_rows(
+                "SELECT amount, vat_amount, total, paid, sent "
+                "FROM invoice_records WHERE invoice_number = ?",
+                (invoice_number,),
+            )
+            self.assertEqual(stored, [(448.0, 35.84, 483.84, 0, 0)])
+        finally:
+            conn = app.get_conn()
+            try:
+                conn.execute(
+                    "DELETE FROM invoice_records WHERE invoice_number = ?",
+                    (invoice_number,),
+                )
+                conn.execute(
+                    "DELETE FROM client_invoice_profiles "
+                    "WHERE client_name = 'Client A'",
+                )
+                conn.commit()
+            finally:
+                conn.close()
 
     def test_phase6_copy_exists_in_all_five_languages(self):
         required = {

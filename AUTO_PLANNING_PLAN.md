@@ -404,3 +404,18 @@ Tests locaux : la suite utilise une base SQLite temporaire et couvre les
 - Vérification locale : 69 tests automatisés sur SQLite isolé, compilation
   Python et parcours visuel avec Chromium. Aucun accès PostgreSQL de
   production, aucune migration, aucun push et aucun déploiement.
+
+### Phase 7 — preparation technique du staging
+
+- La verification finale reste locale et isolee : suite SQLite, compilation
+  Python et smoke tests explicites des vues planning, factures, email et PDF.
+- `AUTO_PLANNING_STAGING.md` decrit une separation stricte des ressources
+  Render, la creation d'une base PostgreSQL staging vide, les variables sans
+  secret, les donnees synthetiques, la sauvegarde et le retour arriere.
+- `tests/postgres_auto_planning_staging.py` est un banc opt-in non decouvert
+  par `unittest discover`. Il refuse de demarrer sans marqueurs staging
+  explicites et ne doit etre lance qu'apres autorisation.
+- Verification locale de preparation : 71 tests SQLite reussis, dont un smoke
+  test `/week`, `/month`, factures, email et PDF, plus compilation Python.
+- Aucun service Render ni base distante n'est cree ou contacte pendant cette
+  preparation. Les tables ne sont jamais supprimees automatiquement.
