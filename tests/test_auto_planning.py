@@ -815,6 +815,21 @@ class Phase5DraftWorkflowTests(unittest.TestCase):
             (self.TARGET_WEEK,),
         )
 
+    def insert_target_shift(self, worker="Aida", client="Client A",
+                            day=None, hours="08:00-10:00"):
+        conn = app.get_conn()
+        try:
+            cursor = conn.execute(
+                "INSERT INTO shifts (worker, client, date, time, status) "
+                "VALUES (?, ?, ?, ?, 'planned')",
+                (worker, client, day or self.TARGET_WEEK, hours),
+            )
+            shift_id = cursor.lastrowid
+            conn.commit()
+            return shift_id
+        finally:
+            conn.close()
+
     def test_modify_one_worker_without_changing_other_proposals(self):
         self.seed_history()
         self.seed_history("Cara", "Client B", "11:00-13:00")
@@ -1146,6 +1161,175 @@ class Phase5DraftWorkflowTests(unittest.TestCase):
         self.client.post(f"/delete_shift/{shift_id}")
         self.assertEqual(self.db_rows("SELECT id FROM shifts WHERE id = ?", (shift_id,)), [])
         self.assertEqual(self.db_rows("SELECT shift_id FROM shift_locks WHERE shift_id = ?", (shift_id,)), [])
+
+    def test_legacy_move_shift_respects_lock(self):
+        self.seed_history()
+        batch_id = self.generate()
+        shift_id = self.insert_target_shift()
+        conn = app.get_conn()
+        conn.execute(
+            "INSERT INTO shift_locks (shift_id, locked_at, locked_by) "
+            "VALUES (?, '2026-11-01 12:00:00', 'admin')",
+            (shift_id,),
+        )
+        conn.commit(); conn.close()
+
+        response = self.client.post(
+            "/move_shift",
+            data={"shift_id": str(shift_id), "date": "2026-11-03"},
+        )
+        self.assertEqual(response.status_code, 409)
+        self.assertIn(b"locked", response.data.lower())
+        self.assertEqual(
+            self.db_rows(
+                "SELECT date, time FROM shifts WHERE id = ?", (shift_id,),
+            )[0],
+            (self.TARGET_WEEK, "08:00-10:00"),
+        )
+
+        response = self.client.post(
+            f"/plan/review/{batch_id}/shift/{shift_id}/unlock",
+            data={"csrf_token": self.csrf_token()},
+        )
+        self.assertEqual(response.status_code, 302)
+        response = self.client.post(
+            "/move_shift",
+            data={"shift_id": str(shift_id), "date": "2026-11-03"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            self.db_rows(
+                "SELECT date, time FROM shifts WHERE id = ?", (shift_id,),
+            )[0],
+            ("2026-11-03", "08:00-10:00"),
+        )
+
+    def test_legacy_edit_shift_respects_lock(self):
+        self.seed_history()
+        batch_id = self.generate()
+        shift_id = self.insert_target_shift()
+        conn = app.get_conn()
+        conn.execute(
+            "INSERT INTO shift_locks (shift_id, locked_at, locked_by) "
+            "VALUES (?, '2026-11-01 12:00:00', 'admin')",
+            (shift_id,),
+        )
+        conn.commit(); conn.close()
+        with self.client.session_transaction() as flask_session:
+            flask_session["lang"] = "fr"
+
+        edit_data = {
+            "workers": ["Bea"], "client": "Client B",
+            "date": "2026-11-04", "start_hour": "09",
+            "start_minute": "15", "end_hour": "11",
+            "end_minute": "45", "status": "done",
+            "return_to": "/week?start=2026-11-02",
+        }
+        response = self.client.post(f"/edit_shift/{shift_id}", data=edit_data)
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.headers["Location"].endswith(
+            "/week?start=2026-11-02"
+        ))
+        self.assertEqual(
+            self.db_rows(
+                "SELECT worker, client, date, time, status FROM shifts "
+                "WHERE id = ?", (shift_id,),
+            )[0],
+            ("Aida", "Client A", self.TARGET_WEEK,
+             "08:00-10:00", "planned"),
+        )
+        with self.client.session_transaction() as flask_session:
+            messages = [message for _category, message in
+                        flask_session.get("_flashes", [])]
+        self.assertTrue(any("verrouillée" in message for message in messages))
+
+        response = self.client.post(
+            f"/plan/review/{batch_id}/shift/{shift_id}/unlock",
+            data={"csrf_token": self.csrf_token()},
+        )
+        self.assertEqual(response.status_code, 302)
+        response = self.client.post(f"/edit_shift/{shift_id}", data=edit_data)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            self.db_rows(
+                "SELECT worker, client, date, time, status FROM shifts "
+                "WHERE id = ?", (shift_id,),
+            )[0],
+            ("Bea", "Client B", "2026-11-04", "09:15-11:45", "done"),
+        )
+
+    def test_legacy_unlocked_shift_remains_modifiable(self):
+        shift_id = self.insert_target_shift()
+        response = self.client.post(
+            "/move_shift",
+            data={"shift_id": str(shift_id), "date": "2026-11-03"},
+        )
+        self.assertEqual(response.status_code, 200)
+        response = self.client.post(f"/edit_shift/{shift_id}", data={
+            "workers": ["Cara"], "client": "Client C",
+            "date": "2026-11-05", "start_hour": "07",
+            "start_minute": "30", "end_hour": "09",
+            "end_minute": "00", "status": "in_progress",
+            "return_to": "/week?start=2026-11-02",
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            self.db_rows(
+                "SELECT worker, client, date, time, status FROM shifts "
+                "WHERE id = ?", (shift_id,),
+            )[0],
+            ("Cara", "Client C", "2026-11-05",
+             "07:30-09:00", "in_progress"),
+        )
+
+    def test_legacy_move_and_lock_are_serialized(self):
+        self.seed_history()
+        batch_id = self.generate()
+        shift_id = self.insert_target_shift()
+        owner_token, csrf_token = self.session_security()
+        move_client = app.app.test_client()
+        lock_client = app.app.test_client()
+        for client in (move_client, lock_client):
+            self.login(
+                client, owner_token=owner_token, csrf_token=csrf_token,
+            )
+        barrier = threading.Barrier(2)
+
+        def move_request():
+            barrier.wait(timeout=5)
+            return move_client.post("/move_shift", data={
+                "shift_id": str(shift_id), "date": "2026-11-03",
+            }).status_code
+
+        def lock_request():
+            barrier.wait(timeout=5)
+            return lock_client.post(
+                f"/plan/review/{batch_id}/shift/{shift_id}/lock",
+                data={"csrf_token": csrf_token},
+            ).status_code
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            move_future = executor.submit(move_request)
+            lock_future = executor.submit(lock_request)
+            move_status = move_future.result(timeout=10)
+            lock_status = lock_future.result(timeout=10)
+
+        self.assertEqual(lock_status, 302)
+        self.assertIn(move_status, (200, 409))
+        final_date = self.db_rows(
+            "SELECT date FROM shifts WHERE id = ?", (shift_id,),
+        )[0][0]
+        self.assertEqual(
+            final_date,
+            "2026-11-03" if move_status == 200 else self.TARGET_WEEK,
+        )
+        self.assertEqual(
+            self.db_rows(
+                "SELECT COUNT(*) FROM shift_locks WHERE shift_id = ?",
+                (shift_id,),
+            )[0][0],
+            1,
+        )
 
     def test_cancelled_draft_cannot_be_applied(self):
         self.seed_history()

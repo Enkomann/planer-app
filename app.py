@@ -2815,6 +2815,7 @@ AUTO_PLANNING_PHASE5_TRANSLATIONS = {
         "auto_plan_lock_success": "Intervencija je zakljucana.",
         "auto_plan_unlock_success": "Intervencija je otkljucana.",
         "auto_plan_locked_delete_blocked": "Zakljucanu intervenciju prvo morate otkljucati.",
+        "auto_plan_locked_change_blocked": "Intervencija je zakljucana. Otkljucajte je prije izmjene.",
         "auto_plan_applied_count": "U raspored je dodano {count} intervencija.",
         "auto_plan_apply_failed": "Primjena nije uspjela. Nijedna intervencija nije dodana.",
         "auto_plan_issue_duplicate_existing": "Ista intervencija vec postoji",
@@ -2844,6 +2845,7 @@ AUTO_PLANNING_PHASE5_TRANSLATIONS = {
         "auto_plan_lock_success": "L'intervention a été verrouillée.",
         "auto_plan_unlock_success": "L'intervention a été déverrouillée.",
         "auto_plan_locked_delete_blocked": "Déverrouillez l'intervention avant de la supprimer.",
+        "auto_plan_locked_change_blocked": "Cette intervention est verrouillée. Déverrouillez-la avant de la modifier.",
         "auto_plan_applied_count": "{count} intervention(s) ajoutée(s) au planning.",
         "auto_plan_apply_failed": "L'application a échoué. Aucune intervention n'a été ajoutée.",
         "auto_plan_issue_duplicate_existing": "La même intervention existe déjà",
@@ -2873,6 +2875,7 @@ AUTO_PLANNING_PHASE5_TRANSLATIONS = {
         "auto_plan_lock_success": "The job was locked.",
         "auto_plan_unlock_success": "The job was unlocked.",
         "auto_plan_locked_delete_blocked": "Unlock the job before deleting it.",
+        "auto_plan_locked_change_blocked": "This job is locked. Unlock it before changing it.",
         "auto_plan_applied_count": "{count} job(s) added to the schedule.",
         "auto_plan_apply_failed": "Application failed. No jobs were added.",
         "auto_plan_issue_duplicate_existing": "The same job already exists",
@@ -2902,6 +2905,7 @@ AUTO_PLANNING_PHASE5_TRANSLATIONS = {
         "auto_plan_lock_success": "Der Einsatz wurde gesperrt.",
         "auto_plan_unlock_success": "Der Einsatz wurde entsperrt.",
         "auto_plan_locked_delete_blocked": "Entsperren Sie den Einsatz vor dem Löschen.",
+        "auto_plan_locked_change_blocked": "Dieser Einsatz ist gesperrt. Entsperren Sie ihn vor der Änderung.",
         "auto_plan_applied_count": "{count} Einsatz/Einsätze zum Plan hinzugefügt.",
         "auto_plan_apply_failed": "Übernahme fehlgeschlagen. Es wurde kein Einsatz hinzugefügt.",
         "auto_plan_issue_duplicate_existing": "Derselbe Einsatz ist bereits vorhanden",
@@ -2931,6 +2935,7 @@ AUTO_PLANNING_PHASE5_TRANSLATIONS = {
         "auto_plan_lock_success": "O serviço foi bloqueado.",
         "auto_plan_unlock_success": "O serviço foi desbloqueado.",
         "auto_plan_locked_delete_blocked": "Desbloqueie o serviço antes de o eliminar.",
+        "auto_plan_locked_change_blocked": "Este serviço está bloqueado. Desbloqueie-o antes de o alterar.",
         "auto_plan_applied_count": "{count} serviço(s) adicionado(s) ao horário.",
         "auto_plan_apply_failed": "A aplicação falhou. Nenhum serviço foi adicionado.",
         "auto_plan_issue_duplicate_existing": "O mesmo serviço já existe",
@@ -9284,15 +9289,38 @@ def move_shift():
     if not shift_id or not new_date:
         return ("Bad request", 400)
     conn = get_conn()
-    c = conn.cursor()
-    existing = c.execute("SELECT worker, client, time FROM shifts WHERE id = ?", (shift_id,)).fetchone()
-    if existing and duplicate_shift_exists(conn, existing[0], existing[1], new_date, existing[2], exclude_id=shift_id):
+    try:
+        # Serialize the lock check and date update with phase-5 lock changes.
+        # If a concurrent lock commits first, this request observes it and
+        # leaves the shift untouched.
+        ap_lock_shift_mutations(conn)
+        c = conn.cursor()
+        if ap_check_shift_locked(conn, shift_id):
+            conn.rollback()
+            return (t().get(
+                "auto_plan_locked_change_blocked",
+                "This job is locked. Unlock it before changing it.",
+            ), 409)
+        existing = c.execute(
+            "SELECT worker, client, time FROM shifts WHERE id = ?",
+            (shift_id,),
+        ).fetchone()
+        if existing and duplicate_shift_exists(
+            conn, existing[0], existing[1], new_date, existing[2],
+            exclude_id=shift_id,
+        ):
+            conn.rollback()
+            return (t()["duplicate_shift_warning"], 409)
+        c.execute(
+            "UPDATE shifts SET date = ? WHERE id = ?", (new_date, shift_id),
+        )
+        conn.commit()
+        return ("OK", 200)
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
         conn.close()
-        return (t()["duplicate_shift_warning"], 409)
-    c.execute("UPDATE shifts SET date = ? WHERE id = ?", (new_date, shift_id))
-    conn.commit()
-    conn.close()
-    return ("OK", 200)
 
 
 @app.route("/add_absence", methods=["POST"])
@@ -16819,20 +16847,66 @@ def edit_client(name):
 
 @app.route("/edit_shift/<int:id>", methods=["GET", "POST"])
 def edit_shift(id):
-    if session.get("role") != "admin": return redirect("/")
+    if session.get("role") != "admin":
+        return redirect("/")
     tr = t(); dark = get_theme() == "dark"; conn = get_conn(); c = conn.cursor()
     if request.method == "POST":
-        worker = join_workers(request.form.getlist("workers")); client = request.form["client"].strip(); date = request.form["date"].strip(); start_time = f"{request.form['start_hour']}:{request.form['start_minute']}"; end_time = f"{request.form['end_hour']}:{request.form['end_minute']}"; status = request.form["status"].strip()
-        time_range = f"{start_time}-{end_time}"
-        if worker and duplicate_shift_exists(conn, worker, client, date, time_range, exclude_id=id):
+        return_to = request.form.get("return_to", "").strip()
+        try:
+            # Serialize with move/apply/delete and lock mutations so a lock
+            # committed by another request is observed before any update.
+            ap_lock_shift_mutations(conn)
+            if ap_check_shift_locked(conn, id):
+                conn.rollback()
+                flash(tr.get(
+                    "auto_plan_locked_change_blocked",
+                    "This job is locked. Unlock it before changing it.",
+                ), "warning")
+                return redirect(
+                    return_to or request.referrer or f"/edit_shift/{id}"
+                )
+
+            worker = join_workers(request.form.getlist("workers"))
+            client = request.form["client"].strip()
+            date = request.form["date"].strip()
+            start_time = (
+                f"{request.form['start_hour']}:"
+                f"{request.form['start_minute']}"
+            )
+            end_time = (
+                f"{request.form['end_hour']}:"
+                f"{request.form['end_minute']}"
+            )
+            status = request.form["status"].strip()
+            time_range = f"{start_time}-{end_time}"
+            if worker and duplicate_shift_exists(
+                conn, worker, client, date, time_range, exclude_id=id,
+            ):
+                conn.rollback()
+                notice = urllib.parse.quote(tr["duplicate_shift_warning"])
+                ref = request.referrer or f"/edit_shift/{id}"
+                return redirect(
+                    ref + ("&" if "?" in ref else "?")
+                    + f"notice={notice}"
+                )
+            if worker:
+                c.execute(
+                    "UPDATE shifts SET worker = ?, client = ?, date = ?, "
+                    "time = ?, status = ? WHERE id = ?",
+                    (worker, client, date, time_range, status, id),
+                )
+                conn.commit()
+            else:
+                conn.rollback()
+            return_to = return_to or (
+                f"/month?year={date[:4]}&month={int(date[5:7])}"
+            )
+            return redirect(return_to)
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
             conn.close()
-            notice = urllib.parse.quote(tr["duplicate_shift_warning"])
-            ref = request.referrer or f"/edit_shift/{id}"
-            return redirect(ref + ("&" if "?" in ref else "?") + f"notice={notice}")
-        if worker: c.execute("UPDATE shifts SET worker = ?, client = ?, date = ?, time = ?, status = ? WHERE id = ?", (worker, client, date, time_range, status, id)); conn.commit()
-        conn.close()
-        return_to = request.form.get("return_to", "").strip() or f"/month?year={date[:4]}&month={int(date[5:7])}"
-        return redirect(return_to)
     shift = c.execute("SELECT * FROM shifts WHERE id = ?", (id,)).fetchone(); workers = c.execute("SELECT name, address FROM workers ORDER BY name").fetchall(); clients = c.execute("SELECT name, address FROM clients ORDER BY name").fetchall(); conn.close()
     if not shift: return redirect("/")
     start_time, end_time = split_time_range(shift[4]); sh, sm = split_hour_min(start_time); eh, em = split_hour_min(end_time); selected_workers = split_workers(shift[1])
