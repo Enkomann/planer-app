@@ -3078,6 +3078,66 @@ def hash_password(password):
     return generate_password_hash(password, method="pbkdf2:sha256", salt_length=16)
 
 
+# ── Bootstrap admin credentials for fresh installs ─────────────────────────
+# A production database already carries an admin row from day one, so
+# INSERT OR IGNORE never touches it and the mechanism here only matters for
+# a brand-new DB (local dev, fresh staging, future standalone deploy).
+BOOTSTRAP_ADMIN_USERNAME_ENV = "ADMIN_BOOTSTRAP_USERNAME"
+BOOTSTRAP_ADMIN_PASSWORD_ENV = "ADMIN_BOOTSTRAP_PASSWORD"
+BOOTSTRAP_LEGACY_USERNAME    = "admin"
+BOOTSTRAP_LEGACY_PASSWORD    = "admin123"
+
+
+def _staging_app_env():
+    """True when APP_ENV identifies the staging environment explicitly."""
+    return os.environ.get("APP_ENV", "").strip().lower() == "staging"
+
+
+class BootstrapAdminMissingSecret(RuntimeError):
+    """Raised when a staging boot needs a bootstrap admin password it was
+    not given. Message deliberately never contains the password itself —
+    it only names the environment variable to configure."""
+
+
+def _bootstrap_admin_credentials():
+    """Resolve the username + password used to seed a NEW admin account.
+
+    Return (username, password, source) where ``source`` is one of
+    ``"env"`` (ADMIN_BOOTSTRAP_PASSWORD provided) or ``"legacy"`` (local
+    development fallback). The password itself is NEVER logged or returned
+    to callers that log.
+
+    Policy:
+      - Staging boots (APP_ENV=staging) MUST provide
+        ADMIN_BOOTSTRAP_PASSWORD. Missing or empty → RuntimeError, which
+        propagates out of init_db() and refuses the first boot. Render
+        then shows a failed deploy instead of silently exposing the
+        historical admin/admin123 pair on a public URL.
+      - Non-staging boots fall back to the historical pair with a loud
+        WARNING, so an existing dev workflow keeps running on an empty
+        local SQLite without surprise.
+    """
+    raw_username = os.environ.get(BOOTSTRAP_ADMIN_USERNAME_ENV, "")
+    username = raw_username.strip() or BOOTSTRAP_LEGACY_USERNAME
+    password = os.environ.get(BOOTSTRAP_ADMIN_PASSWORD_ENV, "")
+    if password:
+        return username, password, "env"
+    if _staging_app_env():
+        raise BootstrapAdminMissingSecret(
+            f"APP_ENV=staging but {BOOTSTRAP_ADMIN_PASSWORD_ENV} is not set. "
+            "Refuse to seed a bootstrap admin with the historical default. "
+            "Configure a strong password via that environment variable, "
+            "then restart the service."
+        )
+    app.logger.warning(
+        "No %s set and no admin user exists; using the development default "
+        "for '%s'. This path is intended for local dev only — in every "
+        "deploy, set %s to a strong secret.",
+        BOOTSTRAP_ADMIN_PASSWORD_ENV, username, BOOTSTRAP_ADMIN_PASSWORD_ENV,
+    )
+    return username, BOOTSTRAP_LEGACY_PASSWORD, "legacy"
+
+
 def is_password_hash(value):
     return bool(value) and value.startswith(("pbkdf2:", "scrypt:"))
 
@@ -6662,7 +6722,34 @@ def init_db():
     if "fixed_gross" not in payroll_cols:
         c.execute("ALTER TABLE worker_payroll_settings ADD COLUMN fixed_gross REAL DEFAULT 0")
 
-    c.execute("INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)", ("admin", hash_password("admin123"), "admin"))
+    # Admin bootstrap: run ONLY when no admin exists yet. On every
+    # existing install (prod, previously seeded staging, previously
+    # seeded dev) the row is already in place and nothing below runs,
+    # so this cannot alter an existing password or role.
+    has_admin = c.execute(
+        "SELECT 1 FROM users WHERE role='admin' LIMIT 1"
+    ).fetchone()
+    if not has_admin:
+        bootstrap_username, bootstrap_password, bootstrap_source = (
+            _bootstrap_admin_credentials()
+        )
+        c.execute(
+            "INSERT OR IGNORE INTO users (username, password, role) "
+            "VALUES (?, ?, 'admin')",
+            (bootstrap_username, hash_password(bootstrap_password)),
+        )
+        c.execute(
+            "INSERT OR IGNORE INTO workers (name, address) VALUES (?, '')",
+            (bootstrap_username,),
+        )
+        # Password itself never reaches the log — only the username and
+        # which path produced the hash (env-provided vs development
+        # legacy). The admin is expected to change it on first login.
+        app.logger.info(
+            "Bootstrap admin account '%s' created (source=%s). "
+            "Change the password via /change_password immediately.",
+            bootstrap_username, bootstrap_source,
+        )
     c.execute("INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)", ("worker1", hash_password("1234"), "worker"))
     c.execute("INSERT OR IGNORE INTO workers (name, address) VALUES (?, ?)", ("admin", ""))
     c.execute("INSERT OR IGNORE INTO workers (name, address) VALUES (?, ?)", ("worker1", ""))
