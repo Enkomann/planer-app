@@ -2945,6 +2945,83 @@ AUTO_PLANNING_PHASE5_TRANSLATIONS = {
 for _lang, _values in AUTO_PLANNING_PHASE5_TRANSLATIONS.items():
     TRANSLATIONS[_lang].update(_values)
 
+# Phase 6 adds only presentation and interaction copy. Keeping it separate
+# makes it clear that no recurrence, validation, or application rules changed.
+AUTO_PLANNING_PHASE6_TRANSLATIONS = {
+    "bos": {
+        "auto_plan_generation_help": "Analizira istoriju i priprema nacrt. Nista se ne upisuje prije vase potvrde.",
+        "auto_plan_draft_not_confirmed": "Nacrt nije potvrden: prijedlozi jos nisu u stvarnom rasporedu.",
+        "auto_plan_valid_proposal": "Ispravan prijedlog",
+        "auto_plan_blocking_conflict": "Blokirajuci konflikt",
+        "auto_plan_no_day_proposals": "Nema prijedloga za ovaj dan.",
+        "auto_plan_selection_count": "Izabrano za primjenu: {count}",
+        "auto_plan_blocking_count": "Blokirajucih konflikata u nacrtu: {count}",
+        "auto_plan_apply_count_confirm": "Primijeniti {count} izabranih intervencija? Blokirajuci konflikti u izboru: {blocked}.",
+        "auto_plan_apply_selection_only": "Bice dodani samo prihvaceni i oznaceni prijedlozi. Postojece intervencije se nece zamijeniti.",
+        "auto_plan_applying": "Primjena...",
+        "auto_plan_return_week": "Otvori ovu sedmicu u rasporedu",
+        "auto_plan_locked_help": "Intervencija je zakljucana. Ovdje je otkljucajte prije izmjene.",
+    },
+    "fr": {
+        "auto_plan_generation_help": "Analyse l'historique et prépare un brouillon. Rien n'est ajouté avant votre validation.",
+        "auto_plan_draft_not_confirmed": "Brouillon non confirmé : les propositions ne figurent pas encore dans le planning réel.",
+        "auto_plan_valid_proposal": "Proposition valide",
+        "auto_plan_blocking_conflict": "Conflit bloquant",
+        "auto_plan_no_day_proposals": "Aucune proposition pour ce jour.",
+        "auto_plan_selection_count": "Sélectionnées pour application : {count}",
+        "auto_plan_blocking_count": "Conflits bloquants dans le brouillon : {count}",
+        "auto_plan_apply_count_confirm": "Appliquer {count} intervention(s) sélectionnée(s) ? Conflits bloquants dans la sélection : {blocked}.",
+        "auto_plan_apply_selection_only": "Seules les propositions acceptées et cochées seront ajoutées. Aucune intervention existante ne sera remplacée.",
+        "auto_plan_applying": "Application en cours...",
+        "auto_plan_return_week": "Voir cette semaine dans le planning",
+        "auto_plan_locked_help": "Cette intervention est verrouillée. Déverrouillez-la ici avant de la modifier.",
+    },
+    "en": {
+        "auto_plan_generation_help": "Analyses scheduling history and prepares a draft. Nothing is added until you approve it.",
+        "auto_plan_draft_not_confirmed": "Unconfirmed draft: these proposals are not in the real schedule yet.",
+        "auto_plan_valid_proposal": "Valid proposal",
+        "auto_plan_blocking_conflict": "Blocking conflict",
+        "auto_plan_no_day_proposals": "No proposals for this day.",
+        "auto_plan_selection_count": "Selected for application: {count}",
+        "auto_plan_blocking_count": "Blocking conflicts in this draft: {count}",
+        "auto_plan_apply_count_confirm": "Apply {count} selected job(s)? Blocking conflicts in the selection: {blocked}.",
+        "auto_plan_apply_selection_only": "Only accepted and checked proposals will be added. Existing jobs will never be replaced.",
+        "auto_plan_applying": "Applying...",
+        "auto_plan_return_week": "Open this week in the schedule",
+        "auto_plan_locked_help": "This job is locked. Unlock it here before making changes.",
+    },
+    "de": {
+        "auto_plan_generation_help": "Analysiert die Planungshistorie und erstellt einen Entwurf. Vor Ihrer Bestätigung wird nichts eingetragen.",
+        "auto_plan_draft_not_confirmed": "Unbestätigter Entwurf: Diese Vorschläge stehen noch nicht im echten Plan.",
+        "auto_plan_valid_proposal": "Gültiger Vorschlag",
+        "auto_plan_blocking_conflict": "Blockierender Konflikt",
+        "auto_plan_no_day_proposals": "Keine Vorschläge für diesen Tag.",
+        "auto_plan_selection_count": "Zur Übernahme ausgewählt: {count}",
+        "auto_plan_blocking_count": "Blockierende Konflikte im Entwurf: {count}",
+        "auto_plan_apply_count_confirm": "{count} ausgewählte Einsätze übernehmen? Blockierende Konflikte in der Auswahl: {blocked}.",
+        "auto_plan_apply_selection_only": "Nur angenommene und markierte Vorschläge werden hinzugefügt. Vorhandene Einsätze werden nie ersetzt.",
+        "auto_plan_applying": "Übernahme läuft...",
+        "auto_plan_return_week": "Diese Woche im Plan öffnen",
+        "auto_plan_locked_help": "Dieser Einsatz ist gesperrt. Entsperren Sie ihn hier vor einer Änderung.",
+    },
+    "pt": {
+        "auto_plan_generation_help": "Analisa o histórico e prepara um rascunho. Nada é adicionado antes da sua validação.",
+        "auto_plan_draft_not_confirmed": "Rascunho não confirmado: as propostas ainda não estão no horário real.",
+        "auto_plan_valid_proposal": "Proposta válida",
+        "auto_plan_blocking_conflict": "Conflito bloqueador",
+        "auto_plan_no_day_proposals": "Sem propostas para este dia.",
+        "auto_plan_selection_count": "Selecionados para aplicar: {count}",
+        "auto_plan_blocking_count": "Conflitos bloqueadores no rascunho: {count}",
+        "auto_plan_apply_count_confirm": "Aplicar {count} serviço(s) selecionado(s)? Conflitos bloqueadores na seleção: {blocked}.",
+        "auto_plan_apply_selection_only": "Só serão adicionadas as propostas aceites e marcadas. Os serviços existentes nunca serão substituídos.",
+        "auto_plan_applying": "A aplicar...",
+        "auto_plan_return_week": "Abrir esta semana no horário",
+        "auto_plan_locked_help": "Este serviço está bloqueado. Desbloqueie-o aqui antes de o alterar.",
+    },
+}
+for _lang, _values in AUTO_PLANNING_PHASE6_TRANSLATIONS.items():
+    TRANSLATIONS[_lang].update(_values)
+
 MONTH_NAMES = {
     "bos": ["", "Januar", "Februar", "Mart", "April", "Maj", "Juni", "Juli", "August", "Septembar", "Oktobar", "Novembar", "Decembar"],
     "en": ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
@@ -8761,6 +8838,23 @@ def index():
             {% endif %}
             <div class="section-title"><h2>{{ tr["quick_actions"] }}</h2></div>
 
+    {% if is_admin %}
+    <style>
+      .auto-plan-quickbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 0 16px;padding:14px 16px;border-left:4px solid #2563eb;background:{{ '#171d2a' if dark else '#eff6ff' }};color:{{ '#dbeafe' if dark else '#1e3a8a' }};border-radius:6px}
+      .auto-plan-quickbar strong{display:block;font-size:15px;margin-bottom:2px}
+      .auto-plan-quickbar span{display:block;font-size:12px;line-height:1.4;color:{{ '#bfdbfe' if dark else '#475569' }}}
+      .auto-plan-entry{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;margin:0;padding:10px 14px;border-radius:6px;background:#1f5d96;color:#fff!important;text-decoration:none;font-weight:800}
+      @media(max-width:700px){.auto-plan-quickbar{align-items:stretch;flex-direction:column}.auto-plan-entry{width:100%;box-sizing:border-box}}
+    </style>
+    <div class="auto-plan-quickbar" data-auto-plan-entry="dashboard">
+      <div>
+        <strong>{{ tr.get('auto_plan_title','Smart automatic planning') }}</strong>
+        <span>{{ tr.get('auto_plan_generation_help','Analyse history and prepare a draft.') }}</span>
+      </div>
+      <a class="auto-plan-entry" href="{{ url_for('auto_plan_generate') }}">{{ tr.get('auto_plan_generate','Generate automatically') }}</a>
+    </div>
+    {% endif %}
+
     <div class="grid">
         {% if is_admin %}
         <div class="card dashboard-panel panel-worker"><h3>{{ tr["add_worker"] }}</h3><form method="post" action="/add_worker" autocomplete="off"><input name="worker_name" placeholder="{{ tr['worker_name'] }}" required autocomplete="off"><input name="address" placeholder="{{ tr['address'] }}" autocomplete="off"><input name="contract_type" placeholder="{{ tr['contract_type'] }}" autocomplete="off"><label>{{ tr["contract_end_date"] }}</label><input name="contract_end_date" type="date"><button>{{ tr["add_worker"] }}</button></form></div>
@@ -9430,14 +9524,30 @@ def week_view():
     client_addresses = {row[0]: (row[1] or "") for row in clients_raw}
     clients = clients_raw
     workers = c.execute("SELECT name FROM workers ORDER BY name").fetchall()
+    locked_shift_ids = {
+        int(row[0]) for row in c.execute(
+            "SELECT sl.shift_id FROM shift_locks sl "
+            "JOIN shifts s ON s.id = sl.shift_id "
+            "WHERE s.date >= ? AND s.date <= ?",
+            (week_days[0], week_days[-1]),
+        ).fetchall()
+    }
     conn.close()
     day_names = [tr["monday"], tr["tuesday"], tr["wednesday"], tr["thursday"], tr["friday"], tr["saturday"], tr["sunday"]]
 
     return render_template_string(BASE_STYLE + header_html() + """
+    <style>
+      .week-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+      .week-auto-plan{display:inline-flex;align-items:center;justify-content:center;padding:10px 12px;border-radius:6px;background:#1f5d96!important;color:#fff!important;font-weight:800;text-decoration:none}
+      .week-lock-badge{display:inline-flex;margin:5px 0 0;padding:3px 6px;border-radius:4px;background:{{ '#422006' if dark else '#fef3c7' }};color:{{ '#fde68a' if dark else '#92400e' }};font-size:10px;font-weight:800;text-transform:uppercase}
+      .mini-shift[data-locked="1"]{border-style:solid;box-shadow:inset 0 0 0 1px {{ '#f59e0b' if dark else '#d97706' }}}
+      .week-locked-actions{margin-top:6px;font-size:10px;font-weight:700;color:{{ '#fcd34d' if dark else '#92400e' }}}
+      @media(max-width:700px){.week-toolbar a{flex:1 1 auto;text-align:center;box-sizing:border-box}}
+    </style>
     <h1>{{ tr["week_calendar"] }}</h1>
-    <div>
+    <div class="week-toolbar">
         <a class="back-button" href="/">{{ tr["back"] }}</a>
-        {% if session.get('role') == 'admin' %}<a href="/month?year={{ start_year }}&month={{ start_month }}">{{ tr["month_calendar"] }}</a>{% endif %}
+        {% if session.get('role') == 'admin' %}<a href="/month?year={{ start_year }}&month={{ start_month }}">{{ tr["month_calendar"] }}</a><a class="week-auto-plan" data-auto-plan-entry="week" href="{{ url_for('auto_plan_generate') }}">{{ tr.get('auto_plan_generate','Generate automatically') }}</a>{% endif %}
         <a class="pdf-link" href="/week_pdf?start={{ week_days[0] }}" target="_blank">PDF {{ tr["week_calendar"] }}</a>
     </div>
     <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin:16px 0; flex-wrap:wrap;">
@@ -9450,7 +9560,18 @@ def week_view():
                 <a class="week-day-heading" href="{% if is_admin %}javascript:void(0){% else %}/?selected_date={{ day }}{% endif %}" {% if is_admin %}onclick="openHolidayModal('{{ day }}')"{% endif %}>{{ day_names[loop.index0] }}<br>{{ format_date(day) }}</a>
                 {% if is_admin %}<div class="day-menu-wrapper" style="position:absolute;top:4px;right:4px;"><button onclick="toggleDayMenu(this)" title="{{ tr['add_shift'] }}" style="background:none;border:none;font-size:20px;font-weight:bold;cursor:pointer;padding:2px 5px;line-height:1;width:auto;margin:0;color:{% if dark %}#4ade80{% else %}#1f4f82{% endif %};opacity:{% if dark %}0.9{% else %}0.7{% endif %};" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='{% if dark %}0.9{% else %}0.7{% endif %}'">+</button><div class="day-mini-menu" style="display:none;position:absolute;right:0;top:28px;z-index:300;min-width:155px;border-radius:8px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,0.18);background:{% if dark %}#1d1d1f{% else %}white{% endif %};border:1px solid {% if dark %}#2c2c30{% else %}#dbeafe{% endif %};"><a href="javascript:void(0)" onclick="openAddShiftModal('{{ day }}')" style="display:block;padding:10px 15px;text-decoration:none;color:{% if dark %}#93c5fd{% else %}#1f4f82{% endif %};font-size:13px;font-weight:600;white-space:nowrap;" onmouseover="this.style.background='{% if dark %}#2c2c30{% else %}#eef4ff{% endif %}'" onmouseout="this.style.background='transparent'">+ {{ tr['add_shift'] }}</a></div></div>{% endif %}
                 {% if holiday_name %}<small class="holiday-note">{{ holiday_name }}</small>{% endif %}
-                {% for s in shifts %}{% if s[3] == day %}{% set _waddr = client_addresses.get(s[2], '') %}<div class="mini-shift" draggable="{{ 'true' if is_admin else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="--shift-accent:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#7aa7df') }};"><b>{{ s[1] }}</b><br>{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}<br>{{ s[4] }}{% if is_admin %}<div class="week-shift-actions" style="display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;gap:4px;margin-top:6px;"><a class="mini-link edit-link wsa-btn" href="javascript:void(0)" data-eid="{{ s[0] }}" data-ew="{{ s[1]|e }}" data-ecl="{{ s[2]|e }}" data-edt="{{ s[3]|e }}" data-etm="{{ s[4]|e }}" data-est="{{ s[5]|e }}" onclick="openEditModalW(this)" title="{{ tr['edit'] }}" aria-label="{{ tr['edit'] }}">✏️</a><form class="inline-delete-form" style="flex:1;min-width:0;margin:0;" method="post" action="/delete_shift/{{ s[0] }}" onsubmit='return confirm({{ tr.get("shift_delete_confirm","Delete this shift?")|tojson }});'><button type="submit" class="mini-link delete-link wsa-btn" style="width:100%;" title="{{ tr['delete'] }}" aria-label="{{ tr['delete'] }}">🗑️</button></form><a class="mini-link copy-link wsa-btn" href="/copy_shift/{{ s[0] }}" title="{{ tr['copy'] }}" aria-label="{{ tr['copy'] }}">📋</a></div>{% elif _waddr %}<div style="margin-top:6px;"><a class="week-map-link" href="https://www.google.com/maps/dir/?api=1&destination={{ _waddr|urlencode }}&travelmode=driving&dir_action=navigate" target="_blank" rel="noopener" title="{{ tr.get('open_in_maps','Open in Google Maps') }}" aria-label="{{ tr.get('open_in_maps','Open in Google Maps') }}">📍</a></div>{% endif %}</div>{% endif %}{% endfor %}
+                {% for s in shifts %}{% if s[3] == day %}{% set _waddr = client_addresses.get(s[2], '') %}
+                <div class="mini-shift" data-shift-id="{{ s[0] }}" data-locked="{{ 1 if s[0] in locked_shift_ids else 0 }}" draggable="{{ 'true' if is_admin and s[0] not in locked_shift_ids else 'false' }}" ondragstart="dragShift(event, '{{ s[0] }}')" style="--shift-accent:{{ worker_colors.get(split_workers(s[1])[0] if split_workers(s[1]) else s[1], '#7aa7df') }};">
+                  <b>{{ s[1] }}</b><br>{{ s[2] }}{% if client_cities.get(s[2]) %} <strong class="client-city">{{ client_cities.get(s[2]) }}</strong>{% endif %}<br>{{ s[4] }}
+                  {% if s[0] in locked_shift_ids %}<br><span class="week-lock-badge" title="{{ tr.get('auto_plan_locked_change_blocked','Locked') }}">{{ tr.get('auto_plan_locked','Locked') }}</span>{% endif %}
+                  {% if is_admin %}
+                    {% if s[0] in locked_shift_ids %}
+                      <div class="week-locked-actions">{{ tr.get('auto_plan_locked_change_blocked','Unlock before changing.') }}</div>
+                    {% else %}
+                      <div class="week-shift-actions" style="display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;gap:4px;margin-top:6px;"><a class="mini-link edit-link wsa-btn" href="javascript:void(0)" data-eid="{{ s[0] }}" data-ew="{{ s[1]|e }}" data-ecl="{{ s[2]|e }}" data-edt="{{ s[3]|e }}" data-etm="{{ s[4]|e }}" data-est="{{ s[5]|e }}" onclick="openEditModalW(this)" title="{{ tr['edit'] }}" aria-label="{{ tr['edit'] }}">✏️</a><form class="inline-delete-form" style="flex:1;min-width:0;margin:0;" method="post" action="/delete_shift/{{ s[0] }}" onsubmit='return confirm({{ tr.get("shift_delete_confirm","Delete this shift?")|tojson }});'><button type="submit" class="mini-link delete-link wsa-btn" style="width:100%;" title="{{ tr['delete'] }}" aria-label="{{ tr['delete'] }}">🗑️</button></form><a class="mini-link copy-link wsa-btn" href="/copy_shift/{{ s[0] }}" title="{{ tr['copy'] }}" aria-label="{{ tr['copy'] }}">📋</a></div>
+                    {% endif %}
+                  {% elif _waddr %}<div style="margin-top:6px;"><a class="week-map-link" href="https://www.google.com/maps/dir/?api=1&destination={{ _waddr|urlencode }}&travelmode=driving&dir_action=navigate" target="_blank" rel="noopener" title="{{ tr.get('open_in_maps','Open in Google Maps') }}" aria-label="{{ tr.get('open_in_maps','Open in Google Maps') }}">📍</a></div>{% endif %}
+                </div>{% endif %}{% endfor %}
             </div>
         {% endfor %}
     </div>
@@ -9571,7 +9692,7 @@ def week_view():
       }
     });
     </script>
-    """, tr=tr, dark=dark, week_days=week_days, shifts=shifts, worker_colors=worker_colors, client_cities=client_cities, client_addresses=client_addresses, format_date=format_date, holidays_map=holidays_map, day_names=day_names, status_colors=STATUS_COLORS, get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers, is_weekend=is_weekend, is_admin=is_admin, prev_week=prev_week, next_week=next_week, current_week=current_week, start_year=start_week.year, start_month=start_week.month, workers=workers, clients=clients, time_hours=time_hours())
+    """, tr=tr, dark=dark, week_days=week_days, shifts=shifts, worker_colors=worker_colors, client_cities=client_cities, client_addresses=client_addresses, format_date=format_date, holidays_map=holidays_map, day_names=day_names, status_colors=STATUS_COLORS, get_status_label=get_status_label, get_auto_status=get_auto_status, split_workers=split_workers, is_weekend=is_weekend, is_admin=is_admin, locked_shift_ids=locked_shift_ids, prev_week=prev_week, next_week=next_week, current_week=current_week, start_year=start_week.year, start_month=start_week.month, workers=workers, clients=clients, time_hours=time_hours())
 
 
 @app.route("/month")
@@ -9594,6 +9715,8 @@ def month_view():
     day_names = [tr["monday"], tr["tuesday"], tr["wednesday"], tr["thursday"], tr["friday"], tr["saturday"], tr["sunday"]]
     return render_template_string(BASE_STYLE + header_html() + """
     <style>
+        .week-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+        .week-auto-plan{display:inline-flex;align-items:center;justify-content:center;padding:10px 12px;border-radius:6px;background:#1f5d96!important;color:#fff!important;font-weight:800;text-decoration:none}
         /* Weekday bar sits OUTSIDE the grid → sticky works properly */
         #monthWdBar {
             position: sticky;
@@ -9637,7 +9760,7 @@ def month_view():
         #monthWdBar .month-weekday:nth-child(6) { animation-delay: -1.0s; }
         #monthWdBar .month-weekday:nth-child(7) { animation-delay: -1.2s; }
     </style>
-    <div><a class="back-button" href="/">{{ tr["back"] }}</a><a href="/week">{{ tr["week_calendar"] }}</a><a href="/month_pdf?year={{ year }}&month={{ month }}" target="_blank">{{ tr["month_pdf"] }}</a></div>
+    <div class="week-toolbar"><a class="back-button" href="/">{{ tr["back"] }}</a><a href="/week">{{ tr["week_calendar"] }}</a><a href="/month_pdf?year={{ year }}&month={{ month }}" target="_blank">{{ tr["month_pdf"] }}</a><a class="week-auto-plan" data-auto-plan-entry="month" href="{{ url_for('auto_plan_generate') }}">{{ tr.get('auto_plan_generate','Generate automatically') }}</a></div>
     <div style="display:flex; justify-content:space-between; align-items:center; margin:16px 0; gap:12px;"><a href="/month?year={{ prev_year }}&month={{ prev_month }}">{{ tr["prev_month"] }}</a><h2>{{ tr["month_calendar"] }} - {{ format_month_year(year, month) }}</h2><a href="/month?year={{ next_year }}&month={{ next_month }}">{{ tr["next_month"] }}</a></div>
     <div id="monthWdBar">
         {% for dn in day_names %}<div class="card month-weekday">{{ dn }}</div>{% endfor %}
@@ -20273,6 +20396,7 @@ AUTO_PLAN_GENERATE_TEMPLATE = """
   .ap-form-panel{background:{{ '#18181b' if dark else '#fff' }};border:1px solid {{ '#303036' if dark else '#dbe2ea' }};border-radius:8px;padding:22px;box-shadow:0 8px 24px rgba(0,0,0,.08)}
   .ap-form-grid{display:grid;grid-template-columns:minmax(220px,1fr) minmax(280px,1.4fr);gap:20px;align-items:end}
   .ap-label{display:block;font-weight:700;margin-bottom:6px;color:{{ '#e5e7eb' if dark else '#1f2937' }}}
+  .ap-intro{margin:0 0 18px;color:{{ '#cbd5e1' if dark else '#475569' }};line-height:1.5}
   .ap-history{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid {{ '#3f3f46' if dark else '#cbd5e1' }};border-radius:8px;overflow:hidden}
   .ap-history label{position:relative;margin:0;border-right:1px solid {{ '#3f3f46' if dark else '#cbd5e1' }}}
   .ap-history label:last-child{border-right:0}
@@ -20296,6 +20420,7 @@ AUTO_PLAN_GENERATE_TEMPLATE = """
   {% endwith %}
   <section class="ap-form-panel" aria-labelledby="ap-generate-heading">
     <h2 id="ap-generate-heading">{{ tr.get('auto_plan_generate','Generate automatically') }}</h2>
+    <p class="ap-intro">{{ tr.get('auto_plan_generation_help','Analyse history and prepare a draft.') }}</p>
     <form method="post" action="{{ url_for('auto_plan_generate') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <div class="ap-form-grid">
@@ -20326,56 +20451,67 @@ AUTO_PLAN_GENERATE_TEMPLATE = """
 
 AUTO_PLAN_REVIEW_TEMPLATE = """
 <style>
-  .apr-shell{max-width:1240px;margin:0 auto;padding-bottom:48px}
+  .apr-shell{max-width:1600px;margin:0 auto;padding-bottom:64px}
   .apr-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px}
-  .apr-head h1{margin:0 0 6px;font-size:clamp(24px,4vw,34px)}
+  .apr-head h1{margin:0 0 6px;font-size:30px}
   .apr-meta{display:flex;gap:8px;flex-wrap:wrap;color:{{ '#cbd5e1' if dark else '#475569' }};font-size:14px}
   .apr-meta span{padding:6px 9px;border:1px solid {{ '#3f3f46' if dark else '#dbe2ea' }};border-radius:6px;background:{{ '#1d1d21' if dark else '#fff' }}}
   .apr-actions{display:flex;gap:8px;flex-wrap:wrap}.apr-actions a{margin:0;padding:10px 13px;border-radius:7px;background:#1f5d96;color:#fff}
   .apr-readonly{margin:14px 0 22px;padding:13px 15px;border-left:4px solid #0f766e;background:{{ '#16302d' if dark else '#ecfdf5' }};color:{{ '#a7f3d0' if dark else '#14532d' }};border-radius:4px}
+  .apr-overview{display:grid;grid-template-columns:repeat(4,minmax(130px,1fr));gap:8px;margin:0 0 12px}
+  .apr-overview-item{padding:10px 12px;border:1px solid {{ '#303036' if dark else '#dbe2ea' }};border-radius:6px;background:{{ '#18181b' if dark else '#fff' }}}
+  .apr-overview-item b{display:block;font-size:20px;margin-bottom:2px}.apr-overview-item span{font-size:12px;color:{{ '#a1a1aa' if dark else '#64748b' }}}
+  .apr-legend{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:0 0 18px}
   .apr-section{margin-top:26px}.apr-section>h2{display:flex;align-items:center;gap:9px;margin-bottom:12px}
-  .apr-existing{width:100%;border-collapse:collapse;background:{{ '#18181b' if dark else '#fff' }};border:1px solid {{ '#303036' if dark else '#dbe2ea' }}}
+  .apr-existing-scroll{overflow-x:auto}.apr-existing{width:100%;min-width:720px;border-collapse:collapse;background:{{ '#18181b' if dark else '#fff' }};border:1px solid {{ '#303036' if dark else '#dbe2ea' }}}
   .apr-existing th,.apr-existing td{text-align:left;padding:10px;border-bottom:1px solid {{ '#303036' if dark else '#e2e8f0' }};vertical-align:top}
   .apr-existing th{font-size:12px;text-transform:uppercase;color:{{ '#a5b4fc' if dark else '#475569' }}}
   .apr-lock{display:inline-flex;padding:4px 7px;border-radius:999px;background:{{ '#422006' if dark else '#fef3c7' }};color:{{ '#fde68a' if dark else '#92400e' }};font-size:12px;font-weight:800}
-  .apr-day{margin-top:18px;border-top:2px solid {{ '#34343a' if dark else '#cbd5e1' }};padding-top:12px}
-  .apr-day-title{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:0 0 9px;font-size:18px}
+  .apr-week-scroll{padding-bottom:8px}.apr-week-grid{display:grid;grid-template-columns:repeat(4,minmax(250px,1fr));gap:10px;align-items:start}
+  .apr-day{min-height:190px;padding:9px;border-top:3px solid {{ '#3b82f6' if dark else '#1f5d96' }};background:{{ '#141417' if dark else '#f8fafc' }};border-radius:0 0 6px 6px}
+  .apr-day-title{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0 0 9px;font-size:14px}
   .apr-day-count{font-size:12px;color:{{ '#a1a1aa' if dark else '#64748b' }}}
-  .apr-proposal{position:relative;display:grid;grid-template-columns:minmax(150px,1.15fr) minmax(145px,1fr) minmax(118px,.7fr) minmax(118px,.7fr);gap:12px;padding:15px 0;border-bottom:1px solid {{ '#303036' if dark else '#e2e8f0' }}}
-  .apr-proposal[data-blocked="1"]{border-left:4px solid #dc2626;padding-left:12px}
+  .apr-day-empty{padding:14px 8px;color:{{ '#a1a1aa' if dark else '#64748b' }};font-size:12px;line-height:1.4}
+  .apr-proposal{position:relative;margin:0 0 9px;padding:10px;border:1px solid {{ '#303036' if dark else '#dbe2ea' }};border-top:4px solid #0f766e;border-radius:6px;background:{{ '#1b1b1f' if dark else '#fff' }}}
+  .apr-proposal[data-manual="1"]{border-top-color:#d97706}.apr-proposal[data-blocked="1"]{border-top-color:#dc2626}
+  .apr-proposal[data-status="accepted"]{border-top-color:#16a34a}.apr-proposal[data-status="rejected"]{border-top-color:#991b1b;opacity:.78}.apr-proposal[data-status="applied"]{border-top-color:#2563eb}
+  .apr-proposal-form{display:block}.apr-field{margin-bottom:8px}
   .apr-field label{display:block;font-size:11px;text-transform:uppercase;font-weight:800;color:{{ '#a5b4fc' if dark else '#64748b' }};margin-bottom:4px}
   .apr-field input,.apr-field select{height:40px;margin:0;background:{{ '#1b1b1f' if dark else '#fff' }};width:100%;box-sizing:border-box}
   .apr-field select[multiple]{height:96px;padding:5px}
   .apr-field input[readonly]{cursor:default}
-  .apr-summary{grid-column:1/-1;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .apr-summary{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:7px}
   .apr-chip{display:inline-flex;align-items:center;min-height:26px;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:800;background:{{ '#27272a' if dark else '#eef2f7' }};color:{{ '#e5e7eb' if dark else '#334155' }}}
+  .apr-chip.valid{background:{{ '#12382b' if dark else '#dcfce7' }};color:{{ '#bbf7d0' if dark else '#166534' }}}
   .apr-chip.manual{background:{{ '#4a300d' if dark else '#fef3c7' }};color:{{ '#fde68a' if dark else '#92400e' }}}
   .apr-chip.blocking{background:{{ '#491616' if dark else '#fee2e2' }};color:{{ '#fecaca' if dark else '#991b1b' }}}
   .apr-chip.warning{background:{{ '#3b2f0e' if dark else '#fff7d6' }};color:{{ '#fde68a' if dark else '#854d0e' }}}
-  .apr-confidence{width:110px;height:7px;overflow:hidden;border-radius:999px;background:{{ '#3f3f46' if dark else '#dbe2ea' }}}
+  .apr-confidence{width:100%;height:7px;overflow:hidden;border-radius:999px;background:{{ '#3f3f46' if dark else '#dbe2ea' }}}
   .apr-confidence span{display:block;width:var(--confidence);height:100%;background:#16a34a}
   .apr-empty{padding:18px;border:1px dashed {{ '#3f3f46' if dark else '#cbd5e1' }};border-radius:7px;color:{{ '#a1a1aa' if dark else '#64748b' }}}
   .apr-future-note{font-size:12px;color:{{ '#a1a1aa' if dark else '#64748b' }};margin-top:8px}
   .apr-flash{padding:12px 14px;margin:0 0 14px;border-radius:6px;background:{{ '#1e3a5f' if dark else '#dbeafe' }};color:{{ '#bfdbfe' if dark else '#1e3a8a' }}}
-  .apr-proposal-form{display:contents}
-  .apr-card-actions{grid-column:1/-1;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
-  .apr-card-actions button{width:auto;margin:0;padding:8px 11px;min-height:38px}
+  .apr-card-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}
+  .apr-card-actions button{width:100%;margin:0;padding:8px;min-height:38px;font-size:12px}
   .apr-card-actions .accept{background:#15803d}.apr-card-actions .reject{background:#b91c1c}.apr-card-actions .pending{background:#6b7280}
   .apr-status{display:inline-flex;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:800;text-transform:uppercase}
   .apr-status.proposed{background:{{ '#2b3340' if dark else '#e2e8f0' }};color:{{ '#dbeafe' if dark else '#334155' }}}
   .apr-status.accepted{background:{{ '#153c28' if dark else '#dcfce7' }};color:{{ '#bbf7d0' if dark else '#166534' }}}
   .apr-status.rejected{background:{{ '#431b1b' if dark else '#fee2e2' }};color:{{ '#fecaca' if dark else '#991b1b' }}}
   .apr-status.applied{background:{{ '#17375e' if dark else '#dbeafe' }};color:{{ '#bfdbfe' if dark else '#1d4ed8' }}}
-  .apr-selection{display:inline-flex;align-items:center;gap:6px;margin:0;padding:6px 9px;border:1px solid {{ '#3f3f46' if dark else '#cbd5e1' }};border-radius:6px;font-size:13px;font-weight:700}
+  .apr-selection{display:inline-flex;align-items:center;gap:6px;margin:0;padding:6px 8px;border:1px solid {{ '#3f3f46' if dark else '#cbd5e1' }};border-radius:6px;font-size:12px;font-weight:700}
   .apr-selection input,.apr-lock-choice input{width:18px;height:18px;margin:0}
-  .apr-lock-choice{display:inline-flex;align-items:center;gap:6px;margin:0;font-size:13px;font-weight:700}
-  .apr-workflow{margin-top:22px;padding:16px;border:1px solid {{ '#303036' if dark else '#dbe2ea' }};background:{{ '#18181b' if dark else '#fff' }};border-radius:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .apr-lock-choice{grid-column:1/-1;display:inline-flex;align-items:center;gap:6px;margin:0;font-size:12px;font-weight:700}
+  .apr-workflow{position:sticky;bottom:10px;z-index:30;margin-top:22px;padding:14px;border:1px solid {{ '#3f3f46' if dark else '#cbd5e1' }};background:{{ '#18181b' if dark else '#fff' }};box-shadow:0 8px 24px rgba(0,0,0,.16);border-radius:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .apr-workflow-copy{flex:1 1 280px}.apr-workflow-copy strong,.apr-workflow-copy span{display:block}.apr-workflow-copy span{margin-top:3px;font-size:12px;color:{{ '#a1a1aa' if dark else '#64748b' }}}
   .apr-workflow form{display:inline-flex;margin:0;gap:8px}.apr-workflow button{width:auto;margin:0}
   .apr-cancel-draft{background:#991b1b!important}
   .apr-closed{margin:14px 0;padding:14px;border-left:4px solid #b45309;background:{{ '#3b2f0e' if dark else '#fffbeb' }};color:{{ '#fde68a' if dark else '#78350f' }};border-radius:4px;font-weight:700}
+  .apr-return-week{display:inline-flex;margin:10px 0 0;padding:9px 12px;border-radius:6px;background:#1f5d96;color:#fff!important;text-decoration:none}
   .apr-existing-actions form{display:inline;margin:0}.apr-existing-actions button{width:auto;margin:0;padding:6px 9px}
-  @media(max-width:760px){.apr-proposal{grid-template-columns:1fr 1fr}.apr-existing{display:block;overflow-x:auto}.apr-actions{width:100%}.apr-actions a{flex:1;text-align:center}}
-  @media(max-width:480px){.apr-proposal{grid-template-columns:1fr}.apr-summary{grid-column:1}.apr-field input{font-size:16px}}
+  @media(max-width:1050px){.apr-week-grid{grid-template-columns:repeat(2,minmax(260px,1fr));min-width:0}.apr-overview{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:700px){.apr-head h1{font-size:24px}.apr-actions{width:100%}.apr-actions a{flex:1;text-align:center}.apr-week-grid{grid-template-columns:1fr}.apr-overview{grid-template-columns:1fr 1fr}.apr-workflow{position:static}.apr-workflow form{width:100%}.apr-workflow button{width:100%}.apr-field input{font-size:16px}}
+  @media(max-width:430px){.apr-overview{grid-template-columns:1fr}.apr-card-actions{grid-template-columns:1fr}}
 </style>
 <main class="apr-shell">
   {% with messages = get_flashed_messages(with_categories=true) %}
@@ -20390,37 +20526,52 @@ AUTO_PLAN_REVIEW_TEMPLATE = """
         <span>#{{ batch.id }}</span>
       </div>
     </div>
-    <nav class="apr-actions" aria-label="Planning draft">
+    <nav class="apr-actions" aria-label="{{ tr.get('auto_plan_review','Review draft') }}">
       <a href="{{ url_for('auto_plan_generate') }}">{{ tr.get('auto_plan_generate','Generate') }}</a>
-      <a href="/week?start={{ batch.target_week_start }}">{{ tr.get('week_calendar','Week') }}</a>
+      <a href="/week?start={{ batch.target_week_start }}">{{ tr.get('auto_plan_return_week','Open this week') }}</a>
     </nav>
   </header>
 
   <div class="apr-readonly" role="note">
-    <strong>{{ tr.get('auto_plan_draft_read_only','Draft only.') }}</strong><br>
+    <strong>{{ tr.get('auto_plan_draft_not_confirmed','Unconfirmed draft.') }}</strong><br>
     {{ tr.get('auto_plan_existing_preserved','Existing jobs are preserved.') }}
   </div>
+  <div class="apr-overview" aria-label="{{ tr.get('auto_plan_review','Review draft') }}">
+    <div class="apr-overview-item"><b>{{ proposal_count }}</b><span>{{ tr.get('auto_plan_proposals','Proposed jobs') }}</span></div>
+    <div class="apr-overview-item"><b>{{ accepted_count }}</b><span>{{ tr.get('auto_plan_status_accepted','Accepted') }}</span></div>
+    <div class="apr-overview-item"><b>{{ manual_count }}</b><span>{{ tr.get('auto_plan_manual_review','Manual review') }}</span></div>
+    <div class="apr-overview-item" data-blocking-count="{{ blocking_count }}"><b>{{ blocking_count }}</b><span>{{ tr.get('auto_plan_blocking_conflict','Blocking conflict') }}</span></div>
+  </div>
+  <div class="apr-legend" aria-label="{{ tr.get('auto_plan_conflicts','Warnings and conflicts') }}">
+    <span class="apr-chip valid">{{ tr.get('auto_plan_valid_proposal','Valid proposal') }}</span>
+    <span class="apr-chip manual">{{ tr.get('auto_plan_manual_review','Manual review required') }}</span>
+    <span class="apr-chip blocking">{{ tr.get('auto_plan_blocking_conflict','Blocking conflict') }}</span>
+    <span class="apr-lock">{{ tr.get('auto_plan_locked','Locked') }}</span>
+  </div>
   {% if batch_state == 'cancelled' %}<div class="apr-closed" role="status">{{ tr.get('auto_plan_draft_cancelled','This draft is cancelled and can no longer be applied.') }}</div>{% endif %}
-  {% if batch_state == 'applied' %}<div class="apr-closed" role="status">{{ tr.get('auto_plan_draft_applied','This draft has already been applied.') }}</div>{% endif %}
+  {% if batch_state == 'applied' %}<div class="apr-closed" role="status">{{ tr.get('auto_plan_draft_applied','This draft has already been applied.') }}<br><a class="apr-return-week" data-return-to-week href="/week?start={{ batch.target_week_start }}">{{ tr.get('auto_plan_return_week','Open this week in the schedule') }}</a></div>{% endif %}
 
   <section class="apr-section" aria-labelledby="apr-existing-heading">
     <h2 id="apr-existing-heading">{{ tr.get('auto_plan_existing','Existing jobs') }}</h2>
     {% if existing_shifts %}
+    <div class="apr-existing-scroll">
     <table class="apr-existing">
       <thead><tr><th>{{ tr.get('date','Date') }}</th><th>{{ tr.get('client','Client') }}</th><th>{{ tr.get('workers','Workers') }}</th><th>{{ tr.get('time','Time') }}</th><th>{{ tr.get('status','Status') }}</th><th>{{ tr.get('actions','Actions') }}</th></tr></thead>
-      <tbody>{% for s in existing_shifts %}<tr data-existing-shift-id="{{ s.id }}"><td>{{ format_date(s.date) }}</td><td>{{ s.client }}</td><td>{{ s.worker }}</td><td>{{ s.time }}</td><td>{{ s.status }} {% if s.is_locked %}<span class="apr-lock">{{ tr.get('auto_plan_locked','Locked') }}</span>{% endif %}</td><td class="apr-existing-actions">{% if batch_state == 'open' %}<form method="post" action="{{ url_for('auto_plan_unlock_shift', batch_id=batch.id, shift_id=s.id) if s.is_locked else url_for('auto_plan_lock_shift', batch_id=batch.id, shift_id=s.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit">{{ tr.get('auto_plan_unlock','Unlock') if s.is_locked else tr.get('auto_plan_lock','Lock') }}</button></form>{% else %}—{% endif %}</td></tr>{% endfor %}</tbody>
+      <tbody>{% for s in existing_shifts %}<tr data-existing-shift-id="{{ s.id }}" data-locked="{{ 1 if s.is_locked else 0 }}"><td>{{ format_date(s.date) }}</td><td>{{ s.client }}</td><td>{{ s.worker }}</td><td>{{ s.time }}</td><td>{{ tr.get('status_' ~ s.status, s.status) }} {% if s.is_locked %}<span class="apr-lock" title="{{ tr.get('auto_plan_locked_help','Unlock here before changing it.') }}">{{ tr.get('auto_plan_locked','Locked') }}</span>{% endif %}</td><td class="apr-existing-actions">{% if batch_state == 'open' %}<form method="post" action="{{ url_for('auto_plan_unlock_shift', batch_id=batch.id, shift_id=s.id) if s.is_locked else url_for('auto_plan_lock_shift', batch_id=batch.id, shift_id=s.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit">{{ tr.get('auto_plan_unlock','Unlock') if s.is_locked else tr.get('auto_plan_lock','Lock') }}</button></form>{% else %}—{% endif %}</td></tr>{% endfor %}</tbody>
     </table>
+    </div>
     {% else %}<div class="apr-empty">{{ tr.get('auto_plan_no_existing','No existing jobs.') }}</div>{% endif %}
   </section>
 
   <section class="apr-section" aria-labelledby="apr-proposals-heading">
     <h2 id="apr-proposals-heading">{{ tr.get('auto_plan_proposals','Proposed jobs') }} <span class="apr-day-count">{{ proposal_count }}</span></h2>
     {% if proposal_count == 0 %}<div class="apr-empty">{{ tr.get('auto_plan_no_proposals','No proposals found.') }}</div>{% endif %}
-    {% for day in days %}{% if day.proposals %}
+    <div class="apr-week-scroll"><div class="apr-week-grid">
+    {% for day in days %}
       <section class="apr-day" data-target-date="{{ day.date }}">
         <h3 class="apr-day-title"><span>{{ day.name }} · {{ format_date(day.date) }}</span><span class="apr-day-count">{{ day.proposals|length }}</span></h3>
-        {% for p in day.proposals %}
-        <article class="apr-proposal" data-proposal-id="{{ p.id }}" data-blocked="{{ 1 if p.has_blocking_issues else 0 }}" data-status="{{ p.status }}">
+        {% if day.proposals %}{% for p in day.proposals %}
+        <article class="apr-proposal" data-proposal-id="{{ p.id }}" data-blocked="{{ 1 if p.has_blocking_issues else 0 }}" data-manual="{{ 1 if p.requires_manual_validation else 0 }}" data-status="{{ p.status }}">
           <form class="apr-proposal-form" method="post" action="{{ url_for('auto_plan_update_proposal', batch_id=batch.id, proposal_id=p.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <div class="apr-field"><label for="ap-client-{{ p.id }}">{{ tr.get('client','Client') }}</label><select id="ap-client-{{ p.id }}" data-field="client" name="client" {% if batch_state != 'open' %}disabled{% endif %}>{% for client_name in clients %}<option value="{{ client_name }}" {% if client_name == p.client %}selected{% endif %}>{{ client_name }}</option>{% endfor %}</select></div>
@@ -20429,6 +20580,7 @@ AUTO_PLAN_REVIEW_TEMPLATE = """
             <div class="apr-field"><label>{{ tr.get('time','Time') }}</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><input aria-label="{{ tr.get('start_time','Start') }}" data-field="start_time" name="start_time" type="time" step="60" value="{{ p.start_time }}" {% if batch_state != 'open' %}disabled{% endif %} required><input aria-label="{{ tr.get('end_time','End') }}" data-field="end_time" name="end_time" type="time" step="60" value="{{ p.end_time }}" {% if batch_state != 'open' %}disabled{% endif %} required></div></div>
             <div class="apr-summary">
               <span class="apr-status {{ p.status }}">{{ tr.get('auto_plan_status_' ~ p.status, p.status) }}</span>
+              {% if not p.requires_manual_validation %}<span class="apr-chip valid">{{ tr.get('auto_plan_valid_proposal','Valid proposal') }}</span>{% endif %}
               <span class="apr-chip">{{ recurrence_label(p, tr) }}</span>
               <span class="apr-chip">{{ tr.get('auto_plan_duration','Duration') }} {{ p.duration_text }}</span>
               <span class="apr-chip">{{ tr.get('auto_plan_confidence','Confidence') }} {{ p.confidence_percent }}%</span>
@@ -20451,25 +20603,80 @@ AUTO_PLAN_REVIEW_TEMPLATE = """
             {% endif %}
           </form>
         </article>
-        {% endfor %}
+        {% endfor %}{% else %}<div class="apr-day-empty">{{ tr.get('auto_plan_no_day_proposals','No proposals for this day.') }}</div>{% endif %}
       </section>
-    {% endif %}{% endfor %}
+    {% endfor %}
+    </div></div>
   </section>
   {% if batch_state == 'open' %}
   <div class="apr-workflow" aria-label="{{ tr.get('actions','Actions') }}">
+    <div class="apr-workflow-copy">
+      <strong id="ap-selection-count">{{ tr.get('auto_plan_selection_count','Selected for application: {count}').format(count=0) }}</strong>
+      <span>{{ tr.get('auto_plan_blocking_count','Blocking conflicts in this draft: {count}').format(count=blocking_count) }}</span>
+      <span>{{ tr.get('auto_plan_apply_selection_only','Only accepted and checked proposals will be added.') }}</span>
+    </div>
     <form id="ap-bulk-form" method="post" action="{{ url_for('auto_plan_bulk_accept', batch_id=batch.id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button type="submit">{{ tr.get('auto_plan_accept_selected','Accept selected') }}</button>
     </form>
-    <form id="ap-apply-form" method="post" action="{{ url_for('auto_plan_apply', batch_id=batch.id) }}" onsubmit='return confirm({{ tr.get("auto_plan_apply_confirm","Apply selected proposals?")|tojson }});'>
+    <form id="ap-apply-form" method="post" action="{{ url_for('auto_plan_apply', batch_id=batch.id) }}" data-confirm-template="{{ tr.get('auto_plan_apply_count_confirm','Apply {count} selected job(s)? Blocking conflicts: {blocked}.')|e }}" data-confirm-detail="{{ tr.get('auto_plan_apply_selection_only','Only accepted and checked proposals will be added.')|e }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <button type="submit">{{ tr.get('auto_plan_apply_selection','Apply selection to schedule') }}</button>
+      <button id="ap-apply-button" type="submit">{{ tr.get('auto_plan_apply_selection','Apply selection to schedule') }}</button>
     </form>
     <form id="ap-cancel-form" method="post" action="{{ url_for('auto_plan_cancel', batch_id=batch.id) }}" onsubmit='return confirm({{ tr.get("auto_plan_cancel_confirm","Cancel this draft?")|tojson }});'>
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button class="apr-cancel-draft" type="submit">{{ tr.get('auto_plan_cancel_draft','Cancel draft') }}</button>
     </form>
   </div>
+  <script>
+  (function () {
+    var applyForm = document.getElementById('ap-apply-form');
+    if (!applyForm) return;
+    var applyButton = document.getElementById('ap-apply-button');
+    var countLabel = document.getElementById('ap-selection-count');
+    var countTemplate = {{ tr.get('auto_plan_selection_count','Selected for application: {count}')|tojson }};
+    var noSelection = {{ tr.get('auto_plan_no_selection','Select at least one proposal.')|tojson }};
+    var applyingLabel = {{ tr.get('auto_plan_applying','Applying...')|tojson }};
+    function selectedBoxes() {
+      return Array.prototype.slice.call(document.querySelectorAll('input[form="ap-apply-form"][name="proposal_ids"]:checked'));
+    }
+    function updateCount() {
+      if (countLabel) countLabel.textContent = countTemplate.replace('{count}', selectedBoxes().length);
+    }
+    document.querySelectorAll('input[form="ap-apply-form"][name="proposal_ids"]').forEach(function (box) {
+      box.addEventListener('change', updateCount);
+    });
+    applyForm.addEventListener('submit', function (event) {
+      if (applyForm.dataset.submitting === '1') {
+        event.preventDefault();
+        return;
+      }
+      var selected = selectedBoxes();
+      if (!selected.length) {
+        event.preventDefault();
+        window.alert(noSelection);
+        return;
+      }
+      var blocked = selected.filter(function (box) {
+        var proposal = box.closest('.apr-proposal');
+        return proposal && proposal.dataset.blocked === '1';
+      }).length;
+      var question = applyForm.dataset.confirmTemplate
+        .replace('{count}', selected.length)
+        .replace('{blocked}', blocked) + String.fromCharCode(10, 10) + applyForm.dataset.confirmDetail;
+      if (!window.confirm(question)) {
+        event.preventDefault();
+        return;
+      }
+      applyForm.dataset.submitting = '1';
+      if (applyButton) {
+        applyButton.disabled = true;
+        applyButton.textContent = applyingLabel;
+      }
+    });
+    updateCount();
+  })();
+  </script>
   {% endif %}
 </main>
 """
@@ -20651,6 +20858,17 @@ def auto_plan_review():
             "proposals": day_proposals,
         })
 
+    accepted_count = sum(
+        1 for proposal in proposals if proposal["status"] == "accepted"
+    )
+    manual_count = sum(
+        1 for proposal in proposals
+        if proposal.get("requires_manual_validation")
+    )
+    blocking_count = sum(
+        1 for proposal in proposals if proposal.get("has_blocking_issues")
+    )
+
     return render_template_string(
         BASE_STYLE + header_html() + AUTO_PLAN_REVIEW_TEMPLATE,
         tr=tr, dark=dark, batch=batch, week_end=week_end, days=days,
@@ -20658,6 +20876,8 @@ def auto_plan_review():
         existing_shifts=existing_shifts, format_date=format_date,
         recurrence_label=ap_recurrence_label, issue_label=ap_issue_label,
         workers=workers, clients=clients,
+        accepted_count=accepted_count, manual_count=manual_count,
+        blocking_count=blocking_count,
         batch_state=ap_batch_state(batch), csrf_token=ap_csrf_token(),
     )
 

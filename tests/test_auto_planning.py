@@ -1383,6 +1383,175 @@ class Phase5DraftWorkflowTests(unittest.TestCase):
         self.assertEqual(after, before)
         self.assertEqual(len(self.target_shifts()), 1)
 
+    def test_phase6_week_generation_entry_is_admin_only(self):
+        response = self.client.get(f"/week?start={self.TARGET_WEEK}")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'data-auto-plan-entry="week"', response.data)
+        self.assertIn(b'href="/plan/generate"', response.data)
+
+        worker = app.app.test_client()
+        self.login(worker, username="Aida", role="worker")
+        response = worker.get(f"/week?start={self.TARGET_WEEK}")
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(b'data-auto-plan-entry="week"', response.data)
+
+    def test_phase6_dashboard_and_month_offer_coherent_admin_access(self):
+        dashboard = self.client.get("/")
+        month = self.client.get("/month?year=2026&month=11")
+        self.assertEqual(dashboard.status_code, 200)
+        self.assertEqual(month.status_code, 200)
+        self.assertIn(b'data-auto-plan-entry="dashboard"', dashboard.data)
+        self.assertIn(b'data-auto-plan-entry="month"', month.data)
+        self.assertIn(b'Smart automatic planning', dashboard.data)
+
+        worker = app.app.test_client()
+        self.login(worker, username="Aida", role="worker")
+        self.assertNotIn(
+            b'data-auto-plan-entry="dashboard"', worker.get("/").data,
+        )
+        self.assertEqual(worker.get("/month").status_code, 302)
+
+    def test_phase6_generate_form_has_all_controls_and_csrf(self):
+        response = self.client.get("/plan/generate")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'name="target_week_start"', response.data)
+        for weeks in (2, 4, 8):
+            self.assertIn(
+                f'name="lookback_weeks" value="{weeks}"'.encode(),
+                response.data,
+            )
+        self.assertIn(b'value="8" checked', response.data)
+        self.assertIn(b'name="include_exceptional"', response.data)
+        self.assertIn(b'name="csrf_token"', response.data)
+        self.assertIn(b'Nothing is added until you approve it', response.data)
+
+    def test_phase6_review_is_seven_day_grid_with_clear_states(self):
+        self.seed_history()
+        batch_id = self.generate()
+        response = self.client.get(f"/plan/review?batch={batch_id}")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'class="apr-week-grid"', response.data)
+        self.assertEqual(response.data.count(b'class="apr-day"'), 7)
+        self.assertIn(b'data-status="proposed"', response.data)
+        self.assertIn(b'data-manual="0"', response.data)
+        self.assertIn(b'Valid proposal', response.data)
+        self.assertIn(b'Unconfirmed draft', response.data)
+
+    def test_phase6_review_exposes_warnings_and_blocking_conflicts(self):
+        self.seed_history()
+        conn = app.get_conn()
+        conn.execute(
+            "INSERT INTO absences (worker, type, date_from, date_to, note) "
+            "VALUES ('Aida', 'vacation', ?, ?, '')",
+            (self.TARGET_WEEK, self.TARGET_WEEK),
+        )
+        conn.commit(); conn.close()
+        batch_id = self.generate()
+        response = self.client.get(f"/plan/review?batch={batch_id}")
+        self.assertIn(b'data-blocked="1"', response.data)
+        self.assertIn(b'data-manual="1"', response.data)
+        self.assertIn(b'data-issue-code="absence"', response.data)
+        self.assertIn(b'data-blocking-count="1"', response.data)
+        self.assertIn(b'Blocking conflict', response.data)
+
+    def test_phase6_individual_editor_and_status_actions_are_wired(self):
+        self.seed_history()
+        batch_id = self.generate()
+        proposal_id = self.proposals(batch_id)[0][0]
+        response = self.client.get(f"/plan/review?batch={batch_id}")
+        expected_action = (
+            f'/plan/review/{batch_id}/proposal/{proposal_id}/update'
+        ).encode()
+        self.assertIn(b'action="' + expected_action + b'"', response.data)
+        for field in (
+            b'name="workers"', b'name="client"', b'name="target_date"',
+            b'name="start_time"', b'name="end_time"',
+        ):
+            self.assertIn(field, response.data)
+        for action in (b'save', b'accept', b'reject', b'pending'):
+            self.assertIn(b'name="action" value="' + action + b'"', response.data)
+
+        self.update(batch_id, proposal_id, client="Client B")
+        self.assertEqual(self.proposals(batch_id)[0][3], "Client B")
+        self.update(batch_id, proposal_id, action="accept")
+        self.assertEqual(self.proposals(batch_id)[0][5], "accepted")
+        self.update(batch_id, proposal_id, action="reject")
+        self.assertEqual(self.proposals(batch_id)[0][5], "rejected")
+
+    def test_phase6_multi_selection_confirmation_and_double_submit_guard(self):
+        self.seed_history()
+        self.seed_history("Bea", "Client B", "11:00-13:00")
+        batch_id = self.generate()
+        proposal_ids = [row[0] for row in self.proposals(batch_id)]
+        for proposal_id in proposal_ids:
+            self.accept(batch_id, proposal_id)
+        response = self.client.get(f"/plan/review?batch={batch_id}")
+        self.assertGreaterEqual(
+            response.data.count(b'form="ap-apply-form"'), 2,
+        )
+        self.assertIn(b'id="ap-bulk-form"', response.data)
+        self.assertIn(b'id="ap-apply-form"', response.data)
+        self.assertIn(b'data-confirm-template=', response.data)
+        self.assertIn(b'String.fromCharCode(10, 10)', response.data)
+        self.assertIn(b"applyForm.dataset.submitting === '1'", response.data)
+        self.assertIn(b'applyButton.disabled = true', response.data)
+        self.assertIn(b'Only accepted and checked proposals', response.data)
+
+    def test_phase6_locked_shift_is_visible_and_not_draggable_in_week(self):
+        self.seed_history()
+        batch_id = self.generate()
+        shift_id = self.insert_target_shift(
+            worker="Bea", client="Client B", hours="12:00-13:00",
+        )
+        conn = app.get_conn()
+        conn.execute(
+            "INSERT INTO shift_locks (shift_id, locked_at, locked_by) "
+            "VALUES (?, '2026-11-01 12:00:00', 'admin')", (shift_id,),
+        )
+        conn.commit(); conn.close()
+
+        review = self.client.get(f"/plan/review?batch={batch_id}")
+        week = self.client.get(f"/week?start={self.TARGET_WEEK}")
+        self.assertIn(
+            f'data-existing-shift-id="{shift_id}" data-locked="1"'.encode(),
+            review.data,
+        )
+        self.assertIn(
+            f'data-shift-id="{shift_id}" data-locked="1" draggable="false"'.encode(),
+            week.data,
+        )
+        self.assertIn(b'Locked', week.data)
+
+    def test_phase6_applied_review_returns_to_populated_week_calendar(self):
+        self.seed_history()
+        batch_id = self.generate()
+        proposal_id = self.proposals(batch_id)[0][0]
+        self.accept(batch_id, proposal_id)
+        response = self.apply(batch_id, [proposal_id])
+        self.assertEqual(response.status_code, 302)
+
+        review = self.client.get(response.headers["Location"])
+        expected_week = f'/week?start={self.TARGET_WEEK}'.encode()
+        self.assertIn(b'data-return-to-week', review.data)
+        self.assertIn(b'href="' + expected_week + b'"', review.data)
+        self.assertIn(b'Client A', review.data)
+
+        week = self.client.get(expected_week.decode())
+        self.assertEqual(week.status_code, 200)
+        self.assertIn(b'Client A', week.data)
+        self.assertIn(b'08:00-10:00', week.data)
+
+    def test_phase6_copy_exists_in_all_five_languages(self):
+        required = {
+            "auto_plan_generation_help", "auto_plan_draft_not_confirmed",
+            "auto_plan_valid_proposal", "auto_plan_blocking_conflict",
+            "auto_plan_apply_count_confirm", "auto_plan_return_week",
+        }
+        for language in ("bos", "fr", "en", "de", "pt"):
+            self.assertTrue(required.issubset(app.TRANSLATIONS[language]))
+            self.assertTrue(all(app.TRANSLATIONS[language][key]
+                                for key in required))
+
 
 if __name__ == "__main__":
     unittest.main()

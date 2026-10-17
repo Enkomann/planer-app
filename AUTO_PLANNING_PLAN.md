@@ -1,8 +1,8 @@
 # Plan — Génération automatique du planning hebdomadaire
 
-Statut : **phases 1 à 4 validées ; phase 5 implémentée localement et en attente
-de validation**. Rien n'a été migré manuellement en production, poussé ou
-déployé.
+Statut : **phases 1 à 5 validées ; phase 6 implémentée et vérifiée localement,
+en attente de validation**. Rien n'a été migré manuellement en production,
+poussé ou déployé. La phase 7 n'a pas commencé.
 
 Décisions prises par le propriétaire — voir section 0.
 
@@ -347,9 +347,10 @@ Fin du plan initial. Voir l'état d'implémentation ci-dessous.
 
 ## 7. État d'implémentation local
 
-Les phases 1 à 4 ont été validées et committées sur la branche
-`feature/auto-planning`. La phase 5 est maintenant implémentée localement et
-doit encore être validée par le propriétaire avant le démarrage de la phase 6.
+Les phases 1 à 5 ont été validées et committées sur la branche
+`feature/auto-planning`. La phase 6 est maintenant implémentée et vérifiée
+localement ; elle doit encore être validée par le propriétaire avant le
+démarrage de la phase 7.
 
 ### Phase 5 — modification, validation et application
 
@@ -377,3 +378,29 @@ doit encore être validée par le propriétaire avant le démarrage de la phase 
 
 Tests locaux : la suite utilise une base SQLite temporaire et couvre les
 20 scénarios obligatoires de la phase 5, en plus des tests des phases 2 à 4.
+
+### Phase 6 — intégration visuelle et ergonomique
+
+- Les administrateurs accèdent à la génération depuis le tableau de bord,
+  `/week` et `/month`. Le formulaire `/plan/generate` expose la semaine cible,
+  les historiques 2 / 4 / 8 semaines et l'option des interventions
+  exceptionnelles, avec protection CSRF inchangée.
+- `/plan/review` présente le brouillon par jour avec les interventions
+  existantes, les verrous, les statuts, la confiance, la récurrence, la durée,
+  les avertissements et les conflits bloquants. Le brouillon est explicitement
+  signalé comme non confirmé.
+- Les formulaires de la phase 5 sont intégrés sans dupliquer leur logique :
+  modification individuelle, acceptation, refus, remise en attente, sélection
+  multiple, application et annulation du brouillon.
+- L'application affiche le nombre sélectionné et les conflits bloquants dans
+  une confirmation, puis désactive le bouton afin d'éviter un double clic.
+  Seules les propositions acceptées et cochées passent par la transaction de
+  la phase 5.
+- Les interventions verrouillées sont visibles dans la revue et dans `/week`.
+  Elles ne sont pas déplaçables et leurs actions de modification sont masquées,
+  en complément des contrôles serveur déjà validés.
+- L'interface utilise les cinq langues existantes et s'adapte en quatre
+  colonnes sur grand écran, deux sur tablette et une sur téléphone.
+- Vérification locale : 69 tests automatisés sur SQLite isolé, compilation
+  Python et parcours visuel avec Chromium. Aucun accès PostgreSQL de
+  production, aucune migration, aucun push et aucun déploiement.
