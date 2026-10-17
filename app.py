@@ -6750,7 +6750,40 @@ def init_db():
             "Change the password via /change_password immediately.",
             bootstrap_username, bootstrap_source,
         )
-    c.execute("INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)", ("worker1", hash_password("1234"), "worker"))
+    # Demo 'worker1' LOGIN account: historically seeded with the
+    # predictable password "1234" so local dev could sign in as a
+    # worker immediately. INSERT OR IGNORE made it a no-op on any
+    # install that already carries a worker1 user (prod, previously
+    # seeded staging, previously seeded dev). Keeping that no-op
+    # behaviour; but on a fresh staging boot we MUST NOT create a
+    # new login credential with a predictable password — otherwise
+    # exposing the public staging URL would hand the planner's
+    # worker view to anyone trying the historical 1234. In staging
+    # the demo login is simply skipped. If the operator needs a
+    # worker login for the recipe, they create it via /add_user
+    # after signing in with the bootstrap admin.
+    has_worker1_user = c.execute(
+        "SELECT 1 FROM users WHERE username='worker1' LIMIT 1"
+    ).fetchone()
+    if not has_worker1_user:
+        if _staging_app_env():
+            app.logger.info(
+                "APP_ENV=staging: skipping the demo 'worker1' login seed. "
+                "Create any worker login manually via /add_user after sign-in."
+            )
+        else:
+            app.logger.warning(
+                "Seeding the demo 'worker1' login with the development "
+                "default password. This path is intended for local dev only."
+            )
+            c.execute(
+                "INSERT OR IGNORE INTO users (username, password, role) "
+                "VALUES (?, ?, ?)",
+                ("worker1", hash_password("1234"), "worker"),
+            )
+    # Planning-side workers rows carry no login credential. They stay
+    # seeded on every environment so a fresh DB keeps rendering the
+    # legacy sample data cleanly.
     c.execute("INSERT OR IGNORE INTO workers (name, address) VALUES (?, ?)", ("admin", ""))
     c.execute("INSERT OR IGNORE INTO workers (name, address) VALUES (?, ?)", ("worker1", ""))
     c.execute("INSERT OR IGNORE INTO invoice_settings (id, invoice_text, payment_terms, bank_account, company_name, company_address, company_phone, company_email, company_vat, invoice_template, invoice_start_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (1, "", "Paiement \u00e0 15 jours d\u00e8s r\u00e9ception de la facture.\nPost Luxembourg BIC (CCPLLULL) LU60 1111 7815 3607 0000\nLors du virement, veuillez indiquer r\u00e9f\u00e9rence suivante: ***Facture n\u00b0***", "", "Luxmann Services", "32, rue Aneschbach\nWiltz L-9511", "+352691642003", "lux@mann.lu", "TVA: LU33673043", "orange", 1))

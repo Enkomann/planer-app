@@ -279,5 +279,140 @@ class BootstrapInitDbTests(unittest.TestCase):
         self.assertNotIn("admin123", combined)
 
 
+class Worker1BootstrapTests(unittest.TestCase):
+    """Guard the second predictable login that history left behind.
+
+    Historically init_db() also seeded a 'worker1' / '1234' pair so a
+    local developer could sign in as a worker immediately. On a public
+    staging URL that pair would be an obvious attack surface — these
+    tests confirm the staging gate skips the demo login entirely while
+    local dev continues to work as before, and existing installs keep
+    whatever worker1 row they already carry.
+    """
+
+    def _fresh_sqlite_path(self):
+        fd, path = tempfile.mkstemp(
+            prefix="worker1-", suffix=".sqlite", dir=TEST_STORAGE,
+        )
+        os.close(fd)
+        os.unlink(path)
+        return path
+
+    def _run_init_db_on(self, sqlite_path, env=None):
+        env = env or {}
+        preserved = {}
+        for key in (
+            "APP_ENV", "ADMIN_BOOTSTRAP_PASSWORD", "ADMIN_BOOTSTRAP_USERNAME",
+        ):
+            preserved[key] = os.environ.get(key)
+        try:
+            for key in (
+                "APP_ENV", "ADMIN_BOOTSTRAP_PASSWORD",
+                "ADMIN_BOOTSTRAP_USERNAME",
+            ):
+                os.environ.pop(key, None)
+            for key, value in env.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+            with mock.patch.object(app, "SQLITE_PATH", sqlite_path):
+                app.init_db()
+        finally:
+            for key, previous in preserved.items():
+                if previous is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = previous
+
+    def _fetch_user(self, sqlite_path, username):
+        with sqlite3.connect(sqlite_path) as conn:
+            return conn.execute(
+                "SELECT username, password, role FROM users "
+                "WHERE username = ?", (username,),
+            ).fetchone()
+
+    def _fetch_worker_row(self, sqlite_path, name):
+        with sqlite3.connect(sqlite_path) as conn:
+            return conn.execute(
+                "SELECT name FROM workers WHERE name = ?", (name,),
+            ).fetchone()
+
+    def test_staging_fresh_install_never_creates_worker1_login(self):
+        path = self._fresh_sqlite_path()
+        self._run_init_db_on(path, env={
+            "APP_ENV": "staging",
+            "ADMIN_BOOTSTRAP_PASSWORD": "env-strong-secret-worker1-skip",
+        })
+        self.assertIsNone(self._fetch_user(path, "worker1"))
+        # Planning-side workers row is still seeded so the sample data
+        # (worker colors, legacy references) remains coherent — it has
+        # NO login credential attached.
+        self.assertEqual(
+            self._fetch_worker_row(path, "worker1"), ("worker1",),
+        )
+
+    def test_staging_boot_leaves_an_existing_worker1_row_untouched(self):
+        """Simulates a prod/staging install already carrying worker1."""
+        path = self._fresh_sqlite_path()
+        with sqlite3.connect(path) as conn:
+            conn.executescript("""
+                CREATE TABLE users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT UNIQUE, password TEXT, role TEXT
+                );
+                CREATE TABLE workers (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT UNIQUE, address TEXT DEFAULT ''
+                );
+            """)
+            production_hash = app.hash_password("legit-worker-password-123")
+            conn.execute(
+                "INSERT INTO users (username, password, role) "
+                "VALUES ('admin', ?, 'admin')",
+                (app.hash_password("legit-admin-password-456"),),
+            )
+            conn.execute(
+                "INSERT INTO users (username, password, role) "
+                "VALUES ('worker1', ?, 'worker')",
+                (production_hash,),
+            )
+        self._run_init_db_on(path, env={"APP_ENV": "staging"})
+        row = self._fetch_user(path, "worker1")
+        self.assertIsNotNone(row)
+        _, password_field, role = row
+        self.assertEqual(role, "worker")
+        self.assertEqual(password_field, production_hash)
+        # The historical demo password must never reactivate the row.
+        self.assertFalse(app.verify_password(password_field, "1234"))
+
+    def test_dev_fresh_install_still_seeds_the_demo_worker1(self):
+        """Local dev convenience preserved: worker1 still logs in with 1234."""
+        path = self._fresh_sqlite_path()
+        with self.assertLogs(app.app.logger, level="WARNING") as captured:
+            self._run_init_db_on(path)
+        row = self._fetch_user(path, "worker1")
+        self.assertIsNotNone(row)
+        _, password_field, role = row
+        self.assertEqual(role, "worker")
+        self.assertTrue(app.verify_password(password_field, "1234"))
+        # Warning is informative, must not quote the plaintext password.
+        warning_text = "\n".join(captured.output)
+        self.assertNotIn("1234", warning_text)
+
+    def test_staging_info_log_mentions_the_skip_without_the_password(self):
+        path = self._fresh_sqlite_path()
+        with self.assertLogs(app.app.logger, level="INFO") as captured:
+            self._run_init_db_on(path, env={
+                "APP_ENV": "staging",
+                "ADMIN_BOOTSTRAP_PASSWORD": "staging-pwd-for-skip-log",
+            })
+        combined = "\n".join(captured.output)
+        self.assertIn("worker1", combined)
+        self.assertIn("skipping", combined)
+        self.assertNotIn("1234", combined)
+        self.assertNotIn("staging-pwd-for-skip-log", combined)
+
+
 if __name__ == "__main__":
     unittest.main()
