@@ -128,6 +128,13 @@ def _schema_sql():
             status TEXT DEFAULT 'planned'
         )
         """,
+        """
+        CREATE TABLE shift_locks (
+            shift_id INTEGER PRIMARY KEY,
+            locked_at TEXT DEFAULT '',
+            locked_by TEXT DEFAULT ''
+        )
+        """,
     ]
 
 
@@ -198,15 +205,87 @@ class EnvGuardTests(unittest.TestCase):
             seed_mod.assert_staging_environment(env)
         self.assertIn("host", str(cm.exception).lower())
 
-    def test_production_marker_in_url_is_refused(self):
-        hostile = (
-            f"postgresql://u:p@{seed_mod.EXPECTED_HOST_PREFIX}-planer-app.r.com"
-            f"/{seed_mod.EXPECTED_DATABASE_NAME}"
+    def test_lookalike_host_on_attacker_domain_is_refused(self):
+        """P1: dpg-...a.evil.example must be rejected despite the prefix."""
+        env = _good_env(
+            DATABASE_URL=(
+                f"postgresql://u:p@{seed_mod.EXPECTED_HOST_PREFIX}.evil.example"
+                f"/{seed_mod.EXPECTED_DATABASE_NAME}"
+            )
         )
-        env = _good_env(DATABASE_URL=hostile)
-        with self.assertRaises(seed_mod.StagingEnvRefused) as cm:
+        with self.assertRaises(seed_mod.StagingEnvRefused):
             seed_mod.assert_staging_environment(env)
-        self.assertIn("production", str(cm.exception).lower())
+
+    def test_render_com_suffix_without_postgres_label_is_refused(self):
+        """P1: dpg-...a.evil.render.com — ends with .render.com but middle
+        label is not of the <region>-postgres shape, so must be refused."""
+        env = _good_env(
+            DATABASE_URL=(
+                f"postgresql://u:p@{seed_mod.EXPECTED_HOST_PREFIX}.evil.render.com"
+                f"/{seed_mod.EXPECTED_DATABASE_NAME}"
+            )
+        )
+        with self.assertRaises(seed_mod.StagingEnvRefused):
+            seed_mod.assert_staging_environment(env)
+
+    def test_prefix_followed_by_evil_name_before_the_suffix_is_refused(self):
+        """P1: ``dpg-...a-evil.frankfurt-postgres.render.com`` — the host
+        does NOT equal the expected prefix because of the ``-evil`` tail,
+        and the regex requires an exact match on the prefix label."""
+        env = _good_env(
+            DATABASE_URL=(
+                f"postgresql://u:p@{seed_mod.EXPECTED_HOST_PREFIX}-evil"
+                f".frankfurt-postgres.render.com/"
+                f"{seed_mod.EXPECTED_DATABASE_NAME}"
+            )
+        )
+        with self.assertRaises(seed_mod.StagingEnvRefused):
+            seed_mod.assert_staging_environment(env)
+
+    def test_suffix_followed_by_evil_tld_is_refused(self):
+        """P1: ``...render.com.evil.example`` must be refused — the regex
+        is anchored at both ends."""
+        env = _good_env(
+            DATABASE_URL=(
+                f"postgresql://u:p@{seed_mod.EXPECTED_HOST_PREFIX}"
+                f".frankfurt-postgres.render.com.evil.example/"
+                f"{seed_mod.EXPECTED_DATABASE_NAME}"
+            )
+        )
+        with self.assertRaises(seed_mod.StagingEnvRefused):
+            seed_mod.assert_staging_environment(env)
+
+    def test_internal_render_hostname_is_accepted(self):
+        """P1: the plain ``dpg-...a`` short name (Render-internal) is OK."""
+        env = _good_env(
+            DATABASE_URL=(
+                f"postgresql://u:p@{seed_mod.EXPECTED_HOST_PREFIX}"
+                f"/{seed_mod.EXPECTED_DATABASE_NAME}"
+            )
+        )
+        url, host, db = seed_mod.assert_staging_environment(env)
+        self.assertEqual(host, seed_mod.EXPECTED_HOST_PREFIX)
+
+    def test_production_marker_in_url_is_refused(self):
+        # Any production marker like 'planer-app' or 'luxmann_planner_prod'
+        # must be refused even if some earlier guard was green. We embed
+        # the marker in the database name (which the DB-name check does
+        # not reject on its own because of the strict equality guard, so
+        # we point it elsewhere to exercise the marker check).
+        env = _good_env(
+            DATABASE_URL=(
+                f"postgresql://u:p@{seed_mod.EXPECTED_HOST_PREFIX}"
+                f"/{seed_mod.EXPECTED_DATABASE_NAME}"
+            ),
+        )
+        # Monkey-patch the marker list in place so we can verify the
+        # production-marker branch independently of the host regex.
+        with mock.patch.object(
+            seed_mod, "PRODUCTION_MARKERS", (seed_mod.EXPECTED_HOST_PREFIX,)
+        ):
+            with self.assertRaises(seed_mod.StagingEnvRefused) as cm:
+                seed_mod.assert_staging_environment(env)
+            self.assertIn("production", str(cm.exception).lower())
 
     def test_production_hash_match_is_refused(self):
         digest = hashlib.sha256(VALID_URL.encode()).hexdigest()
@@ -366,7 +445,16 @@ class SeedDataTests(unittest.TestCase):
     def test_dry_run_does_not_commit(self):
         conn = self._conn()
         report = seed_mod.seed(conn, dry_run=True)
-        self.assertEqual(report.verified_shift_rows, 4)
+        # Dry-run returns a plan description — not a SeedReport — and
+        # NEVER touches the DB.
+        self.assertIsInstance(report, seed_mod.SeedPlanDescription)
+        self.assertTrue(report.client_needs_insert)
+        self.assertTrue(report.worker_needs_insert)
+        self.assertEqual(
+            report.shifts_needing_insert, tuple(seed_mod.SHIFT_DATES)
+        )
+        self.assertEqual(report.shifts_already_present, ())
+
         cur = conn.cursor()
         cur.execute("SELECT COUNT(*) FROM shifts")
         self.assertEqual(cur.fetchone()[0], 0)
@@ -374,6 +462,63 @@ class SeedDataTests(unittest.TestCase):
         self.assertEqual(cur.fetchone()[0], 0)
         cur.execute("SELECT COUNT(*) FROM workers")
         self.assertEqual(cur.fetchone()[0], 0)
+
+    def test_dry_run_issues_no_insert_update_or_delete_sql(self):
+        """P2: dry-run must not run any write SQL — not even rolled back.
+
+        We wrap the connection with a cursor that records every SQL
+        statement it sees. The dry-run plan phase must only produce
+        SELECTs, so sequences, triggers, WAL and audit log stay quiet.
+        """
+        conn = self._conn()
+
+        statements = []
+
+        class _RecordingCursor:
+            def __init__(self, inner):
+                self._inner = inner
+                self.rowcount = -1
+
+            def execute(self, sql, params=()):
+                statements.append(sql.strip().split()[0].upper())
+                self._inner.execute(sql, params)
+                self.rowcount = self._inner.rowcount
+                return self
+
+            def fetchone(self):
+                return self._inner.fetchone()
+
+            def fetchall(self):
+                return self._inner.fetchall()
+
+            def close(self):
+                self._inner.close()
+
+        class _RecordingConn:
+            def cursor(self_inner):
+                return _RecordingCursor(conn.cursor())
+
+            def commit(self_inner):
+                statements.append("COMMIT")
+                conn.commit()
+
+            def rollback(self_inner):
+                statements.append("ROLLBACK")
+                conn.rollback()
+
+        seed_mod.seed(_RecordingConn(), dry_run=True)
+        forbidden = {"INSERT", "UPDATE", "DELETE", "CREATE", "ALTER",
+                     "DROP", "TRUNCATE", "COMMIT"}
+        self.assertFalse(
+            forbidden.intersection(statements),
+            f"dry-run leaked write SQL: {statements}",
+        )
+        # SELECTs are the only kind of statement allowed.
+        for stmt in statements:
+            self.assertIn(
+                stmt, {"SELECT", "ROLLBACK"},
+                f"unexpected statement {stmt!r} in dry-run plan",
+            )
 
     def test_seed_never_touches_non_prefixed_rows(self):
         conn = self._conn()
@@ -530,7 +675,10 @@ class CleanupTests(unittest.TestCase):
         conn = self._conn()
         seed_mod.seed(conn)
         report = seed_mod.cleanup(conn, dry_run=True)
-        self.assertEqual(report.shifts_deleted, 4)
+        self.assertIsInstance(report, seed_mod.CleanupPlan)
+        self.assertEqual(report.shifts_to_delete, 4)
+        self.assertTrue(report.worker_to_delete)
+        self.assertTrue(report.client_to_delete)
         cur = conn.cursor()
         cur.execute("SELECT COUNT(*) FROM shifts")
         self.assertEqual(cur.fetchone()[0], 4)
@@ -538,6 +686,117 @@ class CleanupTests(unittest.TestCase):
         self.assertEqual(cur.fetchone()[0], 1)
         cur.execute("SELECT COUNT(*) FROM workers")
         self.assertEqual(cur.fetchone()[0], 1)
+
+    def test_cleanup_never_touches_near_prefix_lookalike_rows(self):
+        """P1: no LIKE wildcard — only exact names are deleted."""
+        conn = self._conn()
+        cur = conn.cursor()
+        # Lookalikes an attacker might plant. None of these equals
+        # CLIENT_NAME ("APSTG_TEST_Client_A") or WORKER_NAME
+        # ("APSTG_TEST_Radnik_A") exactly.
+        for near_client in (
+            "APSTG_TEST_",            # bare prefix
+            "APSTG_TEST_Client_AX",   # trailing char
+            "APSTG_TEST_Client_",     # trailing underscore
+            "APSTG_TEST_Client_A_B",  # extra suffix
+            "x_APSTG_TEST_Client_A",  # leading junk
+        ):
+            cur.execute(
+                "INSERT INTO clients (name) VALUES (?)", (near_client,)
+            )
+        for near_worker in (
+            "APSTG_TEST_Radnik_AX",
+            "APSTG_TEST_Radnik_",
+            "APSTG_TEST_Radnik_A_B",
+        ):
+            cur.execute(
+                "INSERT INTO workers (name) VALUES (?)", (near_worker,)
+            )
+        # Shifts attached to lookalike names must survive the cleanup.
+        cur.execute(
+            "INSERT INTO shifts (worker, client, date, time, status) "
+            "VALUES (?, ?, ?, ?, ?)",
+            ("APSTG_TEST_Radnik_AX", "APSTG_TEST_Client_AX",
+             "2026-09-21", "09:00-11:00", "planned"),
+        )
+        conn.commit()
+
+        seed_mod.seed(conn)
+        report = seed_mod.cleanup(conn)
+        self.assertEqual(report.clients_deleted, 1)
+        self.assertEqual(report.workers_deleted, 1)
+        self.assertEqual(report.shifts_deleted, 4)
+
+        cur.execute("SELECT name FROM clients ORDER BY name")
+        remaining = [row[0] for row in cur.fetchall()]
+        self.assertEqual(
+            remaining,
+            sorted([
+                "APSTG_TEST_",
+                "APSTG_TEST_Client_AX",
+                "APSTG_TEST_Client_",
+                "APSTG_TEST_Client_A_B",
+                "x_APSTG_TEST_Client_A",
+            ]),
+        )
+        cur.execute("SELECT name FROM workers ORDER BY name")
+        self.assertEqual(
+            [row[0] for row in cur.fetchall()],
+            sorted([
+                "APSTG_TEST_Radnik_AX",
+                "APSTG_TEST_Radnik_",
+                "APSTG_TEST_Radnik_A_B",
+            ]),
+        )
+        cur.execute(
+            "SELECT COUNT(*) FROM shifts "
+            "WHERE worker = ? AND client = ?",
+            ("APSTG_TEST_Radnik_AX", "APSTG_TEST_Client_AX"),
+        )
+        self.assertEqual(cur.fetchone()[0], 1)
+
+    def test_cleanup_refuses_a_plan_without_the_pinned_constants(self):
+        """P1: cleanup() must refuse a plan whose names were swapped."""
+        conn = self._conn()
+        # A plan that validates (has the prefix) but DOES NOT match
+        # the pinned constants: the extra defense in cleanup() rejects
+        # it so a mis-wired caller cannot delete anything else.
+        attacker_plan = seed_mod.SeedPlan(
+            client=f"{seed_mod.TEST_PREFIX}Not_The_Target",
+            worker=f"{seed_mod.TEST_PREFIX}Not_The_Worker",
+            time_range="09:00-11:00",
+            dates=seed_mod.SHIFT_DATES,
+            status="planned",
+        )
+        with self.assertRaises(seed_mod.StagingSeedError):
+            seed_mod.cleanup(conn, attacker_plan)
+
+    def test_cleanup_removes_shift_locks_before_shifts(self):
+        """P1: shift_locks attached to our shifts are cleared first."""
+        conn = self._conn()
+        cur = conn.cursor()
+        seed_mod.seed(conn)
+        cur.execute(
+            "SELECT id FROM shifts WHERE worker = ? AND client = ? LIMIT 1",
+            (seed_mod.WORKER_NAME, seed_mod.CLIENT_NAME),
+        )
+        shift_id = cur.fetchone()[0]
+        cur.execute(
+            "INSERT INTO shift_locks (shift_id, locked_at, locked_by) "
+            "VALUES (?, ?, ?)",
+            (shift_id, "2026-10-19T09:00", "admin"),
+        )
+        conn.commit()
+
+        report = seed_mod.cleanup(conn)
+        self.assertEqual(report.locks_deleted, 1)
+        cur.execute("SELECT COUNT(*) FROM shift_locks")
+        self.assertEqual(cur.fetchone()[0], 0)
+        cur.execute(
+            "SELECT COUNT(*) FROM shifts WHERE worker = ? AND client = ?",
+            (seed_mod.WORKER_NAME, seed_mod.CLIENT_NAME),
+        )
+        self.assertEqual(cur.fetchone()[0], 0)
 
 
 # ---------------------------------------------------------------------------

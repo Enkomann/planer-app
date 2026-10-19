@@ -74,12 +74,13 @@ from __future__ import annotations
 import argparse
 import hashlib
 import os
+import re
 import secrets
 import sys
 import urllib.parse
 from dataclasses import dataclass
 from datetime import date
-from typing import Iterable, Sequence, Tuple
+from typing import Iterable, List, Sequence, Tuple
 
 
 # ---------------------------------------------------------------------------
@@ -90,7 +91,25 @@ CONFIRM_ENV = "AUTO_PLANNING_STAGING_SEED_CONFIRM"
 CONFIRM_VALUE = "STAGING_SEED_ONLY_I_UNDERSTAND"
 
 EXPECTED_DATABASE_NAME = "luxmann_planner_staging"
+
+# Staging PostgreSQL instance id. The accepted hostnames are either
+# EXACTLY this id (Render's internal hostname shape, resolvable only
+# from inside a Render service) OR this id followed by a single
+# ``.<region>-postgres.render.com`` suffix. Everything else — including
+# the lookalike ``dpg-db9ptee1egvs7386h4hg-a.evil.example`` and any
+# ``.render.com`` host that is not Render's own PostgreSQL endpoint
+# shape — is refused before a credential leaves the process. See
+# ``_is_allowed_staging_host`` for the full test.
 EXPECTED_HOST_PREFIX = "dpg-db9ptee1egvs7386h4hg-a"
+# Format: <id>.<region>-postgres.render.com. ``<region>`` is a lowercase
+# alphanumeric slug Render uses to name the region (frankfurt, oregon,
+# virginia, singapore, ohio, …). We enforce the exact suffix
+# ``-postgres.render.com`` and a single intermediate label; this
+# cannot be reproduced on an attacker-controlled domain.
+_RENDER_PG_EXTERNAL_SUFFIX = re.compile(
+    r"^" + re.escape(EXPECTED_HOST_PREFIX)
+    + r"\.[a-z0-9]+-postgres\.render\.com$"
+)
 
 PRODUCTION_MARKERS = (
     "planer-app",
@@ -149,6 +168,24 @@ def _database_fingerprint(value: str) -> str:
     return hashlib.sha256(value.strip().encode("utf-8")).hexdigest()
 
 
+def _is_allowed_staging_host(host: str) -> bool:
+    """Return True iff ``host`` is one of the accepted staging names.
+
+    Allowed:
+      * the exact Render-internal hostname ``EXPECTED_HOST_PREFIX``;
+      * ``EXPECTED_HOST_PREFIX`` + ``.<region>-postgres.render.com``,
+        where ``<region>`` is a single lowercase alphanumeric label.
+    Rejected (non-exhaustive, see tests):
+      * ``dpg-...a.evil.example``;
+      * ``dpg-...a.render.com.evil.example``;
+      * ``evil-dpg-db9ptee1egvs7386h4hg-a.frankfurt-postgres.render.com``;
+      * ``dpg-db9ptee1egvs7386h4hg-a.frankfurt-postgres.render.com.evil``.
+    """
+    if host == EXPECTED_HOST_PREFIX:
+        return True
+    return bool(_RENDER_PG_EXTERNAL_SUFFIX.match(host))
+
+
 def _parsed_database_url(env: "os._Environ[str] | dict[str, str]") -> Tuple[
     urllib.parse.ParseResult, str, str
 ]:
@@ -197,8 +234,8 @@ def assert_staging_environment(env=None) -> Tuple[str, str, str]:
             "DATABASE_URL does not point at the expected staging database."
         )
 
-    if not host.startswith(EXPECTED_HOST_PREFIX):
-        _refuse("DATABASE_URL host is not the expected staging host.")
+    if not _is_allowed_staging_host(host):
+        _refuse("DATABASE_URL host is not an allowed staging host.")
 
     joined = f"{host}/{database_name}".lower()
     for marker in PRODUCTION_MARKERS:
@@ -291,67 +328,113 @@ class SeedReport:
     verified_shift_rows: int
 
 
-def _ensure_named_row(
-    cur, table: str, name: str, extra_columns: Iterable[Tuple[str, str]] = ()
-) -> bool:
-    """Insert a row keyed on the UNIQUE ``name`` column, idempotently.
+@dataclass
+class SeedPlanDescription:
+    """What the seed WOULD do, computed from read-only SELECTs."""
+    client_needs_insert: bool
+    worker_needs_insert: bool
+    shifts_needing_insert: Tuple[str, ...]
+    shifts_already_present: Tuple[str, ...]
 
-    Returns True iff an INSERT actually happened. Uses an explicit SELECT
-    rather than ``ON CONFLICT`` so the same code path runs under SQLite
-    (tests) and PostgreSQL (production of this script).
-    """
+
+def _row_exists(cur, table: str, name: str) -> bool:
     cur.execute(f"SELECT 1 FROM {table} WHERE name = %s LIMIT 1", (name,))
-    found = cur.fetchone()
-    if found:
-        return False
-    columns = ["name"] + [col for col, _ in extra_columns]
-    values = [name] + [val for _, val in extra_columns]
-    placeholders = ", ".join(["%s"] * len(values))
-    cur.execute(
-        f"INSERT INTO {table} ({', '.join(columns)}) VALUES ({placeholders})",
-        tuple(values),
-    )
-    return True
+    return cur.fetchone() is not None
 
 
-def _ensure_shift(cur, plan: SeedPlan, shift_date: str) -> bool:
+def _shift_exists(cur, plan: SeedPlan, shift_date: str) -> bool:
     cur.execute(
         "SELECT 1 FROM shifts "
         "WHERE worker = %s AND client = %s AND date = %s AND time = %s "
         "LIMIT 1",
         (plan.worker, plan.client, shift_date, plan.time_range),
     )
-    if cur.fetchone():
-        return False
-    cur.execute(
-        "INSERT INTO shifts (worker, client, date, time, status) "
-        "VALUES (%s, %s, %s, %s, %s)",
-        (plan.worker, plan.client, shift_date, plan.time_range, plan.status),
-    )
-    return True
+    return cur.fetchone() is not None
 
 
-def seed(conn, plan: SeedPlan = DEFAULT_PLAN, dry_run: bool = False) -> SeedReport:
-    """Insert the fictional seed inside a single transaction.
+def plan_seed(conn, plan: SeedPlan = DEFAULT_PLAN) -> SeedPlanDescription:
+    """Compute what seed() WOULD do using read-only SELECTs.
 
-    On any exception the transaction is rolled back and the exception
-    re-raised. On ``dry_run=True`` nothing is committed: the SELECTs still
-    run so the report reflects what WOULD have been written.
+    Issues no INSERT/UPDATE/DELETE at any point — not even rolled back —
+    so PostgreSQL sequences, triggers and WAL stay quiet. Safe to call
+    on a healthy production replica (though we still refuse to do so
+    via the hostname guard).
     """
     plan.validate()
     cur = conn.cursor()
-    created_shifts = 0
-    already_present = 0
     try:
-        client_created = _ensure_named_row(cur, "clients", plan.client)
-        worker_created = _ensure_named_row(
-            cur, "workers", plan.worker, extra_columns=(("address", ""),)
-        )
+        client_present = _row_exists(cur, "clients", plan.client)
+        worker_present = _row_exists(cur, "workers", plan.worker)
+        needing: List[str] = []
+        present: List[str] = []
         for shift_date in plan.dates:
-            if _ensure_shift(cur, plan, shift_date):
-                created_shifts += 1
+            if _shift_exists(cur, plan, shift_date):
+                present.append(shift_date)
             else:
+                needing.append(shift_date)
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
+    # dry-run does not open or close a transaction; psycopg2's default
+    # autocommit is False but SELECT alone starts no explicit write
+    # transaction. We rollback() defensively in case the driver started
+    # an implicit one — this is still a no-op for pure reads.
+    try:
+        conn.rollback()
+    except Exception:
+        pass
+    return SeedPlanDescription(
+        client_needs_insert=not client_present,
+        worker_needs_insert=not worker_present,
+        shifts_needing_insert=tuple(needing),
+        shifts_already_present=tuple(present),
+    )
+
+
+def seed(conn, plan: SeedPlan = DEFAULT_PLAN, dry_run: bool = False):
+    """Seed the staging DB. Writes only on ``dry_run=False``.
+
+    ``dry_run=True`` delegates to :func:`plan_seed` and returns the
+    plan description — no INSERT, UPDATE or DELETE statement is ever
+    executed, so PostgreSQL sequences and ON-INSERT triggers are not
+    disturbed. Live mode runs inside a single transaction; on any
+    exception the transaction is rolled back before the exception
+    propagates.
+    """
+    if dry_run:
+        return plan_seed(conn, plan)
+
+    plan.validate()
+    cur = conn.cursor()
+    try:
+        client_created = not _row_exists(cur, "clients", plan.client)
+        if client_created:
+            cur.execute(
+                "INSERT INTO clients (name) VALUES (%s)",
+                (plan.client,),
+            )
+        worker_created = not _row_exists(cur, "workers", plan.worker)
+        if worker_created:
+            cur.execute(
+                "INSERT INTO workers (name, address) VALUES (%s, %s)",
+                (plan.worker, ""),
+            )
+
+        created_shifts = 0
+        already_present = 0
+        for shift_date in plan.dates:
+            if _shift_exists(cur, plan, shift_date):
                 already_present += 1
+                continue
+            cur.execute(
+                "INSERT INTO shifts (worker, client, date, time, status) "
+                "VALUES (%s, %s, %s, %s, %s)",
+                (plan.worker, plan.client, shift_date, plan.time_range,
+                 plan.status),
+            )
+            created_shifts += 1
 
         cur.execute(
             "SELECT COUNT(*) FROM shifts "
@@ -373,11 +456,7 @@ def seed(conn, plan: SeedPlan = DEFAULT_PLAN, dry_run: bool = False) -> SeedRepo
             cur.close()
         except Exception:
             pass
-
-    if dry_run:
-        conn.rollback()
-    else:
-        conn.commit()
+    conn.commit()
     return SeedReport(
         client_created=client_created,
         worker_created=worker_created,
@@ -392,31 +471,108 @@ class CleanupReport:
     shifts_deleted: int
     workers_deleted: int
     clients_deleted: int
+    locks_deleted: int = 0
+
+
+@dataclass
+class CleanupPlan:
+    """What cleanup() WOULD do. Dry-run only."""
+    shifts_to_delete: int
+    locks_to_delete: int
+    worker_to_delete: bool
+    client_to_delete: bool
+
+
+def _count_targeted_shift_ids(cur, plan: SeedPlan) -> int:
+    cur.execute(
+        "SELECT COUNT(*) FROM shifts WHERE worker = %s AND client = %s",
+        (plan.worker, plan.client),
+    )
+    return int(cur.fetchone()[0])
+
+
+def _count_targeted_shift_locks(cur, plan: SeedPlan) -> int:
+    """Count shift_locks rows attached to the shifts we would delete."""
+    cur.execute(
+        "SELECT COUNT(*) FROM shift_locks WHERE shift_id IN ("
+        "  SELECT id FROM shifts WHERE worker = %s AND client = %s"
+        ")",
+        (plan.worker, plan.client),
+    )
+    return int(cur.fetchone()[0])
+
+
+def plan_cleanup(conn, plan: SeedPlan = DEFAULT_PLAN) -> CleanupPlan:
+    """Compute what cleanup() WOULD do. Issues no DELETE/INSERT/UPDATE."""
+    cur = conn.cursor()
+    try:
+        shifts = _count_targeted_shift_ids(cur, plan)
+        locks = _count_targeted_shift_locks(cur, plan)
+        has_worker = _row_exists(cur, "workers", plan.worker)
+        has_client = _row_exists(cur, "clients", plan.client)
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
+    try:
+        conn.rollback()
+    except Exception:
+        pass
+    return CleanupPlan(
+        shifts_to_delete=shifts,
+        locks_to_delete=locks,
+        worker_to_delete=has_worker,
+        client_to_delete=has_client,
+    )
 
 
 def cleanup(
     conn, plan: SeedPlan = DEFAULT_PLAN, dry_run: bool = False
-) -> CleanupReport:
-    """Delete ONLY rows that carry the ``APSTG_TEST_`` prefix.
+):
+    """Delete ONLY the fictional rows this script created.
 
-    Shifts are deleted by matching ``worker`` / ``client`` text columns
-    against the prefix; the worker/client lookup rows are deleted by
-    exact name. Nothing else is touched. On any exception the
-    transaction is rolled back.
+    Matching uses the EXACT constant names, never ``LIKE`` with a
+    user-supplied prefix. A row called ``APSTG_TEST_Client_AX`` or
+    ``APSTG_TEST_`` (the bare prefix) is therefore not touched. The
+    deletion order is: shift_locks → shifts → workers → clients
+    (foreign-key-safe even though the schema uses text references).
+    On any exception the transaction is rolled back.
     """
+    if dry_run:
+        return plan_cleanup(conn, plan)
+
+    # Second-line defense: the plan accepted via the dataclass must
+    # carry the test prefix. plan.validate() already checks this, but
+    # we re-assert here because cleanup() is the ONLY DELETE in this
+    # module.
+    plan.validate()
+    if plan.client != CLIENT_NAME or plan.worker != WORKER_NAME:
+        raise StagingSeedError(
+            "cleanup refuses a plan whose names do not match the "
+            "pinned APSTG_TEST_ constants."
+        )
+
     cur = conn.cursor()
-    pattern = f"{TEST_PREFIX}%"
     try:
         cur.execute(
-            "DELETE FROM shifts WHERE worker LIKE %s OR client LIKE %s",
-            (pattern, pattern),
+            "DELETE FROM shift_locks WHERE shift_id IN ("
+            "  SELECT id FROM shifts WHERE worker = %s AND client = %s"
+            ")",
+            (plan.worker, plan.client),
+        )
+        locks_deleted = cur.rowcount or 0
+
+        cur.execute(
+            "DELETE FROM shifts WHERE worker = %s AND client = %s",
+            (plan.worker, plan.client),
         )
         shifts_deleted = cur.rowcount or 0
 
-        cur.execute("DELETE FROM workers WHERE name LIKE %s", (pattern,))
+        cur.execute("DELETE FROM workers WHERE name = %s", (plan.worker,))
         workers_deleted = cur.rowcount or 0
 
-        cur.execute("DELETE FROM clients WHERE name LIKE %s", (pattern,))
+        cur.execute("DELETE FROM clients WHERE name = %s", (plan.client,))
         clients_deleted = cur.rowcount or 0
     except Exception:
         conn.rollback()
@@ -426,14 +582,12 @@ def cleanup(
             cur.close()
         except Exception:
             pass
-    if dry_run:
-        conn.rollback()
-    else:
-        conn.commit()
+    conn.commit()
     return CleanupReport(
         shifts_deleted=int(shifts_deleted),
         workers_deleted=int(workers_deleted),
         clients_deleted=int(clients_deleted),
+        locks_deleted=int(locks_deleted),
     )
 
 
@@ -466,8 +620,26 @@ def _print_report(report) -> None:
         print(f"  shifts created: {report.shifts_created}")
         print(f"  shifts already present: {report.shifts_already_present}")
         print(f"  verified shift rows: {report.verified_shift_rows}")
+    elif isinstance(report, SeedPlanDescription):
+        print("Dry-run plan (no SQL writes issued):")
+        print(f"  client would be inserted: {report.client_needs_insert}")
+        print(f"  worker would be inserted: {report.worker_needs_insert}")
+        print(
+            f"  shifts needing insert: {len(report.shifts_needing_insert)}"
+        )
+        print(
+            "  shifts already present: "
+            f"{len(report.shifts_already_present)}"
+        )
+    elif isinstance(report, CleanupPlan):
+        print("Dry-run cleanup plan (no SQL writes issued):")
+        print(f"  shifts to delete: {report.shifts_to_delete}")
+        print(f"  shift_locks to delete: {report.locks_to_delete}")
+        print(f"  worker to delete: {report.worker_to_delete}")
+        print(f"  client to delete: {report.client_to_delete}")
     else:
         print("Cleanup result:")
+        print(f"  shift_locks deleted: {report.locks_deleted}")
         print(f"  shifts deleted: {report.shifts_deleted}")
         print(f"  workers deleted: {report.workers_deleted}")
         print(f"  clients deleted: {report.clients_deleted}")

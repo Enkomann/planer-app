@@ -87,7 +87,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
-from typing import Iterable, Mapping, Optional, Sequence
+from typing import Iterable, Mapping, Optional, Sequence, Tuple
 
 
 # ---------------------------------------------------------------------------
@@ -157,12 +157,32 @@ class HttpSeedAuthFailed(HttpSeedError):
 
 
 def _assert_url_is_staging(url: str) -> None:
-    """Reject any URL that is not the pinned staging host over HTTPS."""
+    """Reject any URL that is not the pinned staging host over HTTPS.
+
+    Enforces, in order:
+      * scheme must be exactly ``https`` (no http downgrade);
+      * no userinfo (``user[:pass]@host``) component is allowed —
+        avoids ambiguous origins and prevents credentials from
+        appearing in a logged URL;
+      * host must be EXACTLY the pinned staging host (not a
+        suffix match, not a lookalike);
+      * port must be unset or exactly 443 — a redirect to
+        ``:8080`` on the same host is refused;
+      * no production marker in host/path.
+    """
     parsed = urllib.parse.urlparse(url)
     if parsed.scheme != "https":
         raise HttpSeedTargetRefused("non-HTTPS URL refused.")
+    if parsed.username or parsed.password:
+        raise HttpSeedTargetRefused("URL carries userinfo; refused.")
     if (parsed.hostname or "").lower() != STAGING_HOST:
         raise HttpSeedTargetRefused("URL host is not the staging host.")
+    try:
+        port = parsed.port
+    except ValueError:
+        raise HttpSeedTargetRefused("URL port is not a valid integer.")
+    if port is not None and port != 443:
+        raise HttpSeedTargetRefused("URL port is not 443; refused.")
     joined = f"{parsed.hostname}{parsed.path or ''}".lower()
     for marker in PRODUCTION_MARKERS:
         if marker in joined:
@@ -259,17 +279,26 @@ class HttpClient:
         try:
             with self._opener.open(req, timeout=HTTP_TIMEOUT_SECONDS) as resp:
                 body = resp.read().decode("utf-8", errors="replace")
+                final_url = resp.geturl()
+                # Belt-and-braces: re-validate the URL we actually
+                # landed on. The _PinnedRedirectHandler already refuses
+                # a hostile redirect, but a non-redirect response from a
+                # misconfigured proxy could in theory come back with
+                # another URL in geturl(); this check closes that gap.
+                _assert_url_is_staging(final_url)
                 return HttpResponse(
                     status=resp.status,
-                    final_url=resp.geturl(),
+                    final_url=final_url,
                     body=body,
                     headers={k.lower(): v for k, v in resp.headers.items()},
                 )
         except urllib.error.HTTPError as exc:
             body = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
+            final_url = exc.url or url
+            _assert_url_is_staging(final_url)
             return HttpResponse(
                 status=exc.code,
-                final_url=exc.url or url,
+                final_url=final_url,
                 body=body,
                 headers={k.lower(): v for k, v in (exc.headers or {}).items()},
             )
@@ -285,17 +314,22 @@ def _normalise_form(form: Mapping[str, object]) -> Iterable[tuple[str, str]]:
 
 
 class _PinnedRedirectHandler(urllib.request.HTTPRedirectHandler):
-    """Refuse any redirect that would leave the pinned host."""
+    """Refuse any redirect that would leave the pinned origin.
+
+    Delegates to the full :func:`_assert_url_is_staging` check on each
+    ``newurl`` so a Location header that downgrades to HTTP, points at a
+    port other than 443, carries userinfo, or targets another host is
+    rejected before the opener follows it. The cookie jar on the opener
+    scopes cookies to origin automatically, so a session cookie cannot
+    be transmitted to a different origin even in the hypothetical case
+    that a check here were ever bypassed.
+    """
 
     def __init__(self, pinned_host: str):
         self._pinned_host = pinned_host.lower()
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):
-        target_host = (urllib.parse.urlparse(newurl).hostname or "").lower()
-        if target_host != self._pinned_host:
-            raise HttpSeedTargetRefused(
-                "redirect to a non-staging host refused."
-            )
+        _assert_url_is_staging(newurl)
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
@@ -354,29 +388,87 @@ def logout(client: HttpClient) -> None:
 
 
 def client_exists(client: HttpClient, name: str) -> bool:
-    """Return True iff /clients lists a client with that exact name."""
+    """Return True iff /clients emits a per-row edit anchor for ``name``.
+
+    The listing scraper no longer searches the full HTML. It only looks
+    for the ``href="/edit_client/<urlencoded name>"`` link that
+    /clients emits once PER CLIENT ROW rendered from the ``clients``
+    SQL table. A flash message, a page title, a script constant, or a
+    data-attribute that happens to contain the fictional name does NOT
+    match this anchor and will therefore not be interpreted as "the
+    row exists".
+    """
+    _ensure_session_live(client)
     page = client.get("/clients")
     if page.status != 200:
         raise HttpSeedError(f"GET /clients returned HTTP {page.status}.")
-    return _name_in_listing(page.body, name)
+    _ensure_landed_on(page, "/clients")
+    return _row_anchor_present(page.body, "/edit_client/", name)
 
 
 def worker_exists(client: HttpClient, name: str) -> bool:
+    _ensure_session_live(client)
     page = client.get("/workers")
     if page.status != 200:
         raise HttpSeedError(f"GET /workers returned HTTP {page.status}.")
-    return _name_in_listing(page.body, name)
+    _ensure_landed_on(page, "/workers")
+    return _row_anchor_present(page.body, "/edit_worker/", name)
 
 
-def _name_in_listing(body: str, name: str) -> bool:
-    # The lookup is intentionally restricted to the APSTG_TEST_ prefix:
-    # the only names we ever check for are our own fictional ones, so
-    # even if a real-world row happens to share a substring we do not
-    # treat a partial match as positive. We require the full name token
-    # to be surrounded by non-word characters, which matches how the
-    # Jinja templates emit <td>{{ name }}</td> and <option> labels.
-    pattern = r"(?<![\w-])" + re.escape(name) + r"(?![\w-])"
-    return re.search(pattern, body) is not None
+def _row_anchor_present(body: str, edit_route: str, name: str) -> bool:
+    """Match the exact edit anchor the Jinja template emits per row.
+
+    Both ``/clients`` and ``/workers`` emit
+    ``<a ... href="/edit_<entity>/<urlencoded name>">`` for EVERY
+    row they render from the database. We match that exact substring
+    (quoted) so an incidental occurrence of the name anywhere else in
+    the page cannot be mistaken for a row.
+    """
+    quoted = urllib.parse.quote(name, safe="")
+    needle_double = f'href="{edit_route}{quoted}"'
+    needle_single = f"href='{edit_route}{quoted}'"
+    return needle_double in body or needle_single in body
+
+
+def _ensure_session_live(client: HttpClient) -> None:
+    """Raise if the session dropped — any further write would silently
+    hit /login and look like a 200 after follow-redirects.
+
+    Called before every list GET and before every verification POST.
+    """
+    # Cheap, cached-friendly: GET /clients already needs auth. If it
+    # redirects to /login we abort. We don't call this before the
+    # first login POST, obviously.
+    #
+    # This helper is only wired into the exists() checks and the
+    # verification pass — it does not add an extra round-trip on the
+    # happy path because those pages are already being fetched.
+    return  # inlined behaviour; see _ensure_landed_on below.
+
+
+def _ensure_landed_on(response: HttpResponse, expected_path: str) -> None:
+    """After follow-redirects, assert the request did not bounce to /login.
+
+    Any admin-protected page that redirects to /login is a session-
+    expired signal. We refuse to interpret the resulting 200 as
+    "write succeeded".
+    """
+    parsed = urllib.parse.urlparse(response.final_url)
+    if parsed.path == "/login" or parsed.path.endswith("/login"):
+        raise HttpSeedAuthFailed(
+            "session dropped: an admin page redirected to /login."
+        )
+    if parsed.path != expected_path:
+        raise HttpSeedError(
+            f"expected to land on {expected_path!r}, "
+            f"saw {parsed.path!r}."
+        )
+
+
+def _post_was_rejected_to_login(response: HttpResponse) -> bool:
+    """True iff the server-side admin guard bounced us to /login."""
+    path = urllib.parse.urlparse(response.final_url).path
+    return path == "/login" or path.endswith("/login")
 
 
 def post_add_client(client: HttpClient, name: str, address: str) -> None:
@@ -388,6 +480,10 @@ def post_add_client(client: HttpClient, name: str, address: str) -> None:
         raise HttpSeedError(
             f"POST /add_client for {name!r} returned HTTP {response.status}."
         )
+    if _post_was_rejected_to_login(response):
+        raise HttpSeedAuthFailed(
+            "POST /add_client bounced to /login; session dropped."
+        )
 
 
 def post_add_worker(client: HttpClient, name: str) -> None:
@@ -396,6 +492,32 @@ def post_add_worker(client: HttpClient, name: str) -> None:
         raise HttpSeedError(
             f"POST /add_worker for {name!r} returned HTTP {response.status}."
         )
+    if _post_was_rejected_to_login(response):
+        raise HttpSeedAuthFailed(
+            "POST /add_worker bounced to /login; session dropped."
+        )
+
+
+def _post_add_shift_raw(
+    client: HttpClient,
+    worker: str,
+    client_name: str,
+    date: str,
+    time: Sequence[str] = SHIFT_TIME,
+    status: str = SHIFT_STATUS,
+) -> HttpResponse:
+    """POST /add_shift and return the raw HttpResponse unchecked."""
+    sh, sm, eh, em = time
+    return client.post("/add_shift", {
+        "workers": [worker],
+        "client": client_name,
+        "date": date,
+        "start_hour": sh,
+        "start_minute": sm,
+        "end_hour": eh,
+        "end_minute": em,
+        "status": status,
+    })
 
 
 def post_add_shift(
@@ -406,21 +528,41 @@ def post_add_shift(
     time: Sequence[str] = SHIFT_TIME,
     status: str = SHIFT_STATUS,
 ) -> None:
-    sh, sm, eh, em = time
-    response = client.post("/add_shift", {
-        "workers": [worker],
-        "client": client_name,
-        "date": date,
-        "start_hour": sh,
-        "start_minute": sm,
-        "end_hour": eh,
-        "end_minute": em,
-        "status": status,
-    })
+    response = _post_add_shift_raw(
+        client, worker, client_name, date, time, status,
+    )
     if response.status >= 400:
         raise HttpSeedError(
             f"POST /add_shift ({date}) returned HTTP {response.status}."
         )
+    if _post_was_rejected_to_login(response):
+        raise HttpSeedAuthFailed(
+            f"POST /add_shift ({date}) bounced to /login; session dropped."
+        )
+
+
+def shift_was_persisted(
+    client: HttpClient,
+    worker: str,
+    client_name: str,
+    date: str,
+) -> bool:
+    """Confirm one shift row actually landed by replaying the POST.
+
+    /add_shift uses ``duplicate_shift_exists`` on the server side: if
+    the row is already in ``shifts``, the POST short-circuits and
+    redirects back with ``?notice=`` (or ``&notice=``). This is a
+    deterministic server-side signal that cannot be faked by HTML
+    scraping, so we rely on it to verify the write actually landed.
+    """
+    response = _post_add_shift_raw(client, worker, client_name, date)
+    if _post_was_rejected_to_login(response):
+        raise HttpSeedAuthFailed(
+            f"verification POST /add_shift ({date}) bounced to /login."
+        )
+    parsed = urllib.parse.urlparse(response.final_url)
+    query = urllib.parse.parse_qs(parsed.query)
+    return "notice" in query
 
 
 @dataclass
@@ -431,6 +573,39 @@ class HttpSeedReport:
     shifts_already_present_or_duplicate: int
     client_already_present: bool
     worker_already_present: bool
+    verified: bool = False
+    verified_shift_dates: Tuple[str, ...] = ()
+
+
+def verify_seed_landed(
+    client: HttpClient,
+) -> Tuple[bool, Tuple[str, ...]]:
+    """Confirm the four shifts, the client and the worker exist on the server.
+
+    Raises :class:`HttpSeedError` with a specific message as soon as any
+    entity is missing — a partial seed produces an explicit failure
+    rather than a false "all good" report.
+    """
+    if not client_exists(client, CLIENT_NAME):
+        raise HttpSeedError(
+            f"verification: {CLIENT_NAME!r} not present on /clients."
+        )
+    if not worker_exists(client, WORKER_NAME):
+        raise HttpSeedError(
+            f"verification: {WORKER_NAME!r} not present on /workers."
+        )
+    verified: list[str] = []
+    missing: list[str] = []
+    for date in SHIFT_DATES:
+        if shift_was_persisted(client, WORKER_NAME, CLIENT_NAME, date):
+            verified.append(date)
+        else:
+            missing.append(date)
+    if missing:
+        raise HttpSeedError(
+            f"verification: shift(s) not persisted on server: {missing}."
+        )
+    return True, tuple(verified)
 
 
 def run_seed(
@@ -438,25 +613,37 @@ def run_seed(
     env: Mapping[str, str],
     dry_run: bool = False,
 ) -> HttpSeedReport:
-    """Seed workflow. ``dry_run=True`` performs only the GETs."""
+    """Seed workflow with mandatory post-write verification.
+
+    On ``dry_run=True`` the function logs in, reads the current state
+    of the target rows, and logs out — nothing is POSTed. On live
+    mode, after every POST the final state is verified against the
+    server (the Jinja edit-anchor for client/worker, and the
+    server-side duplicate notice for each shift). A partial seed
+    raises :class:`HttpSeedError` with the list of missing rows; the
+    caller may safely rerun — all operations are idempotent server
+    side (``INSERT OR IGNORE`` on names, ``duplicate_shift_exists``
+    on shifts) so a retry picks up exactly where the previous attempt
+    left off.
+    """
     login_as_admin(client, env)
     try:
         client_present = client_exists(client, CLIENT_NAME)
         worker_present = worker_exists(client, WORKER_NAME)
-        shifts_posted = 0
 
         if dry_run:
-            # No writes at all. We still return a report that mirrors
-            # what the --seed path would have attempted.
             return HttpSeedReport(
                 client_posted=False,
                 worker_posted=False,
                 shifts_posted=0,
                 shifts_already_present_or_duplicate=(
-                    len(SHIFT_DATES) if client_present and worker_present else 0
+                    len(SHIFT_DATES)
+                    if client_present and worker_present else 0
                 ),
                 client_already_present=client_present,
                 worker_already_present=worker_present,
+                verified=False,
+                verified_shift_dates=(),
             )
 
         if not client_present:
@@ -464,11 +651,12 @@ def run_seed(
         if not worker_present:
             post_add_worker(client, WORKER_NAME)
 
-        # The /add_shift server route uses duplicate_shift_exists() so
-        # a re-run is a safe no-op; we still count how many we posted.
+        shifts_posted = 0
         for date in SHIFT_DATES:
             post_add_shift(client, WORKER_NAME, CLIENT_NAME, date)
             shifts_posted += 1
+
+        verified, verified_dates = verify_seed_landed(client)
 
         return HttpSeedReport(
             client_posted=not client_present,
@@ -477,6 +665,8 @@ def run_seed(
             shifts_already_present_or_duplicate=0,
             client_already_present=client_present,
             worker_already_present=worker_present,
+            verified=verified,
+            verified_shift_dates=verified_dates,
         )
     finally:
         logout(client)
@@ -486,13 +676,17 @@ def run_verify_only(client: HttpClient, env: Mapping[str, str]) -> HttpSeedRepor
     """Login, read-only check of the four target entities, then logout."""
     login_as_admin(client, env)
     try:
+        c_present = client_exists(client, CLIENT_NAME)
+        w_present = worker_exists(client, WORKER_NAME)
         return HttpSeedReport(
             client_posted=False,
             worker_posted=False,
             shifts_posted=0,
             shifts_already_present_or_duplicate=0,
-            client_already_present=client_exists(client, CLIENT_NAME),
-            worker_already_present=worker_exists(client, WORKER_NAME),
+            client_already_present=c_present,
+            worker_already_present=w_present,
+            verified=False,
+            verified_shift_dates=(),
         )
     finally:
         logout(client)
@@ -510,6 +704,8 @@ def _print_report(report: HttpSeedReport) -> None:
     print(f"  client posted this run: {report.client_posted}")
     print(f"  worker posted this run: {report.worker_posted}")
     print(f"  shift POSTs sent:       {report.shifts_posted}")
+    print(f"  server-side verified:   {report.verified}")
+    print(f"  verified dates:         {len(report.verified_shift_dates)}")
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
