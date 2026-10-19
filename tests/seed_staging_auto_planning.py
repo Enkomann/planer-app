@@ -193,6 +193,17 @@ def _parsed_database_url(env: "os._Environ[str] | dict[str, str]") -> Tuple[
 
     Raises ``StagingEnvRefused`` on any shape problem. Does NOT leak the
     URL into the exception message.
+
+    This parser is strict on the DSN shape so psycopg2 cannot be
+    handed a connection target different from the one we validated:
+      * scheme must be ``postgres`` / ``postgresql`` (not ``pq://`` etc);
+      * query string MUST be empty — a parameter like
+        ``?host=evil.example`` or ``?sslmode=disable`` in the URL
+        is handled by libpq AT CONNECT TIME, so accepting it here
+        would silently bypass every host-level guard above;
+      * fragment must be empty — no ``#``-encoded ambiguity;
+      * host and database_name must be non-empty, both go into
+        the explicit kwargs we pass to :func:`psycopg2.connect`.
     """
     raw = str(env.get("DATABASE_URL", "")).strip()
     if not raw:
@@ -200,12 +211,31 @@ def _parsed_database_url(env: "os._Environ[str] | dict[str, str]") -> Tuple[
     parsed = urllib.parse.urlparse(raw)
     if parsed.scheme not in ("postgres", "postgresql"):
         _refuse("DATABASE_URL is not a PostgreSQL URL.")
+    if parsed.query:
+        _refuse(
+            "DATABASE_URL carries query-string parameters; refusing "
+            "(a parameter like ?host=... or ?sslmode=disable would "
+            "override the destination libpq connects to)."
+        )
+    if parsed.fragment:
+        _refuse("DATABASE_URL carries a URL fragment; refused.")
     host = (parsed.hostname or "").strip().lower()
     database_name = urllib.parse.unquote((parsed.path or "").lstrip("/"))
     if not host:
         _refuse("DATABASE_URL has no host.")
     if not database_name:
         _refuse("DATABASE_URL has no database name.")
+    if "/" in database_name:
+        _refuse("DATABASE_URL path has more than one segment; refused.")
+    try:
+        port = parsed.port
+    except ValueError:
+        _refuse("DATABASE_URL has a non-integer port.")
+    if port is not None and port != 5432:
+        _refuse(
+            "DATABASE_URL port is not 5432; refused (prevents a "
+            "redirect-by-port to a different listener)."
+        )
     return parsed, host, database_name
 
 
@@ -597,14 +627,32 @@ def cleanup(
 
 
 def _open_postgres_connection(database_url: str):
-    """Open a psycopg2 connection with safe defaults.
+    """Open a psycopg2 connection using EXPLICIT kwargs — never the raw DSN.
 
-    Isolated here so tests do not have to import psycopg2 to exercise
-    the guards or the SQL plan.
+    The DSN was already parsed and validated by
+    :func:`assert_staging_environment`; here we extract the five
+    components we actually trust (host, port, dbname, user, password)
+    and pass them to :func:`psycopg2.connect` as named arguments.
+    psycopg2 then hands them to libpq's keyword interface, which
+    cannot be reinterpreted via a ``?host=`` query-string parameter.
+    ``sslmode`` is pinned to ``require`` here — the operator cannot
+    weaken it from the environment.
     """
     import psycopg2  # noqa: WPS433 — lazy import keeps tests DB-free
 
-    return psycopg2.connect(database_url, connect_timeout=10)
+    parsed = urllib.parse.urlparse(database_url)
+    kwargs = dict(
+        host=(parsed.hostname or "").strip().lower(),
+        port=parsed.port or 5432,
+        dbname=urllib.parse.unquote((parsed.path or "").lstrip("/")),
+        sslmode="require",
+        connect_timeout=10,
+    )
+    if parsed.username:
+        kwargs["user"] = urllib.parse.unquote(parsed.username)
+    if parsed.password:
+        kwargs["password"] = urllib.parse.unquote(parsed.password)
+    return psycopg2.connect(**kwargs)
 
 
 def _print_report(report) -> None:

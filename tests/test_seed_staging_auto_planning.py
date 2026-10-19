@@ -255,6 +255,99 @@ class EnvGuardTests(unittest.TestCase):
         with self.assertRaises(seed_mod.StagingEnvRefused):
             seed_mod.assert_staging_environment(env)
 
+    def test_query_string_in_dsn_is_refused(self):
+        """P2: ?host=evil.example would redirect libpq at connect time."""
+        env = _good_env(
+            DATABASE_URL=(
+                f"postgresql://u:p@{VALID_HOST}/{seed_mod.EXPECTED_DATABASE_NAME}"
+                f"?host=evil.example"
+            )
+        )
+        with self.assertRaises(seed_mod.StagingEnvRefused) as cm:
+            seed_mod.assert_staging_environment(env)
+        self.assertIn("query-string", str(cm.exception))
+
+    def test_sslmode_disable_in_dsn_is_refused(self):
+        """P2: libpq honours ?sslmode=disable at connect time."""
+        env = _good_env(
+            DATABASE_URL=(
+                f"postgresql://u:p@{VALID_HOST}/{seed_mod.EXPECTED_DATABASE_NAME}"
+                f"?sslmode=disable"
+            )
+        )
+        with self.assertRaises(seed_mod.StagingEnvRefused):
+            seed_mod.assert_staging_environment(env)
+
+    def test_service_parameter_in_dsn_is_refused(self):
+        """P2: ``?service=prod`` points libpq at a different pg_service entry."""
+        env = _good_env(
+            DATABASE_URL=(
+                f"postgresql://u:p@{VALID_HOST}/{seed_mod.EXPECTED_DATABASE_NAME}"
+                f"?service=prod"
+            )
+        )
+        with self.assertRaises(seed_mod.StagingEnvRefused):
+            seed_mod.assert_staging_environment(env)
+
+    def test_options_parameter_in_dsn_is_refused(self):
+        env = _good_env(
+            DATABASE_URL=(
+                f"postgresql://u:p@{VALID_HOST}/{seed_mod.EXPECTED_DATABASE_NAME}"
+                f"?options=-c%20search_path=public"
+            )
+        )
+        with self.assertRaises(seed_mod.StagingEnvRefused):
+            seed_mod.assert_staging_environment(env)
+
+    def test_fragment_in_dsn_is_refused(self):
+        env = _good_env(
+            DATABASE_URL=(
+                f"postgresql://u:p@{VALID_HOST}/{seed_mod.EXPECTED_DATABASE_NAME}"
+                f"#fragment"
+            )
+        )
+        with self.assertRaises(seed_mod.StagingEnvRefused):
+            seed_mod.assert_staging_environment(env)
+
+    def test_non_5432_port_in_dsn_is_refused(self):
+        env = _good_env(
+            DATABASE_URL=(
+                f"postgresql://u:p@{VALID_HOST}:1234/{seed_mod.EXPECTED_DATABASE_NAME}"
+            )
+        )
+        with self.assertRaises(seed_mod.StagingEnvRefused) as cm:
+            seed_mod.assert_staging_environment(env)
+        self.assertIn("port", str(cm.exception).lower())
+
+    def test_connect_builds_explicit_kwargs_never_passes_raw_dsn(self):
+        """P2: psycopg2.connect() is called with the five validated
+        components, pinned sslmode='require', never the raw DSN."""
+        captured = {}
+
+        class _FakePsycopg2:
+            def connect(self_inner, *args, **kwargs):
+                captured["args"] = args
+                captured["kwargs"] = kwargs
+                return mock.Mock(cursor=mock.Mock(), close=mock.Mock())
+
+        # Build a URL that WOULD subvert libpq if it ever reached it.
+        safe_url = (
+            f"postgresql://pg_user:pg_pw@{VALID_HOST}"
+            f"/{seed_mod.EXPECTED_DATABASE_NAME}"
+        )
+        with mock.patch.dict("sys.modules", {"psycopg2": _FakePsycopg2()}):
+            seed_mod._open_postgres_connection(safe_url)
+
+        # Nothing positional (raw DSN would be positional).
+        self.assertEqual(captured["args"], ())
+        kwargs = captured["kwargs"]
+        self.assertEqual(kwargs["host"], VALID_HOST.lower())
+        self.assertEqual(kwargs["port"], 5432)
+        self.assertEqual(kwargs["dbname"], seed_mod.EXPECTED_DATABASE_NAME)
+        self.assertEqual(kwargs["user"], "pg_user")
+        self.assertEqual(kwargs["password"], "pg_pw")
+        self.assertEqual(kwargs["sslmode"], "require")
+
     def test_internal_render_hostname_is_accepted(self):
         """P1: the plain ``dpg-...a`` short name (Render-internal) is OK."""
         env = _good_env(

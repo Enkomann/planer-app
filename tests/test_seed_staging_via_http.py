@@ -197,6 +197,57 @@ class RedirectHandlerTests(unittest.TestCase):
         )
 
 
+class MonthAnchorParserTests(unittest.TestCase):
+    """P1 + P2: the /month HTML parser only accepts the Jinja edit-link
+    anchor, with every ``data-*`` attribute present. A flash message or
+    a script line is ignored."""
+
+    def test_full_valid_anchor_is_parsed(self):
+        body = (
+            '<a class="mini-link edit-link" '
+            'data-eid="12" data-ew="APSTG_TEST_Radnik_A" '
+            'data-ecl="APSTG_TEST_Client_A" data-edt="2026-09-21" '
+            'data-etm="09:00-11:00" data-est="planned">x</a>'
+        )
+        parsed = http_seed._parse_shift_anchors(body)
+        self.assertEqual(len(parsed), 1)
+        self.assertEqual(parsed[0]["data-est"], "planned")
+        self.assertEqual(parsed[0]["data-ew"], "APSTG_TEST_Radnik_A")
+        self.assertEqual(parsed[0]["data-ecl"], "APSTG_TEST_Client_A")
+        self.assertEqual(parsed[0]["data-edt"], "2026-09-21")
+        self.assertEqual(parsed[0]["data-etm"], "09:00-11:00")
+
+    def test_anchor_missing_any_data_attr_is_skipped(self):
+        body = (
+            '<a class="edit-link" data-ew="x" data-ecl="y">'
+            'no date/time/status</a>'
+        )
+        self.assertEqual(http_seed._parse_shift_anchors(body), [])
+
+    def test_script_content_matching_data_attr_shape_is_not_matched(self):
+        body = (
+            '<script>var a = \'data-ew="X" data-ecl="Y" data-edt="D" '
+            'data-etm="T" data-est="S"\';</script>'
+        )
+        self.assertEqual(http_seed._parse_shift_anchors(body), [])
+
+    def test_flash_mentioning_the_fake_name_is_not_matched(self):
+        body = (
+            '<div class="flash">Clé: APSTG_TEST_Client_A dodat</div>'
+        )
+        self.assertEqual(http_seed._parse_shift_anchors(body), [])
+
+    def test_html_entities_in_values_are_decoded(self):
+        body = (
+            '<a class="edit-link" data-eid="1" data-ew="A &amp; B" '
+            'data-ecl="C &lt;Z&gt;" data-edt="2026-09-21" '
+            'data-etm="09:00-11:00" data-est="planned">x</a>'
+        )
+        parsed = http_seed._parse_shift_anchors(body)
+        self.assertEqual(parsed[0]["data-ew"], "A & B")
+        self.assertEqual(parsed[0]["data-ecl"], "C <Z>")
+
+
 class RowAnchorDetectionTests(unittest.TestCase):
     """P2: the exists() detection must not false-positive on flashes,
     titles, scripts, or data attributes that contain the fictional name.
@@ -311,7 +362,8 @@ class FlaskClientAdapter:
 
     def get(self, path):
         resp = self._c.get(path, follow_redirects=False)
-        return self._follow(resp, path)
+        return self._follow(resp, path, original_method="GET",
+                            original_data=None)
 
     def post(self, path, form):
         data = {}
@@ -320,9 +372,24 @@ class FlaskClientAdapter:
                 list(value) if isinstance(value, (list, tuple)) else value
             )
         resp = self._c.post(path, data=data, follow_redirects=False)
-        return self._follow(resp, path)
+        return self._follow(resp, path, original_method="POST",
+                            original_data=data)
 
-    def _follow(self, resp, original_path):
+    def _follow(self, resp, original_path, original_method, original_data):
+        """Follow redirects with RFC-compliant method semantics.
+
+        * 301 / 302 / 303: method becomes GET, body dropped — the
+          classical post-redirect-get pattern Flask uses after
+          ``/add_client`` → ``/clients``, ``/add_shift`` → referrer,
+          ``/login`` → ``/``, etc.
+        * 307 / 308: method AND body are preserved — the browser
+          replays the original request. Werkzeug can emit these from
+          custom code, so we handle them to stay faithful to the real
+          urllib HttpClient. (Werkzeug's own test_client follow does
+          301/302 as GET too; we only ever repost on 307/308.)
+        Also refuses any Location that targets a different origin,
+        matching the real driver's cross-origin guard.
+        """
         current_path = original_path
         hops = 0
         while 300 <= resp.status_code < 400 and hops < self.MAX_REDIRECTS:
@@ -330,13 +397,24 @@ class FlaskClientAdapter:
             if not location:
                 break
             parsed = urllib.parse.urlparse(location)
-            # werkzeug's Location may be absolute (http://localhost/foo)
-            # or relative (/foo). Normalize to the request path+query.
+            # Reject a hostile cross-origin Location — matches the
+            # production driver's _PinnedRedirectHandler behaviour.
+            if parsed.netloc and parsed.netloc not in (
+                "", "localhost", "127.0.0.1",
+            ):
+                raise http_seed.HttpSeedTargetRefused(
+                    f"redirect to a non-local origin refused: {parsed.netloc}"
+                )
             follow = parsed.path
             if parsed.query:
                 follow = follow + "?" + parsed.query
             current_path = follow
-            resp = self._c.get(follow, follow_redirects=False)
+            if resp.status_code in (307, 308) and original_method == "POST":
+                resp = self._c.post(
+                    follow, data=original_data, follow_redirects=False,
+                )
+            else:
+                resp = self._c.get(follow, follow_redirects=False)
             hops += 1
         return http_seed.HttpResponse(
             status=resp.status_code,
@@ -581,12 +659,48 @@ class SeedEndToEndTests(_FlaskBackedBase):
         self.assertEqual(
             report.verified_shift_dates, tuple(http_seed.SHIFT_DATES)
         )
+        self.assertEqual(report.verification_failures, ())
 
-    def test_dry_run_report_never_claims_verified(self):
-        """P1: dry-run cannot claim server-side verification."""
+    def test_dry_run_claims_verified_only_when_rows_really_exist(self):
+        """P5: dry-run reports what the GET view actually sees."""
+        # Fresh DB → nothing exists → verified=False, 4 failures.
         report = http_seed.run_seed(self.adapter, self._env(), dry_run=True)
         self.assertFalse(report.verified)
         self.assertEqual(report.verified_shift_dates, ())
+        # Four shift ABSENT entries + client not present + worker not present
+        self.assertEqual(len(report.verification_failures), 6)
+
+        # Now actually seed, re-run dry-run → verified=True.
+        http_seed.run_seed(self.adapter, self._env())
+        self.flask_client = app_mod.app.test_client()
+        self.adapter = FlaskClientAdapter(self.flask_client)
+        report = http_seed.run_seed(self.adapter, self._env(), dry_run=True)
+        self.assertTrue(report.verified)
+        self.assertEqual(len(report.verified_shift_dates), 4)
+        self.assertEqual(report.verification_failures, ())
+
+    def test_dry_run_with_only_client_and_worker_does_not_claim_verified(self):
+        """P5: four shift ABSENTs are reported, not hidden as a success."""
+        import sqlite3
+        with sqlite3.connect(self._db_path) as conn:
+            conn.execute(
+                "INSERT INTO clients (name, address) VALUES (?, ?)",
+                (http_seed.CLIENT_NAME, http_seed.CLIENT_ADDRESS),
+            )
+            conn.execute(
+                "INSERT INTO workers (name, address) VALUES (?, ?)",
+                (http_seed.WORKER_NAME, ""),
+            )
+            conn.commit()
+        report = http_seed.run_seed(self.adapter, self._env(), dry_run=True)
+        self.assertTrue(report.client_already_present)
+        self.assertTrue(report.worker_already_present)
+        self.assertFalse(report.verified)
+        self.assertEqual(report.verified_shift_dates, ())
+        # Exactly four ABSENT entries, no client/worker false flags.
+        self.assertEqual(len(report.verification_failures), 4)
+        for failure in report.verification_failures:
+            self.assertIn("ABSENT", failure)
 
     def test_verify_detects_missing_shift_and_raises(self):
         """P1: if even one shift is missing, verification raises.
@@ -672,6 +786,87 @@ class LoginFailureEndToEndTests(_FlaskBackedBase):
             http_seed.client_exists(self.adapter, http_seed.CLIENT_NAME)
 
 
+class FlaskAdapterRedirectSemanticsTests(unittest.TestCase):
+    """P4: FlaskClientAdapter honours RFC redirect method semantics.
+
+    We mount a tiny stub Flask that returns configurable redirects, so
+    the test doesn't depend on the Planner's routes.
+    """
+
+    def setUp(self):
+        from flask import Flask, redirect, request as flask_request
+        stub = Flask("stub")
+        stub.config["TESTING"] = True
+        self._observed = []
+
+        @stub.route("/301", methods=["GET", "POST"])
+        def r301():
+            self._observed.append((flask_request.method, "/301"))
+            return redirect("/landing", code=301)
+
+        @stub.route("/302", methods=["GET", "POST"])
+        def r302():
+            self._observed.append((flask_request.method, "/302"))
+            return redirect("/landing", code=302)
+
+        @stub.route("/303", methods=["GET", "POST"])
+        def r303():
+            self._observed.append((flask_request.method, "/303"))
+            return redirect("/landing", code=303)
+
+        @stub.route("/307", methods=["GET", "POST"])
+        def r307():
+            self._observed.append((flask_request.method, "/307"))
+            return redirect("/landing", code=307)
+
+        @stub.route("/308", methods=["GET", "POST"])
+        def r308():
+            self._observed.append((flask_request.method, "/308"))
+            return redirect("/landing", code=308)
+
+        @stub.route("/landing", methods=["GET", "POST"])
+        def landing():
+            self._observed.append((flask_request.method, "/landing"))
+            return f"landed via {flask_request.method}"
+
+        @stub.route("/hostile")
+        def hostile():
+            return redirect("https://evil.example.com/x", code=302)
+
+        self.adapter = FlaskClientAdapter(stub.test_client())
+
+    def test_302_post_becomes_get_on_redirect(self):
+        resp = self.adapter.post("/302", {"x": "1"})
+        self.assertEqual(resp.status, 200)
+        # Last hop must be a GET.
+        self.assertEqual(self._observed[-1], ("GET", "/landing"))
+
+    def test_303_post_becomes_get_on_redirect(self):
+        resp = self.adapter.post("/303", {"x": "1"})
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(self._observed[-1], ("GET", "/landing"))
+
+    def test_307_post_preserves_method(self):
+        resp = self.adapter.post("/307", {"x": "1"})
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(self._observed[-1], ("POST", "/landing"))
+        self.assertIn("landed via POST", resp.body)
+
+    def test_308_post_preserves_method(self):
+        resp = self.adapter.post("/308", {"x": "1"})
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(self._observed[-1], ("POST", "/landing"))
+
+    def test_301_get_follows_as_get(self):
+        resp = self.adapter.get("/301")
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(self._observed[-1], ("GET", "/landing"))
+
+    def test_hostile_redirect_is_refused_in_adapter_too(self):
+        with self.assertRaises(http_seed.HttpSeedTargetRefused):
+            self.adapter.get("/hostile")
+
+
 class FlaskAdapterFidelityTests(_FlaskBackedBase):
     """P1: tests covering the HTTP driver's view of what REALLY happened."""
 
@@ -684,52 +879,140 @@ class FlaskAdapterFidelityTests(_FlaskBackedBase):
         parsed = urllib.parse.urlparse(resp.final_url)
         self.assertEqual(parsed.path, "/login")
 
-    def test_final_url_reports_notice_query_after_duplicate_shift(self):
-        """``shift_was_persisted`` relies on the ``?notice=`` query being
-        present on the second POST's final URL."""
+    def test_month_view_verifier_sees_every_seeded_shift(self):
+        """P1: the GET-only /month verifier returns 4 fully_correct rows."""
+        http_seed.run_seed(self.adapter, self._env())
+        self.flask_client = app_mod.app.test_client()
+        self.adapter = FlaskClientAdapter(self.flask_client)
         http_seed.login_as_admin(self.adapter, self._env())
-        http_seed.post_add_client(
-            self.adapter, http_seed.CLIENT_NAME, http_seed.CLIENT_ADDRESS,
-        )
-        http_seed.post_add_worker(self.adapter, http_seed.WORKER_NAME)
-        http_seed.post_add_shift(
-            self.adapter, http_seed.WORKER_NAME, http_seed.CLIENT_NAME,
-            "2026-09-21",
-        )
-        self.assertTrue(
-            http_seed.shift_was_persisted(
-                self.adapter, http_seed.WORKER_NAME, http_seed.CLIENT_NAME,
-                "2026-09-21",
-            )
-        )
+        rows = http_seed.verify_shifts_via_month_view(self.adapter)
+        self.assertEqual(len(rows), 4)
+        for row in rows:
+            self.assertTrue(row.fully_correct, row)
+            self.assertEqual(row.observed_status, "planned")
+            self.assertEqual(row.observed_time, "09:00-11:00")
+            self.assertEqual(row.observed_worker, http_seed.WORKER_NAME)
+            self.assertEqual(row.observed_client, http_seed.CLIENT_NAME)
 
-    def test_shift_was_persisted_detects_absence_on_second_call(self):
-        """``shift_was_persisted`` is a POST-based probe: on the FIRST
-        call against a missing row it INSERTs (so it reports False), on
-        the SECOND it hits the server-side duplicate guard (True). The
-        verification pass only calls it AFTER the seed POSTs, so each
-        row already exists and the probe is a no-op in context.
-        """
+
+class StrictStatusVerificationTests(_FlaskBackedBase):
+    """P3: a row whose status is not ``planned`` is NOT a successful seed."""
+
+    def test_done_status_in_db_is_reported_as_mismatch(self):
+        http_seed.run_seed(self.adapter, self._env())
+        import sqlite3
+        with sqlite3.connect(self._db_path) as conn:
+            conn.execute(
+                "UPDATE shifts SET status = 'done' "
+                "WHERE worker = ? AND client = ? AND date = ?",
+                (http_seed.WORKER_NAME, http_seed.CLIENT_NAME,
+                 "2026-09-28"),
+            )
+            conn.commit()
+        self.flask_client = app_mod.app.test_client()
+        self.adapter = FlaskClientAdapter(self.flask_client)
         http_seed.login_as_admin(self.adapter, self._env())
-        http_seed.post_add_client(
-            self.adapter, http_seed.CLIENT_NAME, http_seed.CLIENT_ADDRESS,
-        )
-        http_seed.post_add_worker(self.adapter, http_seed.WORKER_NAME)
-        # First call: nothing in shifts yet → INSERT, no notice query.
-        self.assertFalse(
-            http_seed.shift_was_persisted(
-                self.adapter, http_seed.WORKER_NAME, http_seed.CLIENT_NAME,
-                "2026-09-28",
+        with self.assertRaises(http_seed.HttpSeedError) as cm:
+            http_seed.verify_seed_landed(self.adapter)
+        msg = str(cm.exception)
+        self.assertIn("2026-09-28", msg)
+        self.assertIn("status mismatch", msg)
+        self.assertIn("'done'", msg)
+
+    def test_cancelled_status_reported_as_mismatch(self):
+        http_seed.run_seed(self.adapter, self._env())
+        import sqlite3
+        with sqlite3.connect(self._db_path) as conn:
+            conn.execute(
+                "UPDATE shifts SET status = 'cancelled' "
+                "WHERE worker = ? AND client = ? AND date = ?",
+                (http_seed.WORKER_NAME, http_seed.CLIENT_NAME,
+                 "2026-10-05"),
             )
-        )
-        # Second call: row now exists → duplicate_shift_exists fires,
-        # notice query appears → True.
-        self.assertTrue(
-            http_seed.shift_was_persisted(
-                self.adapter, http_seed.WORKER_NAME, http_seed.CLIENT_NAME,
-                "2026-09-28",
+            conn.commit()
+        self.flask_client = app_mod.app.test_client()
+        self.adapter = FlaskClientAdapter(self.flask_client)
+        http_seed.login_as_admin(self.adapter, self._env())
+        with self.assertRaises(http_seed.HttpSeedError) as cm:
+            http_seed.verify_seed_landed(self.adapter)
+        self.assertIn("'cancelled'", str(cm.exception))
+
+    def test_wrong_time_reported_as_mismatch(self):
+        http_seed.run_seed(self.adapter, self._env())
+        import sqlite3
+        with sqlite3.connect(self._db_path) as conn:
+            conn.execute(
+                "UPDATE shifts SET time = '10:00-12:00' "
+                "WHERE worker = ? AND client = ? AND date = ?",
+                (http_seed.WORKER_NAME, http_seed.CLIENT_NAME,
+                 "2026-10-12"),
             )
-        )
+            conn.commit()
+        self.flask_client = app_mod.app.test_client()
+        self.adapter = FlaskClientAdapter(self.flask_client)
+        http_seed.login_as_admin(self.adapter, self._env())
+        with self.assertRaises(http_seed.HttpSeedError) as cm:
+            http_seed.verify_seed_landed(self.adapter)
+        self.assertIn("time mismatch", str(cm.exception))
+        self.assertIn("'10:00-12:00'", str(cm.exception))
+
+
+class EmptyUserinfoRefusalTests(unittest.TestCase):
+    """P6: ``https://@host/`` must be refused even though the username
+    component is the empty string (truthiness check would miss it)."""
+
+    def test_empty_userinfo_still_refused(self):
+        with self.assertRaises(http_seed.HttpSeedTargetRefused):
+            http_seed._assert_url_is_staging(
+                "https://@luxmann-planner-staging.onrender.com/"
+            )
+
+    def test_empty_password_still_refused(self):
+        with self.assertRaises(http_seed.HttpSeedTargetRefused):
+            http_seed._assert_url_is_staging(
+                "https://user:@luxmann-planner-staging.onrender.com/"
+            )
+
+    def test_at_sign_in_netloc_without_valid_username_refused(self):
+        # Edge case: a stray '@' can appear from a malformed URL even
+        # when both username and password parse as empty.
+        with self.assertRaises(http_seed.HttpSeedTargetRefused):
+            http_seed._assert_url_is_staging(
+                "https://:@luxmann-planner-staging.onrender.com/"
+            )
+
+
+class ConcurrentRunLockTests(unittest.TestCase):
+    """P7: the file-based single-runner lock refuses a second runner."""
+
+    def setUp(self):
+        # Ensure a clean slate — the lockfile is global so a previous
+        # test crash could leak it.
+        try:
+            os.unlink(http_seed.LOCKFILE_PATH)
+        except FileNotFoundError:
+            pass
+
+    def test_second_concurrent_acquire_is_refused(self):
+        with http_seed.single_runner_lock():
+            with self.assertRaises(http_seed.HttpSeedConcurrentRun):
+                with http_seed.single_runner_lock():
+                    pass
+
+    def test_lock_is_released_on_exit(self):
+        with http_seed.single_runner_lock():
+            pass
+        # Must be acquirable again.
+        with http_seed.single_runner_lock():
+            pass
+
+    def test_lock_is_released_even_on_exception(self):
+        with self.assertRaises(ValueError):
+            with http_seed.single_runner_lock():
+                raise ValueError("boom")
+        # Lockfile is cleaned up — a next run can acquire.
+        with http_seed.single_runner_lock():
+            pass
 
 
 def tearDownModule():

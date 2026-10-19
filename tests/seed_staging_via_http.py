@@ -77,12 +77,14 @@ POSTs any write.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import http.cookiejar
 import os
 import re
 import secrets
 import ssl
 import sys
+import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -129,6 +131,20 @@ SHIFT_STATUS = "planned"
 
 HTTP_TIMEOUT_SECONDS = 20
 
+# P7: single-runner lock. The Planner's ``shifts`` table has NO
+# UNIQUE constraint on (worker, client, date, time): the server-side
+# ``duplicate_shift_exists`` guard is a SELECT-then-INSERT pattern
+# that two concurrent requests could both pass before either INSERTs.
+# This script therefore does NOT guarantee no-duplicates under
+# concurrent runs; it refuses to start if another runner is already
+# active on this machine. If an operator needs stricter guarantees,
+# they must add an application-level unique index on
+# (worker, client, date, time) — a schema change we deliberately do
+# NOT make here.
+LOCKFILE_PATH = os.path.join(
+    tempfile.gettempdir(), "luxmann_staging_http_seed.lock"
+)
+
 
 # ---------------------------------------------------------------------------
 # Errors — specific types so tests can assert on each guard individually.
@@ -149,6 +165,44 @@ class HttpSeedTargetRefused(HttpSeedError):
 
 class HttpSeedAuthFailed(HttpSeedError):
     """The admin login did not take."""
+
+
+class HttpSeedConcurrentRun(HttpSeedError):
+    """Another HTTP seed is already in progress on this machine."""
+
+
+@contextlib.contextmanager
+def single_runner_lock():
+    """Fail-closed lock preventing two concurrent seed runs on this host.
+
+    Uses ``O_CREAT | O_EXCL`` so creation is atomic. The lockfile
+    lives in the OS temp dir; a stale file left by a crashed earlier
+    run has to be removed by the operator — this is intentional, so
+    a crash does not silently allow a second runner to race the first.
+    """
+    try:
+        fd = os.open(
+            LOCKFILE_PATH,
+            os.O_CREAT | os.O_EXCL | os.O_WRONLY,
+            0o600,
+        )
+    except FileExistsError:
+        raise HttpSeedConcurrentRun(
+            "another HTTP seed is in progress (or an earlier run left "
+            f"a stale lockfile at {LOCKFILE_PATH}; remove it manually "
+            "after confirming no other runner is alive)."
+        )
+    try:
+        yield
+    finally:
+        try:
+            os.close(fd)
+        except Exception:
+            pass
+        try:
+            os.unlink(LOCKFILE_PATH)
+        except Exception:
+            pass
 
 
 # ---------------------------------------------------------------------------
@@ -173,8 +227,16 @@ def _assert_url_is_staging(url: str) -> None:
     parsed = urllib.parse.urlparse(url)
     if parsed.scheme != "https":
         raise HttpSeedTargetRefused("non-HTTPS URL refused.")
-    if parsed.username or parsed.password:
+    # P6 fix: ``urlparse`` returns ``''`` (not ``None``) for the
+    # username when the URL is ``https://@host/`` — presence of the
+    # ``@`` separator in the netloc is itself a userinfo marker that
+    # a truthiness check would miss. Reject on either the component
+    # being set at all (``is not None``) OR an explicit ``@`` sign
+    # in the netloc.
+    if parsed.username is not None or parsed.password is not None:
         raise HttpSeedTargetRefused("URL carries userinfo; refused.")
+    if "@" in (parsed.netloc or ""):
+        raise HttpSeedTargetRefused("URL netloc contains '@'; refused.")
     if (parsed.hostname or "").lower() != STAGING_HOST:
         raise HttpSeedTargetRefused("URL host is not the staging host.")
     try:
@@ -541,28 +603,147 @@ def post_add_shift(
         )
 
 
-def shift_was_persisted(
-    client: HttpClient,
-    worker: str,
-    client_name: str,
-    date: str,
-) -> bool:
-    """Confirm one shift row actually landed by replaying the POST.
+# ---------------------------------------------------------------------------
+# Read-only shift verification via the admin /month view.
+# ---------------------------------------------------------------------------
+#
+# ``/month?year=YYYY&month=MM`` is an admin-only GET route that renders
+# every shift of that month into HTML with one anchor per shift of the
+# form:
+#
+#   <a class="mini-link edit-link" ... data-eid="<id>" data-ew="<worker>"
+#      data-ecl="<client>" data-edt="<date>" data-etm="<time range>"
+#      data-est="<raw stored status>" ...>
+#
+# All five identifying fields — including the raw stored ``status``
+# column (``data-est``) — are reflected in attributes the admin
+# template already renders FROM THE DATABASE. That lets us verify
+# every expected shift (worker, client, date, 09:00, 11:00, status
+# equals 'planned') without issuing a single POST.
 
-    /add_shift uses ``duplicate_shift_exists`` on the server side: if
-    the row is already in ``shifts``, the POST short-circuits and
-    redirects back with ``?notice=`` (or ``&notice=``). This is a
-    deterministic server-side signal that cannot be faked by HTML
-    scraping, so we rely on it to verify the write actually landed.
+
+_SHIFT_ANCHOR_RE = re.compile(
+    r'<a[^>]*class="[^"]*\bedit-link\b[^"]*"[^>]*>',
+    flags=re.IGNORECASE,
+)
+
+
+def _parse_shift_anchors(body: str) -> list[dict]:
+    """Return every shift anchor's data-* attributes from a /month page.
+
+    The regex matches ``<a class="... edit-link ...">`` tags and then
+    extracts the ``data-ew / data-ecl / data-edt / data-etm / data-est``
+    attribute values. Attributes are HTML-escaped by Jinja's ``|e``
+    filter in the template; we un-escape the three HTML entities the
+    filter actually emits (``&amp;``, ``&lt;``, ``&gt;``) and leave
+    the rest alone. Nothing outside the matched tag can be mistaken
+    for a shift row.
     """
-    response = _post_add_shift_raw(client, worker, client_name, date)
-    if _post_was_rejected_to_login(response):
-        raise HttpSeedAuthFailed(
-            f"verification POST /add_shift ({date}) bounced to /login."
-        )
-    parsed = urllib.parse.urlparse(response.final_url)
-    query = urllib.parse.parse_qs(parsed.query)
-    return "notice" in query
+    anchors = []
+    attrs_re = re.compile(
+        r'data-(ew|ecl|edt|etm|est|eid)="([^"]*)"',
+        flags=re.IGNORECASE,
+    )
+    for match in _SHIFT_ANCHOR_RE.finditer(body):
+        tag = match.group(0)
+        found = {}
+        for attr_match in attrs_re.finditer(tag):
+            key = "data-" + attr_match.group(1).lower()
+            value = (attr_match.group(2)
+                     .replace("&lt;", "<")
+                     .replace("&gt;", ">")
+                     .replace("&quot;", '"')
+                     .replace("&#39;", "'")
+                     .replace("&amp;", "&"))
+            found[key] = value
+        if {"data-ew", "data-ecl", "data-edt", "data-etm", "data-est"}.issubset(
+            found
+        ):
+            anchors.append(found)
+    return anchors
+
+
+@dataclass
+class ShiftVerification:
+    """Per-shift read-only verification result."""
+    date: str
+    found: bool
+    worker_matches: bool
+    client_matches: bool
+    time_matches: bool
+    status_matches: bool
+    observed_status: str = ""
+    observed_time: str = ""
+    observed_worker: str = ""
+    observed_client: str = ""
+
+    @property
+    def fully_correct(self) -> bool:
+        return (self.found and self.worker_matches and self.client_matches
+                and self.time_matches and self.status_matches)
+
+
+def verify_shifts_via_month_view(
+    client: HttpClient,
+    plan_dates: Sequence[str] = SHIFT_DATES,
+    expected_worker: str = WORKER_NAME,
+    expected_client: str = CLIENT_NAME,
+    expected_time: str = SHIFT_TIME_RANGE,
+    expected_status: str = SHIFT_STATUS,
+) -> list[ShiftVerification]:
+    """GET the /month view(s) that cover ``plan_dates`` and verify each row.
+
+    Pure read: issues one GET per distinct (year, month) pair in
+    ``plan_dates``. For every expected date the function reports:
+      * whether a shift anchor on that date was emitted at all;
+      * whether its data-ew (worker), data-ecl (client), data-etm
+        (time range) and data-est (stored status) match the expected
+        values. A row whose status is ``done`` / ``cancelled`` / ...
+        reports ``status_matches=False`` and ``fully_correct=False``.
+    """
+    needed_months = sorted({d[:7] for d in plan_dates})
+    anchors_by_date: dict[str, list[dict]] = {}
+    for ym in needed_months:
+        year, month = ym.split("-")
+        page = client.get(f"/month?year={int(year)}&month={int(month)}")
+        if page.status != 200:
+            raise HttpSeedError(
+                f"GET /month {ym} returned HTTP {page.status}."
+            )
+        _ensure_landed_on(page, "/month")
+        for anchor in _parse_shift_anchors(page.body):
+            anchors_by_date.setdefault(anchor["data-edt"], []).append(anchor)
+
+    results: list[ShiftVerification] = []
+    for date in plan_dates:
+        candidates = [
+            a for a in anchors_by_date.get(date, [])
+            if a["data-ew"] == expected_worker
+            and a["data-ecl"] == expected_client
+        ]
+        if not candidates:
+            results.append(ShiftVerification(
+                date=date, found=False,
+                worker_matches=False, client_matches=False,
+                time_matches=False, status_matches=False,
+            ))
+            continue
+        anchor = candidates[0]
+        time_ok = anchor["data-etm"] == expected_time
+        status_ok = anchor["data-est"] == expected_status
+        results.append(ShiftVerification(
+            date=date,
+            found=True,
+            worker_matches=True,
+            client_matches=True,
+            time_matches=time_ok,
+            status_matches=status_ok,
+            observed_status=anchor["data-est"],
+            observed_time=anchor["data-etm"],
+            observed_worker=anchor["data-ew"],
+            observed_client=anchor["data-ecl"],
+        ))
+    return results
 
 
 @dataclass
@@ -575,37 +756,62 @@ class HttpSeedReport:
     worker_already_present: bool
     verified: bool = False
     verified_shift_dates: Tuple[str, ...] = ()
+    verification_failures: Tuple[str, ...] = ()
+
+
+def _collect_verification(
+    client: HttpClient,
+) -> Tuple[bool, Tuple[str, ...], Tuple[str, ...]]:
+    """Read-only probe of client/worker/4 shifts.
+
+    Returns ``(all_correct, verified_dates, failures)``. Never raises
+    on a missing or incorrect row — the caller decides whether a
+    non-empty ``failures`` tuple is an error (live seed) or merely a
+    status to report (dry-run, verify-only).
+    """
+    failures: list[str] = []
+    verified_dates: list[str] = []
+    if not client_exists(client, CLIENT_NAME):
+        failures.append(f"{CLIENT_NAME!r} not present on /clients")
+    if not worker_exists(client, WORKER_NAME):
+        failures.append(f"{WORKER_NAME!r} not present on /workers")
+    rows = verify_shifts_via_month_view(client)
+    for row in rows:
+        if not row.found:
+            failures.append(f"{row.date}: ABSENT")
+            continue
+        if not row.time_matches:
+            failures.append(
+                f"{row.date}: time mismatch "
+                f"(observed {row.observed_time!r})"
+            )
+            continue
+        if not row.status_matches:
+            failures.append(
+                f"{row.date}: status mismatch "
+                f"(observed {row.observed_status!r})"
+            )
+            continue
+        verified_dates.append(row.date)
+    return (not failures), tuple(verified_dates), tuple(failures)
 
 
 def verify_seed_landed(
     client: HttpClient,
 ) -> Tuple[bool, Tuple[str, ...]]:
-    """Confirm the four shifts, the client and the worker exist on the server.
+    """Verify client, worker and 4 shifts via GET-only routes.
 
-    Raises :class:`HttpSeedError` with a specific message as soon as any
-    entity is missing — a partial seed produces an explicit failure
-    rather than a false "all good" report.
+    Raises :class:`HttpSeedError` with the precise list of missing or
+    mismatched rows. Does NOT retry — a partial seed produces an
+    explicit failure, never a false "all good" report. Safe retry is
+    the caller's job: re-run ``run_seed`` (idempotent server-side).
     """
-    if not client_exists(client, CLIENT_NAME):
+    ok, verified_dates, failures = _collect_verification(client)
+    if not ok:
         raise HttpSeedError(
-            f"verification: {CLIENT_NAME!r} not present on /clients."
+            "verification: " + "; ".join(failures)
         )
-    if not worker_exists(client, WORKER_NAME):
-        raise HttpSeedError(
-            f"verification: {WORKER_NAME!r} not present on /workers."
-        )
-    verified: list[str] = []
-    missing: list[str] = []
-    for date in SHIFT_DATES:
-        if shift_was_persisted(client, WORKER_NAME, CLIENT_NAME, date):
-            verified.append(date)
-        else:
-            missing.append(date)
-    if missing:
-        raise HttpSeedError(
-            f"verification: shift(s) not persisted on server: {missing}."
-        )
-    return True, tuple(verified)
+    return True, verified_dates
 
 
 def run_seed(
@@ -615,16 +821,20 @@ def run_seed(
 ) -> HttpSeedReport:
     """Seed workflow with mandatory post-write verification.
 
-    On ``dry_run=True`` the function logs in, reads the current state
-    of the target rows, and logs out — nothing is POSTed. On live
-    mode, after every POST the final state is verified against the
-    server (the Jinja edit-anchor for client/worker, and the
-    server-side duplicate notice for each shift). A partial seed
-    raises :class:`HttpSeedError` with the list of missing rows; the
-    caller may safely rerun — all operations are idempotent server
-    side (``INSERT OR IGNORE`` on names, ``duplicate_shift_exists``
-    on shifts) so a retry picks up exactly where the previous attempt
-    left off.
+    * ``dry_run=True`` logs in, performs the GET-only verification,
+      and logs out — nothing is POSTed. The report's ``verified``
+      flag reflects reality: True iff the 4 shifts already exist with
+      exact (worker, client, date, time=09:00-11:00, status=planned);
+      False otherwise, with ``verification_failures`` listing the
+      concrete gaps. No shift is announced as present unless its
+      stored ``status`` column equals ``planned``.
+    * live mode POSTs the three creation routes, then runs the same
+      verification. A mismatch raises :class:`HttpSeedError`; the
+      caller may rerun — server-side idempotence guards every write.
+
+    Single-runner lock (see :func:`single_runner_lock`) prevents two
+    runners from racing on the same host; this script never claims
+    protection against concurrent writers that bypass the lock.
     """
     login_as_admin(client, env)
     try:
@@ -632,31 +842,31 @@ def run_seed(
         worker_present = worker_exists(client, WORKER_NAME)
 
         if dry_run:
+            ok, verified_dates, failures = _collect_verification(client)
             return HttpSeedReport(
                 client_posted=False,
                 worker_posted=False,
                 shifts_posted=0,
-                shifts_already_present_or_duplicate=(
-                    len(SHIFT_DATES)
-                    if client_present and worker_present else 0
-                ),
+                shifts_already_present_or_duplicate=len(verified_dates),
                 client_already_present=client_present,
                 worker_already_present=worker_present,
-                verified=False,
-                verified_shift_dates=(),
+                verified=ok,
+                verified_shift_dates=verified_dates,
+                verification_failures=failures,
             )
 
-        if not client_present:
-            post_add_client(client, CLIENT_NAME, CLIENT_ADDRESS)
-        if not worker_present:
-            post_add_worker(client, WORKER_NAME)
+        with single_runner_lock():
+            if not client_present:
+                post_add_client(client, CLIENT_NAME, CLIENT_ADDRESS)
+            if not worker_present:
+                post_add_worker(client, WORKER_NAME)
 
-        shifts_posted = 0
-        for date in SHIFT_DATES:
-            post_add_shift(client, WORKER_NAME, CLIENT_NAME, date)
-            shifts_posted += 1
+            shifts_posted = 0
+            for date in SHIFT_DATES:
+                post_add_shift(client, WORKER_NAME, CLIENT_NAME, date)
+                shifts_posted += 1
 
-        verified, verified_dates = verify_seed_landed(client)
+            verified, verified_dates = verify_seed_landed(client)
 
         return HttpSeedReport(
             client_posted=not client_present,
@@ -667,17 +877,26 @@ def run_seed(
             worker_already_present=worker_present,
             verified=verified,
             verified_shift_dates=verified_dates,
+            verification_failures=(),
         )
     finally:
         logout(client)
 
 
 def run_verify_only(client: HttpClient, env: Mapping[str, str]) -> HttpSeedReport:
-    """Login, read-only check of the four target entities, then logout."""
+    """Login, read-only check (client, worker, 4 shifts with status), logout.
+
+    Reports ``verified=True`` only when every expected row exists
+    with the exact stored status ``planned``. A row with a different
+    stored status is reported as a verification failure, not a
+    success. Never issues a POST, never acquires the single-runner
+    lock (there is no write to protect).
+    """
     login_as_admin(client, env)
     try:
         c_present = client_exists(client, CLIENT_NAME)
         w_present = worker_exists(client, WORKER_NAME)
+        ok, verified_dates, failures = _collect_verification(client)
         return HttpSeedReport(
             client_posted=False,
             worker_posted=False,
@@ -685,8 +904,9 @@ def run_verify_only(client: HttpClient, env: Mapping[str, str]) -> HttpSeedRepor
             shifts_already_present_or_duplicate=0,
             client_already_present=c_present,
             worker_already_present=w_present,
-            verified=False,
-            verified_shift_dates=(),
+            verified=ok,
+            verified_shift_dates=verified_dates,
+            verification_failures=failures,
         )
     finally:
         logout(client)
@@ -706,6 +926,10 @@ def _print_report(report: HttpSeedReport) -> None:
     print(f"  shift POSTs sent:       {report.shifts_posted}")
     print(f"  server-side verified:   {report.verified}")
     print(f"  verified dates:         {len(report.verified_shift_dates)}")
+    if report.verification_failures:
+        print("  verification failures:")
+        for failure in report.verification_failures:
+            print(f"    - {failure}")
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
