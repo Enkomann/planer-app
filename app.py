@@ -370,13 +370,29 @@ def auto_planning_enabled():
 
 AUTO_PLANNING_MODE_ENV = "AUTO_PLANNING_MODE"
 AUTO_PLANNING_MODE_ANALYSIS_ONLY = "analysis_only"
+AUTO_PLANNING_MODE_WRITE_ENABLED = "write_enabled"
+# The only two values the parser will accept. Any other string
+# (empty, missing, "yes", "readonly", a typo) resolves to "" and
+# the ``require_auto_planning_feature`` before-request handler
+# turns every /plan/* route into a 404 — the historical draft and
+# apply workflows cannot run on an unconfigured deployment.
+AUTO_PLANNING_VALID_MODES = frozenset({
+    AUTO_PLANNING_MODE_ANALYSIS_ONLY,
+    AUTO_PLANNING_MODE_WRITE_ENABLED,
+})
 
 
 def parse_auto_planning_mode(value):
-    """Return ``'analysis_only'`` if the raw env value asks for it, else ``''``."""
+    """Return a canonical mode token, or ``''`` for every unknown value.
+
+    Fail-closed: any value that is not exactly one of
+    :data:`AUTO_PLANNING_VALID_MODES` (trimmed, lower-cased) yields the
+    empty string, which disables the whole /plan/* surface. Missing
+    the env variable is the same as setting it to garbage.
+    """
     normalised = str(value or "").strip().lower()
-    if normalised == AUTO_PLANNING_MODE_ANALYSIS_ONLY:
-        return AUTO_PLANNING_MODE_ANALYSIS_ONLY
+    if normalised in AUTO_PLANNING_VALID_MODES:
+        return normalised
     return ""
 
 
@@ -385,28 +401,48 @@ app.config["AUTO_PLANNING_MODE"] = parse_auto_planning_mode(
 )
 
 
-def auto_planning_analysis_only():
-    """True iff ``AUTO_PLANNING_MODE=analysis_only`` was set at boot.
+def auto_planning_mode():
+    """Return the configured mode token (``''`` / analysis_only / write_enabled)."""
+    return app.config.get("AUTO_PLANNING_MODE", "")
 
-    Reads the parsed value from ``app.config`` so tests can override it
-    with ``mock.patch.dict(app.config, ...)`` without touching the
-    environment. Never trusts arbitrary strings as truthy.
+
+def auto_planning_analysis_only():
+    """True iff the server is explicitly running in analysis-only mode."""
+    return auto_planning_mode() == AUTO_PLANNING_MODE_ANALYSIS_ONLY
+
+
+def auto_planning_write_enabled():
+    """True iff the server is explicitly running with writes allowed.
+
+    This is the ONLY state in which /plan/generate POST,
+    /plan/review/<id>/{apply, bulk-accept, cancel, lock, unlock,
+    proposal/<pid>/update} are permitted. In production we expect
+    this to stay off until a dedicated rollout.
     """
-    return app.config.get("AUTO_PLANNING_MODE", "") == (
-        AUTO_PLANNING_MODE_ANALYSIS_ONLY
+    return auto_planning_mode() == AUTO_PLANNING_MODE_WRITE_ENABLED
+
+
+def auto_planning_feature_active():
+    """True iff BOTH the feature flag is on AND the mode is a known token.
+
+    Used by ``require_auto_planning_feature`` so an unconfigured mode
+    disables every /plan/* route, not just the writes. A legacy
+    deployment that set ``AUTO_PLANNING_ENABLED=true`` but forgot the
+    mode variable will see 404 on every /plan/* endpoint instead of
+    silently reactivating the historical persistent flow.
+    """
+    return (
+        auto_planning_enabled()
+        and auto_planning_mode() in AUTO_PLANNING_VALID_MODES
     )
 
 
 def auto_planning_write_refused_response():
-    """HTTP 403 payload used by every analysis-only refusal path.
-
-    Centralised so the message, status code and payload shape stay
-    identical whichever write endpoint tried to run.
-    """
+    """HTTP 403 payload used by every write-side refusal path."""
     return (
         t().get(
-            "auto_plan_analysis_only_blocked",
-            "Auto-planning is in analysis-only mode: no shift, "
+            "auto_plan_write_refused",
+            "Auto-planning is not in write mode: no shift, "
             "proposal, draft or lock can be written.",
         ),
         403,
@@ -415,10 +451,18 @@ def auto_planning_write_refused_response():
 
 @app.before_request
 def require_auto_planning_feature():
-    """Hide every auto-planning endpoint while the feature is disabled."""
+    """Hide every auto-planning endpoint on an incomplete configuration.
+
+    The route is 404'd whenever ANY of these holds:
+      * ``AUTO_PLANNING_ENABLED`` is off (feature flag);
+      * ``AUTO_PLANNING_MODE`` is missing or set to an unknown value.
+    This is the fail-closed anchor: on a staging boot without the mode
+    variable, no /plan/* endpoint responds, so the historical draft
+    flow cannot run even if an operator forgets a config entry.
+    """
     if (
         request.path == "/plan" or request.path.startswith("/plan/")
-    ) and not auto_planning_enabled():
+    ) and not auto_planning_feature_active():
         abort(404)
 
 @app.context_processor
@@ -3111,6 +3155,166 @@ AUTO_PLANNING_PHASE6_TRANSLATIONS = {
     },
 }
 for _lang, _values in AUTO_PLANNING_PHASE6_TRANSLATIONS.items():
+    TRANSLATIONS[_lang].update(_values)
+
+
+# Phase-7 translations are specific to the analysis-only mode: the big
+# "mode analyse uniquement" banner, the recurrence-period labels, the
+# cancelled/unknown status counters, the write-refused response, and
+# the analysis-only issue codes (client_missing, public_holiday).
+AUTO_PLANNING_PHASE7_TRANSLATIONS = {
+    "bos": {
+        "auto_plan_analysis_banner": "Samo analiza — niti jedna intervencija nece biti kreirana ni izmijenjena.",
+        "auto_plan_analyze_title": "Analiza rasporeda",
+        "auto_plan_analyze": "Analiziraj",
+        "auto_plan_analysis_footer": "Prikazani prijedlozi su samo rezultat izracuna: nista nije upisano u bazu.",
+        "auto_plan_no_proposals": "Nema prijedloga za ovu sedmicu.",
+        "auto_plan_target_week": "Ciljna sedmica (ponedjeljak)",
+        "auto_plan_lookback": "Istorija",
+        "auto_plan_include_exceptional": "Ukljuci neredovne",
+        "auto_plan_recurrence": "Ponavljanje",
+        "auto_plan_confidence": "Pouzdanost",
+        "auto_plan_issues": "Upozorenja",
+        "auto_plan_period_weekly": "Svake sedmice",
+        "auto_plan_period_biweekly": "Svake 2 sedmice",
+        "auto_plan_period_monthly": "Mjesecno",
+        "auto_plan_period_exceptional": "Neredovno",
+        "auto_plan_cancelled_discarded": "Otkazane intervencije iskljucene iz ucenja",
+        "auto_plan_unknown_status_ignored": "Nepoznati statusi ignorisani",
+        "auto_plan_write_refused": "Automatsko planiranje nije u rezimu upisivanja: nijedan rad, prijedlog ni zakljucavanje ne moze biti upisano.",
+        "auto_plan_issue_client_missing": "Klijent vise ne postoji",
+        "auto_plan_issue_public_holiday": "Praznik",
+        "auto_plan_issue_absence": "Odsutnost radnika",
+        "auto_plan_issue_leave_approved": "Odobreni godisnji",
+        "auto_plan_issue_overlap_existing": "Preklapanje s postojecim",
+        "auto_plan_issue_overlap_batch": "Dvostruko u istom paketu",
+        "auto_plan_issue_outside_target_week": "Izvan ciljne sedmice",
+        "auto_plan_issue_exceptional": "Neredovan uzorak",
+        "auto_plan_sev_blocking": "blokira",
+        "auto_plan_sev_warning": "upozorenje",
+    },
+    "fr": {
+        "auto_plan_analysis_banner": "Mode analyse uniquement — aucune intervention ne sera créée ou modifiée.",
+        "auto_plan_analyze_title": "Analyse du planning",
+        "auto_plan_analyze": "Analyser",
+        "auto_plan_analysis_footer": "Les propositions ci-dessus sont un simple aperçu de calcul : rien n'a été écrit en base.",
+        "auto_plan_no_proposals": "Aucune proposition pour cette semaine.",
+        "auto_plan_target_week": "Semaine cible (lundi)",
+        "auto_plan_lookback": "Historique",
+        "auto_plan_include_exceptional": "Inclure irréguliers",
+        "auto_plan_recurrence": "Récurrence",
+        "auto_plan_confidence": "Confiance",
+        "auto_plan_issues": "Avertissements",
+        "auto_plan_period_weekly": "Chaque semaine",
+        "auto_plan_period_biweekly": "Toutes les 2 semaines",
+        "auto_plan_period_monthly": "Mensuel",
+        "auto_plan_period_exceptional": "Irrégulier",
+        "auto_plan_cancelled_discarded": "Interventions annulées écartées de l'apprentissage",
+        "auto_plan_unknown_status_ignored": "Statuts inconnus ignorés",
+        "auto_plan_write_refused": "L'auto-planning n'est pas en mode écriture : aucune intervention, proposition, ou verrou ne peut être enregistré.",
+        "auto_plan_issue_client_missing": "Client supprimé",
+        "auto_plan_issue_public_holiday": "Jour férié",
+        "auto_plan_issue_absence": "Absence du salarié",
+        "auto_plan_issue_leave_approved": "Congé approuvé",
+        "auto_plan_issue_overlap_existing": "Chevauchement avec une intervention existante",
+        "auto_plan_issue_overlap_batch": "Doublon dans le même lot",
+        "auto_plan_issue_outside_target_week": "Hors de la semaine cible",
+        "auto_plan_issue_exceptional": "Motif irrégulier",
+        "auto_plan_sev_blocking": "bloquant",
+        "auto_plan_sev_warning": "avertissement",
+    },
+    "en": {
+        "auto_plan_analysis_banner": "Analysis-only mode — no shift will be created or changed.",
+        "auto_plan_analyze_title": "Schedule analysis",
+        "auto_plan_analyze": "Analyze",
+        "auto_plan_analysis_footer": "The proposals above are a plain calculation preview: nothing was written to the database.",
+        "auto_plan_no_proposals": "No proposal for this week.",
+        "auto_plan_target_week": "Target week (Monday)",
+        "auto_plan_lookback": "History",
+        "auto_plan_include_exceptional": "Include irregular",
+        "auto_plan_recurrence": "Recurrence",
+        "auto_plan_confidence": "Confidence",
+        "auto_plan_issues": "Warnings",
+        "auto_plan_period_weekly": "Every week",
+        "auto_plan_period_biweekly": "Every 2 weeks",
+        "auto_plan_period_monthly": "Monthly",
+        "auto_plan_period_exceptional": "Irregular",
+        "auto_plan_cancelled_discarded": "Cancelled shifts excluded from learning",
+        "auto_plan_unknown_status_ignored": "Unknown statuses ignored",
+        "auto_plan_write_refused": "Auto-planning is not in write mode: no shift, proposal, draft or lock can be written.",
+        "auto_plan_issue_client_missing": "Client removed",
+        "auto_plan_issue_public_holiday": "Public holiday",
+        "auto_plan_issue_absence": "Worker absence",
+        "auto_plan_issue_leave_approved": "Approved leave",
+        "auto_plan_issue_overlap_existing": "Overlaps an existing shift",
+        "auto_plan_issue_overlap_batch": "Duplicate inside this batch",
+        "auto_plan_issue_outside_target_week": "Outside the target week",
+        "auto_plan_issue_exceptional": "Irregular pattern",
+        "auto_plan_sev_blocking": "blocking",
+        "auto_plan_sev_warning": "warning",
+    },
+    "de": {
+        "auto_plan_analysis_banner": "Nur-Analyse-Modus — keine Schicht wird erstellt oder geaendert.",
+        "auto_plan_analyze_title": "Planungsanalyse",
+        "auto_plan_analyze": "Analysieren",
+        "auto_plan_analysis_footer": "Die obigen Vorschlaege sind eine reine Berechnungsvorschau: nichts wurde in die Datenbank geschrieben.",
+        "auto_plan_no_proposals": "Keine Vorschlaege fuer diese Woche.",
+        "auto_plan_target_week": "Zielwoche (Montag)",
+        "auto_plan_lookback": "Historie",
+        "auto_plan_include_exceptional": "Unregelmaessige einbeziehen",
+        "auto_plan_recurrence": "Wiederkehr",
+        "auto_plan_confidence": "Vertrauen",
+        "auto_plan_issues": "Hinweise",
+        "auto_plan_period_weekly": "Jede Woche",
+        "auto_plan_period_biweekly": "Alle 2 Wochen",
+        "auto_plan_period_monthly": "Monatlich",
+        "auto_plan_period_exceptional": "Unregelmaessig",
+        "auto_plan_cancelled_discarded": "Abgesagte Einsaetze vom Lernen ausgeschlossen",
+        "auto_plan_unknown_status_ignored": "Unbekannte Statuswerte ignoriert",
+        "auto_plan_write_refused": "Auto-Planung nicht im Schreibmodus: keine Schicht, Vorschlag, Entwurf oder Sperre kann geschrieben werden.",
+        "auto_plan_issue_client_missing": "Kunde entfernt",
+        "auto_plan_issue_public_holiday": "Feiertag",
+        "auto_plan_issue_absence": "Abwesenheit",
+        "auto_plan_issue_leave_approved": "Genehmigter Urlaub",
+        "auto_plan_issue_overlap_existing": "Ueberschneidung mit bestehendem Einsatz",
+        "auto_plan_issue_overlap_batch": "Doppelt in diesem Entwurf",
+        "auto_plan_issue_outside_target_week": "Ausserhalb der Zielwoche",
+        "auto_plan_issue_exceptional": "Unregelmaessiges Muster",
+        "auto_plan_sev_blocking": "blockierend",
+        "auto_plan_sev_warning": "Warnung",
+    },
+    "pt": {
+        "auto_plan_analysis_banner": "Modo somente análise — nenhuma intervenção será criada ou modificada.",
+        "auto_plan_analyze_title": "Análise do horário",
+        "auto_plan_analyze": "Analisar",
+        "auto_plan_analysis_footer": "As propostas acima são apenas uma pré-visualização de cálculo: nada foi gravado na base.",
+        "auto_plan_no_proposals": "Sem propostas para esta semana.",
+        "auto_plan_target_week": "Semana alvo (segunda)",
+        "auto_plan_lookback": "Histórico",
+        "auto_plan_include_exceptional": "Incluir irregulares",
+        "auto_plan_recurrence": "Recorrência",
+        "auto_plan_confidence": "Confiança",
+        "auto_plan_issues": "Avisos",
+        "auto_plan_period_weekly": "Toda semana",
+        "auto_plan_period_biweekly": "Cada 2 semanas",
+        "auto_plan_period_monthly": "Mensal",
+        "auto_plan_period_exceptional": "Irregular",
+        "auto_plan_cancelled_discarded": "Intervenções canceladas excluídas da aprendizagem",
+        "auto_plan_unknown_status_ignored": "Estados desconhecidos ignorados",
+        "auto_plan_write_refused": "Auto-planeamento não está em modo de escrita: nenhum serviço, proposta ou bloqueio pode ser gravado.",
+        "auto_plan_issue_client_missing": "Cliente removido",
+        "auto_plan_issue_public_holiday": "Feriado",
+        "auto_plan_issue_absence": "Ausência do trabalhador",
+        "auto_plan_issue_leave_approved": "Férias aprovadas",
+        "auto_plan_issue_overlap_existing": "Sobreposição com serviço existente",
+        "auto_plan_issue_overlap_batch": "Duplicado neste lote",
+        "auto_plan_issue_outside_target_week": "Fora da semana alvo",
+        "auto_plan_issue_exceptional": "Padrão irregular",
+        "auto_plan_sev_blocking": "bloqueador",
+        "auto_plan_sev_warning": "aviso",
+    },
+}
+for _lang, _values in AUTO_PLANNING_PHASE7_TRANSLATIONS.items():
     TRANSLATIONS[_lang].update(_values)
 
 MONTH_NAMES = {
@@ -6345,57 +6549,63 @@ def init_db():
             admin_note TEXT DEFAULT ''
         )
     """)
-    # Auto-planning uses draft tables and a separate lock table. Keeping the
-    # lock outside shifts is deliberate: many legacy views SELECT * and rely
-    # on the original six positional columns.
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS shift_locks (
-            shift_id INTEGER PRIMARY KEY,
-            locked_at TEXT DEFAULT '',
-            locked_by TEXT DEFAULT ''
-        )
-    """)
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS shift_proposal_batches (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            target_week_start TEXT NOT NULL,
-            lookback_weeks INTEGER NOT NULL,
-            include_exceptional INTEGER DEFAULT 0,
-            created_at TEXT NOT NULL,
-            created_by TEXT NOT NULL,
-            applied_at TEXT DEFAULT '',
-            analysis_notes TEXT DEFAULT '[]'
-        )
-    """)
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS shift_proposals (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            batch_id INTEGER NOT NULL,
-            target_date TEXT NOT NULL,
-            time TEXT NOT NULL,
-            client TEXT NOT NULL,
-            worker TEXT NOT NULL,
-            recurrence_period INTEGER DEFAULT 1,
-            confidence REAL DEFAULT 0,
-            status TEXT DEFAULT 'proposed',
-            issues TEXT DEFAULT '[]',
-            source_last_seen TEXT DEFAULT '',
-            is_locked INTEGER DEFAULT 0,
-            manual_override INTEGER DEFAULT 0,
-            alternative_workers TEXT DEFAULT '[]',
-            applied_shift_id INTEGER,
-            created_at TEXT NOT NULL,
-            updated_at TEXT DEFAULT ''
-        )
-    """)
-    c.execute("""
-        CREATE INDEX IF NOT EXISTS idx_shift_proposals_batch
-        ON shift_proposals(batch_id)
-    """)
-    c.execute("""
-        CREATE INDEX IF NOT EXISTS idx_shift_proposals_target
-        ON shift_proposals(target_date, time)
-    """)
+    # Auto-planning draft and lock tables are only created when the
+    # server is explicitly running in write_enabled mode. In
+    # analysis_only mode — and in any unconfigured deployment — this
+    # DDL is skipped so no implicit migration happens on first boot.
+    # Pre-existing tables and indexes are preserved (we never DROP).
+    #
+    # Keeping the lock outside shifts is deliberate: many legacy
+    # views SELECT * and rely on the original six positional columns.
+    if auto_planning_write_enabled():
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS shift_locks (
+                shift_id INTEGER PRIMARY KEY,
+                locked_at TEXT DEFAULT '',
+                locked_by TEXT DEFAULT ''
+            )
+        """)
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS shift_proposal_batches (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                target_week_start TEXT NOT NULL,
+                lookback_weeks INTEGER NOT NULL,
+                include_exceptional INTEGER DEFAULT 0,
+                created_at TEXT NOT NULL,
+                created_by TEXT NOT NULL,
+                applied_at TEXT DEFAULT '',
+                analysis_notes TEXT DEFAULT '[]'
+            )
+        """)
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS shift_proposals (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                batch_id INTEGER NOT NULL,
+                target_date TEXT NOT NULL,
+                time TEXT NOT NULL,
+                client TEXT NOT NULL,
+                worker TEXT NOT NULL,
+                recurrence_period INTEGER DEFAULT 1,
+                confidence REAL DEFAULT 0,
+                status TEXT DEFAULT 'proposed',
+                issues TEXT DEFAULT '[]',
+                source_last_seen TEXT DEFAULT '',
+                is_locked INTEGER DEFAULT 0,
+                manual_override INTEGER DEFAULT 0,
+                alternative_workers TEXT DEFAULT '[]',
+                applied_shift_id INTEGER,
+                created_at TEXT NOT NULL,
+                updated_at TEXT DEFAULT ''
+            )
+        """)
+        c.execute("""
+            CREATE INDEX IF NOT EXISTS idx_shift_proposals_batch
+            ON shift_proposals(batch_id)
+        """)
+        c.execute("""
+            CREATE INDEX IF NOT EXISTS idx_shift_proposals_target
+            ON shift_proposals(target_date, time)
+        """)
     c.execute("""
         CREATE TABLE IF NOT EXISTS worker_payroll_settings (
             worker TEXT PRIMARY KEY,
@@ -20902,16 +21112,22 @@ def auto_plan_generate():
     if session.get("role") != "admin":
         return "Forbidden", 403
 
-    # Analysis-only mode: this route PERSISTS a draft (ap_create_draft
-    # inserts into shift_proposal_batches + shift_proposals). Block
-    # the POST path entirely and point the GET at /plan/analyze so
-    # the admin reaches the pure read pipeline. Refusal happens
-    # BEFORE any form parsing or CSRF handling so even a direct
-    # programmatic POST cannot slip through.
-    if auto_planning_analysis_only():
+    # Fail-closed: this route PERSISTS a draft (ap_create_draft
+    # inserts into shift_proposal_batches + shift_proposals). It is
+    # permitted ONLY when the operator explicitly opted in with
+    # AUTO_PLANNING_MODE=write_enabled.
+    #
+    # In analysis-only mode the GET is redirected to /plan/analyze
+    # (the pure read pipeline) and the POST is refused.
+    # In every other state (unconfigured mode, unknown value) the
+    # before_request guard already 404'd the route — the check below
+    # is defence in depth in case that guard is ever bypassed.
+    if not auto_planning_write_enabled():
         if request.method == "POST":
             return auto_planning_write_refused_response()
-        return redirect(url_for("auto_plan_analyze"))
+        if auto_planning_analysis_only():
+            return redirect(url_for("auto_plan_analyze"))
+        abort(404)
 
     # Establish ownership while rendering the form, before two tabs can
     # submit concurrent generations from the same authenticated session.
@@ -21032,13 +21248,147 @@ def auto_plan_generate():
 # ---------------------------------------------------------------------------
 
 
+AP_ANALYSIS_LEARNING_STATUSES = frozenset({"planned", "done", "in_progress"})
+AP_ANALYSIS_CANCELLED_STATUS = "cancelled"
+
+
+def ap_filter_history_for_analysis(history):
+    """Split history into (learning, discarded, unknown) by stored status.
+
+    * ``learning`` keeps the rows whose stored status is one of
+      ``planned`` / ``done`` / ``in_progress`` — the three statuses the
+      Luxmann Planner UI treats as real past work.
+    * ``discarded`` collects rows with status ``cancelled``. These never
+      contribute to recurrence detection so a weekly series that was
+      called off remains absent from the recommendations.
+    * ``unknown`` collects any other status value. These are reported
+      as a warning next to the analysis result so an operator can audit
+      the data instead of silently trusting a recurrence rooted in
+      status strings the Planner never emits itself.
+    """
+    learning, discarded, unknown = [], [], []
+    for row in history or []:
+        status = (
+            row[5] if not isinstance(row, dict) else row.get("status", "")
+        )
+        status_key = str(status or "").strip().lower()
+        if status_key in AP_ANALYSIS_LEARNING_STATUSES:
+            learning.append(row)
+        elif status_key == AP_ANALYSIS_CANCELLED_STATUS:
+            discarded.append(row)
+        else:
+            unknown.append(row)
+    return learning, discarded, unknown
+
+
+def ap_lookup_known_client_names(conn):
+    """Return a set of client names currently present in the ``clients`` table."""
+    rows = conn.cursor().execute("SELECT name FROM clients").fetchall()
+    return {str(row[0]) for row in rows if row and row[0] is not None}
+
+
+def ap_decorate_analysis_issues(proposals, known_clients, holiday_lookup):
+    """Attach analysis-only diagnostics to the proposals in place.
+
+    * ``client_missing`` (blocking): the proposal's client no longer
+      appears in the ``clients`` table — treating it as a normal
+      proposal would re-create work for a client who was deliberately
+      removed from the roster.
+    * ``public_holiday`` (warning): the target date is a legal
+      Luxembourg public holiday (or a custom entry in ``holidays``);
+      uses the shared ``get_all_holidays`` business function so
+      analysis and the main calendar never diverge.
+    """
+    for proposal in proposals:
+        issues = list(proposal.get("issues") or [])
+        client = str(proposal.get("client", "")).strip()
+        if client and client not in known_clients:
+            issues.append({
+                "code": "client_missing", "severity": "blocking",
+                "client": client,
+            })
+        holiday_name = holiday_lookup.get(proposal.get("target_date", ""))
+        if holiday_name:
+            if not any(
+                i.get("code") == "holiday" for i in issues
+            ):
+                issues.append({
+                    "code": "public_holiday", "severity": "warning",
+                    "name": holiday_name,
+                })
+        proposal["issues"] = issues
+        proposal["has_blocking_issues"] = any(
+            i.get("severity") == "blocking" for i in issues
+        )
+    return proposals
+
+
+def _ap_begin_readonly_tx(conn):
+    """Promote the current transaction to SQL-level read-only when possible.
+
+    On PostgreSQL this issues ``SET TRANSACTION READ ONLY`` so the
+    server refuses INSERT/UPDATE/DELETE/DDL even if an application
+    helper accidentally emits one. On SQLite the statement is not
+    supported; the function then silently no-ops because:
+      * SQLite is only used in dev / tests;
+      * the recording-cursor test asserts no write SQL is ever
+        emitted on the analyze path.
+    If the server-side guard cannot be installed, we never leave a
+    half-set state: the exception is swallowed and the caller
+    continues on the application-level discipline.
+    """
+    cur = conn.cursor()
+    try:
+        cur.execute("SET TRANSACTION READ ONLY")
+    except Exception:  # noqa: BLE001 — SQLite + older PGs may refuse
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
+
+
+def _ap_recurrence_label(recurrence_period, tr):
+    """Return a human label for the ``recurrence_period`` integer.
+
+    0 = exceptional / irregular (``include_exceptional`` was on)
+    1 = weekly
+    2 = every two weeks
+    4 = monthly (calendar-weekday rule)
+    anything else = ``N weeks`` with no special translation.
+    """
+    try:
+        period = int(recurrence_period)
+    except (TypeError, ValueError):
+        return str(recurrence_period or "")
+    if period == 0:
+        return tr.get("auto_plan_period_exceptional", "Irrégulier")
+    if period == 1:
+        return tr.get("auto_plan_period_weekly", "Chaque semaine")
+    if period == 2:
+        return tr.get("auto_plan_period_biweekly", "Toutes les 2 semaines")
+    if period == 4:
+        return tr.get("auto_plan_period_monthly", "Mensuel")
+    return f"{period} {tr.get('weeks', 'semaines')}"
+
+
+@app.context_processor
+def _ap_inject_recurrence_label():
+    return {"ap_recurrence_label_i18n": _ap_recurrence_label}
+
+
 AUTO_PLAN_ANALYZE_TEMPLATE = """
 <div class="card" style="max-width:980px;margin:auto;">
-  <div class="apa-banner" style="margin:0 0 14px;padding:10px 14px;
-      border-radius:8px;background:#1f5d96;color:#fff;font-weight:700;">
+  <div class="apa-banner" style="margin:0 0 14px;padding:14px 18px;
+      border-radius:10px;background:#1f5d96;color:#fff;font-weight:800;
+      font-size:16px;line-height:1.35;">
     {{ tr.get("auto_plan_analysis_banner",
-              "Mode analyse — aucune modification du planning ne sera "
-              "effectuée.") }}
+              "Mode analyse uniquement — aucune intervention ne sera "
+              "créée ou modifiée.") }}
   </div>
   <h2 style="margin-top:0;">{{ tr.get("auto_plan_analyze_title",
                                       "Analyse du planning") }}</h2>
@@ -21067,6 +21417,21 @@ AUTO_PLAN_ANALYZE_TEMPLATE = """
     <button type="submit">{{ tr.get("auto_plan_analyze","Analyser") }}</button>
   </form>
   {% if submitted %}
+    {% if discarded_cancelled or unknown_status_count %}
+      <p class="apa-diagnostics" style="color:#64748b;font-size:13px;">
+        {% if discarded_cancelled %}
+          {{ tr.get("auto_plan_cancelled_discarded",
+                    "Interventions annulées écartées de l'apprentissage") }}:
+          {{ discarded_cancelled }}
+        {% endif %}
+        {% if discarded_cancelled and unknown_status_count %} · {% endif %}
+        {% if unknown_status_count %}
+          {{ tr.get("auto_plan_unknown_status_ignored",
+                    "Statuts inconnus ignorés") }}:
+          {{ unknown_status_count }}
+        {% endif %}
+      </p>
+    {% endif %}
     {% if proposals %}
       <table class="apa-table" style="width:100%;border-collapse:collapse;">
         <thead>
@@ -21088,17 +21453,18 @@ AUTO_PLAN_ANALYZE_TEMPLATE = """
               <td>{{ p.client }}</td>
               <td>{{ p.worker }}</td>
               <td>{{ p.time }}</td>
-              <td>{{ p.get("period_weeks","") }}
-                  {{ tr.get("weeks","semaines") }}</td>
+              <td>{{ ap_recurrence_label_i18n(
+                        p.get("recurrence_period"), tr) }}</td>
               <td>{{ "%.0f%%"|format((p.confidence or 0) * 100) }}</td>
               <td>
                 {% for issue in p.issues %}
                   <div class="apa-issue"
                        data-code="{{ issue.code }}"
                        data-sev="{{ issue.severity }}">
-                    {{ issue.code }}
+                    {{ tr.get("auto_plan_issue_" ~ issue.code, issue.code) }}
                     {% if issue.severity %}
-                      ({{ issue.severity }}){% endif %}
+                      ({{ tr.get("auto_plan_sev_" ~ issue.severity,
+                                 issue.severity) }}){% endif %}
                   </div>
                 {% endfor %}
               </td>
@@ -21166,6 +21532,8 @@ def auto_plan_analyze():
 
     submitted = request.method == "POST"
     proposals = []
+    discarded_cancelled = 0
+    unknown_status_count = 0
 
     if submitted:
         try:
@@ -21183,18 +21551,45 @@ def auto_plan_analyze():
                 lookback_options=AP_LOOKBACK_OPTIONS,
                 include_exceptional=include_exceptional,
                 csrf_token=csrf_token, submitted=False, proposals=[],
+                discarded_cancelled=0, unknown_status_count=0,
             ), 400
 
         conn = None
         try:
             conn = get_conn()
-            computed = ap_generate_recurrence_proposals(
-                conn, target_day,
-                lookback_weeks=lookback_weeks,
+            _ap_begin_readonly_tx(conn)
+            # Fetch raw history and split by stored status BEFORE
+            # grouping, so cancelled rows never seed a recurrence and
+            # unknown-status rows are counted for the report but not
+            # trusted. We call ap_fetch_history directly (not the
+            # all-in-one ap_generate_recurrence_proposals) so the
+            # analysis-only policy stays encapsulated here.
+            start_date, end_date = ap_lookback_bounds(
+                target_day, lookback_weeks,
+            )
+            raw_history = ap_fetch_history(conn, start_date, end_date)
+            learning, discarded, unknown = ap_filter_history_for_analysis(
+                raw_history
+            )
+            discarded_cancelled = len(discarded)
+            unknown_status_count = len(unknown)
+            groups = ap_group_by_key(learning)
+            computed = ap_project(
+                groups, target_day,
                 include_exceptional=include_exceptional,
                 min_confidence=AP_DEFAULT_MIN_CONFIDENCE,
+                lookback_weeks=lookback_weeks,
             )
             proposals = ap_run_checks(conn, computed, target_day)
+            # Replace the engine's own holiday result (DB-only) by the
+            # legal LU calendar + custom entries so analysis and the
+            # main planner agree on holidays.
+            years = {target_day.year, target_day.year + 1}
+            holiday_lookup = get_all_holidays(conn, years)
+            known_clients = ap_lookup_known_client_names(conn)
+            proposals = ap_decorate_analysis_issues(
+                proposals, known_clients, holiday_lookup,
+            )
         finally:
             if conn is not None:
                 # Belt-and-braces: we never issue a write, but if any
@@ -21213,6 +21608,8 @@ def auto_plan_analyze():
         lookback_options=AP_LOOKBACK_OPTIONS,
         include_exceptional=include_exceptional,
         csrf_token=csrf_token, submitted=submitted, proposals=proposals,
+        discarded_cancelled=discarded_cancelled,
+        unknown_status_count=unknown_status_count,
     )
 
 
@@ -21308,12 +21705,15 @@ def _ap_phase5_post_guard():
         return redirect("/login")
     if session.get("role") != "admin":
         return "Forbidden", 403
-    # Analysis-only mode: the whole phase-5 surface is write-only
-    # (update, bulk-accept, apply, cancel, lock, unlock). Refuse the
-    # POST BEFORE validating CSRF — the mode is a stronger invariant
-    # than any token, and the refusal must be reached whether or not
-    # the request happens to carry a valid token.
-    if auto_planning_analysis_only():
+    # Fail-closed: the whole phase-5 surface is write-only (update,
+    # bulk-accept, apply, cancel, lock, unlock). It is permitted ONLY
+    # when the server was explicitly launched with
+    # AUTO_PLANNING_MODE=write_enabled. Any other state — the
+    # analysis-only mode, a missing mode, an unknown value — refuses
+    # the POST BEFORE validating CSRF. The mode is a stronger
+    # invariant than any token, and the refusal must be reached
+    # whether or not the request carries a valid token.
+    if not auto_planning_write_enabled():
         return auto_planning_write_refused_response()
     if not ap_validate_csrf(request.form.get("csrf_token", "")):
         return t().get(

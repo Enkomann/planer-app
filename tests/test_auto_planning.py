@@ -21,8 +21,27 @@ TEST_STORAGE = tempfile.mkdtemp(
 os.environ.pop("DATABASE_URL", None)
 os.environ["STORAGE_ROOT"] = TEST_STORAGE
 os.environ.setdefault("SECRET_KEY", "auto-planning-test-only")
+# This suite exercises the historical persistent flow (draft tables,
+# shift_locks, bulk-accept, apply, cancel). ``init_db`` only creates
+# the shift_locks / shift_proposal_batches / shift_proposals tables
+# in ``write_enabled`` mode, so set it here BEFORE the import that
+# triggers ``init_db``.
+os.environ["AUTO_PLANNING_MODE"] = "write_enabled"
 
 import app  # noqa: E402
+
+# When this module is imported LATER in a ``unittest discover`` run,
+# another test module may have already imported ``app`` under an
+# analysis_only / missing mode — ``init_db`` then skipped the
+# auto-planning DDL. Force the mode here and re-run ``init_db`` so
+# ``shift_locks``/``shift_proposal_batches``/``shift_proposals`` and
+# their indexes are present on whichever storage the shared app
+# instance ended up using.
+app.app.config["AUTO_PLANNING_MODE"] = "write_enabled"
+try:
+    app.init_db()
+except Exception:  # pragma: no cover — defensive, surfaces in tests
+    pass
 
 
 def tearDownModule():
