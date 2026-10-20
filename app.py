@@ -352,6 +352,67 @@ def auto_planning_enabled():
     )
 
 
+# ---------------------------------------------------------------------------
+# AUTO_PLANNING_MODE — strict analysis-only switch.
+#
+# Keyed by a dedicated env variable so a staging boot cannot flip the
+# runtime behaviour by accident. The value must be the EXACT string
+# ``analysis_only`` (case-insensitive, trimmed); any other value — missing,
+# empty, "no", "0", "readonly", a typo, "ANALYSIS_ONLY_YES_PLEASE" — leaves
+# the mode OFF so the historical draft-persisting flow stays in control.
+#
+# When ON, every write-side auto-planning route is refused at the HTTP
+# layer (``_ap_phase5_post_guard`` + the generate POST handler) and a new
+# ``/plan/analyze`` route provides a pure in-memory compute pipeline that
+# never touches ``shifts``, ``shift_proposal_batches``, ``shift_proposals``
+# or ``shift_locks``.
+# ---------------------------------------------------------------------------
+
+AUTO_PLANNING_MODE_ENV = "AUTO_PLANNING_MODE"
+AUTO_PLANNING_MODE_ANALYSIS_ONLY = "analysis_only"
+
+
+def parse_auto_planning_mode(value):
+    """Return ``'analysis_only'`` if the raw env value asks for it, else ``''``."""
+    normalised = str(value or "").strip().lower()
+    if normalised == AUTO_PLANNING_MODE_ANALYSIS_ONLY:
+        return AUTO_PLANNING_MODE_ANALYSIS_ONLY
+    return ""
+
+
+app.config["AUTO_PLANNING_MODE"] = parse_auto_planning_mode(
+    os.environ.get(AUTO_PLANNING_MODE_ENV)
+)
+
+
+def auto_planning_analysis_only():
+    """True iff ``AUTO_PLANNING_MODE=analysis_only`` was set at boot.
+
+    Reads the parsed value from ``app.config`` so tests can override it
+    with ``mock.patch.dict(app.config, ...)`` without touching the
+    environment. Never trusts arbitrary strings as truthy.
+    """
+    return app.config.get("AUTO_PLANNING_MODE", "") == (
+        AUTO_PLANNING_MODE_ANALYSIS_ONLY
+    )
+
+
+def auto_planning_write_refused_response():
+    """HTTP 403 payload used by every analysis-only refusal path.
+
+    Centralised so the message, status code and payload shape stay
+    identical whichever write endpoint tried to run.
+    """
+    return (
+        t().get(
+            "auto_plan_analysis_only_blocked",
+            "Auto-planning is in analysis-only mode: no shift, "
+            "proposal, draft or lock can be written.",
+        ),
+        403,
+    )
+
+
 @app.before_request
 def require_auto_planning_feature():
     """Hide every auto-planning endpoint while the feature is disabled."""
@@ -20841,6 +20902,17 @@ def auto_plan_generate():
     if session.get("role") != "admin":
         return "Forbidden", 403
 
+    # Analysis-only mode: this route PERSISTS a draft (ap_create_draft
+    # inserts into shift_proposal_batches + shift_proposals). Block
+    # the POST path entirely and point the GET at /plan/analyze so
+    # the admin reaches the pure read pipeline. Refusal happens
+    # BEFORE any form parsing or CSRF handling so even a direct
+    # programmatic POST cannot slip through.
+    if auto_planning_analysis_only():
+        if request.method == "POST":
+            return auto_planning_write_refused_response()
+        return redirect(url_for("auto_plan_analyze"))
+
     # Establish ownership while rendering the form, before two tabs can
     # submit concurrent generations from the same authenticated session.
     owner_token = _ap_session_draft_owner()
@@ -20947,6 +21019,203 @@ def auto_plan_generate():
     return redirect(url_for("auto_plan_review", batch=batch_id))
 
 
+# ---------------------------------------------------------------------------
+# /plan/analyze — read-only in-memory compute path.
+#
+# This route is ONLY reachable when auto-planning is enabled AND
+# ``AUTO_PLANNING_MODE=analysis_only`` was set at boot. It computes
+# recurrence proposals for the chosen target week purely in memory —
+# no draft row, no proposal row, no shift row, no lock row is ever
+# written. The connection is closed WITHOUT commit and with an
+# explicit rollback as a belt-and-braces guard against any helper
+# that might, in future, start an implicit write transaction.
+# ---------------------------------------------------------------------------
+
+
+AUTO_PLAN_ANALYZE_TEMPLATE = """
+<div class="card" style="max-width:980px;margin:auto;">
+  <div class="apa-banner" style="margin:0 0 14px;padding:10px 14px;
+      border-radius:8px;background:#1f5d96;color:#fff;font-weight:700;">
+    {{ tr.get("auto_plan_analysis_banner",
+              "Mode analyse — aucune modification du planning ne sera "
+              "effectuée.") }}
+  </div>
+  <h2 style="margin-top:0;">{{ tr.get("auto_plan_analyze_title",
+                                      "Analyse du planning") }}</h2>
+  <form method="post" style="display:flex;flex-wrap:wrap;gap:12px;
+      align-items:flex-end;margin-bottom:12px;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>{{ tr.get("auto_plan_target_week","Semaine cible (lundi)") }}
+      <input type="date" name="target_week_start"
+             value="{{ target_week }}" required>
+    </label>
+    <label>{{ tr.get("auto_plan_lookback","Historique") }}
+      <select name="lookback_weeks">
+        {% for opt in lookback_options %}
+          <option value="{{ opt }}"
+            {% if opt == lookback_weeks %}selected{% endif %}>
+            {{ opt }} {{ tr.get("weeks","semaines") }}
+          </option>
+        {% endfor %}
+      </select>
+    </label>
+    <label style="display:flex;align-items:center;gap:6px;">
+      <input type="checkbox" name="include_exceptional" value="1"
+             {% if include_exceptional %}checked{% endif %}>
+      {{ tr.get("auto_plan_include_exceptional","Inclure irréguliers") }}
+    </label>
+    <button type="submit">{{ tr.get("auto_plan_analyze","Analyser") }}</button>
+  </form>
+  {% if submitted %}
+    {% if proposals %}
+      <table class="apa-table" style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th>{{ tr.get("date","Date") }}</th>
+            <th>{{ tr.get("pdf_client","Client") }}</th>
+            <th>{{ tr.get("team","Équipe") }}</th>
+            <th>{{ tr.get("time","Horaire") }}</th>
+            <th>{{ tr.get("auto_plan_recurrence","Récurrence") }}</th>
+            <th>{{ tr.get("auto_plan_confidence","Confiance") }}</th>
+            <th>{{ tr.get("auto_plan_issues","Avertissements") }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in proposals %}
+            <tr {% if p.has_blocking_issues %}
+                style="background:#fee2e2;"{% endif %}>
+              <td>{{ p.target_date }}</td>
+              <td>{{ p.client }}</td>
+              <td>{{ p.worker }}</td>
+              <td>{{ p.time }}</td>
+              <td>{{ p.get("period_weeks","") }}
+                  {{ tr.get("weeks","semaines") }}</td>
+              <td>{{ "%.0f%%"|format((p.confidence or 0) * 100) }}</td>
+              <td>
+                {% for issue in p.issues %}
+                  <div class="apa-issue"
+                       data-code="{{ issue.code }}"
+                       data-sev="{{ issue.severity }}">
+                    {{ issue.code }}
+                    {% if issue.severity %}
+                      ({{ issue.severity }}){% endif %}
+                  </div>
+                {% endfor %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>{{ tr.get("auto_plan_no_proposals",
+                   "Aucune proposition pour cette semaine.") }}</p>
+    {% endif %}
+    <p style="margin-top:16px;color:#64748b;font-size:13px;">
+      {{ tr.get("auto_plan_analysis_footer",
+                "Les propositions ci-dessus sont un simple aperçu de "
+                "calcul : rien n'a été écrit en base.") }}
+    </p>
+  {% endif %}
+  <a class="back-button" href="/">{{ tr.get("back","Retour") }}</a>
+</div>
+"""
+
+
+@app.route("/plan/analyze", methods=["GET", "POST"])
+def auto_plan_analyze():
+    if "user" not in session:
+        return redirect("/login")
+    if session.get("role") != "admin":
+        return "Forbidden", 403
+    if not auto_planning_analysis_only():
+        # The route only exists in analysis-only mode. In any other
+        # mode we 404 the same way the feature flag does, so a
+        # misconfigured deployment cannot accidentally expose it.
+        abort(404)
+
+    tr = t()
+    dark = get_theme() == "dark"
+    csrf_token = ap_csrf_token()
+
+    # On POST the token is still required — this route performs no
+    # write but we keep anti-CSRF so a cross-site POST cannot force
+    # an administrator's browser to run the compute pipeline against
+    # a parameter set the admin did not pick (confidentiality: the
+    # resulting page carries client/worker/time data).
+    if request.method == "POST" and not ap_validate_csrf(
+        request.form.get("csrf_token", "")
+    ):
+        return tr.get(
+            "auto_plan_csrf_failed",
+            "The security token is missing or invalid. Refresh the page.",
+        ), 400
+
+    default_target = ap_default_target_week_start().isoformat()
+    target_week = (
+        request.form.get("target_week_start", "").strip() or default_target
+    )
+    try:
+        lookback_weeks = int(request.form.get(
+            "lookback_weeks", AP_DEFAULT_LOOKBACK_WEEKS
+        ))
+    except (TypeError, ValueError):
+        lookback_weeks = AP_DEFAULT_LOOKBACK_WEEKS
+    if lookback_weeks not in AP_LOOKBACK_OPTIONS:
+        lookback_weeks = AP_DEFAULT_LOOKBACK_WEEKS
+    include_exceptional = request.form.get("include_exceptional") == "1"
+
+    submitted = request.method == "POST"
+    proposals = []
+
+    if submitted:
+        try:
+            target_day = _ap_date(target_week)
+            if target_day.weekday() != 0:
+                raise ValueError("target week is not Monday")
+        except (TypeError, ValueError):
+            flash(tr.get(
+                "auto_plan_invalid_week", "Select a valid Monday."
+            ), "warning")
+            return render_template_string(
+                BASE_STYLE + header_html() + AUTO_PLAN_ANALYZE_TEMPLATE,
+                tr=tr, dark=dark, target_week=target_week,
+                lookback_weeks=lookback_weeks,
+                lookback_options=AP_LOOKBACK_OPTIONS,
+                include_exceptional=include_exceptional,
+                csrf_token=csrf_token, submitted=False, proposals=[],
+            ), 400
+
+        conn = None
+        try:
+            conn = get_conn()
+            computed = ap_generate_recurrence_proposals(
+                conn, target_day,
+                lookback_weeks=lookback_weeks,
+                include_exceptional=include_exceptional,
+                min_confidence=AP_DEFAULT_MIN_CONFIDENCE,
+            )
+            proposals = ap_run_checks(conn, computed, target_day)
+        finally:
+            if conn is not None:
+                # Belt-and-braces: we never issue a write, but if any
+                # helper ever starts an implicit transaction we abort
+                # it here instead of leaving it dangling.
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+                conn.close()
+
+    return render_template_string(
+        BASE_STYLE + header_html() + AUTO_PLAN_ANALYZE_TEMPLATE,
+        tr=tr, dark=dark, target_week=target_week,
+        lookback_weeks=lookback_weeks,
+        lookback_options=AP_LOOKBACK_OPTIONS,
+        include_exceptional=include_exceptional,
+        csrf_token=csrf_token, submitted=submitted, proposals=proposals,
+    )
+
+
 @app.route("/plan/review")
 def auto_plan_review():
     if "user" not in session:
@@ -21039,6 +21308,13 @@ def _ap_phase5_post_guard():
         return redirect("/login")
     if session.get("role") != "admin":
         return "Forbidden", 403
+    # Analysis-only mode: the whole phase-5 surface is write-only
+    # (update, bulk-accept, apply, cancel, lock, unlock). Refuse the
+    # POST BEFORE validating CSRF — the mode is a stronger invariant
+    # than any token, and the refusal must be reached whether or not
+    # the request happens to carry a valid token.
+    if auto_planning_analysis_only():
+        return auto_planning_write_refused_response()
     if not ap_validate_csrf(request.form.get("csrf_token", "")):
         return t().get(
             "auto_plan_csrf_failed",
