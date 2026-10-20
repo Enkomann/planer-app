@@ -197,6 +197,45 @@ class RedirectHandlerTests(unittest.TestCase):
         )
 
 
+class HttpClientEncodingTests(unittest.TestCase):
+    def test_post_materialises_form_and_preserves_multiple_workers(self):
+        """Exercise urllib's real encoding path without opening a socket."""
+        client = http_seed.HttpClient(http_seed.STAGING_BASE_URL)
+        response = http_seed.HttpResponse(
+            status=200,
+            final_url=f"{http_seed.STAGING_BASE_URL}/add_shift",
+            body="ok",
+        )
+        client._open = mock.Mock(return_value=response)
+
+        result = client.post(
+            "/add_shift",
+            {
+                "workers": ["Worker One", "Worker Two"],
+                "client": "Client A",
+                "status": "planned",
+            },
+        )
+
+        self.assertIs(result, response)
+        url, = client._open.call_args.args
+        self.assertEqual(url, f"{http_seed.STAGING_BASE_URL}/add_shift")
+        encoded = client._open.call_args.kwargs["data"].decode("ascii")
+        self.assertEqual(
+            urllib.parse.parse_qsl(encoded, keep_blank_values=True),
+            [
+                ("workers", "Worker One"),
+                ("workers", "Worker Two"),
+                ("client", "Client A"),
+                ("status", "planned"),
+            ],
+        )
+        self.assertEqual(
+            client._open.call_args.kwargs["extra_headers"],
+            {"Content-Type": "application/x-www-form-urlencoded"},
+        )
+
+
 class MonthAnchorParserTests(unittest.TestCase):
     """P1 + P2: the /month HTML parser only accepts the Jinja edit-link
     anchor, with every ``data-*`` attribute present. A flash message or

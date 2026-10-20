@@ -325,7 +325,8 @@ class HttpClient:
         return self._open(self._url(path), data=None)
 
     def post(self, path: str, form: Mapping[str, object]) -> HttpResponse:
-        data = urllib.parse.urlencode(_normalise_form(form), doseq=True).encode()
+        form_pairs = list(_normalise_form(form))
+        data = urllib.parse.urlencode(form_pairs, doseq=True).encode()
         return self._open(
             self._url(path),
             data=data,
