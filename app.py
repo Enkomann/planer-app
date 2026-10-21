@@ -9812,7 +9812,16 @@ def move_shift():
         # leaves the shift untouched.
         ap_lock_shift_mutations(conn)
         c = conn.cursor()
-        if ap_check_shift_locked(conn, shift_id):
+        try:
+            is_locked = ap_check_shift_locked(conn, shift_id)
+        except ShiftLocksUnavailable:
+            conn.rollback()
+            return (t().get(
+                "auto_plan_locks_unavailable",
+                "Shift locks table is unavailable in write mode; "
+                "refusing to mutate.",
+            ), 503)
+        if is_locked:
             conn.rollback()
             return (t().get(
                 "auto_plan_locked_change_blocked",
@@ -17074,7 +17083,21 @@ def delete_shift(id):
     try:
         ap_lock_shift_mutations(conn)
         cursor = conn.cursor()
-        if ap_check_shift_locked(conn, id):
+        try:
+            is_locked = ap_check_shift_locked(conn, id)
+        except ShiftLocksUnavailable:
+            conn.rollback()
+            flash(t().get(
+                "auto_plan_locks_unavailable",
+                "Shift locks table is unavailable in write mode; "
+                "refusing to mutate.",
+            ), "error")
+            return (t().get(
+                "auto_plan_locks_unavailable",
+                "Shift locks table is unavailable in write mode; "
+                "refusing to mutate.",
+            ), 503)
+        if is_locked:
             flash(t().get(
                 "auto_plan_locked_delete_blocked",
                 "Unlock the job before deleting it.",
@@ -17415,7 +17438,16 @@ def edit_shift(id):
             # Serialize with move/apply/delete and lock mutations so a lock
             # committed by another request is observed before any update.
             ap_lock_shift_mutations(conn)
-            if ap_check_shift_locked(conn, id):
+            try:
+                is_locked = ap_check_shift_locked(conn, id)
+            except ShiftLocksUnavailable:
+                conn.rollback()
+                return (tr.get(
+                    "auto_plan_locks_unavailable",
+                    "Shift locks table is unavailable in write mode; "
+                    "refusing to mutate.",
+                ), 503)
+            if is_locked:
                 conn.rollback()
                 flash(tr.get(
                     "auto_plan_locked_change_blocked",
@@ -19949,46 +19981,52 @@ class ShiftLocksUnavailable(RuntimeError):
 
 
 def _shift_locks_table_exists(conn):
-    """Cheap existence check for the ``shift_locks`` table.
+    """Return True iff the ``shift_locks`` table exists.
 
-    Uses the standard ``SELECT 1 FROM shift_locks LIMIT 0`` trick that
-    works on both SQLite and PostgreSQL: the SELECT is cost-free but
-    the planner still errors out when the table is absent. We catch
-    exactly that error, rollback the implicit transaction so a
-    following statement in the same transaction is not aborted on
-    PostgreSQL, and return False.
-
-    Only an OperationalError (SQLite) or psycopg2.errors.UndefinedTable /
-    psycopg2.Error (PostgreSQL) is treated as "table missing". Any
-    other exception is re-raised so a real connectivity issue is not
-    masked as "no locks exist".
+    The lookup goes through METADATA, not a probe SELECT on the
+    table itself, so an absent table never raises:
+      * **PostgreSQL**: ``SELECT to_regclass('shift_locks')``. The
+        function returns NULL when the name does not resolve in the
+        current ``search_path`` and never errors on absence.
+      * **SQLite**: ``SELECT 1 FROM sqlite_master WHERE type='table'
+        AND name='shift_locks'``.
+    Crucially, this helper NEVER issues ``COMMIT`` or ``ROLLBACK``.
+    A ``LOCK TABLE`` previously acquired in the same transaction
+    stays active, and a ``SET TRANSACTION READ ONLY`` already in
+    force stays in force.
+    An unexpected exception (permission denied, dead connection,
+    etc.) propagates — the helper does not return a misleading
+    ``False`` on a real error.
     """
+    inner_name = type(conn).__name__
+    if inner_name == "_PgConn" or (USE_POSTGRES and inner_name != "Connection"):
+        # ``to_regclass`` is cost-free, respects the session's
+        # ``search_path`` and returns NULL for a missing name.
+        cur = conn.cursor()
+        try:
+            cur.execute("SELECT to_regclass('shift_locks')")
+            row = cur.fetchone()
+        finally:
+            try:
+                cur.close()
+            except Exception:
+                pass
+        return bool(row) and row[0] is not None
+    # SQLite path — ``sqlite_master`` is the canonical catalog and
+    # always exists on every open database.
     cur = conn.cursor()
     try:
-        cur.execute("SELECT 1 FROM shift_locks LIMIT 0")
-        return True
-    except sqlite3.OperationalError as exc:
-        if "no such table" not in str(exc).lower():
-            raise
-    except Exception as exc:  # noqa: BLE001 — narrowed below
-        name = type(exc).__name__
-        message = str(exc).lower()
-        if name not in ("UndefinedTable", "ProgrammingError", "OperationalError"):
-            raise
-        if "shift_locks" not in message and "does not exist" not in message:
-            raise
+        cur.execute(
+            "SELECT 1 FROM sqlite_master "
+            "WHERE type = 'table' AND name = 'shift_locks' LIMIT 1"
+        )
+        row = cur.fetchone()
     finally:
         try:
             cur.close()
         except Exception:
             pass
-    # Cleanup an aborted PostgreSQL transaction so the caller can
-    # keep issuing SELECTs without hitting InFailedSqlTransaction.
-    try:
-        conn.rollback()
-    except Exception:
-        pass
-    return False
+    return row is not None
 
 
 def ap_check_shift_locked(conn, shift_id):
@@ -21443,10 +21481,10 @@ def _ap_begin_readonly_tx(conn):
       supported; the function no-ops. SQLite is only used in dev /
       tests, and the recording-cursor test proves no write SQL is
       emitted on the analyze path anyway.
-    * Any other connection type is treated like SQLite (no-op) with
-      a WARNING log so an operator sees that the server-level guard
-      is not in effect. We deliberately do NOT raise here — a wrapper
-      we did not recognise should not disable the whole feature.
+    * Any other connection type is **fail-closed**: the helper raises
+      :class:`ReadOnlyTransactionUnavailable` so the analysis never
+      runs on a wrapper whose read-only semantics we cannot
+      guarantee. ``/plan/analyze`` catches that and returns 503.
     """
     inner_name = type(conn).__name__
     is_pg = (
@@ -21454,13 +21492,20 @@ def _ap_begin_readonly_tx(conn):
         or (USE_POSTGRES and inner_name != "Connection")
     )
     if not is_pg:
-        if inner_name != "Connection":
-            app.logger.warning(
-                "SET TRANSACTION READ ONLY skipped on unknown connection "
-                "type %s; relying on application-level read-only discipline.",
-                inner_name,
-            )
-        return
+        if inner_name == "Connection":
+            # SQLite — the no-op path. The recording-cursor test
+            # already asserts the analyze pipeline emits only
+            # SELECT, so SQLite tests remain meaningful.
+            return
+        app.logger.error(
+            "SET TRANSACTION READ ONLY cannot be established on "
+            "unknown connection type %s; refusing to analyze.",
+            inner_name,
+        )
+        raise ReadOnlyTransactionUnavailable(
+            f"unknown connection type {inner_name!r}; "
+            "refusing to analyze in writable mode."
+        )
     cur = conn.cursor()
     try:
         cur.execute("SET TRANSACTION READ ONLY")

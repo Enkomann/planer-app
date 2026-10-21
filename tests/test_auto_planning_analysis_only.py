@@ -403,7 +403,9 @@ class AnalyzeWriteSafetyTests(_AnalysisOnlyBase):
             def __getattr__(self, name):
                 return getattr(self._inner, name)
 
-        class _RecordingConn:
+        # Name must stay ``Connection`` — ``_ap_begin_readonly_tx``
+        # recognises SQLite by class name and takes its no-op path.
+        class Connection:  # noqa: N801
             def __init__(wrapper, inner):
                 wrapper.inner = inner
 
@@ -423,7 +425,7 @@ class AnalyzeWriteSafetyTests(_AnalysisOnlyBase):
 
         def _wrapped_conn():
             inner = real_get_conn()
-            return _RecordingConn(inner)
+            return Connection(inner)
 
         with mock.patch.object(app_mod, "get_conn", _wrapped_conn):
             resp = self.client.post("/plan/analyze", data={
@@ -983,6 +985,17 @@ class PreExistingLockRespectedTests(unittest.TestCase):
 
 
 class ReadOnlyTransactionFailClosedTests(unittest.TestCase):
+    def test_unknown_connection_type_raises_fail_closed(self):
+        """Codex scenario D: an unknown connection class must NOT be
+        treated as 'application-level discipline is enough' — raise."""
+
+        class _MysteryConn:
+            def cursor(self_inner):
+                raise AssertionError("cursor must not be opened")
+
+        with self.assertRaises(app_mod.ReadOnlyTransactionUnavailable):
+            app_mod._ap_begin_readonly_tx(_MysteryConn())
+
     def test_pg_set_transaction_read_only_failure_raises(self):
         """A psycopg2-like connection that errors on SET TRANSACTION
         READ ONLY must raise ``ReadOnlyTransactionUnavailable``."""
@@ -1140,6 +1153,364 @@ class MenuEntryWriteEnabledPointsToGenerateTests(_AnalysisOnlyBase):
             self.assertEqual(
                 merged["auto_plan_entry_url"], "/plan/generate",
             )
+
+
+# ---------------------------------------------------------------------------
+# Codex regression tests: _shift_locks_table_exists must not disturb the
+# ambient transaction (A/B/C/H), unknown connections (D) covered above,
+# write_enabled refusal (G), and the SQL-only analysis invariant (I).
+# ---------------------------------------------------------------------------
+
+
+class ShiftLocksDetectionNoRollbackTests(unittest.TestCase):
+    """A/B/C/H: metadata-based detection — zero COMMIT/ROLLBACK."""
+
+    def _recorder(self, inner):
+        """Wrap a sqlite3 connection with a recorder that fails loudly
+        if the helper ever issues a transaction control statement."""
+        events: list[str] = []
+
+        class _Cur:
+            def __init__(self_, c):
+                self_._c = c
+
+            def execute(self_, sql, params=()):
+                events.append(("sql", sql.strip().split()[0].upper()))
+                return self_._c.execute(sql, params)
+
+            def fetchone(self_):
+                return self_._c.fetchone()
+
+            def fetchall(self_):
+                return self_._c.fetchall()
+
+            def close(self_):
+                self_._c.close()
+
+        class _Conn:
+            def cursor(self_):
+                return _Cur(inner.cursor())
+
+            def commit(self_):
+                events.append(("tx", "COMMIT"))
+                inner.commit()
+
+            def rollback(self_):
+                events.append(("tx", "ROLLBACK"))
+                inner.rollback()
+
+            def close(self_):
+                inner.close()
+
+        return _Conn(), events
+
+    def test_absent_table_detection_issues_no_rollback_or_commit(self):
+        """A: on a fresh schema without shift_locks, the helper queries
+        sqlite_master only and never touches transaction state."""
+        tmp = tempfile.mkdtemp(prefix="luxmann-sl-norollback-")
+        db_path = os.path.join(tmp, "x.db")
+        inner = sqlite3.connect(db_path)
+        try:
+            inner.execute("CREATE TABLE shifts (id INTEGER)")
+            inner.commit()
+            wrapper, events = self._recorder(inner)
+            self.assertFalse(app_mod._shift_locks_table_exists(wrapper))
+            tx_events = [e for e in events if e[0] == "tx"]
+            self.assertEqual(tx_events, [], f"unexpected tx events: {events}")
+        finally:
+            inner.close()
+
+    def test_present_table_detection_issues_no_rollback_or_commit(self):
+        """A bis: with the table present, detection still never touches TX."""
+        tmp = tempfile.mkdtemp(prefix="luxmann-sl-present-")
+        db_path = os.path.join(tmp, "x.db")
+        inner = sqlite3.connect(db_path)
+        try:
+            inner.execute(
+                "CREATE TABLE shift_locks (shift_id INTEGER PRIMARY KEY)"
+            )
+            inner.commit()
+            wrapper, events = self._recorder(inner)
+            self.assertTrue(app_mod._shift_locks_table_exists(wrapper))
+            tx_events = [e for e in events if e[0] == "tx"]
+            self.assertEqual(tx_events, [])
+        finally:
+            inner.close()
+
+    def test_pg_detection_uses_to_regclass_not_a_probe_select(self):
+        """B: the PG path issues SELECT to_regclass('shift_locks') —
+        a metadata query that returns NULL on absence instead of
+        raising + requiring rollback. We assert the exact SQL."""
+        emitted: list[str] = []
+
+        class _Cur:
+            def __init__(self_):
+                self_._row = (None,)  # table absent — to_regclass returns NULL
+
+            def execute(self_, sql):
+                emitted.append(sql.strip())
+                if "to_regclass" not in sql:
+                    raise AssertionError(
+                        "PG path must query to_regclass, not probe the table"
+                    )
+
+            def fetchone(self_):
+                return self_._row
+
+            def close(self_):
+                pass
+
+        class _PgConn:
+            def cursor(self_):
+                return _Cur()
+
+            def rollback(self_):
+                raise AssertionError("rollback must not be called")
+
+            def commit(self_):
+                raise AssertionError("commit must not be called")
+
+        self.assertFalse(app_mod._shift_locks_table_exists(_PgConn()))
+        self.assertEqual(len(emitted), 1)
+        self.assertIn("to_regclass", emitted[0])
+        self.assertIn("shift_locks", emitted[0])
+
+    def test_pg_detection_treats_non_null_regclass_as_present(self):
+        """B': to_regclass returning a non-NULL OID means the table exists."""
+
+        class _Cur:
+            def execute(self_, sql):
+                pass
+
+            def fetchone(self_):
+                return ("public.shift_locks",)
+
+            def close(self_):
+                pass
+
+        class _PgConn:
+            def cursor(self_):
+                return _Cur()
+
+        self.assertTrue(app_mod._shift_locks_table_exists(_PgConn()))
+
+    def test_unexpected_permission_error_propagates(self):
+        """H: a permission denied / dead connection must NOT silently
+        become ``False`` — the exception propagates so the operator
+        sees it in the logs rather than reading a misleading answer."""
+
+        class _Cur:
+            def execute(self_, sql):
+                raise sqlite3.OperationalError("database is locked")
+
+            def close(self_):
+                pass
+
+        class _Conn:
+            def cursor(self_):
+                return _Cur()
+
+            def rollback(self_):
+                raise AssertionError("must not rollback on unknown error")
+
+        with self.assertRaises(sqlite3.OperationalError):
+            app_mod._shift_locks_table_exists(_Conn())
+
+
+class LockTableSurvivesDetectionTests(unittest.TestCase):
+    """C: a transactional lock already acquired before the detection
+    MUST still be in force after the detection returns.
+
+    SQLite has no ``LOCK TABLE`` statement, but ``BEGIN IMMEDIATE``
+    gives it an equivalent write-reservation. We prove the write
+    reservation survives by observing that a second connection
+    cannot acquire it while the first still holds it after the
+    detection call.
+    """
+
+    def test_begin_immediate_reservation_survives_detection(self):
+        tmp = tempfile.mkdtemp(prefix="luxmann-sl-lock-")
+        db_path = os.path.join(tmp, "x.db")
+        setup = sqlite3.connect(db_path)
+        setup.execute("CREATE TABLE shifts (id INTEGER)")
+        setup.commit()
+        setup.close()
+
+        holder = sqlite3.connect(db_path, isolation_level=None, timeout=0.2)
+        holder.execute("BEGIN IMMEDIATE")
+        try:
+            # Detection on a schema without ``shift_locks``.
+            self.assertFalse(app_mod._shift_locks_table_exists(holder))
+
+            # Prove the write reservation is still held: a second
+            # connection trying BEGIN IMMEDIATE must time out.
+            other = sqlite3.connect(db_path, isolation_level=None, timeout=0.1)
+            try:
+                with self.assertRaises(sqlite3.OperationalError):
+                    other.execute("BEGIN IMMEDIATE")
+            finally:
+                other.close()
+        finally:
+            holder.rollback()
+            holder.close()
+
+
+class WriteEnabledMissingLocksRespondsWithControlledErrorTests(unittest.TestCase):
+    """G: in write_enabled mode without the ``shift_locks`` table, each
+    write route returns a controlled 503 (or redirect-with-flash) and
+    leaves the shift intact. Never a 500."""
+
+    def setUp(self):
+        self._tmp = tempfile.mkdtemp(prefix="luxmann-sl-refuse-")
+        self._db_path = os.path.join(self._tmp, "planer.db")
+        self.addCleanup(
+            mock.patch.object(app_mod, "SQLITE_PATH", self._db_path).stop
+        )
+        mock.patch.object(app_mod, "SQLITE_PATH", self._db_path).start()
+        env_patch = mock.patch.dict(
+            os.environ,
+            {"ADMIN_BOOTSTRAP_PASSWORD": TEST_ADMIN_PASSWORD,
+             "ADMIN_BOOTSTRAP_USERNAME": "admin"},
+            clear=False,
+        )
+        env_patch.start()
+        self.addCleanup(env_patch.stop)
+        os.environ.pop("APP_ENV", None)
+        with mock.patch.dict(app_mod.app.config, {"AUTO_PLANNING_MODE": ""}):
+            app_mod.init_db()  # legacy schema: no shift_locks
+        cfg_patch = mock.patch.dict(
+            app_mod.app.config,
+            {"AUTO_PLANNING_ENABLED": True,
+             "AUTO_PLANNING_MODE": "write_enabled",
+             "TESTING": True},
+        )
+        cfg_patch.start()
+        self.addCleanup(cfg_patch.stop)
+        self.client = app_mod.app.test_client()
+        self.client.post("/login", data={
+            "username": "admin", "password": TEST_ADMIN_PASSWORD,
+        })
+        with sqlite3.connect(self._db_path) as conn:
+            conn.execute(
+                "INSERT INTO shifts (worker, client, date, time, status) "
+                "VALUES ('w','c','2026-10-19','09:00-11:00','planned')"
+            )
+            conn.commit()
+
+    def _shift_id(self):
+        with sqlite3.connect(self._db_path) as conn:
+            return conn.execute("SELECT id FROM shifts").fetchone()[0]
+
+    def test_move_shift_returns_503_and_leaves_shift_alone(self):
+        resp = self.client.post("/move_shift", data={
+            "shift_id": str(self._shift_id()),
+            "date": "2026-10-26",
+        })
+        self.assertEqual(resp.status_code, 503)
+        with sqlite3.connect(self._db_path) as conn:
+            row = conn.execute(
+                "SELECT date FROM shifts WHERE id = ?",
+                (self._shift_id(),),
+            ).fetchone()
+        self.assertEqual(row[0], "2026-10-19")
+
+    def test_edit_shift_post_returns_503_and_leaves_shift_alone(self):
+        resp = self.client.post(f"/edit_shift/{self._shift_id()}", data={
+            "workers": "w",
+            "client": "c",
+            "date": "2026-10-26",
+            "start_hour": "08", "start_minute": "00",
+            "end_hour": "10", "end_minute": "00",
+            "status": "planned",
+        })
+        self.assertEqual(resp.status_code, 503)
+        with sqlite3.connect(self._db_path) as conn:
+            row = conn.execute(
+                "SELECT date FROM shifts WHERE id = ?",
+                (self._shift_id(),),
+            ).fetchone()
+        self.assertEqual(row[0], "2026-10-19")
+
+    def test_delete_shift_returns_controlled_response_and_shift_survives(self):
+        resp = self.client.post(
+            f"/delete_shift/{self._shift_id()}", follow_redirects=False,
+        )
+        self.assertIn(resp.status_code, (302, 503))
+        self.assertNotEqual(resp.status_code, 500)
+        with sqlite3.connect(self._db_path) as conn:
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM shifts").fetchone()[0],
+                1,
+            )
+
+
+class AnalyzeOnlyRunsSelectTests(_AnalysisOnlyBase):
+    """I: the analyze POST path must emit SELECT only — no DDL,
+    no INSERT, UPDATE, DELETE or TX control statement."""
+
+    def test_analyze_path_sql_verbs(self):
+        self._seed_four_mondays()
+        token = self._csrf_token()
+
+        verbs: list[str] = []
+        real_get_conn = app_mod.get_conn
+
+        class _RecCur:
+            def __init__(self_, c):
+                self_._c = c
+
+            def execute(self_, sql, params=()):
+                verbs.append(sql.strip().split()[0].upper())
+                return self_._c.execute(sql, params)
+
+            def fetchone(self_):
+                return self_._c.fetchone()
+
+            def fetchall(self_):
+                return self_._c.fetchall()
+
+            def close(self_):
+                self_._c.close()
+
+            def __getattr__(self_, n):
+                return getattr(self_._c, n)
+
+        # Must be named ``Connection`` so the readonly fail-closed
+        # helper takes its SQLite no-op branch.
+        class Connection:  # noqa: N801
+            def __init__(self_, inner):
+                self_.inner = inner
+
+            def cursor(self_):
+                return _RecCur(self_.inner.cursor())
+
+            def commit(self_):
+                verbs.append("COMMIT")
+                self_.inner.commit()
+
+            def rollback(self_):
+                verbs.append("ROLLBACK")
+                self_.inner.rollback()
+
+            def close(self_):
+                self_.inner.close()
+
+        with mock.patch.object(
+            app_mod, "get_conn", lambda: Connection(real_get_conn()),
+        ):
+            resp = self.client.post("/plan/analyze", data={
+                "csrf_token": token,
+                "target_week_start": "2026-10-19",
+                "lookback_weeks": "4",
+            })
+        self.assertEqual(resp.status_code, 200)
+        forbidden = {"INSERT", "UPDATE", "DELETE", "CREATE", "ALTER",
+                     "DROP", "TRUNCATE", "COMMIT"}
+        hit = forbidden.intersection(verbs)
+        self.assertFalse(
+            hit, f"analyze POST emitted forbidden SQL: {hit}; log: {verbs}"
+        )
+        self.assertIn("SELECT", verbs)
 
 
 if __name__ == "__main__":
