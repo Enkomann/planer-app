@@ -753,5 +753,394 @@ class RecurrenceLabelTests(unittest.TestCase):
                 )
 
 
+# ---------------------------------------------------------------------------
+# P1 — Legacy routes stay compatible when ``shift_locks`` is absent.
+# ---------------------------------------------------------------------------
+
+
+class LegacyRoutesWithoutShiftLocksTests(unittest.TestCase):
+    """Reproduce the main-branch schema (no auto-planning tables) and
+    confirm /week, /move_shift, /edit_shift and /delete_shift still work
+    when the feature flag is off AND when it is in analysis_only mode.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls._tmp = tempfile.mkdtemp(prefix="luxmann-main-schema-")
+
+    def setUp(self):
+        self._db_path = os.path.join(
+            self._tmp, f"planer-{os.urandom(4).hex()}.db"
+        )
+        self.addCleanup(
+            mock.patch.object(app_mod, "SQLITE_PATH", self._db_path).stop
+        )
+        mock.patch.object(app_mod, "SQLITE_PATH", self._db_path).start()
+
+        env_patch = mock.patch.dict(
+            os.environ,
+            {
+                "ADMIN_BOOTSTRAP_PASSWORD": TEST_ADMIN_PASSWORD,
+                "ADMIN_BOOTSTRAP_USERNAME": "admin",
+            },
+            clear=False,
+        )
+        env_patch.start()
+        self.addCleanup(env_patch.stop)
+        os.environ.pop("APP_ENV", None)
+
+        # First boot WITHOUT the auto-planning mode → init_db skips the
+        # auto-planning DDL, so the resulting DB mirrors a legacy
+        # production schema that never ran the auto-planning migration.
+        cfg_patch_bootstrap = mock.patch.dict(
+            app_mod.app.config, {"AUTO_PLANNING_MODE": ""},
+        )
+        cfg_patch_bootstrap.start()
+        app_mod.init_db()
+        cfg_patch_bootstrap.stop()
+
+        # Confirm the "fresh main schema" preconditions.
+        with sqlite3.connect(self._db_path) as conn:
+            tables = {
+                row[0] for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+        self.assertNotIn("shift_locks", tables)
+        self.assertNotIn("shift_proposal_batches", tables)
+        self.assertNotIn("shift_proposals", tables)
+
+        # Then put the server in the mode under test and open a client.
+        cfg_patch_mode = mock.patch.dict(
+            app_mod.app.config,
+            {
+                "AUTO_PLANNING_ENABLED": self._enabled(),
+                "AUTO_PLANNING_MODE": self._mode(),
+                "TESTING": True,
+            },
+        )
+        cfg_patch_mode.start()
+        self.addCleanup(cfg_patch_mode.stop)
+        self.client = app_mod.app.test_client()
+        self._login()
+        self._seed_shift()
+
+    def _enabled(self):
+        return False
+
+    def _mode(self):
+        return ""
+
+    def _login(self):
+        resp = self.client.post("/login", data={
+            "username": "admin",
+            "password": TEST_ADMIN_PASSWORD,
+        }, follow_redirects=False)
+        self.assertEqual(resp.status_code, 302)
+
+    def _seed_shift(self):
+        with sqlite3.connect(self._db_path) as conn:
+            conn.execute(
+                "INSERT INTO workers (name, address) VALUES (?, ?)",
+                ("w1", ""),
+            )
+            conn.execute(
+                "INSERT INTO clients (name, address) VALUES (?, ?)",
+                ("c1", "Rue"),
+            )
+            conn.execute(
+                "INSERT INTO shifts (worker, client, date, time, status) "
+                "VALUES (?, ?, ?, ?, ?)",
+                ("w1", "c1", "2026-10-19", "09:00-11:00", "planned"),
+            )
+            conn.commit()
+
+    def _shift_id(self):
+        with sqlite3.connect(self._db_path) as conn:
+            return conn.execute(
+                "SELECT id FROM shifts WHERE worker = 'w1' LIMIT 1",
+            ).fetchone()[0]
+
+    # ------------------------------------------------------------------
+
+    def test_week_view_works(self):
+        resp = self.client.get("/week")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_move_shift_works(self):
+        resp = self.client.post("/move_shift", data={
+            "shift_id": str(self._shift_id()),
+            "date": "2026-10-20",
+        })
+        self.assertEqual(resp.status_code, 200)
+
+    def test_delete_shift_works(self):
+        resp = self.client.post(
+            f"/delete_shift/{self._shift_id()}",
+            follow_redirects=False,
+        )
+        self.assertEqual(resp.status_code, 302)
+        with sqlite3.connect(self._db_path) as conn:
+            self.assertEqual(
+                conn.execute(
+                    "SELECT COUNT(*) FROM shifts",
+                ).fetchone()[0],
+                0,
+            )
+
+    def test_edit_shift_get_works(self):
+        resp = self.client.get(f"/edit_shift/{self._shift_id()}")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_no_auto_plan_ddl_was_executed_by_the_requests(self):
+        self.client.get("/week")
+        self.client.post("/move_shift", data={
+            "shift_id": str(self._shift_id()),
+            "date": "2026-10-20",
+        })
+        with sqlite3.connect(self._db_path) as conn:
+            tables = {
+                row[0] for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+        self.assertNotIn("shift_locks", tables)
+        self.assertNotIn("shift_proposal_batches", tables)
+        self.assertNotIn("shift_proposals", tables)
+
+
+class LegacyRoutesWithoutShiftLocksAnalysisOnlyTests(
+    LegacyRoutesWithoutShiftLocksTests
+):
+    """Same scenario, feature flag ON + mode analysis_only."""
+
+    def _enabled(self):
+        return True
+
+    def _mode(self):
+        return app_mod.AUTO_PLANNING_MODE_ANALYSIS_ONLY
+
+
+class PreExistingLockRespectedTests(unittest.TestCase):
+    """P1 defense: an existing lock row must still block a mutation."""
+
+    def test_locked_shift_blocks_delete(self):
+        tmp = tempfile.mkdtemp(prefix="luxmann-lock-respected-")
+        db_path = os.path.join(tmp, "planer.db")
+        with mock.patch.object(app_mod, "SQLITE_PATH", db_path):
+            with mock.patch.dict(
+                app_mod.app.config,
+                {"AUTO_PLANNING_MODE": "write_enabled",
+                 "AUTO_PLANNING_ENABLED": True,
+                 "TESTING": True},
+            ):
+                with mock.patch.dict(
+                    os.environ,
+                    {"ADMIN_BOOTSTRAP_PASSWORD": TEST_ADMIN_PASSWORD,
+                     "ADMIN_BOOTSTRAP_USERNAME": "admin"},
+                    clear=False,
+                ):
+                    os.environ.pop("APP_ENV", None)
+                    app_mod.init_db()
+                with sqlite3.connect(db_path) as conn:
+                    conn.execute(
+                        "INSERT INTO shifts "
+                        "(worker, client, date, time, status) "
+                        "VALUES ('w','c','2026-10-19','09:00-11:00','planned')"
+                    )
+                    conn.commit()
+                    shift_id = conn.execute(
+                        "SELECT id FROM shifts"
+                    ).fetchone()[0]
+                    conn.execute(
+                        "INSERT INTO shift_locks "
+                        "(shift_id, locked_at, locked_by) "
+                        "VALUES (?, '2026-10-19T09:00', 'admin')",
+                        (shift_id,),
+                    )
+                    conn.commit()
+                client = app_mod.app.test_client()
+                client.post("/login", data={
+                    "username": "admin",
+                    "password": TEST_ADMIN_PASSWORD,
+                })
+                resp = client.post(
+                    f"/delete_shift/{shift_id}", follow_redirects=False,
+                )
+                # Redirect back with a flash — the shift must survive.
+                self.assertEqual(resp.status_code, 302)
+                with sqlite3.connect(db_path) as conn:
+                    self.assertEqual(
+                        conn.execute(
+                            "SELECT COUNT(*) FROM shifts",
+                        ).fetchone()[0], 1,
+                    )
+
+
+# ---------------------------------------------------------------------------
+# P2 — PG READ ONLY must fail-closed.
+# ---------------------------------------------------------------------------
+
+
+class ReadOnlyTransactionFailClosedTests(unittest.TestCase):
+    def test_pg_set_transaction_read_only_failure_raises(self):
+        """A psycopg2-like connection that errors on SET TRANSACTION
+        READ ONLY must raise ``ReadOnlyTransactionUnavailable``."""
+
+        class _FailingCursor:
+            def execute(self_inner, sql):
+                raise RuntimeError("simulated PG failure")
+
+            def close(self_inner):
+                pass
+
+        class _PgConn:
+            def cursor(self_inner):
+                return _FailingCursor()
+
+            def rollback(self_inner):
+                pass
+
+        conn = _PgConn()
+        with self.assertRaises(app_mod.ReadOnlyTransactionUnavailable):
+            app_mod._ap_begin_readonly_tx(conn)
+
+    def test_sqlite_connection_is_a_no_op(self):
+        """SQLite does not support SET TRANSACTION READ ONLY; the
+        helper must silently skip rather than raise."""
+        tmp = tempfile.mkdtemp(prefix="luxmann-ro-sqlite-")
+        db_path = os.path.join(tmp, "x.db")
+        conn = sqlite3.connect(db_path)
+        try:
+            app_mod._ap_begin_readonly_tx(conn)  # must not raise
+        finally:
+            conn.close()
+
+
+class AnalyzeAbortsOnReadOnlyFailureTests(_AnalysisOnlyBase):
+    """End-to-end: when SET TRANSACTION READ ONLY fails, the analyze
+    POST must return 503 without reaching the engine."""
+
+    def test_engine_is_not_called_when_readonly_fails(self):
+        token = self._csrf_token()
+        self._seed_four_mondays()
+
+        engine_called = []
+        real_engine = app_mod.ap_generate_recurrence_proposals
+
+        def _spy_engine(*args, **kwargs):
+            engine_called.append(args)
+            return real_engine(*args, **kwargs)
+
+        def _raising_readonly(conn):
+            raise app_mod.ReadOnlyTransactionUnavailable("test")
+
+        with mock.patch.object(
+            app_mod, "ap_generate_recurrence_proposals", _spy_engine,
+        ), mock.patch.object(
+            app_mod, "_ap_begin_readonly_tx", _raising_readonly,
+        ):
+            resp = self.client.post("/plan/analyze", data={
+                "csrf_token": token,
+                "target_week_start": "2026-10-19",
+                "lookback_weeks": "4",
+            })
+        self.assertEqual(resp.status_code, 503)
+        self.assertEqual(engine_called, [])
+
+
+# ---------------------------------------------------------------------------
+# P3 — /plan/review refuses access in analysis_only.
+# ---------------------------------------------------------------------------
+
+
+class ReviewRouteBlockedInAnalysisOnlyTests(_AnalysisOnlyBase):
+    def test_review_get_redirects_to_analyze_in_analysis_only(self):
+        resp = self.client.get("/plan/review", follow_redirects=False)
+        # In analysis_only we redirect to the pure read page.
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(
+            resp.headers.get("Location", "").endswith("/plan/analyze")
+        )
+
+    def test_review_get_with_batch_id_also_redirects(self):
+        resp = self.client.get(
+            "/plan/review?batch=42", follow_redirects=False,
+        )
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(
+            resp.headers.get("Location", "").endswith("/plan/analyze")
+        )
+
+    def test_review_write_post_is_403(self):
+        """Phase-5 writes are still 403 — the review redirect does not
+        slip a write path through."""
+        resp = self.client.post("/plan/review/1/apply", data={})
+        self.assertEqual(resp.status_code, 403)
+
+
+class ReviewRouteMissingModeIs404Tests(_AnalysisOnlyBase):
+    def auto_planning_mode(self):
+        return ""
+
+    def test_review_get_404_when_mode_missing(self):
+        resp = self.client.get("/plan/review")
+        self.assertEqual(resp.status_code, 404)
+
+
+# ---------------------------------------------------------------------------
+# P4 — Menu entry hidden on misconfigured deployments.
+# ---------------------------------------------------------------------------
+
+
+class MenuEntryVisibilityTests(_AnalysisOnlyBase):
+    """The quick-action entry is bound to ``auto_planning_feature_active``
+    and ``auto_plan_entry_url``, not the raw ``auto_planning_enabled`` flag.
+    """
+
+    def test_entry_url_in_analysis_only_points_to_analyze(self):
+        with app_mod.app.test_request_context("/"):
+            ctx = next(iter(
+                app_mod.app.template_context_processors[None]
+            ))()
+        # Scan every registered processor; one of them exposes the var.
+        with app_mod.app.test_request_context("/"):
+            merged = {}
+            for proc in app_mod.app.template_context_processors[None]:
+                merged.update(proc())
+            self.assertTrue(merged["auto_planning_feature_active"])
+            self.assertEqual(
+                merged["auto_plan_entry_url"], "/plan/analyze",
+            )
+
+
+class MenuEntryHiddenWhenModeMissingTests(_AnalysisOnlyBase):
+    def auto_planning_mode(self):
+        return ""
+
+    def test_entry_url_empty_when_feature_inactive(self):
+        with app_mod.app.test_request_context("/"):
+            merged = {}
+            for proc in app_mod.app.template_context_processors[None]:
+                merged.update(proc())
+            self.assertFalse(merged["auto_planning_feature_active"])
+            self.assertEqual(merged["auto_plan_entry_url"], "")
+
+
+class MenuEntryWriteEnabledPointsToGenerateTests(_AnalysisOnlyBase):
+    def auto_planning_mode(self):
+        return app_mod.AUTO_PLANNING_MODE_WRITE_ENABLED
+
+    def test_entry_url_in_write_enabled_points_to_generate(self):
+        with app_mod.app.test_request_context("/"):
+            merged = {}
+            for proc in app_mod.app.template_context_processors[None]:
+                merged.update(proc())
+            self.assertTrue(merged["auto_planning_feature_active"])
+            self.assertEqual(
+                merged["auto_plan_entry_url"], "/plan/generate",
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

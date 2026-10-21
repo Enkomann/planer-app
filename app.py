@@ -9261,7 +9261,7 @@ def index():
             {% endif %}
             <div class="section-title"><h2>{{ tr["quick_actions"] }}</h2></div>
 
-    {% if is_admin and auto_planning_enabled %}
+    {% if is_admin and auto_planning_feature_active and auto_plan_entry_url %}
     <style>
       .auto-plan-quickbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 0 16px;padding:14px 16px;border-left:4px solid #2563eb;background:{{ '#171d2a' if dark else '#eff6ff' }};color:{{ '#dbeafe' if dark else '#1e3a8a' }};border-radius:6px}
       .auto-plan-quickbar strong{display:block;font-size:15px;margin-bottom:2px}
@@ -9274,7 +9274,7 @@ def index():
         <strong>{{ tr.get('auto_plan_title','Smart automatic planning') }}</strong>
         <span>{{ tr.get('auto_plan_generation_help','Analyse history and prepare a draft.') }}</span>
       </div>
-      <a class="auto-plan-entry" href="{{ url_for('auto_plan_generate') }}">{{ tr.get('auto_plan_generate','Generate automatically') }}</a>
+      <a class="auto-plan-entry" href="{{ auto_plan_entry_url }}">{{ tr.get('auto_plan_generate','Generate automatically') }}</a>
     </div>
     {% endif %}
 
@@ -9947,14 +9947,21 @@ def week_view():
     client_addresses = {row[0]: (row[1] or "") for row in clients_raw}
     clients = clients_raw
     workers = c.execute("SELECT name FROM workers ORDER BY name").fetchall()
-    locked_shift_ids = {
-        int(row[0]) for row in c.execute(
-            "SELECT sl.shift_id FROM shift_locks sl "
-            "JOIN shifts s ON s.id = sl.shift_id "
-            "WHERE s.date >= ? AND s.date <= ?",
-            (week_days[0], week_days[-1]),
-        ).fetchall()
-    }
+    if _shift_locks_table_exists(conn):
+        locked_shift_ids = {
+            int(row[0]) for row in c.execute(
+                "SELECT sl.shift_id FROM shift_locks sl "
+                "JOIN shifts s ON s.id = sl.shift_id "
+                "WHERE s.date >= ? AND s.date <= ?",
+                (week_days[0], week_days[-1]),
+            ).fetchall()
+        }
+    else:
+        # Legacy / analysis_only deployment: the auto-planning
+        # migration has not run, so no shift can be locked. Match
+        # the pre-auto-planning behaviour by rendering every shift
+        # as unlocked rather than failing the whole /week view.
+        locked_shift_ids = set()
     conn.close()
     day_names = [tr["monday"], tr["tuesday"], tr["wednesday"], tr["thursday"], tr["friday"], tr["saturday"], tr["sunday"]]
 
@@ -9970,7 +9977,7 @@ def week_view():
     <h1>{{ tr["week_calendar"] }}</h1>
     <div class="week-toolbar">
         <a class="back-button" href="/">{{ tr["back"] }}</a>
-        {% if session.get('role') == 'admin' %}<a href="/month?year={{ start_year }}&month={{ start_month }}">{{ tr["month_calendar"] }}</a>{% endif %}{% if is_admin and auto_planning_enabled %}<a class="week-auto-plan" data-auto-plan-entry="week" href="{{ url_for('auto_plan_generate') }}">{{ tr.get('auto_plan_generate','Generate automatically') }}</a>{% endif %}
+        {% if session.get('role') == 'admin' %}<a href="/month?year={{ start_year }}&month={{ start_month }}">{{ tr["month_calendar"] }}</a>{% endif %}{% if is_admin and auto_planning_feature_active and auto_plan_entry_url %}<a class="week-auto-plan" data-auto-plan-entry="week" href="{{ auto_plan_entry_url }}">{{ tr.get('auto_plan_generate','Generate automatically') }}</a>{% endif %}
         <a class="pdf-link" href="/week_pdf?start={{ week_days[0] }}" target="_blank">PDF {{ tr["week_calendar"] }}</a>
     </div>
     <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin:16px 0; flex-wrap:wrap;">
@@ -10183,7 +10190,7 @@ def month_view():
         #monthWdBar .month-weekday:nth-child(6) { animation-delay: -1.0s; }
         #monthWdBar .month-weekday:nth-child(7) { animation-delay: -1.2s; }
     </style>
-    <div class="week-toolbar"><a class="back-button" href="/">{{ tr["back"] }}</a><a href="/week">{{ tr["week_calendar"] }}</a><a href="/month_pdf?year={{ year }}&month={{ month }}" target="_blank">{{ tr["month_pdf"] }}</a>{% if auto_planning_enabled %}<a class="week-auto-plan" data-auto-plan-entry="month" href="{{ url_for('auto_plan_generate') }}">{{ tr.get('auto_plan_generate','Generate automatically') }}</a>{% endif %}</div>
+    <div class="week-toolbar"><a class="back-button" href="/">{{ tr["back"] }}</a><a href="/week">{{ tr["week_calendar"] }}</a><a href="/month_pdf?year={{ year }}&month={{ month }}" target="_blank">{{ tr["month_pdf"] }}</a>{% if auto_planning_feature_active and auto_plan_entry_url %}<a class="week-auto-plan" data-auto-plan-entry="month" href="{{ auto_plan_entry_url }}">{{ tr.get('auto_plan_generate','Generate automatically') }}</a>{% endif %}</div>
     <div style="display:flex; justify-content:space-between; align-items:center; margin:16px 0; gap:12px;"><a href="/month?year={{ prev_year }}&month={{ prev_month }}">{{ tr["prev_month"] }}</a><h2>{{ tr["month_calendar"] }} - {{ format_month_year(year, month) }}</h2><a href="/month?year={{ next_year }}&month={{ next_month }}">{{ tr["next_month"] }}</a></div>
     <div id="monthWdBar">
         {% for dn in day_names %}<div class="card month-weekday">{{ dn }}</div>{% endfor %}
@@ -17077,7 +17084,13 @@ def delete_shift(id):
         # Keep lock cleanup in the same transaction as the shift delete.
         # This is intentionally executed even for an apparently unlocked
         # shift so a stale/orphan-prone row can never survive deletion.
-        cursor.execute("DELETE FROM shift_locks WHERE shift_id = ?", (id,))
+        # Skipped when the ``shift_locks`` table is not present — a
+        # legacy / analysis_only database has no row to clean up and
+        # the DELETE itself would otherwise fail the whole request.
+        if _shift_locks_table_exists(conn):
+            cursor.execute(
+                "DELETE FROM shift_locks WHERE shift_id = ?", (id,),
+            )
         cursor.execute("DELETE FROM shifts WHERE id = ?", (id,))
         conn.commit()
     except Exception:
@@ -19925,9 +19938,86 @@ def ap_check_overlap_batch(proposals):
     return issues
 
 
+class ShiftLocksUnavailable(RuntimeError):
+    """Raised when a write path requiring lock protection runs on a
+    database that does not carry a ``shift_locks`` table yet.
+
+    The caller MUST refuse the operation (fail-closed) rather than
+    silently proceed — a protected shift must never be mutated when
+    the server cannot read its lock state.
+    """
+
+
+def _shift_locks_table_exists(conn):
+    """Cheap existence check for the ``shift_locks`` table.
+
+    Uses the standard ``SELECT 1 FROM shift_locks LIMIT 0`` trick that
+    works on both SQLite and PostgreSQL: the SELECT is cost-free but
+    the planner still errors out when the table is absent. We catch
+    exactly that error, rollback the implicit transaction so a
+    following statement in the same transaction is not aborted on
+    PostgreSQL, and return False.
+
+    Only an OperationalError (SQLite) or psycopg2.errors.UndefinedTable /
+    psycopg2.Error (PostgreSQL) is treated as "table missing". Any
+    other exception is re-raised so a real connectivity issue is not
+    masked as "no locks exist".
+    """
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT 1 FROM shift_locks LIMIT 0")
+        return True
+    except sqlite3.OperationalError as exc:
+        if "no such table" not in str(exc).lower():
+            raise
+    except Exception as exc:  # noqa: BLE001 — narrowed below
+        name = type(exc).__name__
+        message = str(exc).lower()
+        if name not in ("UndefinedTable", "ProgrammingError", "OperationalError"):
+            raise
+        if "shift_locks" not in message and "does not exist" not in message:
+            raise
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
+    # Cleanup an aborted PostgreSQL transaction so the caller can
+    # keep issuing SELECTs without hitting InFailedSqlTransaction.
+    try:
+        conn.rollback()
+    except Exception:
+        pass
+    return False
+
+
 def ap_check_shift_locked(conn, shift_id):
-    """Return True when a shift has an explicit row in shift_locks."""
+    """Return True when a shift has an explicit row in shift_locks.
+
+    When the ``shift_locks`` table is absent — a production database
+    that never ran the auto-planning migration, or a staging boot in
+    analysis_only / unconfigured mode — the answer depends on the
+    runtime mode:
+      * ``write_enabled``: this is a safety-critical check for a
+        write-side route (edit_shift, move_shift, delete_shift,
+        bulk-accept, apply). Raise :class:`ShiftLocksUnavailable` so
+        the caller refuses the mutation rather than silently
+        proceeding; the schema is incompatible with the mode and
+        that is an operator problem to fix.
+      * Any other mode (analysis_only, feature flag off, no mode):
+        return ``False`` — the historical calendar routes
+        (/week, /move_shift, /edit_shift, /delete_shift) treat the
+        absence as "nothing is locked", which matches the behaviour
+        the Planner had before auto-planning existed.
+    """
     if shift_id in (None, ""):
+        return False
+    if not _shift_locks_table_exists(conn):
+        if auto_planning_write_enabled():
+            raise ShiftLocksUnavailable(
+                "shift_locks table missing while AUTO_PLANNING_MODE="
+                "write_enabled; refuse the mutation."
+            )
         return False
     row = conn.cursor().execute(
         "SELECT shift_id FROM shift_locks WHERE shift_id = ?",
@@ -20442,13 +20532,21 @@ def ap_fetch_existing_week(conn, target_week_start):
     """Read existing target-week shifts and their lock state."""
     week_start = _ap_date(target_week_start)
     week_end = week_start + timedelta(days=6)
-    rows = conn.cursor().execute(
-        "SELECT s.id, s.worker, s.client, s.date, s.time, s.status, "
-        "CASE WHEN sl.shift_id IS NULL THEN 0 ELSE 1 END "
-        "FROM shifts s LEFT JOIN shift_locks sl ON sl.shift_id = s.id "
-        "WHERE s.date >= ? AND s.date <= ? ORDER BY s.date, s.time, s.id",
-        (week_start.isoformat(), week_end.isoformat()),
-    ).fetchall()
+    if _shift_locks_table_exists(conn):
+        rows = conn.cursor().execute(
+            "SELECT s.id, s.worker, s.client, s.date, s.time, s.status, "
+            "CASE WHEN sl.shift_id IS NULL THEN 0 ELSE 1 END "
+            "FROM shifts s LEFT JOIN shift_locks sl ON sl.shift_id = s.id "
+            "WHERE s.date >= ? AND s.date <= ? ORDER BY s.date, s.time, s.id",
+            (week_start.isoformat(), week_end.isoformat()),
+        ).fetchall()
+    else:
+        rows = conn.cursor().execute(
+            "SELECT s.id, s.worker, s.client, s.date, s.time, s.status, 0 "
+            "FROM shifts s "
+            "WHERE s.date >= ? AND s.date <= ? ORDER BY s.date, s.time, s.id",
+            (week_start.isoformat(), week_end.isoformat()),
+        ).fetchall()
     return [{
         "id": int(row[0]), "worker": str(row[1] or ""),
         "client": str(row[2] or ""), "date": str(row[3] or ""),
@@ -21323,29 +21421,70 @@ def ap_decorate_analysis_issues(proposals, known_clients, holiday_lookup):
     return proposals
 
 
-def _ap_begin_readonly_tx(conn):
-    """Promote the current transaction to SQL-level read-only when possible.
-
-    On PostgreSQL this issues ``SET TRANSACTION READ ONLY`` so the
-    server refuses INSERT/UPDATE/DELETE/DDL even if an application
-    helper accidentally emits one. On SQLite the statement is not
-    supported; the function then silently no-ops because:
-      * SQLite is only used in dev / tests;
-      * the recording-cursor test asserts no write SQL is ever
-        emitted on the analyze path.
-    If the server-side guard cannot be installed, we never leave a
-    half-set state: the exception is swallowed and the caller
-    continues on the application-level discipline.
+class ReadOnlyTransactionUnavailable(RuntimeError):
+    """Raised when ``SET TRANSACTION READ ONLY`` cannot be installed on
+    a PostgreSQL connection. The caller MUST abort the analysis and
+    close the connection — continuing in a writable transaction after
+    this failure is a safety-net breach, not a soft degradation.
     """
+
+
+def _ap_begin_readonly_tx(conn):
+    """Promote the current transaction to SQL-level read-only.
+
+    * On PostgreSQL (``_PgConn``) this is **fail-closed**: the
+      statement MUST run successfully BEFORE any other SQL in the
+      transaction. If it fails for any reason, the function rolls
+      back the aborted transaction and raises
+      :class:`ReadOnlyTransactionUnavailable`. The analysis route
+      catches that and renders a generic error — never continues
+      against a writable connection.
+    * On SQLite (``sqlite3.Connection``) the statement is not
+      supported; the function no-ops. SQLite is only used in dev /
+      tests, and the recording-cursor test proves no write SQL is
+      emitted on the analyze path anyway.
+    * Any other connection type is treated like SQLite (no-op) with
+      a WARNING log so an operator sees that the server-level guard
+      is not in effect. We deliberately do NOT raise here — a wrapper
+      we did not recognise should not disable the whole feature.
+    """
+    inner_name = type(conn).__name__
+    is_pg = (
+        inner_name == "_PgConn"
+        or (USE_POSTGRES and inner_name != "Connection")
+    )
+    if not is_pg:
+        if inner_name != "Connection":
+            app.logger.warning(
+                "SET TRANSACTION READ ONLY skipped on unknown connection "
+                "type %s; relying on application-level read-only discipline.",
+                inner_name,
+            )
+        return
     cur = conn.cursor()
     try:
         cur.execute("SET TRANSACTION READ ONLY")
-    except Exception:  # noqa: BLE001 — SQLite + older PGs may refuse
+    except Exception as exc:
+        try:
+            cur.close()
+        except Exception:
+            pass
         try:
             conn.rollback()
         except Exception:
             pass
-    finally:
+        # Fail-closed on PostgreSQL. The exception type is logged
+        # structurally (no SQL body) so operators can diagnose
+        # without leaking any client/worker data.
+        app.logger.error(
+            "SET TRANSACTION READ ONLY failed on %s: %s",
+            inner_name, type(exc).__name__,
+        )
+        raise ReadOnlyTransactionUnavailable(
+            "PostgreSQL refused to switch to READ ONLY mode; "
+            "aborting the analysis."
+        )
+    else:
         try:
             cur.close()
         except Exception:
@@ -21378,7 +21517,28 @@ def _ap_recurrence_label(recurrence_period, tr):
 
 @app.context_processor
 def _ap_inject_recurrence_label():
-    return {"ap_recurrence_label_i18n": _ap_recurrence_label}
+    """Expose UI helpers to every rendered template.
+
+    * ``ap_recurrence_label_i18n`` — translates ``recurrence_period``.
+    * ``auto_planning_feature_active`` — True iff the flag AND the
+      mode are both set to a known valid state. Templates use this
+      instead of ``auto_planning_enabled`` so a half-wired config
+      hides the menu entry entirely.
+    * ``auto_plan_entry_url`` — the URL the menu button points at:
+      ``/plan/generate`` in write_enabled, ``/plan/analyze`` in
+      analysis_only, empty string otherwise.
+    """
+    if auto_planning_write_enabled():
+        entry_url = url_for("auto_plan_generate")
+    elif auto_planning_analysis_only():
+        entry_url = url_for("auto_plan_analyze")
+    else:
+        entry_url = ""
+    return {
+        "ap_recurrence_label_i18n": _ap_recurrence_label,
+        "auto_planning_feature_active": auto_planning_feature_active(),
+        "auto_plan_entry_url": entry_url,
+    }
 
 
 AUTO_PLAN_ANALYZE_TEMPLATE = """
@@ -21557,7 +21717,23 @@ def auto_plan_analyze():
         conn = None
         try:
             conn = get_conn()
-            _ap_begin_readonly_tx(conn)
+            try:
+                _ap_begin_readonly_tx(conn)
+            except ReadOnlyTransactionUnavailable:
+                flash(tr.get(
+                    "auto_plan_readonly_unavailable",
+                    "The analysis could not be prepared in read-only "
+                    "mode. Please try again later.",
+                ), "error")
+                return render_template_string(
+                    BASE_STYLE + header_html() + AUTO_PLAN_ANALYZE_TEMPLATE,
+                    tr=tr, dark=dark, target_week=target_week,
+                    lookback_weeks=lookback_weeks,
+                    lookback_options=AP_LOOKBACK_OPTIONS,
+                    include_exceptional=include_exceptional,
+                    csrf_token=csrf_token, submitted=False, proposals=[],
+                    discarded_cancelled=0, unknown_status_count=0,
+                ), 503
             # Fetch raw history and split by stored status BEFORE
             # grouping, so cancelled rows never seed a recurrence and
             # unknown-status rows are counted for the report but not
@@ -21619,6 +21795,15 @@ def auto_plan_review():
         return redirect("/login")
     if session.get("role") != "admin":
         return "Forbidden", 403
+    # Analysis-only forbids access to the review surface entirely —
+    # it exists only to display and act on persisted drafts, and
+    # neither action is possible in this mode. Redirect to the
+    # pure read page so the admin lands on something useful.
+    # ``require_auto_planning_feature`` already 404'd on missing /
+    # invalid mode, so by here we are either analysis_only or
+    # write_enabled.
+    if auto_planning_analysis_only():
+        return redirect(url_for("auto_plan_analyze"))
     batch_id = request.args.get("batch", type=int)
     if not batch_id or batch_id < 1:
         return "Not Found", 404
