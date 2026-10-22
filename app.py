@@ -19983,6 +19983,14 @@ class ShiftLocksUnavailable(RuntimeError):
 def _shift_locks_table_exists(conn):
     """Return True iff the ``shift_locks`` table exists.
 
+    Dialect dispatch is **strict**: only an instance of this module's
+    ``_PgConn`` wrapper is treated as PostgreSQL, and only an
+    ``sqlite3.Connection`` instance is treated as SQLite. Any other
+    class — a bare mock, a test wrapper that forgets to inherit, a
+    future pool wrapper we did not update — raises
+    :class:`ShiftLocksUnavailable` rather than guessing the dialect
+    and issuing a potentially wrong metadata query.
+
     The lookup goes through METADATA, not a probe SELECT on the
     table itself, so an absent table never raises:
       * **PostgreSQL**: ``SELECT to_regclass('shift_locks')``. The
@@ -19998,10 +20006,7 @@ def _shift_locks_table_exists(conn):
     etc.) propagates — the helper does not return a misleading
     ``False`` on a real error.
     """
-    inner_name = type(conn).__name__
-    if inner_name == "_PgConn" or (USE_POSTGRES and inner_name != "Connection"):
-        # ``to_regclass`` is cost-free, respects the session's
-        # ``search_path`` and returns NULL for a missing name.
+    if isinstance(conn, _PgConn):
         cur = conn.cursor()
         try:
             cur.execute("SELECT to_regclass('shift_locks')")
@@ -20012,21 +20017,24 @@ def _shift_locks_table_exists(conn):
             except Exception:
                 pass
         return bool(row) and row[0] is not None
-    # SQLite path — ``sqlite_master`` is the canonical catalog and
-    # always exists on every open database.
-    cur = conn.cursor()
-    try:
-        cur.execute(
-            "SELECT 1 FROM sqlite_master "
-            "WHERE type = 'table' AND name = 'shift_locks' LIMIT 1"
-        )
-        row = cur.fetchone()
-    finally:
+    if isinstance(conn, sqlite3.Connection):
+        cur = conn.cursor()
         try:
-            cur.close()
-        except Exception:
-            pass
-    return row is not None
+            cur.execute(
+                "SELECT 1 FROM sqlite_master "
+                "WHERE type = 'table' AND name = 'shift_locks' LIMIT 1"
+            )
+            row = cur.fetchone()
+        finally:
+            try:
+                cur.close()
+            except Exception:
+                pass
+        return row is not None
+    raise ShiftLocksUnavailable(
+        f"unknown connection type {type(conn).__name__!r}; "
+        "refusing to probe shift_locks."
+    )
 
 
 def ap_check_shift_locked(conn, shift_id):
@@ -21486,24 +21494,19 @@ def _ap_begin_readonly_tx(conn):
       runs on a wrapper whose read-only semantics we cannot
       guarantee. ``/plan/analyze`` catches that and returns 503.
     """
-    inner_name = type(conn).__name__
-    is_pg = (
-        inner_name == "_PgConn"
-        or (USE_POSTGRES and inner_name != "Connection")
-    )
-    if not is_pg:
-        if inner_name == "Connection":
-            # SQLite — the no-op path. The recording-cursor test
-            # already asserts the analyze pipeline emits only
-            # SELECT, so SQLite tests remain meaningful.
-            return
+    if isinstance(conn, sqlite3.Connection):
+        # SQLite — the no-op path. The recording-cursor test
+        # already asserts the analyze pipeline emits only SELECT,
+        # so SQLite tests remain meaningful.
+        return
+    if not isinstance(conn, _PgConn):
         app.logger.error(
             "SET TRANSACTION READ ONLY cannot be established on "
             "unknown connection type %s; refusing to analyze.",
-            inner_name,
+            type(conn).__name__,
         )
         raise ReadOnlyTransactionUnavailable(
-            f"unknown connection type {inner_name!r}; "
+            f"unknown connection type {type(conn).__name__!r}; "
             "refusing to analyze in writable mode."
         )
     cur = conn.cursor()
@@ -21523,7 +21526,7 @@ def _ap_begin_readonly_tx(conn):
         # without leaking any client/worker data.
         app.logger.error(
             "SET TRANSACTION READ ONLY failed on %s: %s",
-            inner_name, type(exc).__name__,
+            type(conn).__name__, type(exc).__name__,
         )
         raise ReadOnlyTransactionUnavailable(
             "PostgreSQL refused to switch to READ ONLY mode; "
@@ -21760,6 +21763,7 @@ def auto_plan_analyze():
             ), 400
 
         conn = None
+        analysis_crashed = False
         try:
             conn = get_conn()
             try:
@@ -21785,32 +21789,50 @@ def auto_plan_analyze():
             # trusted. We call ap_fetch_history directly (not the
             # all-in-one ap_generate_recurrence_proposals) so the
             # analysis-only policy stays encapsulated here.
-            start_date, end_date = ap_lookback_bounds(
-                target_day, lookback_weeks,
-            )
-            raw_history = ap_fetch_history(conn, start_date, end_date)
-            learning, discarded, unknown = ap_filter_history_for_analysis(
-                raw_history
-            )
-            discarded_cancelled = len(discarded)
-            unknown_status_count = len(unknown)
-            groups = ap_group_by_key(learning)
-            computed = ap_project(
-                groups, target_day,
-                include_exceptional=include_exceptional,
-                min_confidence=AP_DEFAULT_MIN_CONFIDENCE,
-                lookback_weeks=lookback_weeks,
-            )
-            proposals = ap_run_checks(conn, computed, target_day)
-            # Replace the engine's own holiday result (DB-only) by the
-            # legal LU calendar + custom entries so analysis and the
-            # main planner agree on holidays.
-            years = {target_day.year, target_day.year + 1}
-            holiday_lookup = get_all_holidays(conn, years)
-            known_clients = ap_lookup_known_client_names(conn)
-            proposals = ap_decorate_analysis_issues(
-                proposals, known_clients, holiday_lookup,
-            )
+            try:
+                start_date, end_date = ap_lookback_bounds(
+                    target_day, lookback_weeks,
+                )
+                raw_history = ap_fetch_history(conn, start_date, end_date)
+                learning, discarded, unknown = (
+                    ap_filter_history_for_analysis(raw_history)
+                )
+                discarded_cancelled = len(discarded)
+                unknown_status_count = len(unknown)
+                groups = ap_group_by_key(learning)
+                computed = ap_project(
+                    groups, target_day,
+                    include_exceptional=include_exceptional,
+                    min_confidence=AP_DEFAULT_MIN_CONFIDENCE,
+                    lookback_weeks=lookback_weeks,
+                )
+                proposals = ap_run_checks(conn, computed, target_day)
+                # Replace the engine's own holiday result (DB-only)
+                # by the legal LU calendar + custom entries so
+                # analysis and the main planner agree on holidays.
+                years = {target_day.year, target_day.year + 1}
+                holiday_lookup = get_all_holidays(conn, years)
+                known_clients = ap_lookup_known_client_names(conn)
+                proposals = ap_decorate_analysis_issues(
+                    proposals, known_clients, holiday_lookup,
+                )
+            except Exception as exc:
+                # A cursor error, a dead connection, a corrupted row
+                # or any other engine exception must NOT reach the
+                # Flask default handler — that would ship the SQL
+                # body, the client/worker names and the stack trace
+                # to the response. We log the exception TYPE only
+                # (no message, no args) and render a generic 500.
+                analysis_crashed = True
+                app.logger.exception(  # noqa: TRY400
+                    "auto-planning analysis crashed: %s",
+                    type(exc).__name__,
+                )
+                # Reset per-template vars so the catch path renders
+                # a clean form page.
+                proposals = []
+                discarded_cancelled = 0
+                unknown_status_count = 0
         finally:
             if conn is not None:
                 # Belt-and-braces: we never issue a write, but if any
@@ -21820,7 +21842,26 @@ def auto_plan_analyze():
                     conn.rollback()
                 except Exception:
                     pass
-                conn.close()
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+        if analysis_crashed:
+            flash(tr.get(
+                "auto_plan_analysis_crashed",
+                "The analysis could not be completed. Please try again "
+                "later.",
+            ), "error")
+            return render_template_string(
+                BASE_STYLE + header_html() + AUTO_PLAN_ANALYZE_TEMPLATE,
+                tr=tr, dark=dark, target_week=target_week,
+                lookback_weeks=lookback_weeks,
+                lookback_options=AP_LOOKBACK_OPTIONS,
+                include_exceptional=include_exceptional,
+                csrf_token=csrf_token, submitted=False, proposals=[],
+                discarded_cancelled=0, unknown_status_count=0,
+            ), 500
 
     return render_template_string(
         BASE_STYLE + header_html() + AUTO_PLAN_ANALYZE_TEMPLATE,

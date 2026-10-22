@@ -381,51 +381,47 @@ class AnalyzeWriteSafetyTests(_AnalysisOnlyBase):
         token = self._csrf_token()
 
         statements: list[str] = []
-        real_get_conn = app_mod.get_conn
 
-        class _RecordingCursor:
-            def __init__(self, inner):
-                self._inner = inner
+        class _VerbRecConn(sqlite3.Connection):
+            def cursor(self, *a, **k):
+                inner_cur = sqlite3.Connection.cursor(self, *a, **k)
 
-            def execute(self, sql, params=()):
-                statements.append(sql.strip().split()[0].upper())
-                return self._inner.execute(sql, params)
+                class _Cur:
+                    def __init__(self_, c):
+                        self_._c = c
 
-            def fetchone(self):
-                return self._inner.fetchone()
+                    def execute(self_, sql, params=()):
+                        statements.append(
+                            sql.strip().split()[0].upper()
+                        )
+                        return self_._c.execute(sql, params)
 
-            def fetchall(self):
-                return self._inner.fetchall()
+                    def fetchone(self_):
+                        return self_._c.fetchone()
 
-            def close(self):
-                return self._inner.close()
+                    def fetchall(self_):
+                        return self_._c.fetchall()
 
-            def __getattr__(self, name):
-                return getattr(self._inner, name)
+                    def close(self_):
+                        self_._c.close()
 
-        # Name must stay ``Connection`` — ``_ap_begin_readonly_tx``
-        # recognises SQLite by class name and takes its no-op path.
-        class Connection:  # noqa: N801
-            def __init__(wrapper, inner):
-                wrapper.inner = inner
+                    def __getattr__(self_, name):
+                        return getattr(self_._c, name)
 
-            def cursor(wrapper):
-                return _RecordingCursor(wrapper.inner.cursor())
+                return _Cur(inner_cur)
 
-            def commit(wrapper):
+            def commit(self):
                 statements.append("COMMIT")
-                wrapper.inner.commit()
+                return sqlite3.Connection.commit(self)
 
-            def rollback(wrapper):
+            def rollback(self):
                 statements.append("ROLLBACK")
-                wrapper.inner.rollback()
-
-            def close(wrapper):
-                wrapper.inner.close()
+                return sqlite3.Connection.rollback(self)
 
         def _wrapped_conn():
-            inner = real_get_conn()
-            return Connection(inner)
+            return sqlite3.connect(
+                app_mod.SQLITE_PATH, factory=_VerbRecConn,
+            )
 
         with mock.patch.object(app_mod, "get_conn", _wrapped_conn):
             resp = self.client.post("/plan/analyze", data={
@@ -998,7 +994,9 @@ class ReadOnlyTransactionFailClosedTests(unittest.TestCase):
 
     def test_pg_set_transaction_read_only_failure_raises(self):
         """A psycopg2-like connection that errors on SET TRANSACTION
-        READ ONLY must raise ``ReadOnlyTransactionUnavailable``."""
+        READ ONLY must raise ``ReadOnlyTransactionUnavailable``. The
+        wrapper subclasses the real ``_PgConn`` so isinstance accepts
+        it as PostgreSQL."""
 
         class _FailingCursor:
             def execute(self_inner, sql):
@@ -1007,16 +1005,18 @@ class ReadOnlyTransactionFailClosedTests(unittest.TestCase):
             def close(self_inner):
                 pass
 
-        class _PgConn:
+        class _TestPgConn(app_mod._PgConn):
+            def __init__(self_inner):
+                pass  # bypass real __init__ — no real socket is opened
+
             def cursor(self_inner):
                 return _FailingCursor()
 
             def rollback(self_inner):
                 pass
 
-        conn = _PgConn()
         with self.assertRaises(app_mod.ReadOnlyTransactionUnavailable):
-            app_mod._ap_begin_readonly_tx(conn)
+            app_mod._ap_begin_readonly_tx(_TestPgConn())
 
     def test_sqlite_connection_is_a_no_op(self):
         """SQLite does not support SET TRANSACTION READ ONLY; the
@@ -1162,105 +1162,115 @@ class MenuEntryWriteEnabledPointsToGenerateTests(_AnalysisOnlyBase):
 # ---------------------------------------------------------------------------
 
 
-class ShiftLocksDetectionNoRollbackTests(unittest.TestCase):
-    """A/B/C/H: metadata-based detection — zero COMMIT/ROLLBACK."""
+class _RecordingSqliteConnection(sqlite3.Connection):
+    """Real ``sqlite3.Connection`` subclass that records every TX event
+    and every cursor's first-word SQL verb.
 
-    def _recorder(self, inner):
-        """Wrap a sqlite3 connection with a recorder that fails loudly
-        if the helper ever issues a transaction control statement."""
-        events: list[str] = []
+    Using a real subclass is required: ``_shift_locks_table_exists``
+    now dispatches via ``isinstance(conn, sqlite3.Connection)`` — a
+    bare mock gets refused.
+    """
 
-        class _Cur:
-            def __init__(self_, c):
-                self_._c = c
+    def _init_recorder(self):
+        self._events: list[tuple[str, str]] = []
+
+    def cursor(self, *args, **kwargs):
+        real = sqlite3.Connection.cursor(self, *args, **kwargs)
+        events = self._events
+
+        class _RecCur:
+            def __init__(self_, inner):
+                self_._inner = inner
 
             def execute(self_, sql, params=()):
                 events.append(("sql", sql.strip().split()[0].upper()))
-                return self_._c.execute(sql, params)
+                return self_._inner.execute(sql, params)
 
             def fetchone(self_):
-                return self_._c.fetchone()
+                return self_._inner.fetchone()
 
             def fetchall(self_):
-                return self_._c.fetchall()
+                return self_._inner.fetchall()
 
             def close(self_):
-                self_._c.close()
+                self_._inner.close()
 
-        class _Conn:
-            def cursor(self_):
-                return _Cur(inner.cursor())
+        return _RecCur(real)
 
-            def commit(self_):
-                events.append(("tx", "COMMIT"))
-                inner.commit()
+    def commit(self):
+        self._events.append(("tx", "COMMIT"))
+        return sqlite3.Connection.commit(self)
 
-            def rollback(self_):
-                events.append(("tx", "ROLLBACK"))
-                inner.rollback()
+    def rollback(self):
+        self._events.append(("tx", "ROLLBACK"))
+        return sqlite3.Connection.rollback(self)
 
-            def close(self_):
-                inner.close()
 
-        return _Conn(), events
+def _open_recording_sqlite(db_path):
+    conn = sqlite3.connect(db_path, factory=_RecordingSqliteConnection)
+    conn._init_recorder()
+    return conn
+
+
+class ShiftLocksDetectionNoRollbackTests(unittest.TestCase):
+    """A/B/C/H: metadata-based detection — zero COMMIT/ROLLBACK."""
 
     def test_absent_table_detection_issues_no_rollback_or_commit(self):
         """A: on a fresh schema without shift_locks, the helper queries
         sqlite_master only and never touches transaction state."""
         tmp = tempfile.mkdtemp(prefix="luxmann-sl-norollback-")
         db_path = os.path.join(tmp, "x.db")
-        inner = sqlite3.connect(db_path)
+        inner = _open_recording_sqlite(db_path)
         try:
             inner.execute("CREATE TABLE shifts (id INTEGER)")
             inner.commit()
-            wrapper, events = self._recorder(inner)
-            self.assertFalse(app_mod._shift_locks_table_exists(wrapper))
-            tx_events = [e for e in events if e[0] == "tx"]
-            self.assertEqual(tx_events, [], f"unexpected tx events: {events}")
+            inner._events.clear()  # ignore setup noise
+            self.assertFalse(app_mod._shift_locks_table_exists(inner))
+            tx_events = [e for e in inner._events if e[0] == "tx"]
+            self.assertEqual(tx_events, [], inner._events)
         finally:
             inner.close()
 
     def test_present_table_detection_issues_no_rollback_or_commit(self):
-        """A bis: with the table present, detection still never touches TX."""
         tmp = tempfile.mkdtemp(prefix="luxmann-sl-present-")
         db_path = os.path.join(tmp, "x.db")
-        inner = sqlite3.connect(db_path)
+        inner = _open_recording_sqlite(db_path)
         try:
             inner.execute(
                 "CREATE TABLE shift_locks (shift_id INTEGER PRIMARY KEY)"
             )
             inner.commit()
-            wrapper, events = self._recorder(inner)
-            self.assertTrue(app_mod._shift_locks_table_exists(wrapper))
-            tx_events = [e for e in events if e[0] == "tx"]
+            inner._events.clear()
+            self.assertTrue(app_mod._shift_locks_table_exists(inner))
+            tx_events = [e for e in inner._events if e[0] == "tx"]
             self.assertEqual(tx_events, [])
         finally:
             inner.close()
 
     def test_pg_detection_uses_to_regclass_not_a_probe_select(self):
-        """B: the PG path issues SELECT to_regclass('shift_locks') —
-        a metadata query that returns NULL on absence instead of
-        raising + requiring rollback. We assert the exact SQL."""
+        """B: the PG path issues ``SELECT to_regclass('shift_locks')``
+        — a metadata query that returns NULL on absence."""
         emitted: list[str] = []
 
         class _Cur:
-            def __init__(self_):
-                self_._row = (None,)  # table absent — to_regclass returns NULL
-
             def execute(self_, sql):
                 emitted.append(sql.strip())
                 if "to_regclass" not in sql:
                     raise AssertionError(
-                        "PG path must query to_regclass, not probe the table"
+                        "PG path must query to_regclass, not probe"
                     )
 
             def fetchone(self_):
-                return self_._row
+                return (None,)
 
             def close(self_):
                 pass
 
-        class _PgConn:
+        # Must subclass the real wrapper so isinstance accepts it.
+        class _TestPgConn(app_mod._PgConn):
+            def __init__(self_):
+                pass  # bypass the real __init__
+
             def cursor(self_):
                 return _Cur()
 
@@ -1270,14 +1280,12 @@ class ShiftLocksDetectionNoRollbackTests(unittest.TestCase):
             def commit(self_):
                 raise AssertionError("commit must not be called")
 
-        self.assertFalse(app_mod._shift_locks_table_exists(_PgConn()))
+        self.assertFalse(app_mod._shift_locks_table_exists(_TestPgConn()))
         self.assertEqual(len(emitted), 1)
         self.assertIn("to_regclass", emitted[0])
         self.assertIn("shift_locks", emitted[0])
 
     def test_pg_detection_treats_non_null_regclass_as_present(self):
-        """B': to_regclass returning a non-NULL OID means the table exists."""
-
         class _Cur:
             def execute(self_, sql):
                 pass
@@ -1288,33 +1296,51 @@ class ShiftLocksDetectionNoRollbackTests(unittest.TestCase):
             def close(self_):
                 pass
 
-        class _PgConn:
+        class _TestPgConn(app_mod._PgConn):
+            def __init__(self_):
+                pass
+
             def cursor(self_):
                 return _Cur()
 
-        self.assertTrue(app_mod._shift_locks_table_exists(_PgConn()))
+        self.assertTrue(app_mod._shift_locks_table_exists(_TestPgConn()))
 
     def test_unexpected_permission_error_propagates(self):
-        """H: a permission denied / dead connection must NOT silently
-        become ``False`` — the exception propagates so the operator
-        sees it in the logs rather than reading a misleading answer."""
+        """H: an OperationalError that is NOT 'table missing' propagates."""
 
-        class _Cur:
-            def execute(self_, sql):
+        class _FailingCur:
+            def execute(self_, sql, params=()):
                 raise sqlite3.OperationalError("database is locked")
 
             def close(self_):
                 pass
 
-        class _Conn:
-            def cursor(self_):
-                return _Cur()
+        class _FailingSqliteConn(sqlite3.Connection):
+            def cursor(self_, *a, **k):
+                return _FailingCur()
 
             def rollback(self_):
                 raise AssertionError("must not rollback on unknown error")
 
-        with self.assertRaises(sqlite3.OperationalError):
-            app_mod._shift_locks_table_exists(_Conn())
+        tmp = tempfile.mkdtemp(prefix="luxmann-sl-fail-")
+        db_path = os.path.join(tmp, "x.db")
+        conn = sqlite3.connect(db_path, factory=_FailingSqliteConn)
+        try:
+            with self.assertRaises(sqlite3.OperationalError):
+                app_mod._shift_locks_table_exists(conn)
+        finally:
+            conn.close()
+
+    def test_unknown_connection_type_is_refused(self):
+        """New P1 scope: a bare mock that is neither _PgConn nor
+        sqlite3.Connection must be refused outright."""
+
+        class _MysteryConn:
+            def cursor(self_):
+                raise AssertionError("cursor must not be opened")
+
+        with self.assertRaises(app_mod.ShiftLocksUnavailable):
+            app_mod._shift_locks_table_exists(_MysteryConn())
 
 
 class LockTableSurvivesDetectionTests(unittest.TestCase):
@@ -1444,6 +1470,77 @@ class WriteEnabledMissingLocksRespondsWithControlledErrorTests(unittest.TestCase
             )
 
 
+class AnalyzeErrorIsolationTests(_AnalysisOnlyBase):
+    """Point 2 of the finalisation request: a cursor / read error
+    inside the analyze pipeline must return a controlled response and
+    MUST NOT reveal SQL, stack trace, client or worker data.
+    """
+
+    def _assert_safe_body(self, body, forbidden_markers):
+        for needle in forbidden_markers:
+            self.assertNotIn(needle, body, f"leak of {needle!r} in body")
+
+    def test_cursor_error_returns_500_with_no_sensitive_leak(self):
+        token = self._csrf_token()
+        self._seed_four_mondays(
+            client="SensitiveClientName", worker="SensitiveWorkerName",
+        )
+
+        def _blowing_fetch_history(conn, start, end):
+            raise RuntimeError(
+                "psycopg2 error: SELECT secret FROM shifts WHERE ..."
+            )
+
+        with mock.patch.object(
+            app_mod, "ap_fetch_history", _blowing_fetch_history,
+        ):
+            resp = self.client.post("/plan/analyze", data={
+                "csrf_token": token,
+                "target_week_start": "2026-10-19",
+                "lookback_weeks": "4",
+            })
+        self.assertEqual(resp.status_code, 500)
+        body = resp.get_data(as_text=True)
+        self._assert_safe_body(body, (
+            "SensitiveClientName",
+            "SensitiveWorkerName",
+            "psycopg2 error",
+            "SELECT secret",
+            "Traceback",
+            "RuntimeError",
+        ))
+
+    def test_pipeline_crash_still_closes_the_connection(self):
+        """The outer finally must run even on an engine exception."""
+        token = self._csrf_token()
+        self._seed_four_mondays()
+        closed = []
+
+        real_get_conn = app_mod.get_conn
+
+        class _TrackingConn(sqlite3.Connection):
+            def close(self_):
+                closed.append(True)
+                return sqlite3.Connection.close(self_)
+
+        with mock.patch.object(
+            app_mod, "get_conn",
+            lambda: sqlite3.connect(
+                app_mod.SQLITE_PATH, factory=_TrackingConn,
+            ),
+        ), mock.patch.object(
+            app_mod, "ap_run_checks",
+            mock.Mock(side_effect=RuntimeError("boom")),
+        ):
+            resp = self.client.post("/plan/analyze", data={
+                "csrf_token": token,
+                "target_week_start": "2026-10-19",
+                "lookback_weeks": "4",
+            })
+        self.assertEqual(resp.status_code, 500)
+        self.assertTrue(closed, "connection was not closed on exception")
+
+
 class AnalyzeOnlyRunsSelectTests(_AnalysisOnlyBase):
     """I: the analyze POST path must emit SELECT only — no DDL,
     no INSERT, UPDATE, DELETE or TX control statement."""
@@ -1453,50 +1550,46 @@ class AnalyzeOnlyRunsSelectTests(_AnalysisOnlyBase):
         token = self._csrf_token()
 
         verbs: list[str] = []
-        real_get_conn = app_mod.get_conn
 
-        class _RecCur:
-            def __init__(self_, c):
-                self_._c = c
+        class _VerbConn(sqlite3.Connection):
+            def cursor(self, *a, **k):
+                inner = sqlite3.Connection.cursor(self, *a, **k)
 
-            def execute(self_, sql, params=()):
-                verbs.append(sql.strip().split()[0].upper())
-                return self_._c.execute(sql, params)
+                class _Cur:
+                    def __init__(self_, c):
+                        self_._c = c
 
-            def fetchone(self_):
-                return self_._c.fetchone()
+                    def execute(self_, sql, params=()):
+                        verbs.append(sql.strip().split()[0].upper())
+                        return self_._c.execute(sql, params)
 
-            def fetchall(self_):
-                return self_._c.fetchall()
+                    def fetchone(self_):
+                        return self_._c.fetchone()
 
-            def close(self_):
-                self_._c.close()
+                    def fetchall(self_):
+                        return self_._c.fetchall()
 
-            def __getattr__(self_, n):
-                return getattr(self_._c, n)
+                    def close(self_):
+                        self_._c.close()
 
-        # Must be named ``Connection`` so the readonly fail-closed
-        # helper takes its SQLite no-op branch.
-        class Connection:  # noqa: N801
-            def __init__(self_, inner):
-                self_.inner = inner
+                    def __getattr__(self_, n):
+                        return getattr(self_._c, n)
 
-            def cursor(self_):
-                return _RecCur(self_.inner.cursor())
+                return _Cur(inner)
 
-            def commit(self_):
+            def commit(self):
                 verbs.append("COMMIT")
-                self_.inner.commit()
+                return sqlite3.Connection.commit(self)
 
-            def rollback(self_):
+            def rollback(self):
                 verbs.append("ROLLBACK")
-                self_.inner.rollback()
-
-            def close(self_):
-                self_.inner.close()
+                return sqlite3.Connection.rollback(self)
 
         with mock.patch.object(
-            app_mod, "get_conn", lambda: Connection(real_get_conn()),
+            app_mod, "get_conn",
+            lambda: sqlite3.connect(
+                app_mod.SQLITE_PATH, factory=_VerbConn,
+            ),
         ):
             resp = self.client.post("/plan/analyze", data={
                 "csrf_token": token,
