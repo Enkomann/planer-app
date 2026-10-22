@@ -1728,6 +1728,116 @@ class AnalyzeConfidentialityTests(_AnalysisOnlyBase):
     # ------------------------------------------------------------------
     # 7. Phase-5 write routes stay 403 in analysis_only.
     # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # P2-1: a failing logger must not leak the ambient exception.
+    # ------------------------------------------------------------------
+    def test_logger_failure_does_not_leak_original_exception(self):
+        """When ``app.logger.error`` itself raises inside the sentinel
+        helper (handler misconfigured, disk full, serializer crash on
+        a structured logger), the surrounding exception's message —
+        which carries the leaky payload — must NOT reach the response
+        body or any other log channel. The HTTP response must stay
+        the generic one."""
+        token = self._csrf_token()
+        self._seed_four_mondays(
+            client=_SECRETS_PAYLOAD["client"],
+            worker=_SECRETS_PAYLOAD["worker"],
+        )
+
+        # Inject a logger whose ``error`` method raises.
+        import logging
+        broken = logging.Logger("broken")
+
+        def _blowing_log(*a, **kw):
+            raise RuntimeError(_SECRETS_PAYLOAD["dsn"])
+        broken.error = _blowing_log  # type: ignore[assignment]
+
+        import io
+        captured_stderr = io.StringIO()
+        with mock.patch.object(
+            app_mod, "ap_fetch_history",
+            side_effect=_raise_blowing_exception,
+        ), mock.patch.object(app_mod.app, "logger", broken), \
+             contextlib.redirect_stderr(captured_stderr):
+            resp = self.client.post("/plan/analyze", data={
+                "csrf_token": token,
+                "target_week_start": "2026-10-19",
+                "lookback_weeks": "4",
+            })
+        self.assertEqual(resp.status_code, 500)
+        body = resp.get_data(as_text=True)
+        stderr_dump = captured_stderr.getvalue()
+        for secret in _secret_strings():
+            self.assertNotIn(secret, body, f"body leaked {secret!r}")
+            self.assertNotIn(
+                secret, stderr_dump, f"stderr leaked {secret!r}"
+            )
+        for marker in ("Traceback", "_LeakyError", "RuntimeError"):
+            self.assertNotIn(marker, body, f"body leaked {marker!r}")
+
+    # ------------------------------------------------------------------
+    # P2-2: a failing Jinja render on the SUCCESS path must not leak.
+    # ------------------------------------------------------------------
+    def test_success_render_failure_does_not_leak(self):
+        """Replace the template with one that crashes while rendering —
+        a Jinja ``UndefinedError`` or similar must NOT propagate to
+        the Flask default handler. The response falls back to the
+        hard-coded plain-text generic reply, and no secret appears
+        in body or logs."""
+        token = self._csrf_token()
+        self._seed_four_mondays(
+            client=_SECRETS_PAYLOAD["client"],
+            worker=_SECRETS_PAYLOAD["worker"],
+        )
+
+        def _blowing_render(template, **context):
+            raise RuntimeError(
+                f"jinja2.UndefinedError client={_SECRETS_PAYLOAD['client']} "
+                f"worker={_SECRETS_PAYLOAD['worker']} "
+                f"dsn={_SECRETS_PAYLOAD['dsn']}"
+            )
+
+        with mock.patch.object(
+            app_mod, "render_template_string", _blowing_render,
+        ), _capture_app_errors() as cap:
+            resp = self.client.post("/plan/analyze", data={
+                "csrf_token": token,
+                "target_week_start": "2026-10-19",
+                "lookback_weeks": "4",
+            })
+        # 200 route tried to render → fallback hit → still returns 200
+        # with the plain-text sentinel.
+        self.assertIn(resp.status_code, (200, 400, 500))
+        body = resp.get_data(as_text=True)
+        self._assert_no_leaks(body, cap.records)
+        # Fallback payload is a hard-coded string.
+        self.assertIn("AUTO_PLAN_ANALYSIS_FAILED", body)
+
+    def test_invalid_week_render_failure_does_not_leak(self):
+        """The invalid-week early-return render is also wrapped —
+        a crash there must fall back to the generic response."""
+        token = self._csrf_token()
+
+        def _blowing_render(template, **context):
+            raise RuntimeError(
+                f"jinja2 crash client={_SECRETS_PAYLOAD['client']} "
+                f"worker={_SECRETS_PAYLOAD['worker']} "
+                f"dsn={_SECRETS_PAYLOAD['dsn']}"
+            )
+
+        with mock.patch.object(
+            app_mod, "render_template_string", _blowing_render,
+        ), _capture_app_errors() as cap:
+            resp = self.client.post("/plan/analyze", data={
+                "csrf_token": token,
+                "target_week_start": "2026-10-20",  # Tuesday → invalid
+                "lookback_weeks": "4",
+            })
+        self.assertEqual(resp.status_code, 400)
+        body = resp.get_data(as_text=True)
+        self._assert_no_leaks(body, cap.records)
+        self.assertIn("AUTO_PLAN_ANALYSIS_FAILED", body)
+
     def test_apply_route_remains_blocked(self):
         resp = self.client.post("/plan/review/1/apply", data={})
         self.assertEqual(resp.status_code, 403)

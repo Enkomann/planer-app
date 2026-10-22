@@ -21521,7 +21521,7 @@ def _ap_begin_readonly_tx(conn):
         # so SQLite tests remain meaningful.
         return
     if not isinstance(conn, _PgConn):
-        app.logger.error("AUTO_PLAN_READONLY_UNKNOWN_CONN")
+        _ap_safe_log("AUTO_PLAN_READONLY_UNKNOWN_CONN")
         raise ReadOnlyTransactionUnavailable(
             f"unknown connection type {type(conn).__name__!r}; "
             "refusing to analyze in writable mode."
@@ -21544,7 +21544,7 @@ def _ap_begin_readonly_tx(conn):
         # Fixed sentinel. ``str(exc)`` and ``type(exc)`` are both
         # kept out of the log so a connection error that carries a
         # DSN fragment or a credential cannot leak via this path.
-        app.logger.error("AUTO_PLAN_READONLY_FAILED")
+        _ap_safe_log("AUTO_PLAN_READONLY_FAILED")
         raise ReadOnlyTransactionUnavailable(
             "PostgreSQL refused to switch to READ ONLY mode; "
             "aborting the analysis."
@@ -21606,31 +21606,69 @@ def _ap_inject_recurrence_label():
     }
 
 
+def _ap_safe_log(sentinel):
+    """Emit a static sentinel to ``app.logger`` without ever raising.
+
+    The analyze route uses this helper for every error log call.
+    If ``app.logger.error`` itself raises — a handler mis-wired at
+    boot, a disk-full on the file handler, a serializer crash on a
+    structured logger — the exception is swallowed silently rather
+    than propagating. Propagating would surface the ORIGINAL
+    exception traceback (through ``__context__``) and leak the
+    sensitive data the caller just took pains to keep out of the
+    log line.
+
+    ``sentinel`` MUST be a fixed ``AUTO_PLAN_*`` string literal from
+    the caller — never a formatted message. The helper does not
+    accept exception objects or dynamic arguments by design.
+    """
+    try:
+        app.logger.error(sentinel)
+    except Exception:  # noqa: BLE001 — sentinel log never fails open
+        pass
+
+
+def _ap_safe_render(template_source, status, **context):
+    """Render a Jinja template with a plain-text fallback.
+
+    If Jinja raises during the render (template bug, context key
+    missing, filter crash, etc.) the exception could carry template
+    source or context values. The fallback returns a hard-coded
+    plain-text response that cannot leak anything.
+    """
+    try:
+        body = render_template_string(template_source, **context)
+    except Exception:
+        _ap_safe_log("AUTO_PLAN_ANALYSIS_RENDER_FAILED")
+        return ("AUTO_PLAN_ANALYSIS_FAILED", status)
+    return (body, status)
+
+
 def _ap_analyze_safe_error(
     tr, dark, target_week, lookback_weeks, include_exceptional,
     csrf_token, message, status,
 ):
     """Render the analyze form with a safe generic error.
 
-    The surrounding handler must only pass a translated static
-    message here — nothing dynamic. If even the template rendering
-    fails (unlikely), fall back to a hard-coded plain-text response
-    so no exception leaks through the default Flask handler.
+    The surrounding handler passes a translated static message —
+    never anything dynamic. If flash or render fails, we fall back
+    to a plain-text response via :func:`_ap_safe_render`, so no
+    exception reaches the default Flask handler.
     """
     try:
         flash(message, "error")
-        return render_template_string(
-            BASE_STYLE + header_html() + AUTO_PLAN_ANALYZE_TEMPLATE,
-            tr=tr, dark=dark, target_week=target_week,
-            lookback_weeks=lookback_weeks,
-            lookback_options=AP_LOOKBACK_OPTIONS,
-            include_exceptional=include_exceptional,
-            csrf_token=csrf_token, submitted=False, proposals=[],
-            discarded_cancelled=0, unknown_status_count=0,
-        ), status
     except Exception:
-        app.logger.error("AUTO_PLAN_ANALYSIS_RENDER_FAILED")
-        return ("AUTO_PLAN_ANALYSIS_FAILED", status)
+        _ap_safe_log("AUTO_PLAN_ANALYSIS_RENDER_FAILED")
+    return _ap_safe_render(
+        BASE_STYLE + header_html() + AUTO_PLAN_ANALYZE_TEMPLATE,
+        status,
+        tr=tr, dark=dark, target_week=target_week,
+        lookback_weeks=lookback_weeks,
+        lookback_options=AP_LOOKBACK_OPTIONS,
+        include_exceptional=include_exceptional,
+        csrf_token=csrf_token, submitted=False, proposals=[],
+        discarded_cancelled=0, unknown_status_count=0,
+    )
 
 
 AUTO_PLAN_ANALYZE_TEMPLATE = """
@@ -21793,18 +21831,22 @@ def auto_plan_analyze():
             if target_day.weekday() != 0:
                 raise ValueError("target week is not Monday")
         except (TypeError, ValueError):
-            flash(tr.get(
-                "auto_plan_invalid_week", "Select a valid Monday."
-            ), "warning")
-            return render_template_string(
+            try:
+                flash(tr.get(
+                    "auto_plan_invalid_week", "Select a valid Monday."
+                ), "warning")
+            except Exception:
+                _ap_safe_log("AUTO_PLAN_ANALYSIS_RENDER_FAILED")
+            return _ap_safe_render(
                 BASE_STYLE + header_html() + AUTO_PLAN_ANALYZE_TEMPLATE,
+                400,
                 tr=tr, dark=dark, target_week=target_week,
                 lookback_weeks=lookback_weeks,
                 lookback_options=AP_LOOKBACK_OPTIONS,
                 include_exceptional=include_exceptional,
                 csrf_token=csrf_token, submitted=False, proposals=[],
                 discarded_cancelled=0, unknown_status_count=0,
-            ), 400
+            )
 
         conn = None
         analysis_crashed = False
@@ -21817,7 +21859,7 @@ def auto_plan_analyze():
         try:
             conn = get_conn()
         except Exception:
-            app.logger.error("AUTO_PLAN_CONNECT_FAILED")
+            _ap_safe_log("AUTO_PLAN_CONNECT_FAILED")
             return _ap_analyze_safe_error(
                 tr, dark, target_week, lookback_weeks,
                 include_exceptional, csrf_token,
@@ -21848,7 +21890,7 @@ def auto_plan_analyze():
                 # Any other exception from the readonly setup must
                 # NOT propagate — it could carry a DSN or SQL
                 # fragment. Log a fixed sentinel, return 503.
-                app.logger.error("AUTO_PLAN_READONLY_FAILED")
+                _ap_safe_log("AUTO_PLAN_READONLY_FAILED")
                 return _ap_analyze_safe_error(
                     tr, dark, target_week, lookback_weeks,
                     include_exceptional, csrf_token,
@@ -21902,7 +21944,7 @@ def auto_plan_analyze():
                 # the log stream. The HTTP response renders a clean
                 # translated form page with HTTP 500.
                 analysis_crashed = True
-                app.logger.error("AUTO_PLAN_ANALYSIS_FAILED")
+                _ap_safe_log("AUTO_PLAN_ANALYSIS_FAILED")
                 proposals = []
                 discarded_cancelled = 0
                 unknown_status_count = 0
@@ -21936,8 +21978,12 @@ def auto_plan_analyze():
                 500,
             )
 
-    return render_template_string(
+    # Final render is also guarded: a Jinja crash while rendering a
+    # SUCCESS page would otherwise reach Flask's default 500 handler
+    # with the full exception on the traceback.
+    body, status = _ap_safe_render(
         BASE_STYLE + header_html() + AUTO_PLAN_ANALYZE_TEMPLATE,
+        200,
         tr=tr, dark=dark, target_week=target_week,
         lookback_weeks=lookback_weeks,
         lookback_options=AP_LOOKBACK_OPTIONS,
@@ -21946,6 +21992,7 @@ def auto_plan_analyze():
         discarded_cancelled=discarded_cancelled,
         unknown_status_count=unknown_status_count,
     )
+    return (body, status)
 
 
 @app.route("/plan/review")
