@@ -3604,6 +3604,27 @@ class _PgCursor:
     def rowcount(self):
         return self.cursor.rowcount
 
+    def close(self):
+        """Delegate ``close()`` to the underlying psycopg2 cursor.
+
+        Several code paths (notably the analysis-only pipeline) try
+        to call ``cur.close()`` inside a ``finally`` to release the
+        cursor-side state as early as possible. Before this method
+        existed the attribute access fell back to psycopg2's cursor
+        through ``__getattr__`` (if any), but on an inner object
+        that may already be in an error state it could re-raise and
+        mask the original exception. This explicit method swallows
+        a benign close-on-closed error and never leaks the
+        exception type or message upwards.
+        """
+        inner = getattr(self, "cursor", None)
+        if inner is None:
+            return
+        try:
+            inner.close()
+        except Exception:  # noqa: BLE001 — close-on-closed is benign
+            pass
+
 
 class _PgConn:
     def __init__(self, conn):
@@ -21500,11 +21521,7 @@ def _ap_begin_readonly_tx(conn):
         # so SQLite tests remain meaningful.
         return
     if not isinstance(conn, _PgConn):
-        app.logger.error(
-            "SET TRANSACTION READ ONLY cannot be established on "
-            "unknown connection type %s; refusing to analyze.",
-            type(conn).__name__,
-        )
+        app.logger.error("AUTO_PLAN_READONLY_UNKNOWN_CONN")
         raise ReadOnlyTransactionUnavailable(
             f"unknown connection type {type(conn).__name__!r}; "
             "refusing to analyze in writable mode."
@@ -21524,10 +21541,10 @@ def _ap_begin_readonly_tx(conn):
         # Fail-closed on PostgreSQL. The exception type is logged
         # structurally (no SQL body) so operators can diagnose
         # without leaking any client/worker data.
-        app.logger.error(
-            "SET TRANSACTION READ ONLY failed on %s: %s",
-            type(conn).__name__, type(exc).__name__,
-        )
+        # Fixed sentinel. ``str(exc)`` and ``type(exc)`` are both
+        # kept out of the log so a connection error that carries a
+        # DSN fragment or a credential cannot leak via this path.
+        app.logger.error("AUTO_PLAN_READONLY_FAILED")
         raise ReadOnlyTransactionUnavailable(
             "PostgreSQL refused to switch to READ ONLY mode; "
             "aborting the analysis."
@@ -21587,6 +21604,33 @@ def _ap_inject_recurrence_label():
         "auto_planning_feature_active": auto_planning_feature_active(),
         "auto_plan_entry_url": entry_url,
     }
+
+
+def _ap_analyze_safe_error(
+    tr, dark, target_week, lookback_weeks, include_exceptional,
+    csrf_token, message, status,
+):
+    """Render the analyze form with a safe generic error.
+
+    The surrounding handler must only pass a translated static
+    message here — nothing dynamic. If even the template rendering
+    fails (unlikely), fall back to a hard-coded plain-text response
+    so no exception leaks through the default Flask handler.
+    """
+    try:
+        flash(message, "error")
+        return render_template_string(
+            BASE_STYLE + header_html() + AUTO_PLAN_ANALYZE_TEMPLATE,
+            tr=tr, dark=dark, target_week=target_week,
+            lookback_weeks=lookback_weeks,
+            lookback_options=AP_LOOKBACK_OPTIONS,
+            include_exceptional=include_exceptional,
+            csrf_token=csrf_token, submitted=False, proposals=[],
+            discarded_cancelled=0, unknown_status_count=0,
+        ), status
+    except Exception:
+        app.logger.error("AUTO_PLAN_ANALYSIS_RENDER_FAILED")
+        return ("AUTO_PLAN_ANALYSIS_FAILED", status)
 
 
 AUTO_PLAN_ANALYZE_TEMPLATE = """
@@ -21764,25 +21808,57 @@ def auto_plan_analyze():
 
         conn = None
         analysis_crashed = False
+        # P2: open the connection inside a guarded block so a failure
+        # of psycopg2.connect / sqlite3.connect never spills through
+        # the default Flask handler. We log a FIXED sentinel without
+        # the exception message so an attacker-controlled DSN or a
+        # stray credential inside a connection error does not reach
+        # the logs.
         try:
             conn = get_conn()
-            try:
-                _ap_begin_readonly_tx(conn)
-            except ReadOnlyTransactionUnavailable:
-                flash(tr.get(
+        except Exception:
+            app.logger.error("AUTO_PLAN_CONNECT_FAILED")
+            return _ap_analyze_safe_error(
+                tr, dark, target_week, lookback_weeks,
+                include_exceptional, csrf_token,
+                tr.get(
                     "auto_plan_readonly_unavailable",
                     "The analysis could not be prepared in read-only "
                     "mode. Please try again later.",
-                ), "error")
-                return render_template_string(
-                    BASE_STYLE + header_html() + AUTO_PLAN_ANALYZE_TEMPLATE,
-                    tr=tr, dark=dark, target_week=target_week,
-                    lookback_weeks=lookback_weeks,
-                    lookback_options=AP_LOOKBACK_OPTIONS,
-                    include_exceptional=include_exceptional,
-                    csrf_token=csrf_token, submitted=False, proposals=[],
-                    discarded_cancelled=0, unknown_status_count=0,
-                ), 503
+                ),
+                503,
+            )
+        try:
+            try:
+                _ap_begin_readonly_tx(conn)
+            except ReadOnlyTransactionUnavailable:
+                # Expected refusal — fixed sentinel log already
+                # emitted by _ap_begin_readonly_tx (no exc data).
+                return _ap_analyze_safe_error(
+                    tr, dark, target_week, lookback_weeks,
+                    include_exceptional, csrf_token,
+                    tr.get(
+                        "auto_plan_readonly_unavailable",
+                        "The analysis could not be prepared in "
+                        "read-only mode. Please try again later.",
+                    ),
+                    503,
+                )
+            except Exception:
+                # Any other exception from the readonly setup must
+                # NOT propagate — it could carry a DSN or SQL
+                # fragment. Log a fixed sentinel, return 503.
+                app.logger.error("AUTO_PLAN_READONLY_FAILED")
+                return _ap_analyze_safe_error(
+                    tr, dark, target_week, lookback_weeks,
+                    include_exceptional, csrf_token,
+                    tr.get(
+                        "auto_plan_readonly_unavailable",
+                        "The analysis could not be prepared in "
+                        "read-only mode. Please try again later.",
+                    ),
+                    503,
+                )
             # Fetch raw history and split by stored status BEFORE
             # grouping, so cancelled rows never seed a recurrence and
             # unknown-status rows are counted for the report but not
@@ -21816,20 +21892,17 @@ def auto_plan_analyze():
                 proposals = ap_decorate_analysis_issues(
                     proposals, known_clients, holiday_lookup,
                 )
-            except Exception as exc:
-                # A cursor error, a dead connection, a corrupted row
-                # or any other engine exception must NOT reach the
-                # Flask default handler — that would ship the SQL
-                # body, the client/worker names and the stack trace
-                # to the response. We log the exception TYPE only
-                # (no message, no args) and render a generic 500.
+            except Exception:
+                # P1 confidentiality: a cursor error, a dead
+                # connection, a corrupted row or any other engine
+                # exception could carry SQL text, client / worker
+                # names or raw DSN pieces in its message or traceback.
+                # We log a FIXED sentinel — no exception message, no
+                # stack trace, no exc_info — so none of that reaches
+                # the log stream. The HTTP response renders a clean
+                # translated form page with HTTP 500.
                 analysis_crashed = True
-                app.logger.exception(  # noqa: TRY400
-                    "auto-planning analysis crashed: %s",
-                    type(exc).__name__,
-                )
-                # Reset per-template vars so the catch path renders
-                # a clean form page.
+                app.logger.error("AUTO_PLAN_ANALYSIS_FAILED")
                 proposals = []
                 discarded_cancelled = 0
                 unknown_status_count = 0
@@ -21837,7 +21910,11 @@ def auto_plan_analyze():
             if conn is not None:
                 # Belt-and-braces: we never issue a write, but if any
                 # helper ever starts an implicit transaction we abort
-                # it here instead of leaving it dangling.
+                # it here instead of leaving it dangling. Both close
+                # helpers swallow close-on-closed errors so the
+                # ORIGINAL exception (if any) propagates out of the
+                # outer handler, never masked by a secondary cleanup
+                # failure that could itself carry data.
                 try:
                     conn.rollback()
                 except Exception:
@@ -21848,20 +21925,16 @@ def auto_plan_analyze():
                     pass
 
         if analysis_crashed:
-            flash(tr.get(
-                "auto_plan_analysis_crashed",
-                "The analysis could not be completed. Please try again "
-                "later.",
-            ), "error")
-            return render_template_string(
-                BASE_STYLE + header_html() + AUTO_PLAN_ANALYZE_TEMPLATE,
-                tr=tr, dark=dark, target_week=target_week,
-                lookback_weeks=lookback_weeks,
-                lookback_options=AP_LOOKBACK_OPTIONS,
-                include_exceptional=include_exceptional,
-                csrf_token=csrf_token, submitted=False, proposals=[],
-                discarded_cancelled=0, unknown_status_count=0,
-            ), 500
+            return _ap_analyze_safe_error(
+                tr, dark, target_week, lookback_weeks,
+                include_exceptional, csrf_token,
+                tr.get(
+                    "auto_plan_analysis_crashed",
+                    "The analysis could not be completed. Please try "
+                    "again later.",
+                ),
+                500,
+            )
 
     return render_template_string(
         BASE_STYLE + header_html() + AUTO_PLAN_ANALYZE_TEMPLATE,

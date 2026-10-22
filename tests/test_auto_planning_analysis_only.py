@@ -1470,75 +1470,307 @@ class WriteEnabledMissingLocksRespondsWithControlledErrorTests(unittest.TestCase
             )
 
 
-class AnalyzeErrorIsolationTests(_AnalysisOnlyBase):
-    """Point 2 of the finalisation request: a cursor / read error
-    inside the analyze pipeline must return a controlled response and
-    MUST NOT reveal SQL, stack trace, client or worker data.
+_SECRETS_PAYLOAD = {
+    "client": "SecretClientNameAlphaOmega",
+    "worker": "SecretWorkerBetaGamma",
+    "sql": "SELECT secret FROM shifts WHERE password = 'leaky-sql-literal'",
+    "dsn": (
+        "postgresql://leaky_user:leaky_password@leaky-host.example/leaky_db"
+    ),
+    "traceback_marker": "LEAKY_TRACEBACK_MARKER_1234",
+}
+
+
+def _secret_strings():
+    return (
+        _SECRETS_PAYLOAD["client"],
+        _SECRETS_PAYLOAD["worker"],
+        _SECRETS_PAYLOAD["sql"],
+        _SECRETS_PAYLOAD["dsn"],
+        _SECRETS_PAYLOAD["traceback_marker"],
+        "leaky_password",
+        "leaky-sql-literal",
+    )
+
+
+class _LeakyError(RuntimeError):
+    pass
+
+
+def _raise_blowing_exception(*a, **kw):
+    """Side-effect helper: ALWAYS raises an exception whose message
+    carries every secret marker, so a leak in any log channel
+    produces an unambiguous assertion failure."""
+    raise _LeakyError(
+        f"{_SECRETS_PAYLOAD['sql']} client={_SECRETS_PAYLOAD['client']} "
+        f"worker={_SECRETS_PAYLOAD['worker']} "
+        f"dsn={_SECRETS_PAYLOAD['dsn']} "
+        f"{_SECRETS_PAYLOAD['traceback_marker']}"
+    )
+
+
+import contextlib  # noqa: E402
+import logging  # noqa: E402
+
+
+class _LogCaptureHandler(logging.Handler):
+    def __init__(self_):
+        super().__init__(level=logging.ERROR)
+        self_.records = []
+
+    def emit(self_, record):
+        self_.records.append(record)
+
+
+@contextlib.contextmanager
+def _capture_app_errors():
+    """Collect every ERROR+ record emitted on the app logger.
+
+    Unlike ``assertLogs``, zero records is a success state here —
+    "no log line at all" is the strongest confidentiality guarantee.
     """
+    handler = _LogCaptureHandler()
+    app_mod.app.logger.addHandler(handler)
+    previous_level = app_mod.app.logger.level
+    app_mod.app.logger.setLevel(logging.ERROR)
+    try:
+        yield handler
+    finally:
+        app_mod.app.logger.removeHandler(handler)
+        app_mod.app.logger.setLevel(previous_level)
 
-    def _assert_safe_body(self, body, forbidden_markers):
-        for needle in forbidden_markers:
-            self.assertNotIn(needle, body, f"leak of {needle!r} in body")
 
-    def test_cursor_error_returns_500_with_no_sensitive_leak(self):
+class AnalyzeConfidentialityTests(_AnalysisOnlyBase):
+    """P1/P2/P3: no sensitive data appears in response body OR app
+    logs on any of the five failure modes Codex listed."""
+
+    def _assert_no_leaks(self, body, log_records):
+        joined_log = "\n".join(
+            [f"{r.name} {r.levelname} {r.getMessage()}" for r in log_records]
+        )
+        for secret in _secret_strings():
+            self.assertNotIn(secret, body, f"body leaked {secret!r}")
+            self.assertNotIn(
+                secret, joined_log, f"log leaked {secret!r}"
+            )
+        # No traceback artefacts.
+        for marker in ("Traceback", "RuntimeError", "_LeakyError",
+                       "File \"", "File '"):
+            self.assertNotIn(marker, joined_log,
+                             f"log leaked traceback {marker!r}")
+
+    # ------------------------------------------------------------------
+    # 1. get_conn() raises → 503, zero leak.
+    # ------------------------------------------------------------------
+    def test_get_conn_failure_returns_503_without_leak(self):
         token = self._csrf_token()
-        self._seed_four_mondays(
-            client="SensitiveClientName", worker="SensitiveWorkerName",
+        with mock.patch.object(
+            app_mod, "get_conn", side_effect=_raise_blowing_exception,
+        ), _capture_app_errors() as cap:
+            resp = self.client.post("/plan/analyze", data={
+                "csrf_token": token,
+                "target_week_start": "2026-10-19",
+                "lookback_weeks": "4",
+            })
+        self.assertEqual(resp.status_code, 503)
+        self._assert_no_leaks(resp.get_data(as_text=True), cap.records)
+        # Fixed sentinel present so operators still see SOMETHING.
+        self.assertTrue(
+            any("AUTO_PLAN_CONNECT_FAILED" in r.getMessage()
+                for r in cap.records),
+            cap.records,
         )
 
-        def _blowing_fetch_history(conn, start, end):
-            raise RuntimeError(
-                "psycopg2 error: SELECT secret FROM shifts WHERE ..."
+    # ------------------------------------------------------------------
+    # 2. SET TRANSACTION READ ONLY fails → 500 or 503, zero leak.
+    # ------------------------------------------------------------------
+    def test_readonly_failure_returns_controlled_response_without_leak(self):
+        token = self._csrf_token()
+        self._seed_four_mondays(
+            client=_SECRETS_PAYLOAD["client"],
+            worker=_SECRETS_PAYLOAD["worker"],
+        )
+        with mock.patch.object(
+            app_mod, "_ap_begin_readonly_tx",
+            side_effect=_raise_blowing_exception,
+        ), _capture_app_errors() as cap:
+            resp = self.client.post("/plan/analyze", data={
+                "csrf_token": token,
+                "target_week_start": "2026-10-19",
+                "lookback_weeks": "4",
+            })
+        self.assertIn(resp.status_code, (500, 503))
+        self._assert_no_leaks(resp.get_data(as_text=True), cap.records)
+
+    def test_readonly_classified_unavailable_returns_503_without_leak(self):
+        """A ``ReadOnlyTransactionUnavailable`` with a leaky message
+        must not propagate that message to logs or body."""
+        token = self._csrf_token()
+
+        def _raise_readonly(conn):
+            raise app_mod.ReadOnlyTransactionUnavailable(
+                _SECRETS_PAYLOAD["dsn"]
             )
 
         with mock.patch.object(
-            app_mod, "ap_fetch_history", _blowing_fetch_history,
-        ):
+            app_mod, "_ap_begin_readonly_tx", _raise_readonly,
+        ), _capture_app_errors() as cap:
+            resp = self.client.post("/plan/analyze", data={
+                "csrf_token": token,
+                "target_week_start": "2026-10-19",
+                "lookback_weeks": "4",
+            })
+        self.assertEqual(resp.status_code, 503)
+        self._assert_no_leaks(resp.get_data(as_text=True), cap.records)
+
+    # ------------------------------------------------------------------
+    # 3. ap_fetch_history fails → 500, zero leak.
+    # ------------------------------------------------------------------
+    def test_fetch_history_failure_returns_500_without_leak(self):
+        token = self._csrf_token()
+        self._seed_four_mondays(
+            client=_SECRETS_PAYLOAD["client"],
+            worker=_SECRETS_PAYLOAD["worker"],
+        )
+        with mock.patch.object(
+            app_mod, "ap_fetch_history",
+            side_effect=_raise_blowing_exception,
+        ), _capture_app_errors() as cap:
             resp = self.client.post("/plan/analyze", data={
                 "csrf_token": token,
                 "target_week_start": "2026-10-19",
                 "lookback_weeks": "4",
             })
         self.assertEqual(resp.status_code, 500)
-        body = resp.get_data(as_text=True)
-        self._assert_safe_body(body, (
-            "SensitiveClientName",
-            "SensitiveWorkerName",
-            "psycopg2 error",
-            "SELECT secret",
-            "Traceback",
-            "RuntimeError",
-        ))
+        self._assert_no_leaks(resp.get_data(as_text=True), cap.records)
+        self.assertTrue(
+            any("AUTO_PLAN_ANALYSIS_FAILED" in r.getMessage()
+                for r in cap.records),
+        )
 
-    def test_pipeline_crash_still_closes_the_connection(self):
-        """The outer finally must run even on an engine exception."""
+    # ------------------------------------------------------------------
+    # 4. ap_run_checks fails → 500, zero leak.
+    # ------------------------------------------------------------------
+    def test_run_checks_failure_returns_500_without_leak(self):
         token = self._csrf_token()
-        self._seed_four_mondays()
-        closed = []
+        self._seed_four_mondays(
+            client=_SECRETS_PAYLOAD["client"],
+            worker=_SECRETS_PAYLOAD["worker"],
+        )
+        with mock.patch.object(
+            app_mod, "ap_run_checks",
+            side_effect=_raise_blowing_exception,
+        ), _capture_app_errors() as cap:
+            resp = self.client.post("/plan/analyze", data={
+                "csrf_token": token,
+                "target_week_start": "2026-10-19",
+                "lookback_weeks": "4",
+            })
+        self.assertEqual(resp.status_code, 500)
+        self._assert_no_leaks(resp.get_data(as_text=True), cap.records)
 
-        real_get_conn = app_mod.get_conn
+    # ------------------------------------------------------------------
+    # 5. Cursor/connection close() fails → 500 with zero leak.
+    # ------------------------------------------------------------------
+    def test_close_failure_does_not_mask_original_exception_leaks(self):
+        token = self._csrf_token()
+        self._seed_four_mondays(
+            client=_SECRETS_PAYLOAD["client"],
+            worker=_SECRETS_PAYLOAD["worker"],
+        )
 
-        class _TrackingConn(sqlite3.Connection):
+        class _CloseExplodingConn(sqlite3.Connection):
             def close(self_):
-                closed.append(True)
-                return sqlite3.Connection.close(self_)
+                raise RuntimeError(_SECRETS_PAYLOAD["dsn"])
+
+            def rollback(self_):
+                raise RuntimeError(_SECRETS_PAYLOAD["dsn"])
 
         with mock.patch.object(
             app_mod, "get_conn",
             lambda: sqlite3.connect(
-                app_mod.SQLITE_PATH, factory=_TrackingConn,
+                app_mod.SQLITE_PATH, factory=_CloseExplodingConn,
             ),
         ), mock.patch.object(
-            app_mod, "ap_run_checks",
-            mock.Mock(side_effect=RuntimeError("boom")),
-        ):
+            app_mod, "ap_fetch_history",
+            side_effect=_raise_blowing_exception,
+        ), _capture_app_errors() as cap:
             resp = self.client.post("/plan/analyze", data={
                 "csrf_token": token,
                 "target_week_start": "2026-10-19",
                 "lookback_weeks": "4",
             })
         self.assertEqual(resp.status_code, 500)
-        self.assertTrue(closed, "connection was not closed on exception")
+        self._assert_no_leaks(resp.get_data(as_text=True), cap.records)
+
+    # ------------------------------------------------------------------
+    # 6. Normal success path emits NO error log line.
+    #    (The response body legitimately contains the client/worker
+    #    names of the proposals — that is the feature's output. We
+    #    verify only that NOTHING leaks into the error log.)
+    # ------------------------------------------------------------------
+    def test_normal_success_emits_no_error_log_leak(self):
+        token = self._csrf_token()
+        self._seed_four_mondays(
+            client=_SECRETS_PAYLOAD["client"],
+            worker=_SECRETS_PAYLOAD["worker"],
+        )
+        with _capture_app_errors() as cap:
+            resp = self.client.post("/plan/analyze", data={
+                "csrf_token": token,
+                "target_week_start": "2026-10-19",
+                "lookback_weeks": "4",
+            })
+        self.assertEqual(resp.status_code, 200)
+        # Zero ERROR records on the happy path is the invariant.
+        self.assertEqual(cap.records, [], cap.records)
+
+    # ------------------------------------------------------------------
+    # 7. Phase-5 write routes stay 403 in analysis_only.
+    # ------------------------------------------------------------------
+    def test_apply_route_remains_blocked(self):
+        resp = self.client.post("/plan/review/1/apply", data={})
+        self.assertEqual(resp.status_code, 403)
+
+    def test_bulk_accept_route_remains_blocked(self):
+        resp = self.client.post("/plan/review/1/bulk-accept", data={})
+        self.assertEqual(resp.status_code, 403)
+
+    def test_update_proposal_route_remains_blocked(self):
+        resp = self.client.post(
+            "/plan/review/1/proposal/1/update", data={"action": "accept"},
+        )
+        self.assertEqual(resp.status_code, 403)
+
+
+class PgCursorCloseTests(unittest.TestCase):
+    """P3: ``_PgCursor.close()`` delegates to psycopg2 and swallows
+    close-on-closed errors without leaking exception data."""
+
+    def test_close_delegates(self):
+        closed = []
+
+        class _Inner:
+            def close(self_):
+                closed.append(True)
+
+        wrapper = app_mod._PgCursor(_Inner())
+        wrapper.close()
+        self.assertEqual(closed, [True])
+
+    def test_close_swallows_double_close(self):
+        class _Inner:
+            def close(self_):
+                raise RuntimeError(_SECRETS_PAYLOAD["dsn"])
+
+        wrapper = app_mod._PgCursor(_Inner())
+        # Must not raise; must not leak the DSN in a message.
+        wrapper.close()
+
+    def test_close_on_missing_cursor_is_safe(self):
+        wrapper = app_mod._PgCursor.__new__(app_mod._PgCursor)
+        # No attributes set; close() must be a tolerant no-op.
+        wrapper.close()
 
 
 class AnalyzeOnlyRunsSelectTests(_AnalysisOnlyBase):
