@@ -1805,17 +1805,17 @@ class AnalyzeConfidentialityTests(_AnalysisOnlyBase):
                 "target_week_start": "2026-10-19",
                 "lookback_weeks": "4",
             })
-        # 200 route tried to render → fallback hit → still returns 200
-        # with the plain-text sentinel.
-        self.assertIn(resp.status_code, (200, 400, 500))
+        # Jinja crashed on the success render → the fallback MUST
+        # downgrade to HTTP 500. Serving the sentinel body under
+        # the original 200 would misrepresent the request outcome.
+        self.assertEqual(resp.status_code, 500)
         body = resp.get_data(as_text=True)
         self._assert_no_leaks(body, cap.records)
-        # Fallback payload is a hard-coded string.
         self.assertIn("AUTO_PLAN_ANALYSIS_FAILED", body)
 
-    def test_invalid_week_render_failure_does_not_leak(self):
-        """The invalid-week early-return render is also wrapped —
-        a crash there must fall back to the generic response."""
+    def test_invalid_week_render_failure_downgrades_to_500(self):
+        """A Jinja crash on the invalid-week render ALSO downgrades
+        the caller-requested 400 to a controlled 500."""
         token = self._csrf_token()
 
         def _blowing_render(template, **context):
@@ -1833,10 +1833,21 @@ class AnalyzeConfidentialityTests(_AnalysisOnlyBase):
                 "target_week_start": "2026-10-20",  # Tuesday → invalid
                 "lookback_weeks": "4",
             })
-        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.status_code, 500)
         body = resp.get_data(as_text=True)
         self._assert_no_leaks(body, cap.records)
         self.assertIn("AUTO_PLAN_ANALYSIS_FAILED", body)
+
+    def test_invalid_week_without_render_error_stays_400(self):
+        """Reality check: without a Jinja crash, an invalid week keeps
+        the 400 status so a client-side form validator still sees it."""
+        token = self._csrf_token()
+        resp = self.client.post("/plan/analyze", data={
+            "csrf_token": token,
+            "target_week_start": "2026-10-20",  # Tuesday → invalid
+            "lookback_weeks": "4",
+        })
+        self.assertEqual(resp.status_code, 400)
 
     def test_apply_route_remains_blocked(self):
         resp = self.client.post("/plan/review/1/apply", data={})

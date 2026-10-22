@@ -21631,16 +21631,19 @@ def _ap_safe_log(sentinel):
 def _ap_safe_render(template_source, status, **context):
     """Render a Jinja template with a plain-text fallback.
 
-    If Jinja raises during the render (template bug, context key
-    missing, filter crash, etc.) the exception could carry template
-    source or context values. The fallback returns a hard-coded
-    plain-text response that cannot leak anything.
+    On a successful render the response keeps the caller-provided
+    status (200 success, 400 invalid-week, 500/503 error pages). On
+    a Jinja crash the fallback ALWAYS downgrades to HTTP 500 — the
+    page the caller intended to show cannot be delivered, so the
+    original status (even a 200 "success") is wrong. We log the
+    fixed sentinel ``AUTO_PLAN_ANALYSIS_RENDER_FAILED`` and return
+    the hard-coded plain-text body ``AUTO_PLAN_ANALYSIS_FAILED``.
     """
     try:
         body = render_template_string(template_source, **context)
     except Exception:
         _ap_safe_log("AUTO_PLAN_ANALYSIS_RENDER_FAILED")
-        return ("AUTO_PLAN_ANALYSIS_FAILED", status)
+        return ("AUTO_PLAN_ANALYSIS_FAILED", 500)
     return (body, status)
 
 
