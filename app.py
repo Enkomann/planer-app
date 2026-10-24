@@ -3195,6 +3195,8 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_period_monthly": "Mjesecno",
         "auto_plan_period_exceptional": "Neredovno",
         "auto_plan_cancelled_discarded": "Otkazane intervencije iskljucene iz ucenja",
+        "auto_plan_observations_abbr": "obs.",
+        "auto_plan_confidence_tooltip": "Zabiljezene pojave u odnosu na ocekivane u analiziranom periodu.",
         "auto_plan_unknown_status_ignored": "Nepoznati statusi ignorisani",
         "auto_plan_write_refused": "Automatsko planiranje nije u rezimu upisivanja: nijedan rad, prijedlog ni zakljucavanje ne moze biti upisano.",
         "auto_plan_issue_client_missing": "Klijent vise ne postoji",
@@ -3225,6 +3227,8 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_period_monthly": "Mensuel",
         "auto_plan_period_exceptional": "Irrégulier",
         "auto_plan_cancelled_discarded": "Interventions annulées écartées de l'apprentissage",
+        "auto_plan_observations_abbr": "obs.",
+        "auto_plan_confidence_tooltip": "Occurrences observées sur occurrences attendues dans la fenêtre analysée.",
         "auto_plan_unknown_status_ignored": "Statuts inconnus ignorés",
         "auto_plan_write_refused": "L'auto-planning n'est pas en mode écriture : aucune intervention, proposition, ou verrou ne peut être enregistré.",
         "auto_plan_issue_client_missing": "Client supprimé",
@@ -3255,6 +3259,8 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_period_monthly": "Monthly",
         "auto_plan_period_exceptional": "Irregular",
         "auto_plan_cancelled_discarded": "Cancelled shifts excluded from learning",
+        "auto_plan_observations_abbr": "obs.",
+        "auto_plan_confidence_tooltip": "Observed occurrences against the number expected over the analysed window.",
         "auto_plan_unknown_status_ignored": "Unknown statuses ignored",
         "auto_plan_write_refused": "Auto-planning is not in write mode: no shift, proposal, draft or lock can be written.",
         "auto_plan_issue_client_missing": "Client removed",
@@ -3285,6 +3291,8 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_period_monthly": "Monatlich",
         "auto_plan_period_exceptional": "Unregelmaessig",
         "auto_plan_cancelled_discarded": "Abgesagte Einsaetze vom Lernen ausgeschlossen",
+        "auto_plan_observations_abbr": "Beob.",
+        "auto_plan_confidence_tooltip": "Beobachtete Vorkommen gegenueber den erwarteten im Analysefenster.",
         "auto_plan_unknown_status_ignored": "Unbekannte Statuswerte ignoriert",
         "auto_plan_write_refused": "Auto-Planung nicht im Schreibmodus: keine Schicht, Vorschlag, Entwurf oder Sperre kann geschrieben werden.",
         "auto_plan_issue_client_missing": "Kunde entfernt",
@@ -3315,6 +3323,8 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_period_monthly": "Mensal",
         "auto_plan_period_exceptional": "Irregular",
         "auto_plan_cancelled_discarded": "Intervenções canceladas excluídas da aprendizagem",
+        "auto_plan_observations_abbr": "obs.",
+        "auto_plan_confidence_tooltip": "Ocorrências observadas em relação às esperadas na janela analisada.",
         "auto_plan_unknown_status_ignored": "Estados desconhecidos ignorados",
         "auto_plan_write_refused": "Auto-planeamento não está em modo de escrita: nenhum serviço, proposta ou bloqueio pode ser gravado.",
         "auto_plan_issue_client_missing": "Cliente removido",
@@ -22015,45 +22025,76 @@ AUTO_PLAN_ANALYZE_TEMPLATE = """
       </p>
     {% endif %}
     {% if proposals %}
-      <table class="apa-table" style="width:100%;border-collapse:collapse;">
-        <thead>
-          <tr>
-            <th>{{ tr.get("date","Date") }}</th>
-            <th>{{ tr.get("pdf_client","Client") }}</th>
-            <th>{{ tr.get("team","Équipe") }}</th>
-            <th>{{ tr.get("time","Horaire") }}</th>
-            <th>{{ tr.get("auto_plan_recurrence","Récurrence") }}</th>
-            <th>{{ tr.get("auto_plan_confidence","Confiance") }}</th>
-            <th>{{ tr.get("auto_plan_issues","Avertissements") }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for p in proposals %}
-            <tr {% if p.has_blocking_issues %}
-                style="background:#fee2e2;"{% endif %}>
-              <td data-iso-date="{{ p.target_date }}">{{ format_date(p.target_date) }}</td>
-              <td>{{ p.client }}</td>
-              <td>{{ p.worker }}</td>
-              <td>{{ p.time }}</td>
-              <td>{{ ap_recurrence_label_i18n(
-                        p.get("recurrence_period"), tr) }}</td>
-              <td>{{ "%.0f%%"|format((p.confidence or 0) * 100) }}</td>
-              <td>
-                {% for issue in p.issues %}
-                  <div class="apa-issue"
-                       data-code="{{ issue.code }}"
-                       data-sev="{{ issue.severity }}">
-                    {{ issue_label(issue, tr) }}
-                    {% if issue.severity %}
-                      ({{ tr.get("auto_plan_sev_" ~ issue.severity,
-                                 issue.severity) }}){% endif %}
-                  </div>
-                {% endfor %}
-              </td>
+      <style>
+        .apa-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .apa-table { width: 100%; border-collapse: collapse;
+                     min-width: 760px; font-size: 14px; }
+        .apa-table th, .apa-table td { padding: 8px 10px;
+                     border-bottom: 1px solid #e2e8f0; text-align: left;
+                     vertical-align: top; }
+        .apa-table th { background: #f1f5f9; font-weight: 700; }
+        .apa-conf-pct { font-weight: 700; }
+        .apa-conf-count { font-size: 12px; color: #64748b; margin-left: 4px; }
+        @media (max-width: 640px) {
+          .apa-table { font-size: 13px; min-width: 600px; }
+          .apa-table th, .apa-table td { padding: 6px 8px; }
+        }
+      </style>
+      <div class="apa-table-wrap">
+        <table class="apa-table">
+          <thead>
+            <tr>
+              <th>{{ tr.get("date","Date") }}</th>
+              <th>{{ tr.get("pdf_client","Client") }}</th>
+              <th>{{ tr.get("team","Équipe") }}</th>
+              <th>{{ tr.get("time","Horaire") }}</th>
+              <th>{{ tr.get("auto_plan_recurrence","Récurrence") }}</th>
+              <th>{{ tr.get("auto_plan_confidence","Confiance") }}</th>
+              <th>{{ tr.get("auto_plan_issues","Avertissements") }}</th>
             </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {% for p in proposals %}
+              {% set occ = p.get("occurrences", 0) %}
+              {% set per = p.get("recurrence_period") or 1 %}
+              {% set expected = (
+                     (lookback_weeks + per - 1) // per if per > 0 else occ
+                 ) %}
+              <tr {% if p.has_blocking_issues %}
+                  style="background:#fee2e2;"{% endif %}>
+                <td data-iso-date="{{ p.target_date }}">{{ format_date(p.target_date) }}</td>
+                <td>{{ p.client }}</td>
+                <td>{{ p.worker }}</td>
+                <td>{{ p.time }}</td>
+                <td>{{ ap_recurrence_label_i18n(
+                          p.get("recurrence_period"), tr) }}</td>
+                <td title="{{ tr.get('auto_plan_confidence_tooltip',
+                              'Occurrences observées sur occurrences attendues '
+                              'dans la fenêtre analysée.') }}">
+                  <span class="apa-conf-pct">{{
+                    "%.0f%%"|format((p.confidence or 0) * 100) }}</span>
+                  <span class="apa-conf-count">
+                    ({{ occ }}/{{ expected }}
+                    {{ tr.get("auto_plan_observations_abbr","obs.") }})
+                  </span>
+                </td>
+                <td>
+                  {% for issue in p.issues %}
+                    <div class="apa-issue"
+                         data-code="{{ issue.code }}"
+                         data-sev="{{ issue.severity }}">
+                      {{ issue_label(issue, tr) }}
+                      {% if issue.severity %}
+                        ({{ tr.get("auto_plan_sev_" ~ issue.severity,
+                                   issue.severity) }}){% endif %}
+                    </div>
+                  {% endfor %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     {% else %}
       <p>{{ tr.get("auto_plan_no_proposals",
                    "Aucune proposition pour cette semaine.") }}</p>

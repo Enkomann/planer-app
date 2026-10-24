@@ -337,6 +337,43 @@ class AnalyzeRouteTests(_AnalysisOnlyBase):
         self.assertIn("2026-10-19", body)
         self.assertIn('data-iso-date="2026-10-19">19/10/2026<', body)
 
+    def test_confidence_cell_shows_occurrences_and_expected(self):
+        """4 historical weekly shifts in a 4-week lookback → 4/4 obs.
+        The display must carry the raw count AND the expected count
+        alongside the percentage, without changing the underlying
+        confidence formula."""
+        self._seed_four_mondays()
+        token = self._csrf_token()
+        resp = self.client.post("/plan/analyze", data={
+            "csrf_token": token,
+            "target_week_start": "2026-10-19",
+            "lookback_weeks": "4",
+        })
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_data(as_text=True)
+        # Percentage still rendered — confidence formula unchanged.
+        self.assertIn("100%", body)
+        # New observation count rendered as "(4/4 ...)".
+        import re
+        match = re.search(r"\(\s*4\s*/\s*4\s*", body)
+        self.assertIsNotNone(
+            match, f"missing (4/4 ...) observation count in body: ...",
+        )
+
+    def test_analyze_table_is_wrapped_for_responsive_scroll(self):
+        self._seed_four_mondays()
+        token = self._csrf_token()
+        resp = self.client.post("/plan/analyze", data={
+            "csrf_token": token,
+            "target_week_start": "2026-10-19",
+            "lookback_weeks": "4",
+        })
+        body = resp.get_data(as_text=True)
+        self.assertIn('class="apa-table-wrap"', body)
+        self.assertIn("overflow-x: auto", body)
+        # Mobile breakpoint lives in the inline <style>.
+        self.assertIn("@media (max-width: 640px)", body)
+
     def test_visible_warning_dates_use_day_month_year(self):
         self._seed_four_mondays()
         with sqlite3.connect(self._db_path) as conn:
