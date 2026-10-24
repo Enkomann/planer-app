@@ -19851,6 +19851,12 @@ def ap_project(groups, target_week_start, include_exceptional=False,
     if target.weekday() != 0:
         raise ValueError("target_week_start must be a Monday")
     min_confidence = float(min_confidence)
+    # Merge historical groups that model the same visit BEFORE
+    # cadence and confidence are computed. On the Schweig-Pletgen
+    # scenario this changes the inferred recurrence from
+    # "every two weeks" (per-sub-group view) to "every week" (full
+    # history view) — which is what the operator actually scheduled.
+    groups = ap_merge_near_duplicate_groups(groups)
     proposals = []
     for key, raw_dates in groups.items():
         client, team, weekday, start, end = key
@@ -19902,6 +19908,233 @@ def ap_project(groups, target_week_start, include_exceptional=False,
         key=lambda item: (item["target_date"], item["time"], item["client"],
                           worker_signature(item["worker"])),
     )
+
+
+# Two historical groups model the SAME real visit when all three
+# conditions below hold:
+#   * the start times are within AP_GROUP_MERGE_TIME_WINDOW_MINUTES
+#     of each other;
+#   * the end times are within the same window;
+#   * their durations differ by at most
+#     AP_GROUP_MERGE_DURATION_TOLERANCE_MINUTES absolute AND by at
+#     most AP_GROUP_MERGE_DURATION_RATIO relative to the shorter
+#     duration.
+# The duration gate stops a 1-hour visit from being swallowed into a
+# 4-hour one when the shorter sits inside the longer time window.
+AP_GROUP_MERGE_TIME_WINDOW_MINUTES = 30
+AP_GROUP_MERGE_DURATION_TOLERANCE_MINUTES = 15
+AP_GROUP_MERGE_DURATION_RATIO = 0.25
+
+
+def _ap_minutes(hhmm):
+    try:
+        hour, minute = str(hhmm).split(":")
+        return int(hour) * 60 + int(minute)
+    except (TypeError, ValueError):
+        return None
+
+
+def _ap_group_descriptor(key, dates):
+    """Return a comparable descriptor for one ``ap_group_by_key`` entry."""
+    client, team, weekday, start, end = key
+    start_m = _ap_minutes(start)
+    end_m = _ap_minutes(end)
+    if start_m is None or end_m is None or end_m <= start_m:
+        return None
+    return {
+        "key": key,
+        "client": client,
+        "team": team,
+        "weekday": int(weekday),
+        "start_m": start_m,
+        "end_m": end_m,
+        "duration_m": end_m - start_m,
+        "dates": tuple(dates),
+    }
+
+
+def _ap_can_merge(reference, candidate):
+    """Return True iff ``candidate`` represents the same visit as the
+    cluster currently anchored at ``reference``.
+
+    The predicate compares to the cluster's REFERENCE (the earliest
+    member) rather than to the last-added member, so A → B → C
+    transitive drift cannot chain groups whose starts span more than
+    the configured window.
+
+    Guards (ALL required):
+
+      * same client, team, weekday;
+      * ``|Δstart| ≤ AP_GROUP_MERGE_TIME_WINDOW_MINUTES``;
+      * ``|Δend|   ≤ AP_GROUP_MERGE_TIME_WINDOW_MINUTES``;
+      * duration difference ≤
+        ``AP_GROUP_MERGE_DURATION_TOLERANCE_MINUTES`` **absolute**
+        AND ≤ ``AP_GROUP_MERGE_DURATION_RATIO`` × shorter duration
+        (BOTH limits must hold — a 30 vs 45 min pair fails the
+        relative test even though the absolute delta is exactly on
+        the boundary, and a 120 vs 150 min pair fails the absolute
+        test even though the ratio is exactly on the boundary);
+      * the two groups' historical date sets are DISJOINT. Two
+        series that cover the same ISO day each represent a real
+        visit on that day — merging them would silently drop one.
+        Letting both proposals survive lets ``ap_check_overlap_batch``
+        raise a visible ``overlap_batch`` warning on the target
+        week.
+    """
+    if reference["client"] != candidate["client"]:
+        return False
+    if reference["team"] != candidate["team"]:
+        return False
+    if reference["weekday"] != candidate["weekday"]:
+        return False
+    if abs(reference["start_m"] - candidate["start_m"]) > (
+        AP_GROUP_MERGE_TIME_WINDOW_MINUTES
+    ):
+        return False
+    if abs(reference["end_m"] - candidate["end_m"]) > (
+        AP_GROUP_MERGE_TIME_WINDOW_MINUTES
+    ):
+        return False
+    duration_diff = abs(reference["duration_m"] - candidate["duration_m"])
+    shorter = min(reference["duration_m"], candidate["duration_m"])
+    if shorter <= 0:
+        return False
+    if duration_diff > AP_GROUP_MERGE_DURATION_TOLERANCE_MINUTES:
+        return False
+    if duration_diff / shorter > AP_GROUP_MERGE_DURATION_RATIO:
+        return False
+    # P1 safeguard: if the two series share even one historical
+    # date, they represent two real visits on that day — never a
+    # drift of the same visit. Refuse the merge so neither row is
+    # silently lost.
+    if set(reference["dates"]).intersection(candidate["dates"]):
+        return False
+    return True
+
+
+def _ap_representative_time(descriptors):
+    """Pick the ``(start, end)`` of the member with the most occurrences.
+
+    Ties broken by earliest start, then earliest end — deterministic
+    whatever order the input groups came in. Nothing is invented: the
+    returned pair is literally one of the historical group's own
+    ``(start, end)``.
+    """
+    def _rank(d):
+        return (
+            -len(d["dates"]),   # more occurrences wins
+            d["start_m"],
+            d["end_m"],
+            d["key"][3],         # literal start string, final tiebreak
+            d["key"][4],
+        )
+    pick = min(descriptors, key=_rank)
+    return pick["key"][3], pick["key"][4]
+
+
+def ap_merge_near_duplicate_groups(groups):
+    """Merge historical groups that model the same real visit.
+
+    Operates on the ``ap_group_by_key`` output BEFORE cadence or
+    confidence are computed. For each ``(client, team, weekday)``
+    bucket, groups are sorted by ``(start_m, end_m, start_literal,
+    end_literal)`` and clustered left-to-right against each cluster's
+    FIRST member (the "reference"); this makes the output
+    independent of the historical rows' input order.
+
+    When two or more groups cluster together, their date sets are
+    unioned (duplicates on the same ISO date collapse) and a single
+    merged entry is emitted. The merged entry's time comes from the
+    member with the most historical occurrences — no synthetic time
+    is invented. Downstream, ``ap_period_weeks`` and ``ap_confidence``
+    then see the FULL set of observations and infer the real
+    cadence (e.g. a weekly series instead of two bi-weekly ones).
+
+    Groups whose descriptors cannot be computed (malformed times)
+    are passed through unchanged so the engine never silently drops
+    data.
+    """
+    if not groups:
+        return groups
+
+    bucketed = {}
+    passthrough = {}
+    for key, dates in groups.items():
+        descriptor = _ap_group_descriptor(key, dates)
+        if descriptor is None:
+            passthrough[key] = dates
+            continue
+        bucket_key = (descriptor["client"], descriptor["team"],
+                      descriptor["weekday"])
+        bucketed.setdefault(bucket_key, []).append(descriptor)
+
+    merged = {}
+    for members in bucketed.values():
+        # Deterministic order: earliest start first, then earliest
+        # end, then the literal strings. The output is identical for
+        # every input permutation.
+        members.sort(
+            key=lambda d: (d["start_m"], d["end_m"], d["key"][3], d["key"][4]),
+        )
+        # Each cluster is a (members_list, date_union) pair. The date
+        # union grows as we add members so the P1 same-date guard
+        # scales to clusters of ANY size — not just the pairwise
+        # candidate↔reference check.
+        clusters = []
+        for descriptor in members:
+            placed = False
+            candidate_dates = set(descriptor["dates"])
+            for cluster_members, cluster_dates in clusters:
+                # Time / duration gates stay compared to the cluster
+                # REFERENCE (first member) to preserve the bounded,
+                # transitive-free spread.
+                if not _ap_can_merge(cluster_members[0], descriptor):
+                    continue
+                # P1 extension: the candidate must not share any date
+                # with ANY member of the cluster, not just with the
+                # reference. ``_ap_can_merge`` already enforces this
+                # against the reference; here we additionally check
+                # against the running union of every member added so
+                # far. A single collision is enough to refuse.
+                if candidate_dates & cluster_dates:
+                    continue
+                cluster_members.append(descriptor)
+                cluster_dates |= candidate_dates
+                placed = True
+                break
+            if not placed:
+                clusters.append(([descriptor], set(candidate_dates)))
+
+        for cluster_members, _cluster_dates in clusters:
+            if len(cluster_members) == 1:
+                merged[cluster_members[0]["key"]] = list(
+                    cluster_members[0]["dates"]
+                )
+                continue
+            # Union the historical dates — multiple descriptors can
+            # share the same ISO day, we keep each day once.
+            union_dates = sorted({d for member in cluster_members
+                                  for d in member["dates"]})
+            start_literal, end_literal = _ap_representative_time(
+                cluster_members,
+            )
+            new_key = (
+                cluster_members[0]["client"], cluster_members[0]["team"],
+                cluster_members[0]["weekday"], start_literal, end_literal,
+            )
+            # Collisions are theoretically possible if two clusters
+            # of the same bucket happen to pick the same literal
+            # time; in that case we concatenate without duplicating
+            # ISO days so no observation is lost.
+            if new_key in merged:
+                merged[new_key] = sorted(
+                    set(merged[new_key]) | set(union_dates)
+                )
+            else:
+                merged[new_key] = union_dates
+
+    merged.update(passthrough)
+    return merged
 
 
 def ap_generate_recurrence_proposals(conn, target_week_start,

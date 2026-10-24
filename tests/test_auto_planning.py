@@ -88,6 +88,739 @@ class RecurrenceEngineTests(unittest.TestCase):
             (date(2026, 10, 12), date(2026, 10, 25)),
         )
 
+    def test_schweig_pletgen_weekly_visit_with_time_drift(self):
+        """Real-world bug: ONE weekly Wednesday visit for
+        Schweig-Pletgen Claudine with Edita+Samela, 2 hours, with a
+        historical arrival drift between 10:15 and 10:30. The engine
+        must infer:
+          - a single proposal for 2026-11-04;
+          - recurrence_period = 1 (WEEKLY, not bi-weekly);
+          - confidence higher than what either sub-group alone
+            would have yielded (full-history view);
+          - occurrences = total of merged dates;
+          - source_last_seen = latest observation across both.
+        """
+        # Perfectly alternating weeks over 8 weeks: four at 10:15-12:15
+        # and four at 10:30-12:30 → combined, a strict weekly series.
+        rows_a = [
+            shift(i, "Edita, Samela", "Schweig-Pletgen Claudine",
+                  day, "10:15-12:15")
+            for i, day in enumerate([
+                "2026-09-09", "2026-09-23", "2026-10-07", "2026-10-21",
+            ], 1)
+        ]
+        rows_b = [
+            shift(100 + i, "Edita, Samela", "Schweig-Pletgen Claudine",
+                  day, "10:30-12:30")
+            for i, day in enumerate([
+                "2026-09-16", "2026-09-30", "2026-10-14", "2026-10-28",
+            ], 1)
+        ]
+        proposals = app.ap_project(
+            app.ap_group_by_key(rows_a + rows_b),
+            "2026-11-02", lookback_weeks=8,
+        )
+        self.assertEqual(
+            len(proposals), 1,
+            f"expected single proposal after merge, got {proposals}",
+        )
+        p = proposals[0]
+        self.assertEqual(p["client"], "Schweig-Pletgen Claudine")
+        self.assertEqual(p["target_date"], "2026-11-04")
+        # Weekly cadence — proven by the merged date list.
+        self.assertEqual(p["recurrence_period"], 1)
+        # All 8 observations collapsed into one proposal.
+        self.assertEqual(p["occurrences"], 8)
+        self.assertEqual(p["source_last_seen"], "2026-10-28")
+        # Duration preserved exactly (no synthetic time).
+        self.assertEqual(p["duration_hours"], 2.0)
+        # Time is literally one of the observed times — never a
+        # synthesised midpoint.
+        self.assertIn(p["time"], {"10:15-12:15", "10:30-12:30"})
+        # Confidence on the merged series: 8 weekly occurrences →
+        # the ratio ``8 / lookback_weeks`` already saturates at 1.0.
+        self.assertEqual(p["confidence"], 1.0)
+
+    def test_near_duplicate_merge_is_order_independent(self):
+        """Shuffling the input historical rows must NEVER change
+        the proposal set."""
+        rows = [
+            shift(i, "A, B", "Client", day, hours)
+            for i, (day, hours) in enumerate([
+                ("2026-09-09", "10:15-12:15"),
+                ("2026-09-16", "10:30-12:30"),
+                ("2026-09-23", "10:15-12:15"),
+                ("2026-09-30", "10:30-12:30"),
+            ], 1)
+        ]
+        baseline = app.ap_project(
+            app.ap_group_by_key(rows), "2026-11-02", lookback_weeks=8,
+        )
+        import random
+        for seed in range(5):
+            shuffled = list(rows)
+            random.Random(seed).shuffle(shuffled)
+            got = app.ap_project(
+                app.ap_group_by_key(shuffled),
+                "2026-11-02", lookback_weeks=8,
+            )
+            self.assertEqual(got, baseline, f"ordering changed for seed {seed}")
+
+    def test_merge_without_the_new_logic_fails_this_scenario(self):
+        """Guard-rail: with the new merger NEUTRALISED (pass-through),
+        the Schweig-Pletgen scenario drops back to the broken
+        behaviour (two proposals or non-weekly cadence). Proves the
+        test can only pass thanks to ``ap_merge_near_duplicate_groups``.
+        """
+        rows_a = [
+            shift(i, "Edita, Samela", "Schweig-Pletgen Claudine",
+                  day, "10:15-12:15")
+            for i, day in enumerate([
+                "2026-09-09", "2026-09-23", "2026-10-07", "2026-10-21",
+            ], 1)
+        ]
+        rows_b = [
+            shift(100 + i, "Edita, Samela", "Schweig-Pletgen Claudine",
+                  day, "10:30-12:30")
+            for i, day in enumerate([
+                "2026-09-16", "2026-09-30", "2026-10-14", "2026-10-28",
+            ], 1)
+        ]
+        # Neutralise the merger with a no-op; the engine must then
+        # fall back to the broken, pre-fix output.
+        import unittest.mock as _mock
+        with _mock.patch.object(
+            app, "ap_merge_near_duplicate_groups", lambda g: g,
+        ):
+            proposals = app.ap_project(
+                app.ap_group_by_key(rows_a + rows_b),
+                "2026-11-02", lookback_weeks=8,
+            )
+        # Either two proposals OR a single proposal that is NOT the
+        # correct (weekly, 8 occurrences) outcome.
+        is_broken = (
+            len(proposals) != 1
+            or proposals[0].get("recurrence_period") != 1
+            or proposals[0].get("occurrences") != 8
+        )
+        self.assertTrue(
+            is_broken,
+            "the test cannot distinguish fixed from broken behaviour: "
+            f"{proposals}",
+        )
+
+    def test_dedup_keeps_non_overlapping_same_day_visits(self):
+        """A legitimate morning + afternoon visit at the same client,
+        same team, same weekday must NOT be merged — the time windows
+        do not overlap."""
+        morning_rows = [
+            shift(i, "Aida", "ClientX", day, "08:00-09:00")
+            for i, day in enumerate([
+                "2026-09-07", "2026-09-14", "2026-09-21", "2026-09-28",
+                "2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26",
+            ], 1)
+        ]
+        afternoon_rows = [
+            shift(100 + i, "Aida", "ClientX", day, "14:00-16:00")
+            for i, day in enumerate([
+                "2026-09-07", "2026-09-14", "2026-09-21", "2026-09-28",
+                "2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26",
+            ], 1)
+        ]
+        proposals = app.ap_project(
+            app.ap_group_by_key(morning_rows + afternoon_rows),
+            "2026-11-02", lookback_weeks=8,
+        )
+        times = sorted(p["time"] for p in proposals)
+        self.assertEqual(times, ["08:00-09:00", "14:00-16:00"], proposals)
+
+    def test_dedup_does_not_merge_different_clients(self):
+        rows_a = [
+            shift(i, "Aida", "ClientA", day, "10:00-12:00")
+            for i, day in enumerate([
+                "2026-09-07", "2026-09-14", "2026-09-21", "2026-09-28",
+                "2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26",
+            ], 1)
+        ]
+        rows_b = [
+            shift(100 + i, "Aida", "ClientB", day, "10:15-12:15")
+            for i, day in enumerate([
+                "2026-09-07", "2026-09-14", "2026-09-21", "2026-09-28",
+                "2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26",
+            ], 1)
+        ]
+        proposals = app.ap_project(
+            app.ap_group_by_key(rows_a + rows_b),
+            "2026-11-02", lookback_weeks=8,
+        )
+        clients = sorted(p["client"] for p in proposals)
+        self.assertEqual(clients, ["ClientA", "ClientB"])
+
+    def test_dedup_does_not_merge_different_teams(self):
+        rows_a = [
+            shift(i, "Aida", "ClientX", day, "10:00-12:00")
+            for i, day in enumerate([
+                "2026-09-07", "2026-09-14", "2026-09-21", "2026-09-28",
+                "2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26",
+            ], 1)
+        ]
+        rows_b = [
+            shift(100 + i, "Bela", "ClientX", day, "10:15-12:15")
+            for i, day in enumerate([
+                "2026-09-07", "2026-09-14", "2026-09-21", "2026-09-28",
+                "2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26",
+            ], 1)
+        ]
+        proposals = app.ap_project(
+            app.ap_group_by_key(rows_a + rows_b),
+            "2026-11-02", lookback_weeks=8,
+        )
+        workers = sorted(p["worker"] for p in proposals)
+        self.assertEqual(workers, ["Aida", "Bela"])
+
+    def test_three_group_cluster_rejects_transitive_date_collision(self):
+        """P1 — Codex scenario:
+          A : 10:00-11:00, weeks 1-4 (dates disjoint from B/C).
+          B : 10:10-11:10, weeks 5-8.
+          C : 10:20-11:20, weeks 5-8 (SAME dates as B).
+        Comparing only to the first member (A) would admit all three
+        into one cluster because A shares no dates with either B or
+        C. The P1 extension refuses on the UNION of the cluster's
+        dates: once B joins {A}, the running union covers weeks 5-8,
+        so C's dates collide and C is kept separate.
+        """
+        rows_a = [
+            shift(i, "Edita", "ClientABC", day, "10:00-11:00")
+            for i, day in enumerate([
+                "2026-09-07", "2026-09-14", "2026-09-21", "2026-09-28",
+            ], 1)
+        ]
+        rows_b = [
+            shift(100 + i, "Edita", "ClientABC", day, "10:10-11:10")
+            for i, day in enumerate([
+                "2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26",
+            ], 1)
+        ]
+        rows_c = [
+            shift(200 + i, "Edita", "ClientABC", day, "10:20-11:20")
+            for i, day in enumerate([
+                "2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26",
+            ], 1)
+        ]
+        proposals = app.ap_project(
+            app.ap_group_by_key(rows_a + rows_b + rows_c),
+            "2026-11-02", lookback_weeks=8,
+        )
+        times = sorted(p["time"] for p in proposals)
+        # Not merged into a single row. The pre-fix behaviour was
+        # exactly ONE proposal; after the P1 extension, C stays
+        # distinct because its historical dates overlap the running
+        # union of {A, B}. A and B themselves share NO dates and are
+        # allowed to merge, so the final output has:
+        #   - one proposal representing A+B (time ∈ {10:00, 10:10});
+        #   - one proposal representing C   (time == 10:20-11:20).
+        # The key invariant is that C — which historically occurred
+        # at the same moment as B — is NOT silently absorbed.
+        self.assertEqual(len(proposals), 2, proposals)
+        self.assertIn("10:20-11:20", times, "C silently absorbed")
+        other_times = {t for t in times if t != "10:20-11:20"}
+        self.assertTrue(
+            other_times.issubset({"10:00-11:00", "10:10-11:10"}),
+            f"unexpected representative time for the A/B cluster: {times}",
+        )
+        # Both proposals target the same Monday 2026-11-02 and overlap
+        # by 40 min — the batch overlap check must flag the conflict.
+        issues = app.ap_check_overlap_batch(proposals)
+        has_overlap = any(
+            any(i.get("code") == "overlap_batch" for i in by_index)
+            for by_index in issues.values()
+        )
+        self.assertTrue(
+            has_overlap,
+            f"expected overlap_batch issue on {proposals} → {issues}",
+        )
+
+    def test_three_group_cluster_is_order_independent(self):
+        """The 3-group clustering output is identical for every input
+        permutation of the historical rows."""
+        rows_a = [
+            shift(i, "Edita", "ClientABC", day, "10:00-11:00")
+            for i, day in enumerate([
+                "2026-09-07", "2026-09-14", "2026-09-21", "2026-09-28",
+            ], 1)
+        ]
+        rows_b = [
+            shift(100 + i, "Edita", "ClientABC", day, "10:10-11:10")
+            for i, day in enumerate([
+                "2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26",
+            ], 1)
+        ]
+        rows_c = [
+            shift(200 + i, "Edita", "ClientABC", day, "10:20-11:20")
+            for i, day in enumerate([
+                "2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26",
+            ], 1)
+        ]
+        baseline = app.ap_project(
+            app.ap_group_by_key(rows_a + rows_b + rows_c),
+            "2026-11-02", lookback_weeks=8,
+        )
+        import random
+        for seed in range(5):
+            shuffled = list(rows_a + rows_b + rows_c)
+            random.Random(seed).shuffle(shuffled)
+            got = app.ap_project(
+                app.ap_group_by_key(shuffled),
+                "2026-11-02", lookback_weeks=8,
+            )
+            self.assertEqual(
+                got, baseline,
+                f"3-group clustering changed with seed {seed}",
+            )
+
+    def test_three_group_cluster_without_union_check_would_fail(self):
+        """Guard-rail: a reduced merger that compares the candidate
+        only to the cluster's reference (no cluster-wide union) WOULD
+        collapse A/B/C into a single proposal → proves the P1
+        extension is the sole reason the production test above
+        passes.
+        """
+        rows_a = [
+            shift(i, "Edita", "ClientABC", day, "10:00-11:00")
+            for i, day in enumerate([
+                "2026-09-07", "2026-09-14", "2026-09-21", "2026-09-28",
+            ], 1)
+        ]
+        rows_b = [
+            shift(100 + i, "Edita", "ClientABC", day, "10:10-11:10")
+            for i, day in enumerate([
+                "2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26",
+            ], 1)
+        ]
+        rows_c = [
+            shift(200 + i, "Edita", "ClientABC", day, "10:20-11:20")
+            for i, day in enumerate([
+                "2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26",
+            ], 1)
+        ]
+
+        def _reference_only_merge(groups):
+            # Rebuilds the OLD (pre-fix) behaviour: compares every
+            # candidate ONLY to the cluster's first member, never
+            # to the running union. Returned shape is identical to
+            # the real function so ap_project consumes it unchanged.
+            if not groups:
+                return groups
+            bucketed = {}
+            passthrough = {}
+            for key, dates in groups.items():
+                descriptor = app._ap_group_descriptor(key, dates)
+                if descriptor is None:
+                    passthrough[key] = dates
+                    continue
+                bucket_key = (descriptor["client"], descriptor["team"],
+                              descriptor["weekday"])
+                bucketed.setdefault(bucket_key, []).append(descriptor)
+            merged = {}
+            for members in bucketed.values():
+                members.sort(
+                    key=lambda d: (d["start_m"], d["end_m"],
+                                   d["key"][3], d["key"][4]),
+                )
+                clusters = []
+                for descriptor in members:
+                    placed = False
+                    for cluster in clusters:
+                        if app._ap_can_merge(cluster[0], descriptor):
+                            cluster.append(descriptor)
+                            placed = True
+                            break
+                    if not placed:
+                        clusters.append([descriptor])
+                for cluster in clusters:
+                    if len(cluster) == 1:
+                        merged[cluster[0]["key"]] = list(cluster[0]["dates"])
+                        continue
+                    union_dates = sorted({d for m in cluster
+                                          for d in m["dates"]})
+                    start_lit, end_lit = app._ap_representative_time(cluster)
+                    new_key = (
+                        cluster[0]["client"], cluster[0]["team"],
+                        cluster[0]["weekday"], start_lit, end_lit,
+                    )
+                    if new_key in merged:
+                        merged[new_key] = sorted(
+                            set(merged[new_key]) | set(union_dates)
+                        )
+                    else:
+                        merged[new_key] = union_dates
+            merged.update(passthrough)
+            return merged
+
+        import unittest.mock as _mock
+        with _mock.patch.object(
+            app, "ap_merge_near_duplicate_groups", _reference_only_merge,
+        ):
+            proposals = app.ap_project(
+                app.ap_group_by_key(rows_a + rows_b + rows_c),
+                "2026-11-02", lookback_weeks=8,
+            )
+        self.assertEqual(
+            len(proposals), 1,
+            "scenario cannot distinguish fixed from broken: "
+            f"{proposals}",
+        )
+
+    def test_shared_date_disables_merge_and_surfaces_both(self):
+        """P1: two series with Δstart = 29 min on the SAME historical
+        dates represent two real visits that day — the merger must
+        refuse and let both proposals surface so the batch overlap
+        check can flag the conflict."""
+        shared_dates = [
+            "2026-09-07", "2026-09-14", "2026-09-21", "2026-09-28",
+            "2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26",
+        ]
+        rows_a = [
+            shift(i, "Edita", "SharedClient", day, "10:00-11:00")
+            for i, day in enumerate(shared_dates, 1)
+        ]
+        rows_b = [
+            shift(100 + i, "Edita", "SharedClient", day, "10:29-11:29")
+            for i, day in enumerate(shared_dates, 1)
+        ]
+        proposals = app.ap_project(
+            app.ap_group_by_key(rows_a + rows_b),
+            "2026-11-02", lookback_weeks=8,
+        )
+        times = sorted(p["time"] for p in proposals)
+        self.assertEqual(
+            times, ["10:00-11:00", "10:29-11:29"],
+            f"merge silently dropped a same-day distinct visit: "
+            f"{proposals}",
+        )
+
+    def test_shared_date_without_merger_would_fail(self):
+        """P1 guard-rail: with BOTH date-safety layers neutralised
+        (reference-level check inside ``_ap_can_merge`` AND the
+        cluster-wide union check inside
+        ``ap_merge_near_duplicate_groups``) the shared-date series
+        collapse into one proposal. Proves the test can only pass
+        because the production code applies both layers.
+        """
+        shared_dates = [
+            "2026-09-07", "2026-09-14", "2026-09-21", "2026-09-28",
+            "2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26",
+        ]
+        rows_a = [
+            shift(i, "Edita", "SharedClient", day, "10:00-11:00")
+            for i, day in enumerate(shared_dates, 1)
+        ]
+        rows_b = [
+            shift(100 + i, "Edita", "SharedClient", day, "10:29-11:29")
+            for i, day in enumerate(shared_dates, 1)
+        ]
+
+        def _merge_without_any_date_guard(groups):
+            """A reduced merger that compares candidates to the
+            cluster reference ONLY on time/duration — no reference
+            date check, no cluster-wide union check."""
+            if not groups:
+                return groups
+            bucketed = {}
+            passthrough = {}
+            for key, dates in groups.items():
+                descriptor = app._ap_group_descriptor(key, dates)
+                if descriptor is None:
+                    passthrough[key] = dates
+                    continue
+                bk = (descriptor["client"], descriptor["team"],
+                      descriptor["weekday"])
+                bucketed.setdefault(bk, []).append(descriptor)
+
+            def _no_date_check(ref, cand):
+                return (
+                    ref["client"] == cand["client"]
+                    and ref["team"] == cand["team"]
+                    and ref["weekday"] == cand["weekday"]
+                    and abs(ref["start_m"] - cand["start_m"]) <= 30
+                    and abs(ref["end_m"] - cand["end_m"]) <= 30
+                )
+
+            merged = {}
+            for members in bucketed.values():
+                members.sort(
+                    key=lambda d: (d["start_m"], d["end_m"],
+                                   d["key"][3], d["key"][4]),
+                )
+                clusters = []
+                for descriptor in members:
+                    placed = False
+                    for cluster in clusters:
+                        if _no_date_check(cluster[0], descriptor):
+                            cluster.append(descriptor)
+                            placed = True
+                            break
+                    if not placed:
+                        clusters.append([descriptor])
+                for cluster in clusters:
+                    if len(cluster) == 1:
+                        merged[cluster[0]["key"]] = list(cluster[0]["dates"])
+                        continue
+                    union_dates = sorted({d for m in cluster
+                                          for d in m["dates"]})
+                    start_lit, end_lit = app._ap_representative_time(cluster)
+                    new_key = (
+                        cluster[0]["client"], cluster[0]["team"],
+                        cluster[0]["weekday"], start_lit, end_lit,
+                    )
+                    if new_key in merged:
+                        merged[new_key] = sorted(
+                            set(merged[new_key]) | set(union_dates)
+                        )
+                    else:
+                        merged[new_key] = union_dates
+            merged.update(passthrough)
+            return merged
+
+        import unittest.mock as _mock
+        with _mock.patch.object(
+            app, "ap_merge_near_duplicate_groups",
+            _merge_without_any_date_guard,
+        ):
+            proposals = app.ap_project(
+                app.ap_group_by_key(rows_a + rows_b),
+                "2026-11-02", lookback_weeks=8,
+            )
+        self.assertEqual(
+            len(proposals), 1,
+            "the P1 scenario cannot distinguish fixed from broken: "
+            f"{proposals}",
+        )
+
+    def test_shared_date_batch_overlap_check_is_still_raised(self):
+        """After P1, both proposals survive — ``ap_check_overlap_batch``
+        must then raise a visible ``overlap_batch`` warning on the
+        batch so the operator sees the conflict."""
+        shared_dates = [
+            "2026-09-07", "2026-09-14", "2026-09-21", "2026-09-28",
+            "2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26",
+        ]
+        rows_a = [
+            shift(i, "Edita", "SharedClient", day, "10:00-11:00")
+            for i, day in enumerate(shared_dates, 1)
+        ]
+        rows_b = [
+            shift(100 + i, "Edita", "SharedClient", day, "10:29-11:29")
+            for i, day in enumerate(shared_dates, 1)
+        ]
+        proposals = app.ap_project(
+            app.ap_group_by_key(rows_a + rows_b),
+            "2026-11-02", lookback_weeks=8,
+        )
+        issues = app.ap_check_overlap_batch(proposals)
+        has_overlap = any(
+            any(i.get("code") == "overlap_batch" for i in by_index)
+            for by_index in issues.values()
+        )
+        self.assertTrue(
+            has_overlap,
+            f"expected overlap_batch issue on {proposals} → {issues}",
+        )
+
+    def test_30_vs_45_minutes_do_not_merge(self):
+        """P2: a 30-min visit and a 45-min visit on disjoint weekly
+        dates differ by 15 min absolute (ON the absolute boundary)
+        BUT by 50% of the shorter window → the AND rule must refuse.
+        """
+        rows_30 = [
+            shift(i, "Aida", "ClientD", day, "10:00-10:30")
+            for i, day in enumerate([
+                "2026-09-07", "2026-09-14", "2026-09-21", "2026-09-28",
+            ], 1)
+        ]
+        rows_45 = [
+            shift(100 + i, "Aida", "ClientD", day, "10:00-10:45")
+            for i, day in enumerate([
+                "2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26",
+            ], 1)
+        ]
+        proposals = app.ap_project(
+            app.ap_group_by_key(rows_30 + rows_45),
+            "2026-11-02", lookback_weeks=8,
+        )
+        durations = sorted(p["duration_hours"] for p in proposals)
+        self.assertEqual(durations, [0.5, 0.75], proposals)
+
+    def test_120_vs_150_minutes_do_not_merge(self):
+        """P2: 2 h and 2 h 30 differ by 30 min absolute (above the
+        15-min absolute boundary) BUT by only 25% relative (ON the
+        boundary) → the AND rule must refuse on the absolute leg."""
+        rows_120 = [
+            shift(i, "Aida", "ClientE", day, "09:00-11:00")
+            for i, day in enumerate([
+                "2026-09-07", "2026-09-14", "2026-09-21", "2026-09-28",
+            ], 1)
+        ]
+        rows_150 = [
+            shift(100 + i, "Aida", "ClientE", day, "09:00-11:30")
+            for i, day in enumerate([
+                "2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26",
+            ], 1)
+        ]
+        proposals = app.ap_project(
+            app.ap_group_by_key(rows_120 + rows_150),
+            "2026-11-02", lookback_weeks=8,
+        )
+        durations = sorted(p["duration_hours"] for p in proposals)
+        self.assertEqual(durations, [2.0, 2.5], proposals)
+
+    def test_merge_time_window_boundaries(self):
+        """P2 boundary: 29 / 30 / 31 minute start deltas with
+        matching durations and disjoint dates — 29 and 30 merge,
+        31 does not. Both sub-series are weekly on disjoint date
+        ranges so both would be ``due`` on the target week without
+        the merger.
+        """
+        # Series A: 4 consecutive Mondays, weekly, ending 2026-09-28.
+        dates_a = [
+            "2026-09-07", "2026-09-14", "2026-09-21", "2026-09-28",
+        ]
+        # Series B: 4 consecutive Mondays, weekly, ending 2026-10-26.
+        dates_b = [
+            "2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26",
+        ]
+        rows_ref = [
+            shift(i, "Aida", "ClientF", day, "10:00-11:00")
+            for i, day in enumerate(dates_a, 1)
+        ]
+
+        def _run(delta_minutes, expected_single):
+            minutes = (10 * 60) + delta_minutes
+            hh = minutes // 60
+            mm = minutes % 60
+            time_str = f"{hh:02d}:{mm:02d}-{hh + 1:02d}:{mm:02d}"
+            rows_other = [
+                shift(100 + i, "Aida", "ClientF", day, time_str)
+                for i, day in enumerate(dates_b, 1)
+            ]
+            proposals = app.ap_project(
+                app.ap_group_by_key(rows_ref + rows_other),
+                "2026-11-02", lookback_weeks=8,
+            )
+            if expected_single:
+                self.assertEqual(
+                    len(proposals), 1,
+                    f"Δ={delta_minutes}min should have merged: "
+                    f"{proposals}",
+                )
+            else:
+                self.assertEqual(
+                    len(proposals), 2,
+                    f"Δ={delta_minutes}min should NOT merge: "
+                    f"{proposals}",
+                )
+
+        _run(29, expected_single=True)
+        _run(30, expected_single=True)
+        _run(31, expected_single=False)
+
+    def test_duration_mismatch_prevents_merge(self):
+        """Codex scenario F: a 4-hour 08:00-12:00 visit and a 1-hour
+        10:00-11:00 visit on the same day MUST NOT merge even though
+        the shorter window sits entirely inside the longer one — the
+        durations are too far apart to be the same real intervention.
+        """
+        rows_long = [
+            shift(i, "Aida", "ClientX", day, "08:00-12:00")
+            for i, day in enumerate([
+                "2026-09-07", "2026-09-14", "2026-09-21", "2026-09-28",
+                "2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26",
+            ], 1)
+        ]
+        rows_short = [
+            shift(100 + i, "Aida", "ClientX", day, "10:00-11:00")
+            for i, day in enumerate([
+                "2026-09-07", "2026-09-14", "2026-09-21", "2026-09-28",
+                "2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26",
+            ], 1)
+        ]
+        proposals = app.ap_project(
+            app.ap_group_by_key(rows_long + rows_short),
+            "2026-11-02", lookback_weeks=8,
+        )
+        times = sorted(p["time"] for p in proposals)
+        self.assertEqual(
+            times, ["08:00-12:00", "10:00-11:00"],
+            f"long vs short visit incorrectly merged: {proposals}",
+        )
+
+    def test_merge_is_bounded_no_abusive_transitive_chain(self):
+        """Codex scenario G: three distinct series with starts 10:00,
+        10:25 and 10:50 — adjacent pairs are within the 30-min window
+        but the extremes (10:00 vs 10:50) are 50 min apart. A
+        transitive merge would chain all three; our reference-based
+        clustering must keep the extremes separate.
+        """
+        rows_a = [
+            shift(i, "Aida", "ClientY", day, "10:00-11:00")
+            for i, day in enumerate([
+                "2026-09-07", "2026-09-14", "2026-09-21", "2026-09-28",
+                "2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26",
+            ], 1)
+        ]
+        rows_b = [
+            shift(100 + i, "Aida", "ClientY", day, "10:25-11:25")
+            for i, day in enumerate([
+                "2026-09-07", "2026-09-14", "2026-09-21", "2026-09-28",
+                "2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26",
+            ], 1)
+        ]
+        rows_c = [
+            shift(200 + i, "Aida", "ClientY", day, "10:50-11:50")
+            for i, day in enumerate([
+                "2026-09-07", "2026-09-14", "2026-09-21", "2026-09-28",
+                "2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26",
+            ], 1)
+        ]
+        proposals = app.ap_project(
+            app.ap_group_by_key(rows_a + rows_b + rows_c),
+            "2026-11-02", lookback_weeks=8,
+        )
+        times = sorted(p["time"] for p in proposals)
+        # 10:00 vs 10:50 is 50min apart → must stay a separate
+        # cluster. The exact second merged cluster depends on the
+        # reference comparison but at MINIMUM two proposals must
+        # survive — abusive transitive chaining would produce one.
+        self.assertGreaterEqual(
+            len(proposals), 2,
+            f"transitive chain merged everything: {proposals}",
+        )
+        # The extreme series must appear.
+        self.assertIn("10:00-11:00", times)
+        self.assertIn("10:50-11:50", times)
+
+    def test_dedup_back_to_back_shifts_are_kept(self):
+        """09:00-10:00 and 10:00-11:00 touch but do not overlap → kept."""
+        rows_a = [
+            shift(i, "Aida", "ClientX", day, "09:00-10:00")
+            for i, day in enumerate([
+                "2026-09-07", "2026-09-14", "2026-09-21", "2026-09-28",
+                "2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26",
+            ], 1)
+        ]
+        rows_b = [
+            shift(100 + i, "Aida", "ClientX", day, "10:00-11:00")
+            for i, day in enumerate([
+                "2026-09-07", "2026-09-14", "2026-09-21", "2026-09-28",
+                "2026-10-05", "2026-10-12", "2026-10-19", "2026-10-26",
+            ], 1)
+        ]
+        proposals = app.ap_project(
+            app.ap_group_by_key(rows_a + rows_b),
+            "2026-11-02", lookback_weeks=8,
+        )
+        self.assertEqual(len(proposals), 2, proposals)
+
     def test_weekly_recurrence(self):
         rows = [
             shift(i, "Aida", "Maison A", day)
