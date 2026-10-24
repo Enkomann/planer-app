@@ -335,6 +335,26 @@ class AnalyzeRouteTests(_AnalysisOnlyBase):
         self.assertIn("radnik_regular", body)
         self.assertIn("09:00-11:00", body)
         self.assertIn("2026-10-19", body)
+        self.assertIn('data-iso-date="2026-10-19">19/10/2026<', body)
+
+    def test_visible_warning_dates_use_day_month_year(self):
+        self._seed_four_mondays()
+        with sqlite3.connect(self._db_path) as conn:
+            conn.execute(
+                "UPDATE workers SET contract_end_date = ? WHERE name = ?",
+                ("2026-10-18", "radnik_regular"),
+            )
+            conn.commit()
+        token = self._csrf_token()
+        resp = self.client.post("/plan/analyze", data={
+            "csrf_token": token,
+            "target_week_start": "2026-10-19",
+            "lookback_weeks": "4",
+        })
+        self.assertEqual(resp.status_code, 200)
+        body = resp.get_data(as_text=True)
+        self.assertIn('data-code="worker_contract"', body)
+        self.assertIn("18/10/2026", body)
 
     def test_non_monday_target_week_renders_error(self):
         token = self._csrf_token()

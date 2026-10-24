@@ -2929,7 +2929,7 @@ AUTO_PLANNING_PHASE5_TRANSLATIONS = {
     "bos": {
         "auto_plan_select": "Izaberi",
         "auto_plan_accept_selected": "Prihvati izabrane",
-        "auto_plan_apply_selection": "Primijeni izabrane u raspored",
+        "auto_plan_apply_selection": "Dodaj izabrane intervencije u raspored",
         "auto_plan_select_for_apply": "Primijeni",
         "auto_plan_mark_pending": "Vrati na cekanje",
         "auto_plan_cancel_edit": "Ponisti izmjene",
@@ -2959,7 +2959,7 @@ AUTO_PLANNING_PHASE5_TRANSLATIONS = {
     "fr": {
         "auto_plan_select": "Sélectionner",
         "auto_plan_accept_selected": "Accepter la sélection",
-        "auto_plan_apply_selection": "Appliquer la sélection au planning",
+        "auto_plan_apply_selection": "Ajouter les interventions sélectionnées au planning",
         "auto_plan_select_for_apply": "Appliquer",
         "auto_plan_mark_pending": "Remettre en attente",
         "auto_plan_cancel_edit": "Annuler les modifications",
@@ -2989,7 +2989,7 @@ AUTO_PLANNING_PHASE5_TRANSLATIONS = {
     "en": {
         "auto_plan_select": "Select",
         "auto_plan_accept_selected": "Accept selected",
-        "auto_plan_apply_selection": "Apply selection to schedule",
+        "auto_plan_apply_selection": "Add selected jobs to the schedule",
         "auto_plan_select_for_apply": "Apply",
         "auto_plan_mark_pending": "Return to pending",
         "auto_plan_cancel_edit": "Cancel edits",
@@ -3019,7 +3019,7 @@ AUTO_PLANNING_PHASE5_TRANSLATIONS = {
     "de": {
         "auto_plan_select": "Auswählen",
         "auto_plan_accept_selected": "Auswahl annehmen",
-        "auto_plan_apply_selection": "Auswahl in den Plan übernehmen",
+        "auto_plan_apply_selection": "Ausgewählte Einsätze zum Plan hinzufügen",
         "auto_plan_select_for_apply": "Übernehmen",
         "auto_plan_mark_pending": "Auf ausstehend setzen",
         "auto_plan_cancel_edit": "Änderungen verwerfen",
@@ -3049,7 +3049,7 @@ AUTO_PLANNING_PHASE5_TRANSLATIONS = {
     "pt": {
         "auto_plan_select": "Selecionar",
         "auto_plan_accept_selected": "Aceitar selecionados",
-        "auto_plan_apply_selection": "Aplicar seleção ao horário",
+        "auto_plan_apply_selection": "Adicionar serviços selecionados ao horário",
         "auto_plan_select_for_apply": "Aplicar",
         "auto_plan_mark_pending": "Voltar a pendente",
         "auto_plan_cancel_edit": "Cancelar alterações",
@@ -3096,6 +3096,9 @@ AUTO_PLANNING_PHASE6_TRANSLATIONS = {
         "auto_plan_applying": "Primjena...",
         "auto_plan_return_week": "Otvori ovu sedmicu u rasporedu",
         "auto_plan_locked_help": "Intervencija je zakljucana. Ovdje je otkljucajte prije izmjene.",
+        "auto_plan_select_all_admissible": "Izaberi sve prihvacene bez konflikta",
+        "auto_plan_confirmation_dates": "Datumi: {dates}",
+        "auto_plan_confirmation_required": "Potvrdite primjenu prije upisa u raspored.",
     },
     "fr": {
         "auto_plan_generation_help": "Analyse l'historique et prépare un brouillon. Rien n'est ajouté avant votre validation.",
@@ -3110,6 +3113,9 @@ AUTO_PLANNING_PHASE6_TRANSLATIONS = {
         "auto_plan_applying": "Application en cours...",
         "auto_plan_return_week": "Voir cette semaine dans le planning",
         "auto_plan_locked_help": "Cette intervention est verrouillée. Déverrouillez-la ici avant de la modifier.",
+        "auto_plan_select_all_admissible": "Tout sélectionner parmi les propositions acceptées sans conflit",
+        "auto_plan_confirmation_dates": "Dates : {dates}",
+        "auto_plan_confirmation_required": "Confirmez l'ajout avant toute écriture dans le planning.",
     },
     "en": {
         "auto_plan_generation_help": "Analyses scheduling history and prepares a draft. Nothing is added until you approve it.",
@@ -3124,6 +3130,9 @@ AUTO_PLANNING_PHASE6_TRANSLATIONS = {
         "auto_plan_applying": "Applying...",
         "auto_plan_return_week": "Open this week in the schedule",
         "auto_plan_locked_help": "This job is locked. Unlock it here before making changes.",
+        "auto_plan_select_all_admissible": "Select all accepted proposals without conflicts",
+        "auto_plan_confirmation_dates": "Dates: {dates}",
+        "auto_plan_confirmation_required": "Confirm the action before anything is added to the schedule.",
     },
     "de": {
         "auto_plan_generation_help": "Analysiert die Planungshistorie und erstellt einen Entwurf. Vor Ihrer Bestätigung wird nichts eingetragen.",
@@ -3138,6 +3147,9 @@ AUTO_PLANNING_PHASE6_TRANSLATIONS = {
         "auto_plan_applying": "Übernahme läuft...",
         "auto_plan_return_week": "Diese Woche im Plan öffnen",
         "auto_plan_locked_help": "Dieser Einsatz ist gesperrt. Entsperren Sie ihn hier vor einer Änderung.",
+        "auto_plan_select_all_admissible": "Alle angenommenen Vorschläge ohne Konflikt auswählen",
+        "auto_plan_confirmation_dates": "Daten: {dates}",
+        "auto_plan_confirmation_required": "Bestätigen Sie die Übernahme, bevor Einträge hinzugefügt werden.",
     },
     "pt": {
         "auto_plan_generation_help": "Analisa o histórico e prepara um rascunho. Nada é adicionado antes da sua validação.",
@@ -3152,6 +3164,9 @@ AUTO_PLANNING_PHASE6_TRANSLATIONS = {
         "auto_plan_applying": "A aplicar...",
         "auto_plan_return_week": "Abrir esta semana no horário",
         "auto_plan_locked_help": "Este serviço está bloqueado. Desbloqueie-o aqui antes de o alterar.",
+        "auto_plan_select_all_admissible": "Selecionar todas as propostas aceites sem conflitos",
+        "auto_plan_confirmation_dates": "Datas: {dates}",
+        "auto_plan_confirmation_required": "Confirme a ação antes de adicionar serviços ao horário.",
     },
 }
 for _lang, _values in AUTO_PLANNING_PHASE6_TRANSLATIONS.items():
@@ -21206,6 +21221,18 @@ def ap_issue_label(issue, tr):
         )
         if details:
             label += f" — {details}"
+    elif code == "worker_contract" and issue.get("contract_end_date"):
+        label += f" — {format_date(str(issue['contract_end_date']))}"
+    elif code == "outside_target_week" and issue.get("target_week_start"):
+        label += f" — {format_date(str(issue['target_week_start']))}"
+    elif code == "contract":
+        bounds = [
+            format_date(str(issue.get(key, "")))
+            for key in ("contract_from", "contract_to")
+            if issue.get(key)
+        ]
+        if bounds:
+            label += f" — {' – '.join(bounds)}"
     return label
 
 
@@ -21322,10 +21349,12 @@ AUTO_PLAN_REVIEW_TEMPLATE = """
   .apr-status.applied{background:{{ '#17375e' if dark else '#dbeafe' }};color:{{ '#bfdbfe' if dark else '#1d4ed8' }}}
   .apr-selection{display:inline-flex;align-items:center;gap:6px;margin:0;padding:6px 8px;border:1px solid {{ '#3f3f46' if dark else '#cbd5e1' }};border-radius:6px;font-size:12px;font-weight:700}
   .apr-selection input,.apr-lock-choice input{width:18px;height:18px;margin:0}
+  .apr-select-all{display:inline-flex;align-items:center;gap:7px;margin:0;padding:8px 10px;border:1px solid {{ '#3f3f46' if dark else '#cbd5e1' }};border-radius:6px;font-size:12px;font-weight:800}
+  .apr-select-all input{width:18px;height:18px;margin:0}
   .apr-lock-choice{grid-column:1/-1;display:inline-flex;align-items:center;gap:6px;margin:0;font-size:12px;font-weight:700}
   .apr-workflow{position:sticky;bottom:10px;z-index:30;margin-top:22px;padding:14px;border:1px solid {{ '#3f3f46' if dark else '#cbd5e1' }};background:{{ '#18181b' if dark else '#fff' }};box-shadow:0 8px 24px rgba(0,0,0,.16);border-radius:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   .apr-workflow-copy{flex:1 1 280px}.apr-workflow-copy strong,.apr-workflow-copy span{display:block}.apr-workflow-copy span{margin-top:3px;font-size:12px;color:{{ '#a1a1aa' if dark else '#64748b' }}}
-  .apr-workflow form{display:inline-flex;margin:0;gap:8px}.apr-workflow button{width:auto;margin:0}
+  .apr-workflow form{display:inline-flex;align-items:center;flex-wrap:wrap;margin:0;gap:8px}.apr-workflow button{width:auto;margin:0}
   .apr-cancel-draft{background:#991b1b!important}
   .apr-closed{margin:14px 0;padding:14px;border-left:4px solid #b45309;background:{{ '#3b2f0e' if dark else '#fffbeb' }};color:{{ '#fde68a' if dark else '#78350f' }};border-radius:4px;font-weight:700}
   .apr-return-week{display:inline-flex;margin:10px 0 0;padding:9px 12px;border-radius:6px;background:#1f5d96;color:#fff!important;text-decoration:none}
@@ -21419,7 +21448,7 @@ AUTO_PLAN_REVIEW_TEMPLATE = """
               <button class="pending" type="submit" name="action" value="pending" formnovalidate>{{ tr.get('auto_plan_mark_pending','Return to pending') }}</button>
               <button type="reset">{{ tr.get('auto_plan_cancel_edit','Cancel edits') }}</button>
               {% if p.status != 'rejected' %}<label class="apr-selection"><input type="checkbox" name="proposal_ids" value="{{ p.id }}" form="ap-bulk-form">{{ tr.get('auto_plan_select','Select') }}</label>{% endif %}
-              {% if p.status == 'accepted' %}<label class="apr-selection"><input type="checkbox" name="proposal_ids" value="{{ p.id }}" form="ap-apply-form">{{ tr.get('auto_plan_select_for_apply','Apply') }}</label>{% endif %}
+              {% if p.status == 'accepted' and not p.has_blocking_issues %}<label class="apr-selection"><input type="checkbox" name="proposal_ids" value="{{ p.id }}" form="ap-apply-form" data-display-date="{{ format_date(p.target_date) }}">{{ tr.get('auto_plan_select_for_apply','Apply') }}</label>{% endif %}
             </div>
             {% endif %}
           </form>
@@ -21440,9 +21469,11 @@ AUTO_PLAN_REVIEW_TEMPLATE = """
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button type="submit">{{ tr.get('auto_plan_accept_selected','Accept selected') }}</button>
     </form>
-    <form id="ap-apply-form" method="post" action="{{ url_for('auto_plan_apply', batch_id=batch.id) }}" data-confirm-template="{{ tr.get('auto_plan_apply_count_confirm','Apply {count} selected job(s)? Blocking conflicts: {blocked}.')|e }}" data-confirm-detail="{{ tr.get('auto_plan_apply_selection_only','Only accepted and checked proposals will be added.')|e }}">
+    <form id="ap-apply-form" method="post" action="{{ url_for('auto_plan_apply', batch_id=batch.id) }}" data-confirm-template="{{ tr.get('auto_plan_apply_count_confirm','Apply {count} selected job(s)? Blocking conflicts: {blocked}.')|e }}" data-confirm-dates="{{ tr.get('auto_plan_confirmation_dates','Dates: {dates}')|e }}" data-confirm-detail="{{ tr.get('auto_plan_apply_selection_only','Only accepted and checked proposals will be added.')|e }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <button id="ap-apply-button" type="submit">{{ tr.get('auto_plan_apply_selection','Apply selection to schedule') }}</button>
+      <input id="ap-confirm-apply" type="hidden" name="confirm_apply" value="0">
+      <label class="apr-select-all"><input id="ap-select-all-admissible" type="checkbox">{{ tr.get('auto_plan_select_all_admissible','Select all accepted proposals without conflicts') }}</label>
+      <button id="ap-apply-button" type="submit">{{ tr.get('auto_plan_apply_selection','Add selected jobs to the schedule') }}</button>
     </form>
     <form id="ap-cancel-form" method="post" action="{{ url_for('auto_plan_cancel', batch_id=batch.id) }}" onsubmit='return confirm({{ tr.get("auto_plan_cancel_confirm","Cancel this draft?")|tojson }});'>
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -21454,6 +21485,8 @@ AUTO_PLAN_REVIEW_TEMPLATE = """
     var applyForm = document.getElementById('ap-apply-form');
     if (!applyForm) return;
     var applyButton = document.getElementById('ap-apply-button');
+    var selectAll = document.getElementById('ap-select-all-admissible');
+    var confirmApply = document.getElementById('ap-confirm-apply');
     var countLabel = document.getElementById('ap-selection-count');
     var countTemplate = {{ tr.get('auto_plan_selection_count','Selected for application: {count}')|tojson }};
     var noSelection = {{ tr.get('auto_plan_no_selection','Select at least one proposal.')|tojson }};
@@ -21462,11 +21495,26 @@ AUTO_PLAN_REVIEW_TEMPLATE = """
       return Array.prototype.slice.call(document.querySelectorAll('input[form="ap-apply-form"][name="proposal_ids"]:checked'));
     }
     function updateCount() {
-      if (countLabel) countLabel.textContent = countTemplate.replace('{count}', selectedBoxes().length);
+      var boxes = Array.prototype.slice.call(document.querySelectorAll('input[form="ap-apply-form"][name="proposal_ids"]'));
+      var selectedCount = boxes.filter(function (box) { return box.checked; }).length;
+      if (countLabel) countLabel.textContent = countTemplate.replace('{count}', selectedCount);
+      if (selectAll) {
+        selectAll.disabled = boxes.length === 0;
+        selectAll.checked = boxes.length > 0 && selectedCount === boxes.length;
+        selectAll.indeterminate = selectedCount > 0 && selectedCount < boxes.length;
+      }
     }
     document.querySelectorAll('input[form="ap-apply-form"][name="proposal_ids"]').forEach(function (box) {
       box.addEventListener('change', updateCount);
     });
+    if (selectAll) {
+      selectAll.addEventListener('change', function () {
+        document.querySelectorAll('input[form="ap-apply-form"][name="proposal_ids"]').forEach(function (box) {
+          box.checked = selectAll.checked;
+        });
+        updateCount();
+      });
+    }
     applyForm.addEventListener('submit', function (event) {
       if (applyForm.dataset.submitting === '1') {
         event.preventDefault();
@@ -21484,11 +21532,18 @@ AUTO_PLAN_REVIEW_TEMPLATE = """
       }).length;
       var question = applyForm.dataset.confirmTemplate
         .replace('{count}', selected.length)
-        .replace('{blocked}', blocked) + String.fromCharCode(10, 10) + applyForm.dataset.confirmDetail;
+        .replace('{blocked}', blocked);
+      var dates = selected.map(function (box) { return box.dataset.displayDate || ''; })
+        .filter(function (value, index, values) { return value && values.indexOf(value) === index; });
+      if (dates.length) {
+        question += String.fromCharCode(10) + applyForm.dataset.confirmDates.replace('{dates}', dates.join(', '));
+      }
+      question += String.fromCharCode(10, 10) + applyForm.dataset.confirmDetail;
       if (!window.confirm(question)) {
         event.preventDefault();
         return;
       }
+      if (confirmApply) confirmApply.value = '1';
       applyForm.dataset.submitting = '1';
       if (applyButton) {
         applyButton.disabled = true;
@@ -21904,6 +21959,7 @@ def _ap_analyze_safe_error(
         include_exceptional=include_exceptional,
         csrf_token=csrf_token, submitted=False, proposals=[],
         discarded_cancelled=0, unknown_status_count=0,
+        format_date=format_date, issue_label=ap_issue_label,
     )
 
 
@@ -21975,7 +22031,7 @@ AUTO_PLAN_ANALYZE_TEMPLATE = """
           {% for p in proposals %}
             <tr {% if p.has_blocking_issues %}
                 style="background:#fee2e2;"{% endif %}>
-              <td>{{ p.target_date }}</td>
+              <td data-iso-date="{{ p.target_date }}">{{ format_date(p.target_date) }}</td>
               <td>{{ p.client }}</td>
               <td>{{ p.worker }}</td>
               <td>{{ p.time }}</td>
@@ -21987,7 +22043,7 @@ AUTO_PLAN_ANALYZE_TEMPLATE = """
                   <div class="apa-issue"
                        data-code="{{ issue.code }}"
                        data-sev="{{ issue.severity }}">
-                    {{ tr.get("auto_plan_issue_" ~ issue.code, issue.code) }}
+                    {{ issue_label(issue, tr) }}
                     {% if issue.severity %}
                       ({{ tr.get("auto_plan_sev_" ~ issue.severity,
                                  issue.severity) }}){% endif %}
@@ -22082,6 +22138,7 @@ def auto_plan_analyze():
                 include_exceptional=include_exceptional,
                 csrf_token=csrf_token, submitted=False, proposals=[],
                 discarded_cancelled=0, unknown_status_count=0,
+                format_date=format_date, issue_label=ap_issue_label,
             )
 
         conn = None
@@ -22227,6 +22284,7 @@ def auto_plan_analyze():
         csrf_token=csrf_token, submitted=submitted, proposals=proposals,
         discarded_cancelled=discarded_cancelled,
         unknown_status_count=unknown_status_count,
+        format_date=format_date, issue_label=ap_issue_label,
     )
     return (body, status)
 
@@ -22531,6 +22589,11 @@ def auto_plan_apply(batch_id):
     guard = _ap_phase5_post_guard()
     if guard is not None:
         return guard
+    if request.form.get("confirm_apply") != "1":
+        return t().get(
+            "auto_plan_confirmation_required",
+            "Confirm the action before anything is added to the schedule.",
+        ), 400
     try:
         proposal_ids = _ap_request_proposal_ids()
     except ValueError:

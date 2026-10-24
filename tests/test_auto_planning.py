@@ -1589,6 +1589,7 @@ class Phase5DraftWorkflowTests(unittest.TestCase):
             f"/plan/review/{batch_id}/apply",
             data={
                 "csrf_token": csrf or self.csrf_token(target_client),
+                "confirm_apply": "1",
                 "proposal_ids": [str(value) for value in proposal_ids],
             },
         )
@@ -1711,6 +1712,21 @@ class Phase5DraftWorkflowTests(unittest.TestCase):
         self.assertEqual(states[0][5], "applied")
         self.assertEqual(states[1][5], "accepted")
 
+    def test_apply_requires_explicit_confirmation_marker(self):
+        self.seed_history()
+        batch_id = self.generate()
+        proposal_id = self.proposals(batch_id)[0][0]
+        self.accept(batch_id, proposal_id)
+        response = self.client.post(
+            f"/plan/review/{batch_id}/apply",
+            data={
+                "csrf_token": self.csrf_token(),
+                "proposal_ids": [str(proposal_id)],
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(self.target_shifts(), [])
+
     def test_manual_replacement_revalidates_missing_worker_issue(self):
         self.seed_history("Former Worker", "Client A")
         batch_id = self.generate()
@@ -1815,6 +1831,7 @@ class Phase5DraftWorkflowTests(unittest.TestCase):
                 f"/plan/review/{batch_id}/apply",
                 data={
                     "csrf_token": csrf_token,
+                    "confirm_apply": "1",
                     "proposal_ids": [str(proposal_id)],
                 },
             ).status_code
@@ -2276,9 +2293,14 @@ class Phase5DraftWorkflowTests(unittest.TestCase):
         )
         self.assertIn(b'id="ap-bulk-form"', response.data)
         self.assertIn(b'id="ap-apply-form"', response.data)
+        self.assertIn(b'id="ap-select-all-admissible"', response.data)
+        self.assertIn(b'name="confirm_apply" value="0"', response.data)
         self.assertIn(b'data-confirm-template=', response.data)
+        self.assertIn(b'data-confirm-dates=', response.data)
+        self.assertIn(b'data-display-date="02/11/2026"', response.data)
         self.assertIn(b'String.fromCharCode(10, 10)', response.data)
         self.assertIn(b"applyForm.dataset.submitting === '1'", response.data)
+        self.assertIn(b"confirmApply.value = '1'", response.data)
         self.assertIn(b'applyButton.disabled = true', response.data)
         self.assertIn(b'Only accepted and checked proposals', response.data)
 
@@ -2325,6 +2347,12 @@ class Phase5DraftWorkflowTests(unittest.TestCase):
         self.assertEqual(week.status_code, 200)
         self.assertIn(b'Client A', week.data)
         self.assertIn(b'08:00-10:00', week.data)
+
+        month = self.client.get("/month?year=2026&month=11")
+        self.assertEqual(month.status_code, 200)
+        self.assertIn(b'Client A', month.data)
+        self.assertIn(b'08:00-10:00', month.data)
+        self.assertEqual(len(self.target_shifts()), 1)
 
     def test_phase7_regression_smoke_for_planning_invoice_email_and_pdfs(self):
         invoice_number = "AP-P7-SMOKE"
@@ -2428,6 +2456,9 @@ class Phase5DraftWorkflowTests(unittest.TestCase):
             "auto_plan_generation_help", "auto_plan_draft_not_confirmed",
             "auto_plan_valid_proposal", "auto_plan_blocking_conflict",
             "auto_plan_apply_count_confirm", "auto_plan_return_week",
+            "auto_plan_select_all_admissible",
+            "auto_plan_confirmation_dates",
+            "auto_plan_confirmation_required",
         }
         for language in ("bos", "fr", "en", "de", "pt"):
             self.assertTrue(required.issubset(app.TRANSLATIONS[language]))

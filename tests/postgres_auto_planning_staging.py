@@ -316,6 +316,7 @@ class PostgreSQLAutoPlanningStagingTests(unittest.TestCase):
             f"/plan/review/{batch_id}/apply",
             data={
                 "csrf_token": csrf or self._csrf(target_client),
+                "confirm_apply": "1",
                 "proposal_ids": [str(value) for value in proposal_ids],
             },
         )
@@ -508,6 +509,7 @@ class PostgreSQLAutoPlanningStagingTests(unittest.TestCase):
                 f"/plan/review/{batch_id}/apply",
                 data={
                     "csrf_token": csrf_token,
+                    "confirm_apply": "1",
                     "proposal_ids": [str(proposal["id"])],
                 },
             ).status_code
