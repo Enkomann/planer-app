@@ -1077,6 +1077,123 @@ class ConstraintChecksTests(unittest.TestCase):
             [],
         )
 
+    def test_same_client_slot_different_worker_is_blocking(self):
+        """Regression (staging incident 2026-10-26): client A already
+        has a 09:00-11:00 visit by worker1; a proposal for a different
+        worker on the SAME client+time slot must surface a blocking
+        ``client_double_booking`` issue, not pass silently."""
+        self.conn.execute(
+            "INSERT INTO shifts VALUES (42,?,?,?,?,?)",
+            ("worker1", "Client A", "2026-11-02", "09:00-11:00", "planned"),
+        )
+        issues = app.ap_check_overlap_existing(
+            self.conn,
+            proposal(hours="09:00-11:00", workers="Aida", client="Client A"),
+        )
+        codes = [i["code"] for i in issues]
+        self.assertIn("client_double_booking", codes)
+        same = [i for i in issues if i["code"] == "client_double_booking"][0]
+        self.assertEqual(same["severity"], "blocking")
+        self.assertEqual(same["shift_id"], 42)
+        self.assertEqual(same["existing_worker"], "worker1")
+
+    def test_same_client_overlapping_time_different_worker_is_blocking(self):
+        """Partial time overlap, different worker, same client → still
+        ``client_double_booking``."""
+        self.conn.execute(
+            "INSERT INTO shifts VALUES (43,?,?,?,?,?)",
+            ("Milana", "Client A", "2026-11-02", "10:30-12:30", "planned"),
+        )
+        issues = app.ap_check_overlap_existing(
+            self.conn,
+            proposal(hours="09:00-11:00", workers="Aida", client="Client A"),
+        )
+        self.assertIn(
+            "client_double_booking", [i["code"] for i in issues],
+        )
+
+    def test_same_worker_takes_precedence_over_client_booking_code(self):
+        """When the overlap is already explained by a shared worker
+        we keep the existing ``overlap_existing`` issue (not
+        ``client_double_booking``) so historical callers that filter on
+        that specific code keep working."""
+        self.conn.execute(
+            "INSERT INTO shifts VALUES (44,?,?,?,?,?)",
+            ("Aida", "Client A", "2026-11-02", "09:00-11:00", "planned"),
+        )
+        issues = app.ap_check_overlap_existing(
+            self.conn,
+            proposal(hours="09:00-11:00", workers="Aida", client="Client A"),
+        )
+        codes = [i["code"] for i in issues]
+        self.assertIn("overlap_existing", codes)
+        self.assertNotIn("client_double_booking", codes)
+
+    def test_different_client_overlapping_time_not_a_conflict(self):
+        """Two different clients happening in the same room/time is a
+        human-scheduler judgement — the engine must NOT make it
+        blocking here."""
+        self.conn.execute(
+            "INSERT INTO shifts VALUES (45,?,?,?,?,?)",
+            ("worker1", "Other Client", "2026-11-02", "09:00-11:00", "planned"),
+        )
+        issues = app.ap_check_overlap_existing(
+            self.conn,
+            proposal(hours="09:00-11:00", workers="Aida", client="Client A"),
+        )
+        self.assertEqual(issues, [])
+
+    def test_client_slot_conflict_helper_direct(self):
+        """Lower-level helper used by the apply boundary."""
+        self.conn.execute(
+            "INSERT INTO shifts VALUES (50,?,?,?,?,?)",
+            ("worker1", "Client A", "2026-11-02", "09:00-11:00", "planned"),
+        )
+        self.assertEqual(
+            app.client_slot_conflict(
+                self.conn, "Client A", "2026-11-02", "09:30-10:30",
+            ),
+            50,
+        )
+        # Different client → no conflict
+        self.assertIsNone(
+            app.client_slot_conflict(
+                self.conn, "Other", "2026-11-02", "09:30-10:30",
+            ),
+        )
+        # Different day → no conflict
+        self.assertIsNone(
+            app.client_slot_conflict(
+                self.conn, "Client A", "2026-11-03", "09:00-11:00",
+            ),
+        )
+        # exclude_shift_id suppresses the collision with the same row
+        self.assertIsNone(
+            app.client_slot_conflict(
+                self.conn, "Client A", "2026-11-02", "09:30-10:30",
+                exclude_shift_id=50,
+            ),
+        )
+
+    def test_run_checks_marks_proposal_as_blocking_on_client_double_booking(self):
+        """End-to-end through ``ap_run_checks`` so the review page's
+        ``has_blocking_issues`` flag flips to True — this is what
+        prevents the apply button from succeeding when the slot is
+        already booked for the same client by a different worker.
+        Before the fix, this scenario produced 0 blocking conflicts."""
+        self.conn.execute(
+            "INSERT INTO shifts VALUES (46,?,?,?,?,?)",
+            ("worker1", "Client A", "2026-11-02", "09:00-11:00", "planned"),
+        )
+        checked = app.ap_run_checks(
+            self.conn,
+            [proposal(hours="09:00-11:00", workers="Aida", client="Client A")],
+            "2026-11-02",
+        )[0]
+        codes = [i["code"] for i in checked["issues"]]
+        self.assertIn("client_double_booking", codes)
+        self.assertTrue(checked["has_blocking_issues"])
+
     def test_absence_is_inclusive_and_blocks_one_team_member(self):
         self.conn.execute(
             "INSERT INTO absences VALUES (1,?,?,?,?,?)",
@@ -1840,6 +1957,57 @@ class Phase5DraftWorkflowTests(unittest.TestCase):
             statuses = list(executor.map(submit, clients))
         self.assertEqual(sorted(statuses), [302, 409])
         self.assertEqual(len(self.target_shifts()), 1)
+
+    def test_apply_refuses_client_slot_booked_by_different_worker(self):
+        """Belt-and-braces at the write boundary: even if a review
+        passed through with ``has_blocking_issues=False`` (older
+        proposals persisted before the fix, concurrent insert
+        between generate and apply, …), the apply path refuses to
+        create a duplicate client booking under a different worker.
+        """
+        self.seed_history()
+        batch_id = self.generate()
+        proposal_ids = [row[0] for row in self.proposals(batch_id)]
+        for proposal_id in proposal_ids:
+            self.accept(batch_id, proposal_id)
+        existing_rows = self.proposals(batch_id)
+        self.assertEqual(len(existing_rows), 1, existing_rows)
+        prop_row = existing_rows[0]
+        # proposals()'s column order is: id, target_date, time,
+        # client, worker, status, …
+        target_date = prop_row[1]
+        target_time = prop_row[2]
+        target_client = prop_row[3]
+        # Insert a manual shift occupying the same client slot with a
+        # different worker between review and apply.
+        self.insert_target_shift(
+            worker="worker1", client=target_client,
+            day=target_date, hours=target_time,
+        )
+        with mock.patch.object(
+            app, "ap_check_overlap_existing", return_value=[],
+        ):
+            # Even if the review-time check somehow returned no issues
+            # (simulating a stale draft), the apply boundary MUST
+            # still refuse.
+            response = self.apply(batch_id, proposal_ids)
+        # ``AutoPlanConflict`` surfaces as HTTP 409 from the route.
+        self.assertEqual(response.status_code, 409)
+        # Only the manually inserted shift exists; the apply did NOT
+        # create a second row for the same slot.
+        rows_in_slot = self.db_rows(
+            "SELECT id, worker, client FROM shifts "
+            "WHERE client = ? AND date = ? AND time = ?",
+            (target_client, target_date, target_time),
+        )
+        self.assertEqual(len(rows_in_slot), 1)
+        self.assertEqual(rows_in_slot[0][1], "worker1")
+        # The batch stays open so the operator can review again.
+        batches = self.db_rows(
+            "SELECT applied_at FROM shift_proposal_batches WHERE id = ?",
+            (batch_id,),
+        )
+        self.assertFalse(batches[0][0])
 
     def test_apply_rolls_back_all_rows_when_second_insert_fails(self):
         self.seed_history()

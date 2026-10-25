@@ -2629,6 +2629,7 @@ AUTO_PLANNING_TRANSLATIONS = {
         "auto_plan_recurrence_4": "svake 4 sedmice",
         "auto_plan_recurrence_exceptional": "izuzetna intervencija",
         "auto_plan_issue_overlap_existing": "Preklapanje sa postojecom intervencijom",
+        "auto_plan_issue_client_double_booking": "Dvostruko bukiranje klijenta (druga ekipa, isti termin)",
         "auto_plan_issue_overlap_batch": "Preklapanje sa drugim prijedlogom",
         "auto_plan_issue_absence": "Radnik je odsutan",
         "auto_plan_issue_locked": "Postojeca intervencija je zakljucana",
@@ -2677,6 +2678,7 @@ AUTO_PLANNING_TRANSLATIONS = {
         "auto_plan_recurrence_4": "toutes les 4 semaines",
         "auto_plan_recurrence_exceptional": "prestation exceptionnelle",
         "auto_plan_issue_overlap_existing": "Chevauchement avec une intervention existante",
+        "auto_plan_issue_client_double_booking": "Double réservation du client (autre équipe, même créneau)",
         "auto_plan_issue_overlap_batch": "Chevauchement avec une autre proposition",
         "auto_plan_issue_absence": "Employé absent ou indisponible",
         "auto_plan_issue_locked": "L'intervention existante est verrouillée",
@@ -2725,6 +2727,7 @@ AUTO_PLANNING_TRANSLATIONS = {
         "auto_plan_recurrence_4": "every 4 weeks",
         "auto_plan_recurrence_exceptional": "exceptional job",
         "auto_plan_issue_overlap_existing": "Overlaps an existing job",
+        "auto_plan_issue_client_double_booking": "Client double-booked (different team, same slot)",
         "auto_plan_issue_overlap_batch": "Overlaps another proposal",
         "auto_plan_issue_absence": "Worker is absent or unavailable",
         "auto_plan_issue_locked": "Existing job is locked",
@@ -2773,6 +2776,7 @@ AUTO_PLANNING_TRANSLATIONS = {
         "auto_plan_recurrence_4": "alle 4 Wochen",
         "auto_plan_recurrence_exceptional": "einmaliger Einsatz",
         "auto_plan_issue_overlap_existing": "Überschneidung mit vorhandenem Einsatz",
+        "auto_plan_issue_client_double_booking": "Kunde doppelt gebucht (anderes Team, gleicher Slot)",
         "auto_plan_issue_overlap_batch": "Überschneidung mit anderem Vorschlag",
         "auto_plan_issue_absence": "Mitarbeiter ist abwesend",
         "auto_plan_issue_locked": "Vorhandener Einsatz ist gesperrt",
@@ -2821,6 +2825,7 @@ AUTO_PLANNING_TRANSLATIONS = {
         "auto_plan_recurrence_4": "a cada 4 semanas",
         "auto_plan_recurrence_exceptional": "serviço excecional",
         "auto_plan_issue_overlap_existing": "Sobreposição com serviço existente",
+        "auto_plan_issue_client_double_booking": "Cliente duplamente reservado (outra equipa, mesma faixa)",
         "auto_plan_issue_overlap_batch": "Sobreposição com outra proposta",
         "auto_plan_issue_absence": "Trabalhador ausente ou indisponível",
         "auto_plan_issue_locked": "Serviço existente bloqueado",
@@ -20179,7 +20184,8 @@ def ap_generate_recurrence_proposals(conn, target_week_start,
 
 
 AP_BLOCKING_ISSUES = frozenset({
-    "overlap_batch", "overlap_existing", "absence", "leave_approved",
+    "overlap_batch", "overlap_existing", "client_double_booking",
+    "absence", "leave_approved",
     "locked", "invalid_data", "outside_target_week", "worker_missing",
     "worker_contract",
 })
@@ -20352,9 +20358,25 @@ def ap_check_shift_locked(conn, shift_id):
 
 
 def ap_check_overlap_existing(conn, proposal):
-    """Return blocking issues for target-week shifts sharing a worker."""
+    """Return blocking issues for same-day shifts that conflict.
+
+    Two different kinds of conflict surface here:
+
+    * ``overlap_existing`` — the proposal shares AT LEAST ONE worker
+      with an existing shift whose time range overlaps. The worker
+      is physically double-booked.
+    * ``client_double_booking`` — the proposal and an existing shift
+      share the SAME client and overlapping time, but NO common
+      worker. The client would end up with two teams in the same
+      slot. Before this check existed, the only guard against this
+      was ``duplicate_shift_exists``, which only looks at identical
+      worker signatures — so a different team on the same client slot
+      slipped through both the review page (zero blocking conflicts)
+      and the final apply.
+    """
     target_date = str(proposal.get("target_date", ""))
     proposed_workers = set(split_workers(proposal.get("worker", "")))
+    proposed_client = str(proposal.get("client", "")).strip()
     time_range = proposal.get("time", "")
     if not target_date or not proposed_workers or _ap_time_bounds(time_range) is None:
         return []
@@ -20365,18 +20387,58 @@ def ap_check_overlap_existing(conn, proposal):
     ).fetchall()
     issues = []
     for row in rows:
-        shared = sorted(proposed_workers.intersection(split_workers(row[1])))
-        if not shared or not _ap_ranges_overlap(time_range, row[4]):
+        if not _ap_ranges_overlap(time_range, row[4]):
             continue
-        issues.append(_ap_issue(
-            "overlap_existing", "blocking", shift_id=row[0],
-            workers=shared, client=row[2], time=row[4],
-        ))
-        if ap_check_shift_locked(conn, row[0]):
+        shared = sorted(proposed_workers.intersection(split_workers(row[1])))
+        if shared:
             issues.append(_ap_issue(
-                "locked", "blocking", shift_id=row[0], workers=shared,
+                "overlap_existing", "blocking", shift_id=row[0],
+                workers=shared, client=row[2], time=row[4],
+            ))
+            if ap_check_shift_locked(conn, row[0]):
+                issues.append(_ap_issue(
+                    "locked", "blocking", shift_id=row[0], workers=shared,
+                ))
+            continue
+        # No shared worker, but same client in an overlapping slot
+        # ⇒ client-level double-booking. Keep as blocking so the
+        # review page cannot show "0 conflicts" when the slot is
+        # already booked with a different team.
+        if proposed_client and str(row[2]).strip() == proposed_client:
+            issues.append(_ap_issue(
+                "client_double_booking", "blocking", shift_id=row[0],
+                client=row[2], time=row[4],
+                existing_worker=row[1],
             ))
     return issues
+
+
+def client_slot_conflict(conn, client, date, time_range, exclude_shift_id=None):
+    """Return the id of ANY shift that occupies the same client slot.
+
+    Unlike :func:`duplicate_shift_exists`, this helper ignores the
+    worker column entirely — it answers "is this client's time slot
+    already booked by anyone?". It is the final belt-and-braces check
+    that gates ``ap_apply_selected_proposals`` to make sure a race
+    (two concurrent apply requests, a late review-page refresh, or a
+    manually inserted shift that landed between generate and apply)
+    cannot squeeze a duplicate booking past
+    ``ap_check_overlap_existing``.
+    """
+    if not client or not date or not time_range:
+        return None
+    if _ap_time_bounds(time_range) is None:
+        return None
+    rows = conn.cursor().execute(
+        "SELECT id, time FROM shifts WHERE client = ? AND date = ?",
+        (client, date),
+    ).fetchall()
+    for row_id, existing_time in rows:
+        if exclude_shift_id is not None and int(row_id) == int(exclude_shift_id):
+            continue
+        if _ap_ranges_overlap(time_range, existing_time):
+            return int(row_id)
+    return None
 
 
 def ap_check_absence(conn, worker_name, target_date):
@@ -21106,6 +21168,18 @@ def ap_apply_selected_proposals(conn, batch, proposals, username):
             proposal["target_date"], proposal["time"],
         ):
             raise AutoPlanConflict("duplicate appeared during application")
+        # Belt-and-braces: refuse at the write boundary even when the
+        # existing shift carries a different worker signature. The
+        # transaction holds the shifts write lock here
+        # (``ap_lock_shift_mutations``) so a concurrent apply cannot
+        # race past this check.
+        if client_slot_conflict(
+            conn, proposal["client"],
+            proposal["target_date"], proposal["time"],
+        ) is not None:
+            raise AutoPlanConflict(
+                "client slot already booked when applying proposal"
+            )
         shift_id = ap_insert_shift_from_proposal(conn, proposal)
         if proposal.get("is_locked"):
             cursor.execute(
