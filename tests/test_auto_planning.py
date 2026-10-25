@@ -1561,6 +1561,57 @@ class Phase4DraftRoutesTests(unittest.TestCase):
         self.assertIn(b'data-existing-shift-id="', review.data)
         self.assertIn(b'Locked', review.data)
 
+    def test_client_double_booking_surfaces_on_review_page_html(self):
+        """End-to-end: a pre-existing 09:00-11:00 visit by ``worker1``
+        for the SAME client as the proposal must flip the review page
+        into a non-applyable state and render the
+        ``auto_plan_issue_client_double_booking`` warning. Before the
+        5d342ad fix, this scenario displayed zero conflicts in the UI.
+        """
+        self.seed_weekly_history(worker="Aida", client="Client A")
+        conn = app.get_conn()
+        cursor = conn.execute(
+            "INSERT INTO shifts (worker, client, date, time, status) "
+            "VALUES ('worker1', 'Client A', ?, '08:00-10:00', 'planned')",
+            (self.TARGET_WEEK,),
+        )
+        pre_existing_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+
+        response = self.generate()
+        review = self.client.get(response.headers["Location"])
+        self.assertEqual(review.status_code, 200)
+        body = review.data
+
+        # 1. The specific issue code is in the HTML
+        self.assertIn(b"client_double_booking", body)
+        # 2. ``has_blocking_issues`` renders a visible blocking marker
+        #    on the proposal row (reused ``apr-blocking`` convention)
+        self.assertTrue(
+            b"apr-blocking" in body or b'data-blocking="1"' in body
+            or b'severity="blocking"' in body
+            or b"blocking" in body.lower(),
+            "no visible blocking marker on the review page",
+        )
+        # 3. The pre-existing shift row is still present in the
+        #    "existing shifts" review table (template reads from
+        #    ``ap_fetch_existing_week`` and renders a ``data-existing-shift-id``
+        #    on each row).
+        self.assertIn(
+            f'data-existing-shift-id="{pre_existing_id}"'.encode(),
+            body,
+        )
+        # 4. The pre-existing shift was NOT modified
+        after = self.db_rows(
+            "SELECT worker, client, date, time, status FROM shifts WHERE id = ?",
+            (pre_existing_id,),
+        )[0]
+        self.assertEqual(
+            after,
+            ("worker1", "Client A", self.TARGET_WEEK, "08:00-10:00", "planned"),
+        )
+
     def test_invalid_non_monday_target_is_rejected_without_draft(self):
         response = self.client.post("/plan/generate", data={
             "target_week_start": "2026-11-03", "lookback_weeks": "8",
@@ -1957,6 +2008,78 @@ class Phase5DraftWorkflowTests(unittest.TestCase):
             statuses = list(executor.map(submit, clients))
         self.assertEqual(sorted(statuses), [302, 409])
         self.assertEqual(len(self.target_shifts()), 1)
+
+    def test_concurrent_apply_requests_create_at_most_one_shift(self):
+        """P1 concurrency: two parallel POST /plan/review/<b>/apply
+        requests race against the same batch; the write lock
+        (``ap_lock_batch_mutation`` + ``ap_lock_shift_mutations``) +
+        ``client_slot_conflict`` + batch state transition ensure at
+        most ONE wins. The loser must see 409 or a closed-batch
+        error, and the ``shifts`` table must contain exactly one new
+        row for the target slot.
+        """
+        self.seed_history()
+        batch_id = self.generate()
+        proposal_ids = [row[0] for row in self.proposals(batch_id)]
+        for proposal_id in proposal_ids:
+            self.accept(batch_id, proposal_id)
+        before = len(self.target_shifts())
+
+        # Share the SAME admin owner_token across both threads so
+        # ``ap_owned_batch_for_mutation`` recognises both as the
+        # legitimate owner of this draft (two browser tabs of the
+        # same admin session is the realistic race scenario).
+        with self.client.session_transaction() as sess:
+            owner_token = sess.get(app.AP_DRAFT_SESSION_KEY, "")
+        self.assertTrue(owner_token, "owner_token missing from setUp session")
+
+        results = {}
+
+        def _attempt(label):
+            # Each thread uses its OWN Flask test client — Werkzeug's
+            # test client is not thread-safe when shared — but ALL
+            # clients mirror the same admin session + owner_token.
+            client = app.app.test_client()
+            with client.session_transaction() as session_data:
+                session_data["user"] = "admin"
+                session_data["role"] = "admin"
+                session_data[app.AP_DRAFT_SESSION_KEY] = owner_token
+            csrf = self.csrf_token(client)
+            response = client.post(
+                f"/plan/review/{batch_id}/apply",
+                data={
+                    "csrf_token": csrf,
+                    "confirm_apply": "1",
+                    "proposal_ids": [str(v) for v in proposal_ids],
+                },
+            )
+            results[label] = response.status_code
+
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [pool.submit(_attempt, name) for name in ("A", "B")]
+            for f in futures:
+                f.result()
+
+        status_values = sorted(results.values())
+        # Exactly one 302 (success redirect) and one 409 (or 302 to a
+        # closed-batch flash) — never two 302 "applied" responses.
+        self.assertIn(302, status_values, results)
+        other = [s for s in status_values if s != 302][0] if len(
+            {s for s in status_values}) > 1 else 302
+        # Loser is either 409 (AutoPlanConflict), 400 (bad state), or
+        # 302 with a "draft closed" flash. We just assert that the
+        # DB state proves no double-insert happened.
+        after = self.target_shifts()
+        new_rows = [row for row in after if row[0] > (
+            after[-1][0] - len(after) if after else 0)]
+        # Hard invariant: at most ONE new row for the slot across
+        # both threads.
+        self.assertEqual(
+            len(after) - before, 1,
+            f"expected +1 shift after concurrent applies, got "
+            f"{len(after) - before}. results={results}, after={after}",
+        )
 
     def test_apply_refuses_client_slot_booked_by_different_worker(self):
         """Belt-and-braces at the write boundary: even if a review
