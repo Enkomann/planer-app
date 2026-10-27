@@ -18917,9 +18917,11 @@ def edit_client(name):
                 var rm = document.createElement("button");
                 rm.type = "button"; rm.className = "cs-schedule-remove";
                 rm.textContent = "✕ " + LABELS.remove;
-                rm.addEventListener("click", function() {
-                  entries.splice(idx, 1); render(entries);
-                });
+                // The remove click is handled by a delegated
+                // listener on #cs-schedule-list that first syncs
+                // the live DOM into INITIAL, then splices by the
+                // row's CURRENT dataset.index — so stale closure
+                // captures and lost edits can no longer happen.
                 row.appendChild(rm);
 
                 function visibility() {
@@ -18966,24 +18968,71 @@ def edit_client(name):
               hidden.value = entries.length ? JSON.stringify(entries) : "[]";
             }
             form.addEventListener("submit", serialize);
-            // Phase 3 hotfix: simplified "+Add" handler. The previous
-            // version did
-            //    cur = INITIAL.concat();
-            //    cur = rows.map(readRow);
-            //    cur.push(...);
-            //    INITIAL = cur; render(INITIAL);
-            // which (a) pre-collected the live DOM via readRow before
-            // adding, so any readRow miss on a weird row swallowed the
-            // whole click, and (b) rewrote INITIAL on each click,
-            // detaching the already-rendered rows' remove-button
-            // closures from the live array. The replacement reuses
-            // the SAME `INITIAL` array across renders — push, then
-            // render — so the Add path can never fail silently and
-            // remove still points at the live array.
+            // Phase 3 hotfix round 2: the simplified add handler
+            // (just `INITIAL.push(…); render(INITIAL)`) correctly
+            // revived the dead button, but caused a second bug —
+            // ``render(INITIAL)`` wipes the list innerHTML and
+            // rebuilds from the stored array, so any edits the user
+            // typed in an existing row BEFORE clicking +Add were
+            // lost (the live DOM state had not been synced back
+            // into INITIAL). The staging scenario:
+            //    1. click +Add → row 1 appears with defaults;
+            //    2. user changes row 1 to Thursday / 10:00-12:00;
+            //    3. click +Add → row 2 appears, row 1 reverts.
+            // Fix: run a defensive DOM→INITIAL sync BEFORE every
+            // mutation (add / remove). Each row is read inside its
+            // own try/catch so one weird row cannot swallow the
+            // whole click (the original symptom). Only after the
+            // sync do we push the new entry and re-render.
+            function syncFromDom() {
+              var snapshot = [];
+              var liveRows = Array.from(
+                list.querySelectorAll(".cs-schedule-row")
+              );
+              liveRows.forEach(function (row) {
+                var fromDom = null;
+                try { fromDom = readRow(row); } catch (e) {
+                  if (window.console) {
+                    console.warn("cs readRow failed:", e);
+                  }
+                }
+                if (fromDom) {
+                  snapshot.push(fromDom);
+                } else {
+                  // Preserve whatever was in INITIAL for this
+                  // position so the row is NOT silently dropped
+                  // just because readRow had a bad moment.
+                  var idx = parseInt(row.dataset.index, 10);
+                  if (!isNaN(idx) && INITIAL[idx]) {
+                    snapshot.push(INITIAL[idx]);
+                  }
+                }
+              });
+              INITIAL.length = 0;
+              snapshot.forEach(function (x) { INITIAL.push(x); });
+            }
+            // Replace the per-row remove closure's splice-on-stale-
+            // array behaviour: a central listener resyncs from DOM
+            // first, then removes the correct row from INITIAL by
+            // its CURRENT index (not the captured one).
+            list.addEventListener("click", function (ev) {
+              var btn = ev.target.closest(".cs-schedule-remove");
+              if (!btn) return;
+              ev.preventDefault();
+              var row = btn.closest(".cs-schedule-row");
+              if (!row) return;
+              syncFromDom();
+              var idx = parseInt(row.dataset.index, 10);
+              if (!isNaN(idx) && idx >= 0 && idx < INITIAL.length) {
+                INITIAL.splice(idx, 1);
+              }
+              render(INITIAL);
+            });
             var addBtn = document.getElementById("cs-schedule-add");
             if (addBtn) {
               addBtn.addEventListener("click", function (ev) {
                 ev.preventDefault();
+                syncFromDom();  // preserve existing user edits
                 INITIAL.push({
                   kind: "weekly", weekday: 0,
                   start: "09:00", end: "11:00",
@@ -18992,6 +19041,18 @@ def edit_client(name):
                 render(INITIAL);
               });
             }
+            // ``serialize`` also runs syncFromDom to be safe — the
+            // existing row-reader path still works but we route
+            // through the same sync so a JS-less edge case stays
+            // predictable.
+            function serializeWithSync() {
+              syncFromDom();
+              hidden.value = INITIAL.length
+                ? JSON.stringify(INITIAL)
+                : "[]";
+            }
+            form.removeEventListener("submit", serialize);
+            form.addEventListener("submit", serializeWithSync);
             render(INITIAL);
             // Programmatic readiness flag so regression tests can
             // assert "the inline script ran all the way through"
