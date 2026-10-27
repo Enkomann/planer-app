@@ -18202,6 +18202,11 @@ def edit_worker(name):
         </style>
         <script>
           (function() {
+            // Phase 3 hotfix: same defence as the client-schedule UI
+            // — wrap the IIFE in try/catch and surface a readiness
+            // flag so a silent crash cannot hide behind an inert
+            // "+Add interval" button.
+            try {
             var DAYS = [
               ["mon", {{ tr.get("monday","Pon")|tojson }}],
               ["tue", {{ tr.get("tuesday","Uto")|tojson }}],
@@ -18367,6 +18372,12 @@ def edit_worker(name):
                 : (Object.keys(out).length === 0 ? "" : JSON.stringify(out));
             }
             form.addEventListener("submit", serialize);
+            if (list) list.dataset.availabilityReady = "1";
+            } catch (err) {
+              if (window && window.console) {
+                console.error("worker-availability UI init failed:", err);
+              }
+            }
           })();
         </script>
         <button type="submit" style="margin-top:14px;">{{ tr["save"] }}</button>
@@ -18772,7 +18783,15 @@ def edit_client(name):
         </style>
         <script>
           (function() {
+            // Phase 3 hotfix for the "+ Add visit" button that did
+            // nothing on staging: wrap the entire IIFE in try/catch
+            // so any Jinja-injected JS surprise (unexpected shape in
+            // workers_for_schedule, bad stored cleaning_frequency,
+            // DOM lookup race) surfaces in the console instead of
+            // silently dropping every subsequent event binding.
+            try {
             var WORKERS = {{ workers_for_schedule|tojson }};
+            if (!Array.isArray(WORKERS)) WORKERS = [];
             var INITIAL = (function(){
               var raw = {{ (client.cleaning_frequency or '')|tojson }};
               if (!raw) return [];
@@ -18947,17 +18966,42 @@ def edit_client(name):
               hidden.value = entries.length ? JSON.stringify(entries) : "[]";
             }
             form.addEventListener("submit", serialize);
-            document.getElementById("cs-schedule-add").addEventListener(
-              "click", function() {
-                var cur = INITIAL.concat();
-                var rows = Array.from(list.querySelectorAll(".cs-schedule-row"));
-                cur = rows.map(readRow);
-                cur.push({kind: "weekly", weekday: 0,
-                          start: "09:00", end: "11:00",
-                          preferred_workers: []});
-                INITIAL = cur; render(INITIAL);
+            // Phase 3 hotfix: simplified "+Add" handler. The previous
+            // version did
+            //    cur = INITIAL.concat();
+            //    cur = rows.map(readRow);
+            //    cur.push(...);
+            //    INITIAL = cur; render(INITIAL);
+            // which (a) pre-collected the live DOM via readRow before
+            // adding, so any readRow miss on a weird row swallowed the
+            // whole click, and (b) rewrote INITIAL on each click,
+            // detaching the already-rendered rows' remove-button
+            // closures from the live array. The replacement reuses
+            // the SAME `INITIAL` array across renders — push, then
+            // render — so the Add path can never fail silently and
+            // remove still points at the live array.
+            var addBtn = document.getElementById("cs-schedule-add");
+            if (addBtn) {
+              addBtn.addEventListener("click", function (ev) {
+                ev.preventDefault();
+                INITIAL.push({
+                  kind: "weekly", weekday: 0,
+                  start: "09:00", end: "11:00",
+                  preferred_workers: [],
+                });
+                render(INITIAL);
               });
+            }
             render(INITIAL);
+            // Programmatic readiness flag so regression tests can
+            // assert "the inline script ran all the way through"
+            // without having to poll for a visible DOM change.
+            if (list) list.dataset.scheduleReady = "1";
+            } catch (err) {
+              if (window && window.console) {
+                console.error("client-schedule UI init failed:", err);
+              }
+            }
           })();
         </script>
 
