@@ -17628,14 +17628,25 @@ def edit_client(name):
         service_desc_new = parse_service_description(
             f.get("invoice_service_description", ""),
         )
-        # Phase 1: optional explicit schedule. Blank or missing
-        # field preserves the existing stored value (so editing
-        # unrelated fields never silently drops a configured
-        # schedule); invalid JSON surfaces a flash + reject.
+        # Phase 1: optional explicit schedule.
+        #
+        # Three input shapes, kept DISTINCT on purpose so a non-JS
+        # browser never clobbers a stored schedule:
+        #   * field missing             → preserve (dashboard quick-add)
+        #   * field present but empty   → preserve (JS didn't run; the
+        #                                  hidden input is still at its
+        #                                  HTML default value="")
+        #   * field present as JSON     → parse + persist (JS wrote it:
+        #                                  "[]" explicitly clears a
+        #                                  schedule, non-empty array
+        #                                  replaces it)
+        # Invalid JSON surfaces a flash + reject.
         _SCHED_MISSING = object()
         schedule_raw = f.get("cleaning_frequency_json", _SCHED_MISSING)
         cleaning_frequency_new = None  # ``None`` = preserve
-        if schedule_raw is not _SCHED_MISSING:
+        if schedule_raw is not _SCHED_MISSING \
+           and isinstance(schedule_raw, str) \
+           and schedule_raw.strip() != "":
             try:
                 schedule_entries = parse_client_cleaning_frequency(
                     schedule_raw,
@@ -18124,7 +18135,12 @@ def edit_client(name):
             function serialize() {
               var rows = Array.from(list.querySelectorAll(".cs-schedule-row"));
               var entries = rows.map(readRow);
-              hidden.value = entries.length ? JSON.stringify(entries) : "";
+              // Explicit "[]" (not "") when the admin removed every row.
+              // The POST handler treats "" as PRESERVE so a JS-less
+              // browser never silently clobbers the stored schedule;
+              // "[]" is the explicit "clear it" marker written only by
+              // this script.
+              hidden.value = entries.length ? JSON.stringify(entries) : "[]";
             }
             form.addEventListener("submit", serialize);
             document.getElementById("cs-schedule-add").addEventListener(

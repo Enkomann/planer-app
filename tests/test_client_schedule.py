@@ -369,6 +369,65 @@ class HttpFormTests(unittest.TestCase):
         # Row must NOT have been inserted.
         self.assertIsNone(self._row("Bad Client"))
 
+    def test_edit_client_preserves_schedule_when_field_is_blank(self):
+        """JS-less POST: hidden input stays at its HTML default ''.
+        The POST must NOT clobber the stored schedule."""
+        existing = app.serialize_client_cleaning_frequency(
+            app.parse_client_cleaning_frequency(json.dumps([{
+                "kind": "weekly", "weekday": 2,
+                "start": "08:00", "end": "10:00",
+                "preferred_workers": [],
+            }])),
+        )
+        conn = app.get_conn()
+        conn.execute(
+            "INSERT INTO clients (name, address, cleaning_frequency) "
+            "VALUES (?,?,?)", ("No JS Client", "Rue 11", existing),
+        )
+        conn.commit()
+        conn.close()
+        self.client.post(
+            "/edit_client/" + urllib.parse.quote("No JS Client"),
+            data={
+                "name": "No JS Client",
+                "address": "Rue 11",
+                "client_type": "private",
+                "hourly_rate": "25",
+                "vat_rate": "8",
+                "cleaning_frequency_json": "",  # JS didn't fire
+            },
+        )
+        self.assertEqual(self._row("No JS Client"), existing)
+
+    def test_edit_client_explicit_clear_wipes_schedule(self):
+        """JS removed all rows and set the hidden field to "[]"."""
+        existing = app.serialize_client_cleaning_frequency(
+            app.parse_client_cleaning_frequency(json.dumps([{
+                "kind": "weekly", "weekday": 2,
+                "start": "08:00", "end": "10:00",
+                "preferred_workers": [],
+            }])),
+        )
+        conn = app.get_conn()
+        conn.execute(
+            "INSERT INTO clients (name, address, cleaning_frequency) "
+            "VALUES (?,?,?)", ("Clear Me", "Rue 12", existing),
+        )
+        conn.commit()
+        conn.close()
+        self.client.post(
+            "/edit_client/" + urllib.parse.quote("Clear Me"),
+            data={
+                "name": "Clear Me",
+                "address": "Rue 12",
+                "client_type": "private",
+                "hourly_rate": "25",
+                "vat_rate": "8",
+                "cleaning_frequency_json": "[]",
+            },
+        )
+        self.assertEqual(self._row("Clear Me"), "")
+
     def test_edit_client_preserves_schedule_when_field_absent(self):
         # Seed a client that already has a schedule, then POST a
         # minimal /edit_client form that doesn't include the hidden
