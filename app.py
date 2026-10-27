@@ -3247,6 +3247,25 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_schedule_invalid_custom_interval_not_allowed": "Polje 'interval' je dozvoljeno samo za prilagodene termine.",
         "auto_plan_schedule_invalid_overlapping_entries": "Dva termina istog klijenta istog dana se preklapaju.",
         "auto_plan_schedule_invalid_unknown_worker": "Preferirani radnik ne postoji vise u sistemu.",
+        "auto_plan_availability_title": "Dostupnost",
+        "auto_plan_availability_empty_hint": "Prazno = ogranicenje nije definisano.",
+        "auto_plan_availability_mode_undefined": "Neodredeno",
+        "auto_plan_availability_mode_day_off": "Slobodan dan",
+        "auto_plan_availability_mode_working": "Radni dan",
+        "auto_plan_availability_add_interval": "Dodaj interval",
+        "auto_plan_availability_invalid": "Neispravna dostupnost radnika.",
+        "auto_plan_availability_invalid_invalid_json": "Dostupnost nije ispravan JSON.",
+        "auto_plan_availability_invalid_not_an_object": "Dostupnost mora biti objekat.",
+        "auto_plan_availability_invalid_bad_day_key": "Nepoznat dan u sedmici u dostupnosti.",
+        "auto_plan_availability_invalid_day_not_a_list": "Intervali za dan moraju biti lista.",
+        "auto_plan_availability_invalid_too_many_intervals": "Previse intervala za jedan dan.",
+        "auto_plan_availability_invalid_interval_not_object": "Svaki interval mora biti objekat.",
+        "auto_plan_availability_invalid_unknown_key": "Nepoznato polje u intervalu dostupnosti.",
+        "auto_plan_availability_invalid_bad_start": "Pocetak intervala mora biti HH:MM.",
+        "auto_plan_availability_invalid_bad_end": "Kraj intervala mora biti HH:MM.",
+        "auto_plan_availability_invalid_end_before_start": "Kraj intervala mora biti kasnije od pocetka.",
+        "auto_plan_availability_invalid_overlapping_intervals": "Intervali istog dana se preklapaju.",
+        "auto_plan_warning_outside_working_hours": "Intervencija je izvan radnog vremena radnika.",
         "auto_plan_confidence_tooltip": "Zabiljezene pojave u odnosu na ocekivane u analiziranom periodu.",
         "auto_plan_unknown_status_ignored": "Nepoznati statusi ignorisani",
         "auto_plan_write_refused": "Automatsko planiranje nije u rezimu upisivanja: nijedan rad, prijedlog ni zakljucavanje ne moze biti upisano.",
@@ -3325,6 +3344,25 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_schedule_invalid_custom_interval_not_allowed": "Le champ 'intervalle' n est permis que pour les creneaux personnalises.",
         "auto_plan_schedule_invalid_overlapping_entries": "Deux creneaux du meme client le meme jour se chevauchent.",
         "auto_plan_schedule_invalid_unknown_worker": "L employe prefere n existe plus dans le systeme.",
+        "auto_plan_availability_title": "Disponibilite",
+        "auto_plan_availability_empty_hint": "Vide = aucune contrainte definie.",
+        "auto_plan_availability_mode_undefined": "Non definie",
+        "auto_plan_availability_mode_day_off": "Jour de repos",
+        "auto_plan_availability_mode_working": "Jour travaille",
+        "auto_plan_availability_add_interval": "Ajouter un intervalle",
+        "auto_plan_availability_invalid": "Disponibilite de l employe invalide.",
+        "auto_plan_availability_invalid_invalid_json": "La disponibilite n est pas un JSON valide.",
+        "auto_plan_availability_invalid_not_an_object": "La disponibilite doit etre un objet.",
+        "auto_plan_availability_invalid_bad_day_key": "Jour de la semaine inconnu dans la disponibilite.",
+        "auto_plan_availability_invalid_day_not_a_list": "Les intervalles d un jour doivent etre une liste.",
+        "auto_plan_availability_invalid_too_many_intervals": "Trop d intervalles pour un jour.",
+        "auto_plan_availability_invalid_interval_not_object": "Chaque intervalle doit etre un objet.",
+        "auto_plan_availability_invalid_unknown_key": "Champ inconnu dans un intervalle de disponibilite.",
+        "auto_plan_availability_invalid_bad_start": "Le debut de l intervalle doit etre au format HH:MM.",
+        "auto_plan_availability_invalid_bad_end": "La fin de l intervalle doit etre au format HH:MM.",
+        "auto_plan_availability_invalid_end_before_start": "La fin de l intervalle doit etre posterieure au debut.",
+        "auto_plan_availability_invalid_overlapping_intervals": "Les intervalles d un meme jour se chevauchent.",
+        "auto_plan_warning_outside_working_hours": "L intervention est en dehors des horaires de travail de l employe.",
         "auto_plan_confidence_tooltip": "Occurrences observées sur occurrences attendues dans la fenêtre analysée.",
         "auto_plan_unknown_status_ignored": "Statuts inconnus ignorés",
         "auto_plan_write_refused": "L'auto-planning n'est pas en mode écriture : aucune intervention, proposition, ou verrou ne peut être enregistré.",
@@ -3403,6 +3441,25 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_schedule_invalid_custom_interval_not_allowed": "'Interval' is allowed only on custom visits.",
         "auto_plan_schedule_invalid_overlapping_entries": "Two visits of the same client on the same day overlap.",
         "auto_plan_schedule_invalid_unknown_worker": "Preferred worker no longer exists in the system.",
+        "auto_plan_availability_title": "Availability",
+        "auto_plan_availability_empty_hint": "Empty = no constraint defined.",
+        "auto_plan_availability_mode_undefined": "Undefined",
+        "auto_plan_availability_mode_day_off": "Day off",
+        "auto_plan_availability_mode_working": "Working day",
+        "auto_plan_availability_add_interval": "Add interval",
+        "auto_plan_availability_invalid": "Invalid worker availability.",
+        "auto_plan_availability_invalid_invalid_json": "Availability is not valid JSON.",
+        "auto_plan_availability_invalid_not_an_object": "Availability must be an object.",
+        "auto_plan_availability_invalid_bad_day_key": "Unknown weekday in availability.",
+        "auto_plan_availability_invalid_day_not_a_list": "Intervals for a day must be a list.",
+        "auto_plan_availability_invalid_too_many_intervals": "Too many intervals in one day.",
+        "auto_plan_availability_invalid_interval_not_object": "Each interval must be an object.",
+        "auto_plan_availability_invalid_unknown_key": "Unknown field in an availability interval.",
+        "auto_plan_availability_invalid_bad_start": "Interval start must be HH:MM.",
+        "auto_plan_availability_invalid_bad_end": "Interval end must be HH:MM.",
+        "auto_plan_availability_invalid_end_before_start": "Interval end must be after start.",
+        "auto_plan_availability_invalid_overlapping_intervals": "Intervals on the same day overlap.",
+        "auto_plan_warning_outside_working_hours": "Shift is outside the worker's working hours.",
         "auto_plan_confidence_tooltip": "Observed occurrences against the number expected over the analysed window.",
         "auto_plan_unknown_status_ignored": "Unknown statuses ignored",
         "auto_plan_write_refused": "Auto-planning is not in write mode: no shift, proposal, draft or lock can be written.",
@@ -3481,6 +3538,25 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_schedule_invalid_custom_interval_not_allowed": "Feld 'Intervall' ist nur fuer benutzerdefinierte Termine erlaubt.",
         "auto_plan_schedule_invalid_overlapping_entries": "Zwei Termine desselben Kunden am gleichen Tag ueberschneiden sich.",
         "auto_plan_schedule_invalid_unknown_worker": "Bevorzugter Mitarbeiter existiert nicht mehr im System.",
+        "auto_plan_availability_title": "Verfuegbarkeit",
+        "auto_plan_availability_empty_hint": "Leer = keine Einschraenkung definiert.",
+        "auto_plan_availability_mode_undefined": "Nicht definiert",
+        "auto_plan_availability_mode_day_off": "Freier Tag",
+        "auto_plan_availability_mode_working": "Arbeitstag",
+        "auto_plan_availability_add_interval": "Intervall hinzufuegen",
+        "auto_plan_availability_invalid": "Ungueltige Mitarbeiterverfuegbarkeit.",
+        "auto_plan_availability_invalid_invalid_json": "Verfuegbarkeit ist kein gueltiges JSON.",
+        "auto_plan_availability_invalid_not_an_object": "Verfuegbarkeit muss ein Objekt sein.",
+        "auto_plan_availability_invalid_bad_day_key": "Unbekannter Wochentag in Verfuegbarkeit.",
+        "auto_plan_availability_invalid_day_not_a_list": "Intervalle fuer einen Tag muessen eine Liste sein.",
+        "auto_plan_availability_invalid_too_many_intervals": "Zu viele Intervalle an einem Tag.",
+        "auto_plan_availability_invalid_interval_not_object": "Jedes Intervall muss ein Objekt sein.",
+        "auto_plan_availability_invalid_unknown_key": "Unbekanntes Feld in einem Verfuegbarkeitsintervall.",
+        "auto_plan_availability_invalid_bad_start": "Intervallbeginn muss HH:MM sein.",
+        "auto_plan_availability_invalid_bad_end": "Intervallende muss HH:MM sein.",
+        "auto_plan_availability_invalid_end_before_start": "Intervallende muss nach Beginn liegen.",
+        "auto_plan_availability_invalid_overlapping_intervals": "Intervalle am selben Tag ueberlappen sich.",
+        "auto_plan_warning_outside_working_hours": "Einsatz liegt ausserhalb der Arbeitszeit des Mitarbeiters.",
         "auto_plan_confidence_tooltip": "Beobachtete Vorkommen gegenueber den erwarteten im Analysefenster.",
         "auto_plan_unknown_status_ignored": "Unbekannte Statuswerte ignoriert",
         "auto_plan_write_refused": "Auto-Planung nicht im Schreibmodus: keine Schicht, Vorschlag, Entwurf oder Sperre kann geschrieben werden.",
@@ -3559,6 +3635,25 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_schedule_invalid_custom_interval_not_allowed": "O campo 'intervalo' so e permitido em visitas personalizadas.",
         "auto_plan_schedule_invalid_overlapping_entries": "Duas visitas do mesmo cliente no mesmo dia sobrepoem-se.",
         "auto_plan_schedule_invalid_unknown_worker": "O trabalhador preferido ja nao existe no sistema.",
+        "auto_plan_availability_title": "Disponibilidade",
+        "auto_plan_availability_empty_hint": "Vazio = sem restricao definida.",
+        "auto_plan_availability_mode_undefined": "Nao definido",
+        "auto_plan_availability_mode_day_off": "Dia de folga",
+        "auto_plan_availability_mode_working": "Dia de trabalho",
+        "auto_plan_availability_add_interval": "Adicionar intervalo",
+        "auto_plan_availability_invalid": "Disponibilidade do trabalhador invalida.",
+        "auto_plan_availability_invalid_invalid_json": "A disponibilidade nao e um JSON valido.",
+        "auto_plan_availability_invalid_not_an_object": "A disponibilidade deve ser um objeto.",
+        "auto_plan_availability_invalid_bad_day_key": "Dia da semana desconhecido na disponibilidade.",
+        "auto_plan_availability_invalid_day_not_a_list": "Os intervalos de um dia devem ser uma lista.",
+        "auto_plan_availability_invalid_too_many_intervals": "Demasiados intervalos num unico dia.",
+        "auto_plan_availability_invalid_interval_not_object": "Cada intervalo deve ser um objeto.",
+        "auto_plan_availability_invalid_unknown_key": "Campo desconhecido num intervalo de disponibilidade.",
+        "auto_plan_availability_invalid_bad_start": "O inicio do intervalo deve ser HH:MM.",
+        "auto_plan_availability_invalid_bad_end": "O fim do intervalo deve ser HH:MM.",
+        "auto_plan_availability_invalid_end_before_start": "O fim do intervalo deve ser depois do inicio.",
+        "auto_plan_availability_invalid_overlapping_intervals": "Os intervalos do mesmo dia sobrepoem-se.",
+        "auto_plan_warning_outside_working_hours": "A intervencao esta fora do horario de trabalho do trabalhador.",
         "auto_plan_confidence_tooltip": "Ocorrências observadas em relação às esperadas na janela analisada.",
         "auto_plan_unknown_status_ignored": "Estados desconhecidos ignorados",
         "auto_plan_write_refused": "Auto-planeamento não está em modo de escrita: nenhum serviço, proposta ou bloqueio pode ser gravado.",
@@ -5180,6 +5275,210 @@ def serialize_client_cleaning_frequency(entries):
     if not entries:
         return ""
     return json.dumps(entries, ensure_ascii=False, sort_keys=False)
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 — worker weekly availability
+# ---------------------------------------------------------------------------
+# ``workers.availability`` stores an optional JSON object describing the
+# weekly working-hours per weekday. Only two shapes exist:
+#   * ``""`` (the DEFAULT) — the worker's availability is UNDEFINED;
+#     every historical worker row carries this value, so the auto-plan
+#     engine applies no availability-based filtering (Phase 1 behaviour
+#     is preserved).
+#   * ``{"mon": [{"start":"HH:MM","end":"HH:MM"}, ...], "tue": [...],
+#     ..., "sun": [...]}`` — each KEY that is PRESENT is defined:
+#       - value ``[]`` means "day off" (explicitly unavailable),
+#       - value ``[{...}, ...]`` means "available during these
+#         non-overlapping intervals".
+#     A weekday that is MISSING from the dict stays UNDEFINED for that
+#     one day (no restriction). This lets an admin configure a Monday-
+#     only schedule without accidentally marking every other weekday as
+#     a day off.
+#
+# This is a storage + validation + check-helper change only. The apply
+# flow is untouched; integration with the engine lives in Phase 3.
+# ---------------------------------------------------------------------------
+
+AP_AVAILABILITY_DAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+AP_AVAILABILITY_WEEKDAY_INDEX = {name: idx for idx, name in enumerate(
+    AP_AVAILABILITY_DAYS)}
+AP_AVAILABILITY_INTERVAL_KEYS = frozenset({"start", "end"})
+AP_AVAILABILITY_MAX_INTERVALS_PER_DAY = 8
+
+
+class WorkerAvailabilityInvalid(ValueError):
+    """Raised when ``availability`` cannot be represented as a valid
+    weekly schedule. Carries a stable ``code`` the UI maps to a
+    translated flash message, exactly like
+    :class:`ClientScheduleInvalid`.
+    """
+
+    def __init__(self, code, detail=""):
+        super().__init__(code)
+        self.code = code
+        self.detail = detail
+
+
+def _availability_fail(code, detail=""):
+    raise WorkerAvailabilityInvalid(code, detail)
+
+
+def parse_worker_availability(raw):
+    """Return the canonical availability dict (or ``None`` for empty).
+
+    * ``None`` / ``""`` / whitespace → ``None`` ("undefined").
+    * Non-empty must be a JSON object whose keys are a subset of
+      ``AP_AVAILABILITY_DAYS``; each value is a list (possibly empty)
+      of ``{"start": "HH:MM", "end": "HH:MM"}`` objects with
+      ``end > start`` and no overlapping ranges inside the same day
+      (adjacent ranges where ``end`` of A equals ``start`` of B are
+      allowed, same convention as the client-schedule parser).
+    * ``[]`` as the value for a day is a VALID "day off" marker and
+      is kept as ``[]`` in the canonical dict so a round-trip
+      preserves the admin's intent.
+
+    Raises :class:`WorkerAvailabilityInvalid` on any problem, with a
+    stable ``code`` the UI maps to a translated message.
+    """
+    if raw is None:
+        return None
+    if isinstance(raw, (bytes, bytearray)):
+        raw = raw.decode("utf-8", errors="replace")
+    text = str(raw).strip()
+    if not text:
+        return None
+    try:
+        value = json.loads(text)
+    except ValueError:
+        _availability_fail("invalid_json")
+    if not isinstance(value, dict):
+        _availability_fail("not_an_object")
+
+    canonical = {}
+    for day_key, intervals in value.items():
+        if day_key not in AP_AVAILABILITY_WEEKDAY_INDEX:
+            _availability_fail("bad_day_key", str(day_key))
+        if not isinstance(intervals, list):
+            _availability_fail("day_not_a_list", day_key)
+        if len(intervals) > AP_AVAILABILITY_MAX_INTERVALS_PER_DAY:
+            _availability_fail("too_many_intervals", day_key)
+
+        clean_intervals = []
+        for idx, item in enumerate(intervals):
+            if not isinstance(item, dict):
+                _availability_fail("interval_not_object",
+                                   f"{day_key}#{idx}")
+            unknown = set(item.keys()) - AP_AVAILABILITY_INTERVAL_KEYS
+            if unknown:
+                _availability_fail("unknown_key",
+                                   f"{day_key}:{','.join(sorted(unknown))}")
+            start_m = _parse_hhmm(item.get("start"))
+            end_m = _parse_hhmm(item.get("end"))
+            if start_m is None:
+                _availability_fail("bad_start",
+                                   f"{day_key}#{idx}:{item.get('start')}")
+            if end_m is None:
+                _availability_fail("bad_end",
+                                   f"{day_key}#{idx}:{item.get('end')}")
+            if end_m <= start_m:
+                _availability_fail("end_before_start",
+                                   f"{day_key}#{idx}")
+            clean_intervals.append({
+                "start": item["start"], "end": item["end"],
+                "_start_m": start_m, "_end_m": end_m,
+            })
+
+        # Overlap check per day — same semantics as the client-schedule
+        # parser: adjacent (``end`` of A == ``start`` of B) is fine.
+        clean_intervals.sort(key=lambda e: e["_start_m"])
+        for i in range(1, len(clean_intervals)):
+            if clean_intervals[i]["_start_m"] < clean_intervals[i - 1]["_end_m"]:
+                _availability_fail("overlapping_intervals", day_key)
+
+        canonical[day_key] = [
+            {"start": iv["start"], "end": iv["end"]}
+            for iv in clean_intervals
+        ]
+
+    return canonical
+
+
+def serialize_worker_availability(availability):
+    """Dump a validated availability dict back to JSON.
+
+    ``None`` → ``""`` (the DEFAULT, meaning "undefined"). An empty
+    dict ``{}`` is likewise serialized as ``""``: semantically it
+    means "no day is defined" which is the same thing as "no
+    constraint defined", so the stored form collapses to the DEFAULT
+    and future reads behave identically to a brand-new worker.
+    Round-trip stable with :func:`parse_worker_availability`.
+    """
+    if not availability:
+        return ""
+    return json.dumps(availability, ensure_ascii=False, sort_keys=False)
+
+
+def check_shift_within_working_hours(availability_raw, iso_date,
+                                     start_hhmm, end_hhmm):
+    """Non-mutating "does this shift fit the worker's working hours?"
+    helper.
+
+    Returns ``None`` when the shift is fine (no warning) and the
+    string ``"outside_working_hours"`` when the admin should be
+    nudged. Phase 2 ONLY emits the warning; the admin override path
+    lands in Phase 3.
+
+    Semantics:
+      * ``availability_raw`` empty / ``None`` → undefined → **no
+        warning** (the engine's old behaviour is preserved for every
+        worker who has not configured availability yet).
+      * The shift's weekday is MISSING from the configured dict →
+        undefined for that day → **no warning**. A worker who only
+        set Monday hours is not implicitly treated as "off every
+        other day".
+      * The weekday is present with ``[]`` → explicit day off →
+        **warning**, detail ``day_off``.
+      * The weekday is present with intervals → the shift must fit
+        wholly inside ONE interval; otherwise **warning**, detail
+        ``outside_intervals``.
+
+    Any schema problem in ``availability_raw`` (shouldn't happen,
+    since save-time validation gates it) silently returns ``None``:
+    this helper is used in warning paths and must never crash the
+    render.
+    """
+    try:
+        parsed = parse_worker_availability(availability_raw)
+    except WorkerAvailabilityInvalid:
+        return None
+    if parsed is None:
+        return None
+
+    try:
+        day_obj = dt_date.fromisoformat(iso_date)
+    except (TypeError, ValueError):
+        return None
+    day_key = AP_AVAILABILITY_DAYS[day_obj.weekday()]
+    if day_key not in parsed:
+        return None
+
+    intervals = parsed[day_key]
+    if not intervals:
+        return "outside_working_hours"
+
+    start_m = _parse_hhmm(start_hhmm)
+    end_m = _parse_hhmm(end_hhmm)
+    if start_m is None or end_m is None or end_m <= start_m:
+        return None
+    for iv in intervals:
+        iv_start = _parse_hhmm(iv["start"])
+        iv_end = _parse_hhmm(iv["end"])
+        if iv_start is None or iv_end is None:
+            continue
+        if start_m >= iv_start and end_m <= iv_end:
+            return None
+    return "outside_working_hours"
 
 
 def invoice_service_title(date_from, _date_to=None, prefix=None):
@@ -7353,6 +7652,13 @@ def init_db():
         c.execute("ALTER TABLE workers ADD COLUMN contract_type TEXT DEFAULT ''")
     if "contract_end_date" not in worker_cols:
         c.execute("ALTER TABLE workers ADD COLUMN contract_end_date TEXT DEFAULT ''")
+    # Phase 2 of the worker-availability feature: optional JSON TEXT
+    # column describing weekly working-hours per weekday. Empty string
+    # means "no restriction defined" (compatible with every existing
+    # worker row); see ``parse_worker_availability`` for the schema.
+    # DEFAULT '' makes the ALTER instant on PG >= 11 (non-volatile).
+    if "availability" not in worker_cols:
+        c.execute("ALTER TABLE workers ADD COLUMN availability TEXT DEFAULT ''")
     client_cols = [row[1] for row in c.execute("PRAGMA table_info(clients)").fetchall()]
     if "address" not in client_cols:
         c.execute("ALTER TABLE clients ADD COLUMN address TEXT DEFAULT ''")
@@ -17686,18 +17992,291 @@ def delete_shift(id):
 
 @app.route("/edit_worker/<path:name>", methods=["GET", "POST"])
 def edit_worker(name):
-    if session.get("role") != "admin": return redirect("/")
-    tr = t(); dark = get_theme() == "dark"; conn = get_conn(); c = conn.cursor()
+    if session.get("role") != "admin":
+        return redirect("/")
+    tr = t(); dark = get_theme() == "dark"
+    conn = get_conn(); c = conn.cursor()
     if request.method == "POST":
-        new_name = request.form["name"].strip(); address = request.form["address"].strip(); contract_type = request.form.get("contract_type", "").strip(); contract_end_date = request.form.get("contract_end_date", "").strip()
+        new_name = request.form["name"].strip()
+        address = request.form["address"].strip()
+        contract_type = request.form.get("contract_type", "").strip()
+        contract_end_date = request.form.get("contract_end_date", "").strip()
+
+        # Phase 2: availability. Same three-shape semantics as
+        # /edit_client's cleaning_frequency: missing/blank = PRESERVE
+        # (a JS-less POST never clobbers), explicit "{}" clears, any
+        # other JSON object replaces. Invalid JSON flashes a
+        # translated error and bails before any write.
+        _AV_MISSING = object()
+        availability_raw = request.form.get(
+            "availability_json", _AV_MISSING,
+        )
+        availability_new = None  # ``None`` = preserve
+        if availability_raw is not _AV_MISSING \
+           and isinstance(availability_raw, str) \
+           and availability_raw.strip() != "":
+            try:
+                parsed_av = parse_worker_availability(availability_raw)
+            except WorkerAvailabilityInvalid as exc:
+                conn.close()
+                flash(tr.get(
+                    "auto_plan_availability_invalid_" + exc.code,
+                    tr.get("auto_plan_availability_invalid",
+                           "Neispravna dostupnost radnika."),
+                ), "error")
+                return redirect(
+                    "/edit_worker/" + urllib.parse.quote(name),
+                )
+            availability_new = serialize_worker_availability(parsed_av)
         if new_name:
-            old_color = c.execute("SELECT color FROM worker_colors WHERE worker_name = ?", (name,)).fetchone(); color_value = old_color[0] if old_color else "#f97316"; c.execute("UPDATE workers SET name = ?, address = ?, contract_type = ?, contract_end_date = ? WHERE name = ?", (new_name, address, contract_type, contract_end_date, name))
-            for shift_id, worker_text in c.execute("SELECT id, worker FROM shifts").fetchall(): c.execute("UPDATE shifts SET worker = ? WHERE id = ?", (replace_worker_in_shift(worker_text, name, new_name), shift_id))
-            c.execute("DELETE FROM worker_colors WHERE worker_name = ?", (name,)); c.execute("INSERT OR REPLACE INTO worker_colors (worker_name, color) VALUES (?, ?)", (new_name, color_value))
+            old_color = c.execute(
+                "SELECT color FROM worker_colors WHERE worker_name = ?",
+                (name,),
+            ).fetchone()
+            color_value = old_color[0] if old_color else "#f97316"
+            if availability_new is None:
+                c.execute(
+                    "UPDATE workers SET name = ?, address = ?, "
+                    "contract_type = ?, contract_end_date = ? "
+                    "WHERE name = ?",
+                    (new_name, address, contract_type,
+                     contract_end_date, name),
+                )
+            else:
+                c.execute(
+                    "UPDATE workers SET name = ?, address = ?, "
+                    "contract_type = ?, contract_end_date = ?, "
+                    "availability = ? WHERE name = ?",
+                    (new_name, address, contract_type,
+                     contract_end_date, availability_new, name),
+                )
+            for shift_id, worker_text in c.execute(
+                "SELECT id, worker FROM shifts"
+            ).fetchall():
+                c.execute(
+                    "UPDATE shifts SET worker = ? WHERE id = ?",
+                    (replace_worker_in_shift(worker_text, name, new_name),
+                     shift_id),
+                )
+            c.execute(
+                "DELETE FROM worker_colors WHERE worker_name = ?",
+                (name,),
+            )
+            c.execute(
+                "INSERT OR REPLACE INTO worker_colors "
+                "(worker_name, color) VALUES (?, ?)",
+                (new_name, color_value),
+            )
         conn.commit(); conn.close(); return redirect("/workers")
-    worker = c.execute("SELECT name, address, contract_type, contract_end_date FROM workers WHERE name = ?", (name,)).fetchone(); conn.close()
-    if not worker: return redirect("/workers")
-    return render_template_string(BASE_STYLE + """<div class="card" style="max-width:500px;margin:auto;"><h2>{{ tr["workers"] }} - {{ tr["edit"] }}</h2><form method="post"><input name="name" value="{{ worker[0] }}" required><input name="address" value="{{ worker[1] }}" placeholder="{{ tr['address'] }}"><input name="contract_type" value="{{ worker[2] }}" placeholder="{{ tr['contract_type'] }}"><label>{{ tr["contract_end_date"] }}</label><input type="date" name="contract_end_date" value="{{ worker[3] }}"><button>{{ tr["save"] }}</button></form><br><a class="back-button" href="/workers">{{ tr["back"] }}</a></div>""", tr=tr, worker=worker, dark=dark)
+    worker = c.execute(
+        "SELECT name, address, contract_type, contract_end_date, "
+        "COALESCE(availability,'') FROM workers WHERE name = ?",
+        (name,),
+    ).fetchone()
+    conn.close()
+    if not worker:
+        return redirect("/workers")
+    return render_template_string(BASE_STYLE + """
+    <div class="card" style="max-width:620px;margin:auto;">
+      <h2>{{ tr["workers"] }} - {{ tr["edit"] }}</h2>
+      <form method="post" autocomplete="off">
+        <input name="name" value="{{ worker[0] }}" required>
+        <input name="address" value="{{ worker[1] }}" placeholder="{{ tr['address'] }}">
+        <input name="contract_type" value="{{ worker[2] }}" placeholder="{{ tr['contract_type'] }}">
+        <label>{{ tr["contract_end_date"] }}</label>
+        <input type="date" name="contract_end_date" value="{{ worker[3] }}">
+        <!-- Phase 2 availability editor. Hidden JSON input, built on
+             submit by the inline script below. A browser WITHOUT JS
+             leaves the value at its HTML default "" so the POST
+             handler takes the PRESERVE path and never wipes the
+             stored availability. -->
+        <label style="margin-top:14px;font-weight:700;">
+          🗓️ {{ tr.get("auto_plan_availability_title","Dostupnost") }}
+        </label>
+        <div id="av-days-list" class="av-days-list"></div>
+        <p style="font-size:12px;color:#64748b;">
+          {{ tr.get("auto_plan_availability_empty_hint",
+                    "Prazno = ogranicenje nije definisano.") }}
+        </p>
+        <input type="hidden" id="av-availability_json"
+               name="availability_json" value="">
+        <style>
+          .av-day-row { border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};
+                        border-radius:8px; padding:10px; margin:6px 0; }
+          .av-day-row .av-day-head {
+            display:flex; justify-content:space-between; align-items:center;
+            margin-bottom:6px; }
+          .av-day-row .av-day-head strong {
+            color:{{ '#e2e8f0' if dark else '#0f172a' }}; }
+          .av-day-row .av-mode select { padding:4px 6px; border-radius:6px;
+            border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};
+            background:{{ '#0f0f10' if dark else '#fff' }};
+            color:{{ '#e2e8f0' if dark else '#0f172a' }};
+            font-size:12px; }
+          .av-interval { display:grid; grid-template-columns: 1fr 1fr auto;
+            gap:6px; margin:4px 0; }
+          .av-interval input[type=time] { padding:4px 6px; border-radius:6px;
+            border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};
+            background:{{ '#0f0f10' if dark else '#fff' }};
+            color:{{ '#e2e8f0' if dark else '#0f172a' }};
+            font-size:13px; }
+          .av-add, .av-remove { padding:4px 8px; border-radius:6px;
+            cursor:pointer; font-weight:700; font-size:12px;
+            border:1px solid #cbd5e1; background:transparent; }
+          .av-remove { color:#ef4444; border-color:#ef4444; }
+          .av-add { color:#1f4f82; border-color:#1f4f82; }
+        </style>
+        <script>
+          (function() {
+            var DAYS = [
+              ["mon", {{ tr.get("monday","Pon")|tojson }}],
+              ["tue", {{ tr.get("tuesday","Uto")|tojson }}],
+              ["wed", {{ tr.get("wednesday","Sri")|tojson }}],
+              ["thu", {{ tr.get("thursday","Cet")|tojson }}],
+              ["fri", {{ tr.get("friday","Pet")|tojson }}],
+              ["sat", {{ tr.get("saturday","Sub")|tojson }}],
+              ["sun", {{ tr.get("sunday","Ned")|tojson }}],
+            ];
+            var MODES = [
+              ["undefined", {{ tr.get("auto_plan_availability_mode_undefined","Neodredeno")|tojson }}],
+              ["day_off",   {{ tr.get("auto_plan_availability_mode_day_off","Slobodan dan")|tojson }}],
+              ["working",   {{ tr.get("auto_plan_availability_mode_working","Radni dan")|tojson }}],
+            ];
+            var LABELS = {
+              start: {{ tr.get("auto_plan_frequency_start","Pocetak")|tojson }},
+              end: {{ tr.get("auto_plan_frequency_end","Kraj")|tojson }},
+              addInterval: {{ tr.get("auto_plan_availability_add_interval","Dodaj interval")|tojson }},
+              removeInterval: {{ tr.get("auto_plan_schedule_remove","Ukloni")|tojson }},
+            };
+            var INITIAL = (function(){
+              var raw = {{ (worker[4] or '')|tojson }};
+              if (!raw) return null;
+              try {
+                var v = JSON.parse(raw);
+                return (v && typeof v === "object" && !Array.isArray(v)) ? v : null;
+              } catch(e) { return null; }
+            })();
+            var list = document.getElementById("av-days-list");
+            var hidden = document.getElementById("av-availability_json");
+            var form = hidden.closest("form");
+
+            function modeOf(dayKey) {
+              if (INITIAL == null || !(dayKey in INITIAL)) return "undefined";
+              var arr = INITIAL[dayKey];
+              if (!Array.isArray(arr) || arr.length === 0) return "day_off";
+              return "working";
+            }
+            function intervalsOf(dayKey) {
+              if (INITIAL == null || !Array.isArray(INITIAL[dayKey])) {
+                return [];
+              }
+              return INITIAL[dayKey].map(function(x){
+                return {start: x.start || "", end: x.end || ""};
+              });
+            }
+
+            function renderDay(dayKey, dayLabel) {
+              var row = document.createElement("div");
+              row.className = "av-day-row";
+              row.dataset.day = dayKey;
+              var head = document.createElement("div");
+              head.className = "av-day-head";
+              var nameEl = document.createElement("strong");
+              nameEl.textContent = dayLabel;
+              head.appendChild(nameEl);
+              var modeWrap = document.createElement("div");
+              modeWrap.className = "av-mode";
+              var modeSel = document.createElement("select");
+              MODES.forEach(function(m){
+                var o = document.createElement("option");
+                o.value = m[0]; o.textContent = m[1];
+                modeSel.appendChild(o);
+              });
+              modeSel.value = modeOf(dayKey);
+              modeWrap.appendChild(modeSel);
+              head.appendChild(modeWrap);
+              row.appendChild(head);
+
+              var intervalsWrap = document.createElement("div");
+              intervalsWrap.className = "av-intervals";
+              row.appendChild(intervalsWrap);
+
+              function newIntervalRow(start, end) {
+                var ivRow = document.createElement("div");
+                ivRow.className = "av-interval";
+                var s = document.createElement("input");
+                s.type = "time"; s.value = start || "";
+                s.setAttribute("aria-label", LABELS.start);
+                var e = document.createElement("input");
+                e.type = "time"; e.value = end || "";
+                e.setAttribute("aria-label", LABELS.end);
+                var rm = document.createElement("button");
+                rm.type = "button"; rm.className = "av-remove";
+                rm.textContent = "✕ " + LABELS.removeInterval;
+                rm.addEventListener("click", function(){
+                  ivRow.remove();
+                });
+                ivRow.appendChild(s); ivRow.appendChild(e); ivRow.appendChild(rm);
+                intervalsWrap.appendChild(ivRow);
+              }
+              intervalsOf(dayKey).forEach(function(iv){
+                newIntervalRow(iv.start, iv.end);
+              });
+
+              var addBtn = document.createElement("button");
+              addBtn.type = "button"; addBtn.className = "av-add";
+              addBtn.textContent = "➕ " + LABELS.addInterval;
+              addBtn.addEventListener("click", function(){
+                newIntervalRow("08:00", "17:00");
+              });
+              row.appendChild(addBtn);
+
+              function visibility() {
+                var m = modeSel.value;
+                intervalsWrap.style.display = (m === "working") ? "" : "none";
+                addBtn.style.display = (m === "working") ? "" : "none";
+              }
+              modeSel.addEventListener("change", visibility);
+              visibility();
+
+              list.appendChild(row);
+            }
+
+            DAYS.forEach(function(d){ renderDay(d[0], d[1]); });
+
+            function serialize() {
+              var out = {};
+              var rows = Array.from(list.querySelectorAll(".av-day-row"));
+              rows.forEach(function(row){
+                var dayKey = row.dataset.day;
+                var mode = row.querySelector(".av-mode select").value;
+                if (mode === "undefined") return;
+                if (mode === "day_off") { out[dayKey] = []; return; }
+                var intervals = Array.from(
+                  row.querySelectorAll(".av-interval")
+                ).map(function(iv){
+                  var inputs = iv.querySelectorAll("input[type=time]");
+                  return {start: inputs[0].value, end: inputs[1].value};
+                }).filter(function(x){ return x.start && x.end; });
+                out[dayKey] = intervals;
+              });
+              // Explicit "{}" (not "") when every day is left
+              // undefined — the server reads "" as PRESERVE so a
+              // JS-less browser never silently clears a stored
+              // availability.
+              hidden.value = (Object.keys(out).length === 0 && INITIAL != null)
+                ? "{}"
+                : (Object.keys(out).length === 0 ? "" : JSON.stringify(out));
+            }
+            form.addEventListener("submit", serialize);
+          })();
+        </script>
+        <button type="submit" style="margin-top:14px;">{{ tr["save"] }}</button>
+      </form>
+      <br>
+      <a class="back-button" href="/workers">{{ tr["back"] }}</a>
+    </div>
+    """, tr=tr, worker=worker, dark=dark)
 
 @app.route("/edit_client/<path:name>", methods=["GET", "POST"])
 def edit_client(name):
@@ -18448,12 +19027,58 @@ def workers_page():
 
 @app.route("/add_worker", methods=["POST"])
 def add_worker():
-    if session.get("role") != "admin": return redirect("/")
-    name = request.form["worker_name"].strip(); address = request.form.get("address", "").strip(); contract_type = request.form.get("contract_type", "").strip(); contract_end_date = request.form.get("contract_end_date", "").strip()
-    if name:
-        conn = get_conn(); c = conn.cursor(); c.execute("INSERT OR IGNORE INTO workers (name, address, contract_type, contract_end_date) VALUES (?, ?, ?, ?)", (name, address, contract_type, contract_end_date)); c.execute("INSERT OR IGNORE INTO worker_colors (worker_name, color) VALUES (?, ?)", (name, "#f97316")); conn.commit(); conn.close()
+    if session.get("role") != "admin":
+        return redirect("/")
+    tr = t()
+    f = request.form
+    name = f.get("worker_name", "").strip()
+    address = f.get("address", "").strip()
+    contract_type = f.get("contract_type", "").strip()
+    contract_end_date = f.get("contract_end_date", "").strip()
     ref = request.referrer or "/workers"
-    return redirect("/workers" if "/workers" in ref else ref)
+    return_url = "/workers" if "/workers" in ref else ref
+
+    # Phase 2: optional weekly availability. Dashboard quick-add
+    # (name + address only) must still work, so a MISSING field is
+    # recorded as '' (undefined). A field that is present but empty
+    # likewise stays '' — see the ``_MISSING`` sentinel pattern used
+    # by /add_client. Invalid JSON flashes a translated code and
+    # redirects BEFORE touching the workers table.
+    _MISSING = object()
+    availability_raw = f.get("availability_json", _MISSING)
+    availability_val = ""
+    if availability_raw is not _MISSING \
+       and isinstance(availability_raw, str) \
+       and availability_raw.strip() != "":
+        try:
+            parsed_av = parse_worker_availability(availability_raw)
+        except WorkerAvailabilityInvalid as exc:
+            flash(tr.get(
+                "auto_plan_availability_invalid_" + exc.code,
+                tr.get("auto_plan_availability_invalid",
+                       "Neispravna dostupnost radnika."),
+            ), "error")
+            return redirect(return_url)
+        availability_val = serialize_worker_availability(parsed_av)
+
+    if name:
+        conn = get_conn()
+        c = conn.cursor()
+        c.execute(
+            "INSERT OR IGNORE INTO workers "
+            "(name, address, contract_type, contract_end_date, availability) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (name, address, contract_type, contract_end_date,
+             availability_val),
+        )
+        c.execute(
+            "INSERT OR IGNORE INTO worker_colors (worker_name, color) "
+            "VALUES (?, ?)",
+            (name, "#f97316"),
+        )
+        conn.commit()
+        conn.close()
+    return redirect(return_url)
 
 @app.route("/add_client", methods=["POST"])
 def add_client():
