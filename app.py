@@ -3266,6 +3266,11 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_availability_invalid_end_before_start": "Kraj intervala mora biti kasnije od pocetka.",
         "auto_plan_availability_invalid_overlapping_intervals": "Intervali istog dana se preklapaju.",
         "auto_plan_warning_outside_working_hours": "Intervencija je izvan radnog vremena radnika.",
+        "auto_plan_issue_outside_working_hours": "Van definisanog radnog vremena radnika",
+        "auto_plan_issue_schedule_invalid": "Ugovoreni raspored klijenta je ostecen",
+        "auto_plan_issue_preferred_worker_unknown": "Preferirani radnik vise ne postoji",
+        "auto_plan_source_schedule": "Ugovoreni raspored",
+        "auto_plan_source_history": "Istorija",
         "auto_plan_confidence_tooltip": "Zabiljezene pojave u odnosu na ocekivane u analiziranom periodu.",
         "auto_plan_unknown_status_ignored": "Nepoznati statusi ignorisani",
         "auto_plan_write_refused": "Automatsko planiranje nije u rezimu upisivanja: nijedan rad, prijedlog ni zakljucavanje ne moze biti upisano.",
@@ -3363,6 +3368,11 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_availability_invalid_end_before_start": "La fin de l intervalle doit etre posterieure au debut.",
         "auto_plan_availability_invalid_overlapping_intervals": "Les intervalles d un meme jour se chevauchent.",
         "auto_plan_warning_outside_working_hours": "L intervention est en dehors des horaires de travail de l employe.",
+        "auto_plan_issue_outside_working_hours": "Hors des horaires de travail definis",
+        "auto_plan_issue_schedule_invalid": "Horaire client sauvegarde est corrompu",
+        "auto_plan_issue_preferred_worker_unknown": "L employe prefere n existe plus",
+        "auto_plan_source_schedule": "Horaire contractuel",
+        "auto_plan_source_history": "Historique",
         "auto_plan_confidence_tooltip": "Occurrences observées sur occurrences attendues dans la fenêtre analysée.",
         "auto_plan_unknown_status_ignored": "Statuts inconnus ignorés",
         "auto_plan_write_refused": "L'auto-planning n'est pas en mode écriture : aucune intervention, proposition, ou verrou ne peut être enregistré.",
@@ -3460,6 +3470,11 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_availability_invalid_end_before_start": "Interval end must be after start.",
         "auto_plan_availability_invalid_overlapping_intervals": "Intervals on the same day overlap.",
         "auto_plan_warning_outside_working_hours": "Shift is outside the worker's working hours.",
+        "auto_plan_issue_outside_working_hours": "Outside the configured working hours",
+        "auto_plan_issue_schedule_invalid": "Stored client schedule is corrupt",
+        "auto_plan_issue_preferred_worker_unknown": "Preferred worker no longer exists",
+        "auto_plan_source_schedule": "Contract schedule",
+        "auto_plan_source_history": "History",
         "auto_plan_confidence_tooltip": "Observed occurrences against the number expected over the analysed window.",
         "auto_plan_unknown_status_ignored": "Unknown statuses ignored",
         "auto_plan_write_refused": "Auto-planning is not in write mode: no shift, proposal, draft or lock can be written.",
@@ -3557,6 +3572,11 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_availability_invalid_end_before_start": "Intervallende muss nach Beginn liegen.",
         "auto_plan_availability_invalid_overlapping_intervals": "Intervalle am selben Tag ueberlappen sich.",
         "auto_plan_warning_outside_working_hours": "Einsatz liegt ausserhalb der Arbeitszeit des Mitarbeiters.",
+        "auto_plan_issue_outside_working_hours": "Ausserhalb der konfigurierten Arbeitszeit",
+        "auto_plan_issue_schedule_invalid": "Gespeicherter Kundenplan ist beschaedigt",
+        "auto_plan_issue_preferred_worker_unknown": "Bevorzugter Mitarbeiter existiert nicht mehr",
+        "auto_plan_source_schedule": "Vertragsplan",
+        "auto_plan_source_history": "Verlauf",
         "auto_plan_confidence_tooltip": "Beobachtete Vorkommen gegenueber den erwarteten im Analysefenster.",
         "auto_plan_unknown_status_ignored": "Unbekannte Statuswerte ignoriert",
         "auto_plan_write_refused": "Auto-Planung nicht im Schreibmodus: keine Schicht, Vorschlag, Entwurf oder Sperre kann geschrieben werden.",
@@ -3654,6 +3674,11 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_availability_invalid_end_before_start": "O fim do intervalo deve ser depois do inicio.",
         "auto_plan_availability_invalid_overlapping_intervals": "Os intervalos do mesmo dia sobrepoem-se.",
         "auto_plan_warning_outside_working_hours": "A intervencao esta fora do horario de trabalho do trabalhador.",
+        "auto_plan_issue_outside_working_hours": "Fora do horario de trabalho configurado",
+        "auto_plan_issue_schedule_invalid": "O horario do cliente guardado esta corrompido",
+        "auto_plan_issue_preferred_worker_unknown": "O trabalhador preferido ja nao existe",
+        "auto_plan_source_schedule": "Horario contratual",
+        "auto_plan_source_history": "Historico",
         "auto_plan_confidence_tooltip": "Ocorrências observadas em relação às esperadas na janela analisada.",
         "auto_plan_unknown_status_ignored": "Estados desconhecidos ignorados",
         "auto_plan_write_refused": "Auto-planeamento não está em modo de escrita: nenhum serviço, proposta ou bloqueio pode ser gravado.",
@@ -7458,6 +7483,29 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_shift_proposals_target
             ON shift_proposals(target_date, time)
         """)
+        # Phase 3: optional ``source`` column tags each proposal as
+        # coming from the client's explicit schedule or from the
+        # history engine, so /plan/review can show the admin where
+        # a line came from. Empty default stays compatible with
+        # every draft generated before Phase 3.
+        try:
+            sp_cols = [r[1] for r in c.execute(
+                "PRAGMA table_info(shift_proposals)"
+            ).fetchall()]
+            if "source" not in sp_cols:
+                c.execute(
+                    "ALTER TABLE shift_proposals "
+                    "ADD COLUMN source TEXT DEFAULT ''"
+                )
+        except Exception as _sp_err:
+            app.logger.warning(
+                "shift_proposals source column migration failed: %s",
+                _sp_err,
+            )
+            try:
+                conn.rollback()
+            except Exception:
+                pass
     c.execute("""
         CREATE TABLE IF NOT EXISTS worker_payroll_settings (
             worker TEXT PRIMARY KEY,
@@ -18226,9 +18274,33 @@ def edit_worker(name):
               var addBtn = document.createElement("button");
               addBtn.type = "button"; addBtn.className = "av-add";
               addBtn.textContent = "➕ " + LABELS.addInterval;
+              function updateAddBtn() {
+                // Phase 3 UX: match the server-side cap of 8
+                // intervals per day. Admin sees the cap in the UI
+                // instead of running into a flash error on submit.
+                var count = intervalsWrap.querySelectorAll(
+                  ".av-interval"
+                ).length;
+                addBtn.disabled = count >= 8;
+                addBtn.style.opacity = count >= 8 ? "0.5" : "1";
+              }
               addBtn.addEventListener("click", function(){
+                if (intervalsWrap.querySelectorAll(
+                      ".av-interval"
+                    ).length >= 8) return;
                 newIntervalRow("08:00", "17:00");
+                updateAddBtn();
               });
+              // Also update after each remove so re-adding works.
+              intervalsWrap.addEventListener("click", function(ev){
+                if (ev.target && ev.target.classList
+                    && ev.target.classList.contains("av-remove")) {
+                  // Allow the row's own click handler to remove the
+                  // row first, then re-check next tick.
+                  setTimeout(updateAddBtn, 0);
+                }
+              });
+              updateAddBtn();
               row.appendChild(addBtn);
 
               function visibility() {
@@ -21663,11 +21735,252 @@ def ap_generate_recurrence_proposals(conn, target_week_start,
     )
 
 
+# ---------------------------------------------------------------------------
+# Phase 3 — explicit client schedule (``clients.cleaning_frequency``)
+# ---------------------------------------------------------------------------
+# Projects each saved visit spec to concrete target-week dates. The
+# ``source="schedule"`` field tags every proposal so the review UI can
+# tell admin why a line appeared (schedule vs. history-based inference).
+# Clients with ANY stored schedule take PRECEDENCE: history-based
+# projection is intentionally skipped for them to avoid duplicates.
+# ---------------------------------------------------------------------------
+
+def _ap_sched_month_week_match(target_date, monthly_week):
+    """``monthly_week`` ∈ {1,2,3,4}: nth occurrence of the weekday in
+    the month. ``-1``: last occurrence. Returns ``True`` iff
+    ``target_date`` fits.
+    """
+    if monthly_week == -1:
+        try:
+            next_week = target_date + timedelta(days=7)
+        except OverflowError:
+            return False
+        return next_week.month != target_date.month
+    nth = (target_date.day - 1) // 7 + 1
+    return nth == monthly_week
+
+
+def _ap_sched_in_contract_window(contract_from, contract_to, target_date):
+    """Narrow helper that accepts the usual blank-string sentinels."""
+    try:
+        if contract_from:
+            if target_date < _ap_date(contract_from):
+                return False
+    except (TypeError, ValueError):
+        pass
+    try:
+        if contract_to:
+            if target_date > _ap_date(contract_to):
+                return False
+    except (TypeError, ValueError):
+        pass
+    return True
+
+
+def ap_project_from_schedule(conn, target_week_start, now_known_workers=None):
+    """Return (proposals, scheduled_clients) tuple.
+
+    Each proposal has ``source="schedule"`` and the same shape the
+    history projector emits (``target_date``, ``time``, ``client``,
+    ``worker``, ``recurrence_period``, ``confidence``, ``occurrences``,
+    ``issues``). Preferred workers are kept on the proposal so the
+    review page can show them, and the FIRST preferred worker that
+    still exists becomes the default ``worker``. If every preferred
+    worker is unknown, the proposal keeps ``worker=""`` so
+    ``ap_run_checks`` surfaces ``worker_missing`` (admin picks
+    manually in the review page).
+    """
+    week_start = _ap_date(target_week_start)
+    if week_start.weekday() != 0:
+        raise ValueError("target_week_start must be a Monday")
+
+    cur = conn.cursor()
+    if now_known_workers is None:
+        try:
+            now_known_workers = {
+                r[0] for r in cur.execute(
+                    "SELECT name FROM workers"
+                ).fetchall()
+            }
+        except Exception:
+            now_known_workers = set()
+
+    try:
+        rows = cur.execute(
+            "SELECT name, COALESCE(contract_from,''), "
+            "COALESCE(contract_to,''), COALESCE(cleaning_frequency,'') "
+            "FROM clients"
+        ).fetchall()
+    except Exception:
+        return [], set()
+
+    proposals = []
+    scheduled_clients = set()
+    for client_name, cfrom, cto, raw in rows:
+        if not raw:
+            continue
+        try:
+            entries = parse_client_cleaning_frequency(raw)
+        except ClientScheduleInvalid:
+            # Corrupt stored schedule: surface a schedule-source
+            # placeholder proposal so admin notices and fixes it,
+            # instead of silently falling back to history.
+            proposals.append({
+                "target_date": week_start.isoformat(),
+                "time": "00:00-00:01",
+                "client": client_name,
+                "worker": "",
+                "source": "schedule",
+                "recurrence_period": 0,
+                "confidence": 0.0,
+                "occurrences": 0,
+                "duration_hours": 0,
+                "calendar_monthly": False,
+                "requires_manual_validation": True,
+                "schedule_preferred_workers": [],
+                "issues": [{
+                    "code": "schedule_invalid",
+                    "severity": "blocking",
+                    "client": client_name,
+                }],
+            })
+            scheduled_clients.add(client_name)
+            continue
+        if not entries:
+            continue
+        scheduled_clients.add(client_name)
+        for entry in entries:
+            weekday = entry["weekday"]
+            target_date = week_start + timedelta(days=weekday)
+            if not _ap_sched_in_contract_window(cfrom, cto, target_date):
+                continue
+            kind = entry["kind"]
+            anchor_raw = entry.get("anchor_date", "")
+            anchor_date_obj = None
+            if anchor_raw:
+                try:
+                    anchor_date_obj = _ap_date(anchor_raw)
+                except (TypeError, ValueError):
+                    anchor_date_obj = None
+
+            if kind == "weekly":
+                recurrence_period = 1
+            elif kind == "biweekly":
+                if anchor_date_obj is None:
+                    continue
+                if target_date < anchor_date_obj:
+                    continue
+                weeks_since = (target_date - anchor_date_obj).days // 7
+                if weeks_since % 2 != 0:
+                    continue
+                recurrence_period = 2
+            elif kind == "monthly":
+                monthly_week = entry.get("monthly_week")
+                if not isinstance(monthly_week, int):
+                    continue
+                if not _ap_sched_month_week_match(target_date, monthly_week):
+                    continue
+                recurrence_period = 4
+            elif kind == "custom":
+                custom_interval = entry.get("custom_interval_weeks")
+                if not isinstance(custom_interval, int) \
+                   or custom_interval < 2 or anchor_date_obj is None:
+                    continue
+                if target_date < anchor_date_obj:
+                    continue
+                weeks_since = (target_date - anchor_date_obj).days // 7
+                if weeks_since % custom_interval != 0:
+                    continue
+                recurrence_period = custom_interval
+            else:
+                continue
+
+            preferred = list(entry.get("preferred_workers") or [])
+            unknown_preferred = [p for p in preferred
+                                 if p not in now_known_workers]
+            available_preferred = [p for p in preferred
+                                   if p in now_known_workers]
+            # Pick the first available preferred worker. If every
+            # preferred is unknown (deleted/renamed since save), leave
+            # worker empty so ap_run_checks tags worker_missing and
+            # admin must pick manually in the review page.
+            worker_name = available_preferred[0] if available_preferred else ""
+
+            start_time = entry["start"]
+            end_time = entry["end"]
+            time_range = f"{start_time}-{end_time}"
+            issues = []
+            if unknown_preferred:
+                issues.append({
+                    "code": "preferred_worker_unknown",
+                    "severity": "warning",
+                    "names": unknown_preferred,
+                    "client": client_name,
+                })
+
+            proposals.append({
+                "target_date": target_date.isoformat(),
+                "time": time_range,
+                "client": client_name,
+                "worker": worker_name,
+                "source": "schedule",
+                "recurrence_period": recurrence_period,
+                "confidence": 1.0,
+                "occurrences": 1,
+                "duration_hours": parse_shift_hours(time_range),
+                "calendar_monthly": kind == "monthly",
+                "requires_manual_validation": False,
+                "schedule_preferred_workers": preferred,
+                "issues": issues,
+            })
+
+    proposals.sort(key=lambda p: (p["target_date"], p["time"],
+                                   p["client"], p["worker"]))
+    return proposals, scheduled_clients
+
+
+def ap_generate_combined_proposals(conn, target_week_start,
+                                   lookback_weeks=AP_DEFAULT_LOOKBACK_WEEKS,
+                                   include_exceptional=False,
+                                   min_confidence=AP_DEFAULT_MIN_CONFIDENCE):
+    """Phase 3 entry point used by /plan/generate.
+
+    Schedule-based proposals are generated first; the set of clients
+    they cover is excluded from the history-based projection so
+    duplicates can never form. Every history proposal is tagged
+    ``source="history"`` to keep review-page labels honest.
+    """
+    sched_props, sched_clients = ap_project_from_schedule(
+        conn, target_week_start,
+    )
+    hist_props = ap_generate_recurrence_proposals(
+        conn, target_week_start,
+        lookback_weeks=lookback_weeks,
+        include_exceptional=include_exceptional,
+        min_confidence=min_confidence,
+    )
+    merged = list(sched_props)
+    for p in hist_props:
+        if p.get("client") in sched_clients:
+            continue
+        q = dict(p)
+        q.setdefault("source", "history")
+        merged.append(q)
+    merged.sort(key=lambda item: (item["target_date"], item["time"],
+                                   item["client"],
+                                   worker_signature(item.get("worker", ""))))
+    return merged
+
+
 AP_BLOCKING_ISSUES = frozenset({
     "overlap_batch", "overlap_existing", "client_double_booking",
     "absence", "leave_approved",
     "locked", "invalid_data", "outside_target_week", "worker_missing",
     "worker_contract",
+    # Phase 3: a schedule row that no longer parses must NEVER go
+    # straight to shifts. Admin fixes the stored JSON on the client,
+    # then re-generates.
+    "schedule_invalid",
 })
 
 
@@ -22071,6 +22384,39 @@ def ap_run_checks(conn, proposals, target_week_start):
                 ))
         issues.extend(ap_check_overlap_existing(conn, proposal))
         issues.extend(batch_issues.get(index, []))
+        # Phase 3: per-worker working-hours warning. Non-blocking; a
+        # defined availability either explicitly flags an off day or
+        # a shift that doesn't fit the configured intervals. Empty
+        # or UNDEFINED availability keeps the historical no-warning
+        # behaviour (see ``check_shift_within_working_hours``).
+        try:
+            cur = conn.cursor()
+            av_rows = {
+                r[0]: (r[1] or "")
+                for r in cur.execute(
+                    "SELECT name, COALESCE(availability,'') "
+                    "FROM workers"
+                ).fetchall()
+            }
+        except Exception:
+            av_rows = {}
+        time_bounds = valid_time
+        for worker_name in workers:
+            av_raw = av_rows.get(worker_name, "")
+            if not av_raw:
+                continue
+            start_hhmm, _, end_hhmm = str(
+                proposal.get("time", "")
+            ).partition("-")
+            code = check_shift_within_working_hours(
+                av_raw, target_date, start_hhmm, end_hhmm,
+            )
+            if code == "outside_working_hours":
+                issues.append(_ap_issue(
+                    "outside_working_hours", "warning",
+                    worker=worker_name,
+                ))
+        del time_bounds  # placeholder: kept name for grep-ability
         holiday_name = ap_check_holiday(conn, target_date)
         if holiday_name:
             issues.append(_ap_issue(
@@ -22313,8 +22659,9 @@ def ap_create_draft(conn, username, owner_token, target_week_start,
             "(batch_id, target_date, time, client, worker, recurrence_period, "
             "confidence, status, issues, source_last_seen, is_locked, "
             "manual_override, alternative_workers, applied_shift_id, "
-            "created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, 'proposed', ?, ?, 0, 0, ?, NULL, ?, ?)",
+            "created_at, updated_at, source) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, 'proposed', ?, ?, 0, 0, ?, NULL, "
+            "?, ?, ?)",
             (
                 batch_id, str(proposal.get("target_date", "")),
                 str(proposal.get("time", "")),
@@ -22326,6 +22673,7 @@ def ap_create_draft(conn, username, owner_token, target_week_start,
                 str(proposal.get("source_last_seen", "")),
                 json.dumps(alternatives, ensure_ascii=False),
                 created_at, created_at,
+                str(proposal.get("source", "history")),
             ),
         )
     return batch_id
@@ -22351,7 +22699,7 @@ def ap_load_draft_proposals(conn, batch_id):
         "SELECT id, batch_id, target_date, time, client, worker, "
         "recurrence_period, confidence, status, issues, source_last_seen, "
         "is_locked, manual_override, alternative_workers, applied_shift_id, "
-        "created_at, updated_at FROM shift_proposals "
+        "created_at, updated_at, COALESCE(source,'') FROM shift_proposals "
         "WHERE batch_id = ? ORDER BY target_date, time, client, id",
         (int(batch_id),),
     ).fetchall()
@@ -22370,6 +22718,8 @@ def ap_load_draft_proposals(conn, batch_id):
             "alternative_workers": ap_json_list(row[13]),
             "applied_shift_id": row[14], "created_at": str(row[15] or ""),
             "updated_at": str(row[16] or ""),
+            # Phase 3: "schedule" | "history" | "" (legacy, pre-column).
+            "source": str(row[17] or ""),
         }
         try:
             start_time, end_time = split_time_range(item["time"])
@@ -23216,7 +23566,7 @@ def auto_plan_generate():
                 batch_id = existing["id"]
                 reused = True
             else:
-                proposals = ap_generate_recurrence_proposals(
+                proposals = ap_generate_combined_proposals(
                     conn, target_day,
                     lookback_weeks=lookback_weeks,
                     include_exceptional=include_exceptional,
