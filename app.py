@@ -3201,6 +3201,39 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_period_exceptional": "Neredovno",
         "auto_plan_cancelled_discarded": "Otkazane intervencije iskljucene iz ucenja",
         "auto_plan_observations_abbr": "obs.",
+        "auto_plan_schedule_title": "Sedmicni raspored",
+        "auto_plan_schedule_add": "Dodaj termin",
+        "auto_plan_schedule_remove": "Ukloni",
+        "auto_plan_schedule_empty_hint": "Prazno = automatsko zakljucivanje iz istorije.",
+        "auto_plan_frequency_kind": "Vrsta",
+        "auto_plan_frequency_kind_weekly": "Sedmicno",
+        "auto_plan_frequency_kind_biweekly": "Svake 2 sedmice",
+        "auto_plan_frequency_kind_monthly": "Mjesecno",
+        "auto_plan_frequency_kind_custom": "Prilagodeno",
+        "auto_plan_frequency_weekday_label": "Dan u sedmici",
+        "auto_plan_frequency_start": "Pocetak",
+        "auto_plan_frequency_end": "Kraj",
+        "auto_plan_frequency_anchor_date": "Pocetni datum ciklusa",
+        "auto_plan_frequency_monthly_week": "Sedmica u mjesecu",
+        "auto_plan_frequency_custom_interval_weeks": "Interval (sedmica)",
+        "auto_plan_frequency_preferred_workers": "Preferirani radnici",
+        "auto_plan_monthly_week_1": "Prva",
+        "auto_plan_monthly_week_2": "Druga",
+        "auto_plan_monthly_week_3": "Treca",
+        "auto_plan_monthly_week_4": "Cetvrta",
+        "auto_plan_monthly_week_last": "Posljednja",
+        "auto_plan_schedule_invalid": "Neispravan raspored klijenta.",
+        "auto_plan_schedule_invalid_invalid_json": "Raspored nije ispravan JSON.",
+        "auto_plan_schedule_invalid_bad_kind": "Nepoznata vrsta ponavljanja.",
+        "auto_plan_schedule_invalid_bad_weekday": "Dan u sedmici mora biti 0-6.",
+        "auto_plan_schedule_invalid_bad_start": "Pocetak mora biti HH:MM.",
+        "auto_plan_schedule_invalid_bad_end": "Kraj mora biti HH:MM.",
+        "auto_plan_schedule_invalid_end_before_start": "Kraj mora biti kasnije od pocetka.",
+        "auto_plan_schedule_invalid_anchor_date_required": "Pocetni datum ciklusa je obavezan.",
+        "auto_plan_schedule_invalid_bad_anchor_date": "Pocetni datum nije ispravan datum.",
+        "auto_plan_schedule_invalid_anchor_weekday_mismatch": "Pocetni datum ne odgovara odabranom danu u sedmici.",
+        "auto_plan_schedule_invalid_bad_monthly_week": "Mjesecna sedmica mora biti 1-4 ili -1.",
+        "auto_plan_schedule_invalid_bad_custom_interval": "Interval mora biti izmedu 2 i 52 sedmice.",
         "auto_plan_confidence_tooltip": "Zabiljezene pojave u odnosu na ocekivane u analiziranom periodu.",
         "auto_plan_unknown_status_ignored": "Nepoznati statusi ignorisani",
         "auto_plan_write_refused": "Automatsko planiranje nije u rezimu upisivanja: nijedan rad, prijedlog ni zakljucavanje ne moze biti upisano.",
@@ -3233,6 +3266,39 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_period_exceptional": "Irrégulier",
         "auto_plan_cancelled_discarded": "Interventions annulées écartées de l'apprentissage",
         "auto_plan_observations_abbr": "obs.",
+        "auto_plan_schedule_title": "Horaire hebdomadaire",
+        "auto_plan_schedule_add": "Ajouter un creneau",
+        "auto_plan_schedule_remove": "Supprimer",
+        "auto_plan_schedule_empty_hint": "Vide = deduction automatique a partir de l historique.",
+        "auto_plan_frequency_kind": "Type",
+        "auto_plan_frequency_kind_weekly": "Hebdomadaire",
+        "auto_plan_frequency_kind_biweekly": "Toutes les 2 semaines",
+        "auto_plan_frequency_kind_monthly": "Mensuel",
+        "auto_plan_frequency_kind_custom": "Personnalise",
+        "auto_plan_frequency_weekday_label": "Jour de la semaine",
+        "auto_plan_frequency_start": "Debut",
+        "auto_plan_frequency_end": "Fin",
+        "auto_plan_frequency_anchor_date": "Date d ancrage du cycle",
+        "auto_plan_frequency_monthly_week": "Semaine du mois",
+        "auto_plan_frequency_custom_interval_weeks": "Intervalle (semaines)",
+        "auto_plan_frequency_preferred_workers": "Employes preferes",
+        "auto_plan_monthly_week_1": "Premiere",
+        "auto_plan_monthly_week_2": "Deuxieme",
+        "auto_plan_monthly_week_3": "Troisieme",
+        "auto_plan_monthly_week_4": "Quatrieme",
+        "auto_plan_monthly_week_last": "Derniere",
+        "auto_plan_schedule_invalid": "Horaire client invalide.",
+        "auto_plan_schedule_invalid_invalid_json": "L horaire n est pas un JSON valide.",
+        "auto_plan_schedule_invalid_bad_kind": "Type de recurrence inconnu.",
+        "auto_plan_schedule_invalid_bad_weekday": "Le jour de la semaine doit etre 0-6.",
+        "auto_plan_schedule_invalid_bad_start": "Le debut doit etre au format HH:MM.",
+        "auto_plan_schedule_invalid_bad_end": "La fin doit etre au format HH:MM.",
+        "auto_plan_schedule_invalid_end_before_start": "La fin doit etre posterieure au debut.",
+        "auto_plan_schedule_invalid_anchor_date_required": "La date d ancrage est obligatoire.",
+        "auto_plan_schedule_invalid_bad_anchor_date": "Date d ancrage invalide.",
+        "auto_plan_schedule_invalid_anchor_weekday_mismatch": "La date d ancrage ne correspond pas au jour choisi.",
+        "auto_plan_schedule_invalid_bad_monthly_week": "La semaine du mois doit etre 1-4 ou -1.",
+        "auto_plan_schedule_invalid_bad_custom_interval": "L intervalle doit etre entre 2 et 52 semaines.",
         "auto_plan_confidence_tooltip": "Occurrences observées sur occurrences attendues dans la fenêtre analysée.",
         "auto_plan_unknown_status_ignored": "Statuts inconnus ignorés",
         "auto_plan_write_refused": "L'auto-planning n'est pas en mode écriture : aucune intervention, proposition, ou verrou ne peut être enregistré.",
@@ -3265,6 +3331,39 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_period_exceptional": "Irregular",
         "auto_plan_cancelled_discarded": "Cancelled shifts excluded from learning",
         "auto_plan_observations_abbr": "obs.",
+        "auto_plan_schedule_title": "Weekly schedule",
+        "auto_plan_schedule_add": "Add visit",
+        "auto_plan_schedule_remove": "Remove",
+        "auto_plan_schedule_empty_hint": "Empty = fall back to history-based inference.",
+        "auto_plan_frequency_kind": "Kind",
+        "auto_plan_frequency_kind_weekly": "Weekly",
+        "auto_plan_frequency_kind_biweekly": "Every 2 weeks",
+        "auto_plan_frequency_kind_monthly": "Monthly",
+        "auto_plan_frequency_kind_custom": "Custom",
+        "auto_plan_frequency_weekday_label": "Day of week",
+        "auto_plan_frequency_start": "Start",
+        "auto_plan_frequency_end": "End",
+        "auto_plan_frequency_anchor_date": "Cycle anchor date",
+        "auto_plan_frequency_monthly_week": "Week of month",
+        "auto_plan_frequency_custom_interval_weeks": "Interval (weeks)",
+        "auto_plan_frequency_preferred_workers": "Preferred workers",
+        "auto_plan_monthly_week_1": "First",
+        "auto_plan_monthly_week_2": "Second",
+        "auto_plan_monthly_week_3": "Third",
+        "auto_plan_monthly_week_4": "Fourth",
+        "auto_plan_monthly_week_last": "Last",
+        "auto_plan_schedule_invalid": "Invalid client schedule.",
+        "auto_plan_schedule_invalid_invalid_json": "Schedule is not valid JSON.",
+        "auto_plan_schedule_invalid_bad_kind": "Unknown recurrence kind.",
+        "auto_plan_schedule_invalid_bad_weekday": "Day of week must be 0-6.",
+        "auto_plan_schedule_invalid_bad_start": "Start must be HH:MM.",
+        "auto_plan_schedule_invalid_bad_end": "End must be HH:MM.",
+        "auto_plan_schedule_invalid_end_before_start": "End must be after start.",
+        "auto_plan_schedule_invalid_anchor_date_required": "Anchor date is required.",
+        "auto_plan_schedule_invalid_bad_anchor_date": "Anchor date is not a valid date.",
+        "auto_plan_schedule_invalid_anchor_weekday_mismatch": "Anchor date does not match the chosen weekday.",
+        "auto_plan_schedule_invalid_bad_monthly_week": "Week of month must be 1-4 or -1.",
+        "auto_plan_schedule_invalid_bad_custom_interval": "Interval must be between 2 and 52 weeks.",
         "auto_plan_confidence_tooltip": "Observed occurrences against the number expected over the analysed window.",
         "auto_plan_unknown_status_ignored": "Unknown statuses ignored",
         "auto_plan_write_refused": "Auto-planning is not in write mode: no shift, proposal, draft or lock can be written.",
@@ -3297,6 +3396,39 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_period_exceptional": "Unregelmaessig",
         "auto_plan_cancelled_discarded": "Abgesagte Einsaetze vom Lernen ausgeschlossen",
         "auto_plan_observations_abbr": "Beob.",
+        "auto_plan_schedule_title": "Wochenplan",
+        "auto_plan_schedule_add": "Termin hinzufuegen",
+        "auto_plan_schedule_remove": "Entfernen",
+        "auto_plan_schedule_empty_hint": "Leer = automatische Ableitung aus Verlauf.",
+        "auto_plan_frequency_kind": "Art",
+        "auto_plan_frequency_kind_weekly": "Woechentlich",
+        "auto_plan_frequency_kind_biweekly": "Alle 2 Wochen",
+        "auto_plan_frequency_kind_monthly": "Monatlich",
+        "auto_plan_frequency_kind_custom": "Benutzerdefiniert",
+        "auto_plan_frequency_weekday_label": "Wochentag",
+        "auto_plan_frequency_start": "Beginn",
+        "auto_plan_frequency_end": "Ende",
+        "auto_plan_frequency_anchor_date": "Zyklus-Ankerdatum",
+        "auto_plan_frequency_monthly_week": "Woche im Monat",
+        "auto_plan_frequency_custom_interval_weeks": "Intervall (Wochen)",
+        "auto_plan_frequency_preferred_workers": "Bevorzugte Mitarbeiter",
+        "auto_plan_monthly_week_1": "Erste",
+        "auto_plan_monthly_week_2": "Zweite",
+        "auto_plan_monthly_week_3": "Dritte",
+        "auto_plan_monthly_week_4": "Vierte",
+        "auto_plan_monthly_week_last": "Letzte",
+        "auto_plan_schedule_invalid": "Ungueltiger Kundenplan.",
+        "auto_plan_schedule_invalid_invalid_json": "Zeitplan ist kein gueltiges JSON.",
+        "auto_plan_schedule_invalid_bad_kind": "Unbekannter Wiederholungstyp.",
+        "auto_plan_schedule_invalid_bad_weekday": "Wochentag muss 0-6 sein.",
+        "auto_plan_schedule_invalid_bad_start": "Beginn muss HH:MM sein.",
+        "auto_plan_schedule_invalid_bad_end": "Ende muss HH:MM sein.",
+        "auto_plan_schedule_invalid_end_before_start": "Ende muss nach Beginn liegen.",
+        "auto_plan_schedule_invalid_anchor_date_required": "Ankerdatum ist erforderlich.",
+        "auto_plan_schedule_invalid_bad_anchor_date": "Ankerdatum ist kein gueltiges Datum.",
+        "auto_plan_schedule_invalid_anchor_weekday_mismatch": "Ankerdatum passt nicht zum gewaehlten Wochentag.",
+        "auto_plan_schedule_invalid_bad_monthly_week": "Woche im Monat muss 1-4 oder -1 sein.",
+        "auto_plan_schedule_invalid_bad_custom_interval": "Intervall muss zwischen 2 und 52 Wochen liegen.",
         "auto_plan_confidence_tooltip": "Beobachtete Vorkommen gegenueber den erwarteten im Analysefenster.",
         "auto_plan_unknown_status_ignored": "Unbekannte Statuswerte ignoriert",
         "auto_plan_write_refused": "Auto-Planung nicht im Schreibmodus: keine Schicht, Vorschlag, Entwurf oder Sperre kann geschrieben werden.",
@@ -3329,6 +3461,39 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_period_exceptional": "Irregular",
         "auto_plan_cancelled_discarded": "Intervenções canceladas excluídas da aprendizagem",
         "auto_plan_observations_abbr": "obs.",
+        "auto_plan_schedule_title": "Horario semanal",
+        "auto_plan_schedule_add": "Adicionar visita",
+        "auto_plan_schedule_remove": "Remover",
+        "auto_plan_schedule_empty_hint": "Vazio = deducao automatica a partir do historico.",
+        "auto_plan_frequency_kind": "Tipo",
+        "auto_plan_frequency_kind_weekly": "Semanal",
+        "auto_plan_frequency_kind_biweekly": "Cada 2 semanas",
+        "auto_plan_frequency_kind_monthly": "Mensal",
+        "auto_plan_frequency_kind_custom": "Personalizado",
+        "auto_plan_frequency_weekday_label": "Dia da semana",
+        "auto_plan_frequency_start": "Inicio",
+        "auto_plan_frequency_end": "Fim",
+        "auto_plan_frequency_anchor_date": "Data ancora do ciclo",
+        "auto_plan_frequency_monthly_week": "Semana do mes",
+        "auto_plan_frequency_custom_interval_weeks": "Intervalo (semanas)",
+        "auto_plan_frequency_preferred_workers": "Trabalhadores preferidos",
+        "auto_plan_monthly_week_1": "Primeira",
+        "auto_plan_monthly_week_2": "Segunda",
+        "auto_plan_monthly_week_3": "Terceira",
+        "auto_plan_monthly_week_4": "Quarta",
+        "auto_plan_monthly_week_last": "Ultima",
+        "auto_plan_schedule_invalid": "Horario de cliente invalido.",
+        "auto_plan_schedule_invalid_invalid_json": "O horario nao e um JSON valido.",
+        "auto_plan_schedule_invalid_bad_kind": "Tipo de recorrencia desconhecido.",
+        "auto_plan_schedule_invalid_bad_weekday": "Dia da semana deve ser 0-6.",
+        "auto_plan_schedule_invalid_bad_start": "Inicio deve ser HH:MM.",
+        "auto_plan_schedule_invalid_bad_end": "Fim deve ser HH:MM.",
+        "auto_plan_schedule_invalid_end_before_start": "O fim deve ser depois do inicio.",
+        "auto_plan_schedule_invalid_anchor_date_required": "A data ancora e obrigatoria.",
+        "auto_plan_schedule_invalid_bad_anchor_date": "A data ancora nao e valida.",
+        "auto_plan_schedule_invalid_anchor_weekday_mismatch": "A data ancora nao corresponde ao dia da semana escolhido.",
+        "auto_plan_schedule_invalid_bad_monthly_week": "A semana do mes deve ser 1-4 ou -1.",
+        "auto_plan_schedule_invalid_bad_custom_interval": "O intervalo deve estar entre 2 e 52 semanas.",
         "auto_plan_confidence_tooltip": "Ocorrências observadas em relação às esperadas na janela analisada.",
         "auto_plan_unknown_status_ignored": "Estados desconhecidos ignorados",
         "auto_plan_write_refused": "Auto-planeamento não está em modo de escrita: nenhum serviço, proposta ou bloqueio pode ser gravado.",
@@ -4678,6 +4843,228 @@ def parse_service_description(raw, max_len=SERVICE_DESCRIPTION_MAX):
     if len(text) > max_len:
         text = text[:max_len].rstrip()
     return text
+
+
+# ---------------------------------------------------------------------------
+# Client explicit schedule — Phase 1
+#
+# Operators can configure a per-client recurring visit schedule as a
+# JSON list stored in ``clients.cleaning_frequency``. Phase 1 adds
+# ONLY the data model, the strict validator, the admin UI and the
+# tests; the recurrence engine is NOT changed yet (Phase 3). The
+# validator here is the single source of truth for the JSON shape
+# and refuses anything it cannot represent precisely.
+#
+# Shape:
+#   list[dict], 0..N entries. Each entry MUST carry:
+#     - kind:     "weekly" | "biweekly" | "monthly" | "custom"
+#     - weekday:  int 0..6  (0 = Monday ... 6 = Sunday)
+#     - start:    "HH:MM"
+#     - end:      "HH:MM"   (strictly later than start, same day)
+#   And conditionally:
+#     - preferred_workers: list[str]  (optional, default [])
+#     - anchor_date:       "YYYY-MM-DD"  (REQUIRED for biweekly and
+#                                         custom; optional for weekly
+#                                         and monthly)
+#     - monthly_week:      int 1..4 or -1 (REQUIRED only when
+#                                          kind=monthly; -1 = last)
+#     - custom_interval_weeks: int >= 2  (REQUIRED only when kind=custom)
+#
+# Year-boundary correctness: ``anchor_date`` is parsed as a strict
+# ISO calendar date, so a cycle anchored on 2026-12-28 and running
+# every 3 weeks correctly projects into 2027 without any wrap bug.
+# ---------------------------------------------------------------------------
+
+AP_SCHEDULE_KINDS = frozenset({"weekly", "biweekly", "monthly", "custom"})
+AP_SCHEDULE_ALLOWED_KEYS = frozenset({
+    "kind", "weekday", "start", "end", "preferred_workers",
+    "anchor_date", "monthly_week", "custom_interval_weeks",
+})
+AP_SCHEDULE_MAX_ENTRIES = 32
+AP_SCHEDULE_MAX_WORKERS_PER_ENTRY = 16
+
+
+class ClientScheduleInvalid(ValueError):
+    """Raised when ``cleaning_frequency`` cannot be represented as a
+    well-formed list of visit specs. Carries a stable ``code`` that
+    the UI maps to a translated flash message, so no raw parser
+    message ever surfaces to the admin.
+    """
+
+    def __init__(self, code, detail=""):
+        super().__init__(code)
+        self.code = code
+        self.detail = detail
+
+
+def _schedule_fail(code, detail=""):
+    raise ClientScheduleInvalid(code, detail)
+
+
+def _parse_hhmm(value):
+    if not isinstance(value, str):
+        return None
+    if len(value) != 5 or value[2] != ":":
+        return None
+    try:
+        hh = int(value[:2])
+        mm = int(value[3:])
+    except ValueError:
+        return None
+    if hh < 0 or hh > 23 or mm < 0 or mm > 59:
+        return None
+    return hh * 60 + mm
+
+
+def _parse_iso_date(value):
+    """Strict ISO date parser used for ``anchor_date``.
+
+    Returns a ``datetime.date`` on success, ``None`` otherwise. The
+    strictness matters because the engine (Phase 3) will do date
+    arithmetic across year boundaries from this anchor; a loose
+    parse that silently accepts ``2026/1/1`` would break the
+    biweekly / custom cycle count.
+    """
+    if not isinstance(value, str) or len(value) != 10 or value[4] != "-" \
+       or value[7] != "-":
+        return None
+    try:
+        return dt_date.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def parse_client_cleaning_frequency(raw):
+    """Return the canonical list of visit specs for a client.
+
+    * Empty string / None / whitespace-only → ``[]`` (meaning "no
+      explicit schedule"; the engine falls back to history-based
+      detection, preserving the pre-feature behaviour).
+    * Non-empty input must be a JSON array; every element is checked
+      against the shape above. On ANY problem, raises
+      :class:`ClientScheduleInvalid` with a stable ``code`` the UI
+      maps to a translated error message.
+    * The function NEVER partially persists: either the whole list
+      validates or nothing is accepted.
+    """
+    if raw is None:
+        return []
+    if isinstance(raw, (bytes, bytearray)):
+        raw = raw.decode("utf-8", errors="replace")
+    text = str(raw).strip()
+    if not text:
+        return []
+    try:
+        value = json.loads(text)
+    except ValueError:
+        _schedule_fail("invalid_json")
+    if not isinstance(value, list):
+        _schedule_fail("not_a_list")
+    if len(value) > AP_SCHEDULE_MAX_ENTRIES:
+        _schedule_fail("too_many_entries")
+
+    canonical = []
+    for index, entry in enumerate(value):
+        if not isinstance(entry, dict):
+            _schedule_fail("entry_not_object", str(index))
+        unknown = set(entry.keys()) - AP_SCHEDULE_ALLOWED_KEYS
+        if unknown:
+            _schedule_fail("unknown_key", ",".join(sorted(unknown)))
+        kind = entry.get("kind")
+        if kind not in AP_SCHEDULE_KINDS:
+            _schedule_fail("bad_kind", str(kind))
+        weekday = entry.get("weekday")
+        if not isinstance(weekday, int) or isinstance(weekday, bool) \
+           or weekday < 0 or weekday > 6:
+            _schedule_fail("bad_weekday", str(weekday))
+        start_m = _parse_hhmm(entry.get("start"))
+        end_m = _parse_hhmm(entry.get("end"))
+        if start_m is None:
+            _schedule_fail("bad_start", str(entry.get("start")))
+        if end_m is None:
+            _schedule_fail("bad_end", str(entry.get("end")))
+        if end_m <= start_m:
+            _schedule_fail("end_before_start",
+                           f"{entry.get('start')}-{entry.get('end')}")
+
+        preferred = entry.get("preferred_workers", [])
+        if not isinstance(preferred, list):
+            _schedule_fail("preferred_workers_not_a_list")
+        if len(preferred) > AP_SCHEDULE_MAX_WORKERS_PER_ENTRY:
+            _schedule_fail("too_many_preferred_workers")
+        preferred_clean = []
+        for name in preferred:
+            if not isinstance(name, str):
+                _schedule_fail("preferred_worker_not_string")
+            trimmed = name.strip()
+            if not trimmed:
+                _schedule_fail("preferred_worker_empty")
+            if trimmed in preferred_clean:
+                _schedule_fail("preferred_worker_duplicate", trimmed)
+            preferred_clean.append(trimmed)
+
+        anchor_raw = entry.get("anchor_date", "")
+        anchor_date_obj = None
+        if anchor_raw:
+            anchor_date_obj = _parse_iso_date(anchor_raw)
+            if anchor_date_obj is None:
+                _schedule_fail("bad_anchor_date", str(anchor_raw))
+            if anchor_date_obj.weekday() != weekday:
+                _schedule_fail("anchor_weekday_mismatch", anchor_raw)
+
+        monthly_week = entry.get("monthly_week")
+        custom_interval = entry.get("custom_interval_weeks")
+
+        if kind in ("biweekly", "custom"):
+            if anchor_date_obj is None:
+                _schedule_fail("anchor_date_required", kind)
+
+        if kind == "monthly":
+            if not isinstance(monthly_week, int) or isinstance(monthly_week, bool):
+                _schedule_fail("bad_monthly_week", str(monthly_week))
+            if monthly_week not in (1, 2, 3, 4, -1):
+                _schedule_fail("bad_monthly_week", str(monthly_week))
+        else:
+            if monthly_week not in (None, ""):
+                _schedule_fail("monthly_week_not_allowed", kind)
+
+        if kind == "custom":
+            if not isinstance(custom_interval, int) \
+               or isinstance(custom_interval, bool):
+                _schedule_fail("bad_custom_interval", str(custom_interval))
+            if custom_interval < 2 or custom_interval > 52:
+                _schedule_fail("bad_custom_interval", str(custom_interval))
+        else:
+            if custom_interval not in (None, ""):
+                _schedule_fail("custom_interval_not_allowed", kind)
+
+        canonical_entry = {
+            "kind": kind,
+            "weekday": weekday,
+            "start": entry.get("start"),
+            "end": entry.get("end"),
+            "preferred_workers": preferred_clean,
+        }
+        if anchor_raw:
+            canonical_entry["anchor_date"] = anchor_raw
+        if kind == "monthly":
+            canonical_entry["monthly_week"] = monthly_week
+        if kind == "custom":
+            canonical_entry["custom_interval_weeks"] = custom_interval
+        canonical.append(canonical_entry)
+
+    return canonical
+
+
+def serialize_client_cleaning_frequency(entries):
+    """Dump a validated list back to the stored JSON form.
+
+    Round-trip stable: ``parse(serialize(x)) == parse(x)`` for any
+    list ``x`` that successfully validated.
+    """
+    if not entries:
+        return ""
+    return json.dumps(entries, ensure_ascii=False, sort_keys=False)
 
 
 def invoice_service_title(date_from, _date_to=None, prefix=None):
@@ -6865,6 +7252,14 @@ def init_db():
         ("contract_from",      "TEXT DEFAULT ''"),
         ("contract_to",        "TEXT DEFAULT ''"),
         ("notes",              "TEXT DEFAULT ''"),
+        # Phase 1 of the explicit client schedule feature: a JSON TEXT
+        # column that stores a list of visit specs (see
+        # ``parse_client_cleaning_frequency`` for the schema). Empty
+        # string ⇒ "no explicit schedule" ⇒ engine falls back to
+        # history-based detection, exactly as before this column
+        # existed. All existing clients receive '' by default so
+        # legacy rows keep working untouched.
+        ("cleaning_frequency", "TEXT DEFAULT ''"),
     ]:
         if _col not in client_cols:
             c.execute(f"ALTER TABLE clients ADD COLUMN {_col} {_ddl}")
@@ -17233,15 +17628,47 @@ def edit_client(name):
         service_desc_new = parse_service_description(
             f.get("invoice_service_description", ""),
         )
+        # Phase 1: optional explicit schedule. Blank or missing
+        # field preserves the existing stored value (so editing
+        # unrelated fields never silently drops a configured
+        # schedule); invalid JSON surfaces a flash + reject.
+        _SCHED_MISSING = object()
+        schedule_raw = f.get("cleaning_frequency_json", _SCHED_MISSING)
+        cleaning_frequency_new = None  # ``None`` = preserve
+        if schedule_raw is not _SCHED_MISSING:
+            try:
+                schedule_entries = parse_client_cleaning_frequency(
+                    schedule_raw,
+                )
+            except ClientScheduleInvalid as exc:
+                conn.close()
+                flash(tr.get(
+                    "auto_plan_schedule_invalid_" + exc.code,
+                    tr.get("auto_plan_schedule_invalid",
+                           "Neispravan raspored klijenta."),
+                ), "error")
+                return redirect("/edit_client/" + urllib.parse.quote(name))
+            cleaning_frequency_new = serialize_client_cleaning_frequency(
+                schedule_entries,
+            )
         if new_name:
             try:
                 # Phase 1: clients row (incl. optional rename).
-                c.execute(
-                    "UPDATE clients SET name=?, address=?, phone=?, email=?, "
-                    "contract_signed_at=?, contract_from=?, contract_to=?, notes=? "
-                    "WHERE name=?",
-                    (new_name, address, phone, email, csigned, cfrom, cto, notes, name),
-                )
+                if cleaning_frequency_new is None:
+                    c.execute(
+                        "UPDATE clients SET name=?, address=?, phone=?, email=?, "
+                        "contract_signed_at=?, contract_from=?, contract_to=?, notes=? "
+                        "WHERE name=?",
+                        (new_name, address, phone, email, csigned, cfrom, cto, notes, name),
+                    )
+                else:
+                    c.execute(
+                        "UPDATE clients SET name=?, address=?, phone=?, email=?, "
+                        "contract_signed_at=?, contract_from=?, contract_to=?, "
+                        "notes=?, cleaning_frequency=? WHERE name=?",
+                        (new_name, address, phone, email, csigned, cfrom, cto,
+                         notes, cleaning_frequency_new, name),
+                    )
                 # Phase 2: cascade a rename through shifts + the
                 # (one) linked invoice profile BEFORE the upsert, so
                 # the single existing profile keeps its hourly_rate /
@@ -17310,7 +17737,8 @@ def edit_client(name):
     row = c.execute(
         "SELECT name, address, COALESCE(phone,''), COALESCE(email,''), "
         "COALESCE(contract_signed_at,''), COALESCE(contract_from,''), "
-        "COALESCE(contract_to,''), COALESCE(notes,'') "
+        "COALESCE(contract_to,''), COALESCE(notes,''), "
+        "COALESCE(cleaning_frequency,'') "
         "FROM clients WHERE name = ?", (name,)
     ).fetchone()
     # Pull the single invoice profile row for this client, if any —
@@ -17332,11 +17760,22 @@ def edit_client(name):
         "name": row[0], "address": row[1], "phone": row[2], "email": row[3],
         "contract_signed_at": row[4], "contract_from": row[5],
         "contract_to": row[6], "notes": row[7],
+        "cleaning_frequency": row[8],
         "client_type": _ptype,
         "hourly_rate": (float(profile_row[1]) if profile_row and profile_row[1] is not None else 0.0),
         "vat_rate": float(_pvat),
         "invoice_service_description": (profile_row[3] if profile_row else ""),
     }
+    # Precomputed worker list for the preferred_workers multi-select.
+    _conn2 = get_conn()
+    try:
+        workers_for_schedule = [
+            r[0] for r in _conn2.cursor().execute(
+                "SELECT name FROM workers ORDER BY name"
+            ).fetchall() if r and r[0]
+        ]
+    finally:
+        _conn2.close()
     return render_template_string(BASE_STYLE + header_html() + """
     <style>
       .cf-card { max-width:640px; margin:24px auto; background:{{ '#161618' if dark else 'white' }};
@@ -17470,13 +17909,246 @@ def edit_client(name):
         <label class="cf-label">📝 {{ tr.get("notes","Napomena") }}</label>
         <textarea class="cf-textarea" name="notes">{{ client.notes }}</textarea>
 
+        <!-- Phase 1 of the explicit client schedule: dynamic list of
+             visit specs, serialized as JSON into
+             #cs-cleaning_frequency_json on submit. Keeping the hidden
+             input empty is a valid state ⇒ "no explicit schedule". -->
+        <label class="cf-label" style="margin-top:18px;">
+          🗓️ {{ tr.get("auto_plan_schedule_title","Sedmicni raspored") }}
+        </label>
+        <div id="cs-schedule-list" class="cs-schedule-list"></div>
+        <button type="button" id="cs-schedule-add"
+                class="cf-btn cancel" style="margin-top:8px;max-width:200px;">
+          ➕ {{ tr.get("auto_plan_schedule_add","Dodaj termin") }}
+        </button>
+        <p class="cf-help">
+          {{ tr.get("auto_plan_schedule_empty_hint",
+                    "Prazno = automatsko zakljucivanje iz istorije.") }}
+        </p>
+        <input type="hidden" id="cs-cleaning_frequency_json"
+               name="cleaning_frequency_json" value="">
+
+        <style>
+          .cs-schedule-row { border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};
+                              border-radius:10px; padding:12px; margin:8px 0;
+                              display:grid;
+                              grid-template-columns:repeat(2, minmax(0,1fr));
+                              gap:8px; }
+          .cs-schedule-row label { font-size:11px; font-weight:700;
+                                   color:{{ '#94a3b8' if dark else '#64748b' }}; }
+          .cs-schedule-row select,
+          .cs-schedule-row input[type=time],
+          .cs-schedule-row input[type=date],
+          .cs-schedule-row input[type=number] {
+            width:100%; padding:6px 8px; border-radius:6px;
+            border:1px solid {{ '#2c2c30' if dark else '#cbd5e1' }};
+            background:{{ '#0f0f10' if dark else '#fff' }};
+            color:{{ '#e2e8f0' if dark else '#0f172a' }};
+            font-size:13px; box-sizing:border-box; }
+          .cs-schedule-workers { grid-column:1 / -1; }
+          .cs-schedule-workers select { height:80px; }
+          .cs-schedule-remove { grid-column:1 / -1;
+            padding:6px; border-radius:6px; border:1px solid #ef4444;
+            background:transparent; color:#ef4444; cursor:pointer;
+            font-weight:700; }
+          @media (max-width:720px){
+            .cs-schedule-row { grid-template-columns:1fr; }
+          }
+        </style>
+        <script>
+          (function() {
+            var WORKERS = {{ workers_for_schedule|tojson }};
+            var INITIAL = (function(){
+              var raw = {{ (client.cleaning_frequency or '')|tojson }};
+              if (!raw) return [];
+              try { var v = JSON.parse(raw); return Array.isArray(v) ? v : []; }
+              catch(e) { return []; }
+            })();
+            var LABELS = {
+              kind: {{ tr.get("auto_plan_frequency_kind","Vrsta")|tojson }},
+              weekday: {{ tr.get("auto_plan_frequency_weekday_label","Dan u sedmici")|tojson }},
+              start: {{ tr.get("auto_plan_frequency_start","Pocetak")|tojson }},
+              end: {{ tr.get("auto_plan_frequency_end","Kraj")|tojson }},
+              anchor: {{ tr.get("auto_plan_frequency_anchor_date","Pocetni datum ciklusa")|tojson }},
+              monthlyWeek: {{ tr.get("auto_plan_frequency_monthly_week","Sedmica u mjesecu")|tojson }},
+              customInterval: {{ tr.get("auto_plan_frequency_custom_interval_weeks","Interval (sedmica)")|tojson }},
+              preferred: {{ tr.get("auto_plan_frequency_preferred_workers","Preferirani radnici")|tojson }},
+              remove: {{ tr.get("auto_plan_schedule_remove","Ukloni")|tojson }},
+            };
+            var KINDS = [
+              ["weekly", {{ tr.get("auto_plan_frequency_kind_weekly","Sedmicno")|tojson }}],
+              ["biweekly", {{ tr.get("auto_plan_frequency_kind_biweekly","Svake 2 sedmice")|tojson }}],
+              ["monthly", {{ tr.get("auto_plan_frequency_kind_monthly","Mjesecno")|tojson }}],
+              ["custom", {{ tr.get("auto_plan_frequency_kind_custom","Prilagodeno")|tojson }}],
+            ];
+            var WEEKDAYS = [
+              {{ tr.get("monday","Pon")|tojson }},
+              {{ tr.get("tuesday","Uto")|tojson }},
+              {{ tr.get("wednesday","Sri")|tojson }},
+              {{ tr.get("thursday","Cet")|tojson }},
+              {{ tr.get("friday","Pet")|tojson }},
+              {{ tr.get("saturday","Sub")|tojson }},
+              {{ tr.get("sunday","Ned")|tojson }},
+            ];
+            var MONTHLY_WEEKS = [
+              [1, {{ tr.get("auto_plan_monthly_week_1","Prva")|tojson }}],
+              [2, {{ tr.get("auto_plan_monthly_week_2","Druga")|tojson }}],
+              [3, {{ tr.get("auto_plan_monthly_week_3","Treca")|tojson }}],
+              [4, {{ tr.get("auto_plan_monthly_week_4","Cetvrta")|tojson }}],
+              [-1, {{ tr.get("auto_plan_monthly_week_last","Posljednja")|tojson }}],
+            ];
+            var list = document.getElementById("cs-schedule-list");
+            var hidden = document.getElementById("cs-cleaning_frequency_json");
+            var form = hidden.closest("form");
+            function selectBuilder(options, selected) {
+              var sel = document.createElement("select");
+              options.forEach(function(opt) {
+                var o = document.createElement("option");
+                o.value = String(opt[0]); o.textContent = opt[1];
+                if (String(opt[0]) === String(selected)) o.selected = true;
+                sel.appendChild(o);
+              });
+              return sel;
+            }
+            function render(entries) {
+              list.innerHTML = "";
+              entries.forEach(function(entry, idx) {
+                var row = document.createElement("div");
+                row.className = "cs-schedule-row";
+                row.dataset.index = String(idx);
+                var kindCell = document.createElement("div");
+                kindCell.innerHTML = '<label>' + LABELS.kind + '</label>';
+                var kindSel = selectBuilder(KINDS, entry.kind || "weekly");
+                kindSel.dataset.field = "kind"; kindCell.appendChild(kindSel);
+                row.appendChild(kindCell);
+
+                var wkCell = document.createElement("div");
+                wkCell.innerHTML = '<label>' + LABELS.weekday + '</label>';
+                var wkSel = selectBuilder(
+                  WEEKDAYS.map(function(n,i){return [i,n];}),
+                  entry.weekday != null ? entry.weekday : 0,
+                );
+                wkSel.dataset.field = "weekday"; wkCell.appendChild(wkSel);
+                row.appendChild(wkCell);
+
+                ["start", "end"].forEach(function(field) {
+                  var cell = document.createElement("div");
+                  cell.innerHTML = '<label>' + LABELS[field] + '</label>';
+                  var inp = document.createElement("input");
+                  inp.type = "time"; inp.dataset.field = field;
+                  inp.value = entry[field] || "";
+                  cell.appendChild(inp); row.appendChild(cell);
+                });
+
+                var anchorCell = document.createElement("div");
+                anchorCell.innerHTML = '<label>' + LABELS.anchor + '</label>';
+                var anchorInp = document.createElement("input");
+                anchorInp.type = "date"; anchorInp.dataset.field = "anchor_date";
+                anchorInp.value = entry.anchor_date || "";
+                anchorCell.appendChild(anchorInp); row.appendChild(anchorCell);
+
+                var monthlyCell = document.createElement("div");
+                monthlyCell.innerHTML = '<label>' + LABELS.monthlyWeek + '</label>';
+                var monthlySel = selectBuilder(MONTHLY_WEEKS,
+                  entry.monthly_week != null ? entry.monthly_week : 1);
+                monthlySel.dataset.field = "monthly_week";
+                monthlyCell.appendChild(monthlySel);
+                row.appendChild(monthlyCell);
+
+                var customCell = document.createElement("div");
+                customCell.innerHTML = '<label>' + LABELS.customInterval + '</label>';
+                var customInp = document.createElement("input");
+                customInp.type = "number"; customInp.min = "2"; customInp.max = "52";
+                customInp.step = "1"; customInp.dataset.field = "custom_interval_weeks";
+                customInp.value = entry.custom_interval_weeks || "";
+                customCell.appendChild(customInp); row.appendChild(customCell);
+
+                var workersCell = document.createElement("div");
+                workersCell.className = "cs-schedule-workers";
+                workersCell.innerHTML = '<label>' + LABELS.preferred + '</label>';
+                var workersSel = document.createElement("select");
+                workersSel.multiple = true;
+                workersSel.dataset.field = "preferred_workers";
+                WORKERS.forEach(function(name) {
+                  var o = document.createElement("option");
+                  o.value = name; o.textContent = name;
+                  if ((entry.preferred_workers || []).indexOf(name) !== -1) {
+                    o.selected = true;
+                  }
+                  workersSel.appendChild(o);
+                });
+                workersCell.appendChild(workersSel);
+                row.appendChild(workersCell);
+
+                var rm = document.createElement("button");
+                rm.type = "button"; rm.className = "cs-schedule-remove";
+                rm.textContent = "✕ " + LABELS.remove;
+                rm.addEventListener("click", function() {
+                  entries.splice(idx, 1); render(entries);
+                });
+                row.appendChild(rm);
+
+                function visibility() {
+                  var k = kindSel.value;
+                  monthlyCell.style.display = (k === "monthly") ? "" : "none";
+                  customCell.style.display = (k === "custom") ? "" : "none";
+                  anchorCell.querySelector("label").textContent =
+                    (k === "biweekly" || k === "custom")
+                      ? (LABELS.anchor + " *")
+                      : LABELS.anchor;
+                }
+                kindSel.addEventListener("change", visibility);
+                visibility();
+              });
+            }
+            function readRow(row) {
+              var entry = {};
+              row.querySelectorAll("[data-field]").forEach(function(el) {
+                var field = el.dataset.field;
+                if (field === "preferred_workers") {
+                  entry.preferred_workers = Array.from(el.selectedOptions)
+                    .map(function(o){return o.value;});
+                } else if (field === "weekday" || field === "monthly_week") {
+                  entry[field] = parseInt(el.value, 10);
+                } else if (field === "custom_interval_weeks") {
+                  if (el.value !== "") entry[field] = parseInt(el.value, 10);
+                } else {
+                  if (el.value) entry[field] = el.value;
+                }
+              });
+              if (entry.kind !== "monthly") delete entry.monthly_week;
+              if (entry.kind !== "custom") delete entry.custom_interval_weeks;
+              if (!entry.anchor_date) delete entry.anchor_date;
+              return entry;
+            }
+            function serialize() {
+              var rows = Array.from(list.querySelectorAll(".cs-schedule-row"));
+              var entries = rows.map(readRow);
+              hidden.value = entries.length ? JSON.stringify(entries) : "";
+            }
+            form.addEventListener("submit", serialize);
+            document.getElementById("cs-schedule-add").addEventListener(
+              "click", function() {
+                var cur = INITIAL.concat();
+                var rows = Array.from(list.querySelectorAll(".cs-schedule-row"));
+                cur = rows.map(readRow);
+                cur.push({kind: "weekly", weekday: 0,
+                          start: "09:00", end: "11:00",
+                          preferred_workers: []});
+                INITIAL = cur; render(INITIAL);
+              });
+            render(INITIAL);
+          })();
+        </script>
+
         <div class="cf-actions">
           <button type="submit" class="cf-btn primary">💾 {{ tr.get("save","Sacuvaj") }}</button>
           <a class="cf-btn cancel" href="/clients">{{ tr.get("back","Nazad") }}</a>
         </div>
       </form>
     </div>
-    """, tr=tr, dark=dark, client=client)
+    """, tr=tr, dark=dark, client=client,
+         workers_for_schedule=workers_for_schedule)
 
 @app.route("/edit_shift/<int:id>", methods=["GET", "POST"])
 def edit_shift(id):
@@ -17704,6 +18376,28 @@ def add_client():
         f.get("invoice_service_description", ""),
     )
 
+    # Phase 1: optional explicit schedule. The field is MISSING on
+    # the dashboard quick-add form (which only submits name+address)
+    # — in that case we store ''. If the field is present but fails
+    # strict validation, surface a translated flash and bail out
+    # BEFORE touching the clients row.
+    schedule_raw = f.get("cleaning_frequency_json", _MISSING)
+    if schedule_raw is _MISSING:
+        cleaning_frequency_val = ""
+    else:
+        try:
+            schedule_entries = parse_client_cleaning_frequency(schedule_raw)
+        except ClientScheduleInvalid as exc:
+            flash(tr.get(
+                "auto_plan_schedule_invalid_" + exc.code,
+                tr.get("auto_plan_schedule_invalid",
+                       "Neispravan raspored klijenta."),
+            ), "error")
+            return redirect(return_url)
+        cleaning_frequency_val = serialize_client_cleaning_frequency(
+            schedule_entries,
+        )
+
     conn = get_conn(); c = conn.cursor()
     try:
         # Atomic insert: if the clients row doesn't actually land
@@ -17713,9 +18407,10 @@ def add_client():
         c.execute(
             "INSERT OR IGNORE INTO clients "
             "(name, address, phone, email, contract_signed_at, "
-            " contract_from, contract_to, notes) "
-            "VALUES (?,?,?,?,?,?,?,?)",
-            (name, address, phone, email, csigned, cfrom, cto, notes),
+            " contract_from, contract_to, notes, cleaning_frequency) "
+            "VALUES (?,?,?,?,?,?,?,?,?)",
+            (name, address, phone, email, csigned, cfrom, cto, notes,
+             cleaning_frequency_val),
         )
         inserted = (c.rowcount or 0) > 0
         if not inserted:
