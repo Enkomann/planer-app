@@ -3271,6 +3271,10 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_issue_preferred_worker_unknown": "Preferirani radnik vise ne postoji",
         "auto_plan_source_schedule": "Ugovoreni raspored",
         "auto_plan_source_history": "Istorija",
+        "auto_plan_issue_worker_availability_invalid": "Dostupnost radnika je ostecena",
+        "auto_plan_issue_outside_working_hours_unconfirmed": "Izuzetak nije potvrdjen od administratora",
+        "auto_plan_outside_hours_confirmed": "Izuzetak van radnog vremena potvrdjen.",
+        "auto_plan_outside_hours_revoked": "Potvrda izuzetka povucena.",
         "auto_plan_confidence_tooltip": "Zabiljezene pojave u odnosu na ocekivane u analiziranom periodu.",
         "auto_plan_unknown_status_ignored": "Nepoznati statusi ignorisani",
         "auto_plan_write_refused": "Automatsko planiranje nije u rezimu upisivanja: nijedan rad, prijedlog ni zakljucavanje ne moze biti upisano.",
@@ -3373,6 +3377,10 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_issue_preferred_worker_unknown": "L employe prefere n existe plus",
         "auto_plan_source_schedule": "Horaire contractuel",
         "auto_plan_source_history": "Historique",
+        "auto_plan_issue_worker_availability_invalid": "La disponibilite du salarie est corrompue",
+        "auto_plan_issue_outside_working_hours_unconfirmed": "Exception non confirmee par l administrateur",
+        "auto_plan_outside_hours_confirmed": "Exception hors horaires confirmee.",
+        "auto_plan_outside_hours_revoked": "Confirmation d exception annulee.",
         "auto_plan_confidence_tooltip": "Occurrences observées sur occurrences attendues dans la fenêtre analysée.",
         "auto_plan_unknown_status_ignored": "Statuts inconnus ignorés",
         "auto_plan_write_refused": "L'auto-planning n'est pas en mode écriture : aucune intervention, proposition, ou verrou ne peut être enregistré.",
@@ -3475,6 +3483,10 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_issue_preferred_worker_unknown": "Preferred worker no longer exists",
         "auto_plan_source_schedule": "Contract schedule",
         "auto_plan_source_history": "History",
+        "auto_plan_issue_worker_availability_invalid": "Worker availability is corrupt",
+        "auto_plan_issue_outside_working_hours_unconfirmed": "Exception not confirmed by the admin",
+        "auto_plan_outside_hours_confirmed": "Outside-hours exception confirmed.",
+        "auto_plan_outside_hours_revoked": "Exception confirmation revoked.",
         "auto_plan_confidence_tooltip": "Observed occurrences against the number expected over the analysed window.",
         "auto_plan_unknown_status_ignored": "Unknown statuses ignored",
         "auto_plan_write_refused": "Auto-planning is not in write mode: no shift, proposal, draft or lock can be written.",
@@ -3577,6 +3589,10 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_issue_preferred_worker_unknown": "Bevorzugter Mitarbeiter existiert nicht mehr",
         "auto_plan_source_schedule": "Vertragsplan",
         "auto_plan_source_history": "Verlauf",
+        "auto_plan_issue_worker_availability_invalid": "Verfuegbarkeit des Mitarbeiters ist beschaedigt",
+        "auto_plan_issue_outside_working_hours_unconfirmed": "Ausnahme vom Administrator nicht bestaetigt",
+        "auto_plan_outside_hours_confirmed": "Ausnahme ausserhalb der Arbeitszeit bestaetigt.",
+        "auto_plan_outside_hours_revoked": "Ausnahmebestaetigung widerrufen.",
         "auto_plan_confidence_tooltip": "Beobachtete Vorkommen gegenueber den erwarteten im Analysefenster.",
         "auto_plan_unknown_status_ignored": "Unbekannte Statuswerte ignoriert",
         "auto_plan_write_refused": "Auto-Planung nicht im Schreibmodus: keine Schicht, Vorschlag, Entwurf oder Sperre kann geschrieben werden.",
@@ -3679,6 +3695,10 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_issue_preferred_worker_unknown": "O trabalhador preferido ja nao existe",
         "auto_plan_source_schedule": "Horario contratual",
         "auto_plan_source_history": "Historico",
+        "auto_plan_issue_worker_availability_invalid": "A disponibilidade do trabalhador esta corrompida",
+        "auto_plan_issue_outside_working_hours_unconfirmed": "Excecao nao confirmada pelo administrador",
+        "auto_plan_outside_hours_confirmed": "Excecao fora do horario de trabalho confirmada.",
+        "auto_plan_outside_hours_revoked": "Confirmacao da excecao revogada.",
         "auto_plan_confidence_tooltip": "Ocorrências observadas em relação às esperadas na janela analisada.",
         "auto_plan_unknown_status_ignored": "Estados desconhecidos ignorados",
         "auto_plan_write_refused": "Auto-planeamento não está em modo de escrita: nenhum serviço, proposta ou bloqueio pode ser gravado.",
@@ -7496,6 +7516,12 @@ def init_db():
                 c.execute(
                     "ALTER TABLE shift_proposals "
                     "ADD COLUMN source TEXT DEFAULT ''"
+                )
+            if "outside_hours_confirmed" not in sp_cols:
+                c.execute(
+                    "ALTER TABLE shift_proposals "
+                    "ADD COLUMN outside_hours_confirmed "
+                    "INTEGER DEFAULT 0"
                 )
         except Exception as _sp_err:
             app.logger.warning(
@@ -21898,13 +21924,23 @@ def ap_project_from_schedule(conn, target_week_start, now_known_workers=None):
             preferred = list(entry.get("preferred_workers") or [])
             unknown_preferred = [p for p in preferred
                                  if p not in now_known_workers]
-            available_preferred = [p for p in preferred
+            existing_preferred = [p for p in preferred
                                    if p in now_known_workers]
-            # Pick the first available preferred worker. If every
-            # preferred is unknown (deleted/renamed since save), leave
-            # worker empty so ap_run_checks tags worker_missing and
-            # admin must pick manually in the review page.
-            worker_name = available_preferred[0] if available_preferred else ""
+            # Phase 3 P1 fix: among the preferred workers that still
+            # exist, skip anyone whose target_date clashes with an
+            # absence or an approved leave. Only when EVERY preferred
+            # option is unavailable (or none exists) does the
+            # proposal fall back to worker="" so admin picks one
+            # manually in the review page.
+            target_iso = target_date.isoformat()
+            conflict_free = []
+            for cand in existing_preferred:
+                if ap_check_absence(conn, cand, target_iso):
+                    continue
+                if ap_check_leave_approved(conn, cand, target_iso):
+                    continue
+                conflict_free.append(cand)
+            worker_name = conflict_free[0] if conflict_free else ""
 
             start_time = entry["start"]
             end_time = entry["end"]
@@ -21981,6 +22017,15 @@ AP_BLOCKING_ISSUES = frozenset({
     # straight to shifts. Admin fixes the stored JSON on the client,
     # then re-generates.
     "schedule_invalid",
+    # Phase 3: a worker whose availability JSON is corrupt cannot
+    # have shifts auto-written for them — admin fixes the stored
+    # workers.availability row first.
+    "worker_availability_invalid",
+    # Phase 3: outside-working-hours shift must be explicitly
+    # acknowledged by the admin before apply. The flag lives on
+    # shift_proposals.outside_hours_confirmed and resets on any
+    # field edit (see ap_update_proposal_fields).
+    "outside_working_hours_unconfirmed",
 })
 
 
@@ -22384,11 +22429,11 @@ def ap_run_checks(conn, proposals, target_week_start):
                 ))
         issues.extend(ap_check_overlap_existing(conn, proposal))
         issues.extend(batch_issues.get(index, []))
-        # Phase 3: per-worker working-hours warning. Non-blocking; a
-        # defined availability either explicitly flags an off day or
-        # a shift that doesn't fit the configured intervals. Empty
-        # or UNDEFINED availability keeps the historical no-warning
-        # behaviour (see ``check_shift_within_working_hours``).
+        # Phase 3: per-worker working-hours warning. Non-blocking
+        # unless the stored availability JSON is corrupt (then it
+        # becomes a BLOCKING issue so a damaged record cannot slip
+        # past apply unnoticed). Empty / UNDEFINED availability keeps
+        # the historical no-warning behaviour.
         try:
             cur = conn.cursor()
             av_rows = {
@@ -22400,10 +22445,25 @@ def ap_run_checks(conn, proposals, target_week_start):
             }
         except Exception:
             av_rows = {}
-        time_bounds = valid_time
         for worker_name in workers:
             av_raw = av_rows.get(worker_name, "")
             if not av_raw:
+                continue
+            try:
+                parse_worker_availability(av_raw)
+            except WorkerAvailabilityInvalid:
+                # Log WITHOUT the stored content — just the worker
+                # name and the error code — and surface a blocking
+                # issue so admin fixes the row before any shift
+                # based on this worker is written.
+                app.logger.warning(
+                    "worker availability malformed; refusing silent "
+                    "fallback for worker=%s", worker_name,
+                )
+                issues.append(_ap_issue(
+                    "worker_availability_invalid", "blocking",
+                    worker=worker_name,
+                ))
                 continue
             start_hhmm, _, end_hhmm = str(
                 proposal.get("time", "")
@@ -22416,7 +22476,24 @@ def ap_run_checks(conn, proposals, target_week_start):
                     "outside_working_hours", "warning",
                     worker=worker_name,
                 ))
-        del time_bounds  # placeholder: kept name for grep-ability
+        # Phase 3: outside_working_hours must be explicitly confirmed
+        # by the admin before apply. If any outside_working_hours
+        # warning is present on this proposal and the stored
+        # ``outside_hours_confirmed`` flag is 0, inject a BLOCKING
+        # ``outside_working_hours_unconfirmed`` issue so the apply
+        # guard refuses the write. Field edits reset the flag — see
+        # ap_update_proposal_fields.
+        has_outside = any(
+            isinstance(iss, dict)
+            and iss.get("code") == "outside_working_hours"
+            for iss in issues
+        )
+        if has_outside and not int(
+            proposal.get("outside_hours_confirmed", 0) or 0
+        ):
+            issues.append(_ap_issue(
+                "outside_working_hours_unconfirmed", "blocking",
+            ))
         holiday_name = ap_check_holiday(conn, target_date)
         if holiday_name:
             issues.append(_ap_issue(
@@ -22699,7 +22776,8 @@ def ap_load_draft_proposals(conn, batch_id):
         "SELECT id, batch_id, target_date, time, client, worker, "
         "recurrence_period, confidence, status, issues, source_last_seen, "
         "is_locked, manual_override, alternative_workers, applied_shift_id, "
-        "created_at, updated_at, COALESCE(source,'') FROM shift_proposals "
+        "created_at, updated_at, COALESCE(source,''), "
+        "COALESCE(outside_hours_confirmed, 0) FROM shift_proposals "
         "WHERE batch_id = ? ORDER BY target_date, time, client, id",
         (int(batch_id),),
     ).fetchall()
@@ -22720,6 +22798,7 @@ def ap_load_draft_proposals(conn, batch_id):
             "updated_at": str(row[16] or ""),
             # Phase 3: "schedule" | "history" | "" (legacy, pre-column).
             "source": str(row[17] or ""),
+            "outside_hours_confirmed": int(row[18] or 0),
         }
         try:
             start_time, end_time = split_time_range(item["time"])
@@ -22864,6 +22943,7 @@ def ap_update_proposal_fields(conn, batch, proposal_id, values):
     cursor.execute(
         "UPDATE shift_proposals SET worker = ?, client = ?, target_date = ?, "
         "time = ?, is_locked = ?, manual_override = 1, status = 'proposed', "
+        "outside_hours_confirmed = 0, "
         "updated_at = ? WHERE id = ? AND batch_id = ? "
         "AND applied_shift_id IS NULL",
         (
@@ -24463,6 +24543,66 @@ def auto_plan_update_proposal(batch_id, proposal_id):
         "pending": "auto_plan_changes_saved",
     }[action]
     flash(t().get(message_key, "Saved."), "ok")
+    return redirect(url_for("auto_plan_review", batch=batch_id))
+
+
+@app.route(
+    "/plan/review/<int:batch_id>/proposal/<int:proposal_id>"
+    "/confirm_outside_hours",
+    methods=["POST"],
+)
+def auto_plan_confirm_outside_hours(batch_id, proposal_id):
+    """Toggle shift_proposals.outside_hours_confirmed for one row.
+
+    The flag is checked server-side at apply (see
+    ``outside_working_hours_unconfirmed`` blocking issue). It resets
+    to 0 whenever the admin edits worker / client / date / time —
+    enforced in :func:`ap_update_proposal_fields` — so a prior
+    confirmation can never persist across a field change.
+    """
+    guard = _ap_phase5_post_guard()
+    if guard is not None:
+        return guard
+    confirm = 1 if str(request.form.get("confirm", "0")) == "1" else 0
+    conn = get_conn()
+    try:
+        with _AP_BATCH_MUTATION_LOCK:
+            ap_lock_batch_mutation(conn, batch_id)
+            batch = _ap_owned_batch_for_mutation(conn, batch_id)
+            if batch is None:
+                return "Not Found", 404
+            if ap_batch_state(batch) != "open":
+                return t().get(
+                    "auto_plan_draft_applied", "Draft is closed.",
+                ), 409
+            cur = conn.cursor()
+            cur.execute(
+                "UPDATE shift_proposals "
+                "SET outside_hours_confirmed = ?, updated_at = ? "
+                "WHERE id = ? AND batch_id = ? "
+                "AND applied_shift_id IS NULL",
+                (confirm, _ap_phase5_timestamp(),
+                 int(proposal_id), int(batch_id)),
+            )
+            if cur.rowcount != 1:
+                conn.rollback()
+                return "Not Found", 404
+            conn.commit()
+    except Exception:
+        conn.rollback()
+        app.logger.exception(
+            "Auto-planning outside-hours confirm toggle failed",
+        )
+        return t().get(
+            "auto_plan_apply_failed", "Update failed.",
+        ), 500
+    finally:
+        conn.close()
+    flash(t().get(
+        "auto_plan_outside_hours_confirmed"
+        if confirm else "auto_plan_outside_hours_revoked",
+        "Updated.",
+    ), "ok")
     return redirect(url_for("auto_plan_review", batch=batch_id))
 
 
