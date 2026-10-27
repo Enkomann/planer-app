@@ -3234,6 +3234,19 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_schedule_invalid_anchor_weekday_mismatch": "Pocetni datum ne odgovara odabranom danu u sedmici.",
         "auto_plan_schedule_invalid_bad_monthly_week": "Mjesecna sedmica mora biti 1-4 ili -1.",
         "auto_plan_schedule_invalid_bad_custom_interval": "Interval mora biti izmedu 2 i 52 sedmice.",
+        "auto_plan_schedule_invalid_not_a_list": "Raspored mora biti lista termina.",
+        "auto_plan_schedule_invalid_too_many_entries": "Previse termina u rasporedu.",
+        "auto_plan_schedule_invalid_entry_not_object": "Svaki termin mora biti objekat.",
+        "auto_plan_schedule_invalid_unknown_key": "Nepoznato polje u terminu.",
+        "auto_plan_schedule_invalid_preferred_workers_not_a_list": "Preferirani radnici moraju biti lista imena.",
+        "auto_plan_schedule_invalid_too_many_preferred_workers": "Previse preferiranih radnika u terminu.",
+        "auto_plan_schedule_invalid_preferred_worker_not_string": "Ime radnika mora biti tekst.",
+        "auto_plan_schedule_invalid_preferred_worker_empty": "Ime radnika ne smije biti prazno.",
+        "auto_plan_schedule_invalid_preferred_worker_duplicate": "Isti radnik ne moze biti dva puta u istom terminu.",
+        "auto_plan_schedule_invalid_monthly_week_not_allowed": "Polje 'sedmica u mjesecu' je dozvoljeno samo za mjesecne termine.",
+        "auto_plan_schedule_invalid_custom_interval_not_allowed": "Polje 'interval' je dozvoljeno samo za prilagodene termine.",
+        "auto_plan_schedule_invalid_overlapping_entries": "Dva termina istog klijenta istog dana se preklapaju.",
+        "auto_plan_schedule_invalid_unknown_worker": "Preferirani radnik ne postoji vise u sistemu.",
         "auto_plan_confidence_tooltip": "Zabiljezene pojave u odnosu na ocekivane u analiziranom periodu.",
         "auto_plan_unknown_status_ignored": "Nepoznati statusi ignorisani",
         "auto_plan_write_refused": "Automatsko planiranje nije u rezimu upisivanja: nijedan rad, prijedlog ni zakljucavanje ne moze biti upisano.",
@@ -3299,6 +3312,19 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_schedule_invalid_anchor_weekday_mismatch": "La date d ancrage ne correspond pas au jour choisi.",
         "auto_plan_schedule_invalid_bad_monthly_week": "La semaine du mois doit etre 1-4 ou -1.",
         "auto_plan_schedule_invalid_bad_custom_interval": "L intervalle doit etre entre 2 et 52 semaines.",
+        "auto_plan_schedule_invalid_not_a_list": "L horaire doit etre une liste de creneaux.",
+        "auto_plan_schedule_invalid_too_many_entries": "Trop de creneaux dans l horaire.",
+        "auto_plan_schedule_invalid_entry_not_object": "Chaque creneau doit etre un objet.",
+        "auto_plan_schedule_invalid_unknown_key": "Champ inconnu dans un creneau.",
+        "auto_plan_schedule_invalid_preferred_workers_not_a_list": "Les employes preferes doivent etre une liste de noms.",
+        "auto_plan_schedule_invalid_too_many_preferred_workers": "Trop d employes preferes dans un creneau.",
+        "auto_plan_schedule_invalid_preferred_worker_not_string": "Le nom de l employe doit etre du texte.",
+        "auto_plan_schedule_invalid_preferred_worker_empty": "Le nom de l employe ne peut etre vide.",
+        "auto_plan_schedule_invalid_preferred_worker_duplicate": "Le meme employe ne peut figurer deux fois dans un creneau.",
+        "auto_plan_schedule_invalid_monthly_week_not_allowed": "Le champ 'semaine du mois' n est permis que pour les creneaux mensuels.",
+        "auto_plan_schedule_invalid_custom_interval_not_allowed": "Le champ 'intervalle' n est permis que pour les creneaux personnalises.",
+        "auto_plan_schedule_invalid_overlapping_entries": "Deux creneaux du meme client le meme jour se chevauchent.",
+        "auto_plan_schedule_invalid_unknown_worker": "L employe prefere n existe plus dans le systeme.",
         "auto_plan_confidence_tooltip": "Occurrences observées sur occurrences attendues dans la fenêtre analysée.",
         "auto_plan_unknown_status_ignored": "Statuts inconnus ignorés",
         "auto_plan_write_refused": "L'auto-planning n'est pas en mode écriture : aucune intervention, proposition, ou verrou ne peut être enregistré.",
@@ -3364,6 +3390,19 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_schedule_invalid_anchor_weekday_mismatch": "Anchor date does not match the chosen weekday.",
         "auto_plan_schedule_invalid_bad_monthly_week": "Week of month must be 1-4 or -1.",
         "auto_plan_schedule_invalid_bad_custom_interval": "Interval must be between 2 and 52 weeks.",
+        "auto_plan_schedule_invalid_not_a_list": "Schedule must be a list of visits.",
+        "auto_plan_schedule_invalid_too_many_entries": "Too many visits in the schedule.",
+        "auto_plan_schedule_invalid_entry_not_object": "Each visit must be an object.",
+        "auto_plan_schedule_invalid_unknown_key": "Unknown field in a visit.",
+        "auto_plan_schedule_invalid_preferred_workers_not_a_list": "Preferred workers must be a list of names.",
+        "auto_plan_schedule_invalid_too_many_preferred_workers": "Too many preferred workers for one visit.",
+        "auto_plan_schedule_invalid_preferred_worker_not_string": "Worker name must be text.",
+        "auto_plan_schedule_invalid_preferred_worker_empty": "Worker name cannot be empty.",
+        "auto_plan_schedule_invalid_preferred_worker_duplicate": "The same worker cannot appear twice in one visit.",
+        "auto_plan_schedule_invalid_monthly_week_not_allowed": "'Week of month' is allowed only on monthly visits.",
+        "auto_plan_schedule_invalid_custom_interval_not_allowed": "'Interval' is allowed only on custom visits.",
+        "auto_plan_schedule_invalid_overlapping_entries": "Two visits of the same client on the same day overlap.",
+        "auto_plan_schedule_invalid_unknown_worker": "Preferred worker no longer exists in the system.",
         "auto_plan_confidence_tooltip": "Observed occurrences against the number expected over the analysed window.",
         "auto_plan_unknown_status_ignored": "Unknown statuses ignored",
         "auto_plan_write_refused": "Auto-planning is not in write mode: no shift, proposal, draft or lock can be written.",
@@ -3429,6 +3468,19 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_schedule_invalid_anchor_weekday_mismatch": "Ankerdatum passt nicht zum gewaehlten Wochentag.",
         "auto_plan_schedule_invalid_bad_monthly_week": "Woche im Monat muss 1-4 oder -1 sein.",
         "auto_plan_schedule_invalid_bad_custom_interval": "Intervall muss zwischen 2 und 52 Wochen liegen.",
+        "auto_plan_schedule_invalid_not_a_list": "Zeitplan muss eine Liste von Terminen sein.",
+        "auto_plan_schedule_invalid_too_many_entries": "Zu viele Termine im Zeitplan.",
+        "auto_plan_schedule_invalid_entry_not_object": "Jeder Termin muss ein Objekt sein.",
+        "auto_plan_schedule_invalid_unknown_key": "Unbekanntes Feld in einem Termin.",
+        "auto_plan_schedule_invalid_preferred_workers_not_a_list": "Bevorzugte Mitarbeiter muessen eine Liste von Namen sein.",
+        "auto_plan_schedule_invalid_too_many_preferred_workers": "Zu viele bevorzugte Mitarbeiter in einem Termin.",
+        "auto_plan_schedule_invalid_preferred_worker_not_string": "Mitarbeitername muss Text sein.",
+        "auto_plan_schedule_invalid_preferred_worker_empty": "Mitarbeitername darf nicht leer sein.",
+        "auto_plan_schedule_invalid_preferred_worker_duplicate": "Derselbe Mitarbeiter kann in einem Termin nicht zweimal erscheinen.",
+        "auto_plan_schedule_invalid_monthly_week_not_allowed": "Feld 'Woche im Monat' ist nur fuer monatliche Termine erlaubt.",
+        "auto_plan_schedule_invalid_custom_interval_not_allowed": "Feld 'Intervall' ist nur fuer benutzerdefinierte Termine erlaubt.",
+        "auto_plan_schedule_invalid_overlapping_entries": "Zwei Termine desselben Kunden am gleichen Tag ueberschneiden sich.",
+        "auto_plan_schedule_invalid_unknown_worker": "Bevorzugter Mitarbeiter existiert nicht mehr im System.",
         "auto_plan_confidence_tooltip": "Beobachtete Vorkommen gegenueber den erwarteten im Analysefenster.",
         "auto_plan_unknown_status_ignored": "Unbekannte Statuswerte ignoriert",
         "auto_plan_write_refused": "Auto-Planung nicht im Schreibmodus: keine Schicht, Vorschlag, Entwurf oder Sperre kann geschrieben werden.",
@@ -3494,6 +3546,19 @@ AUTO_PLANNING_PHASE7_TRANSLATIONS = {
         "auto_plan_schedule_invalid_anchor_weekday_mismatch": "A data ancora nao corresponde ao dia da semana escolhido.",
         "auto_plan_schedule_invalid_bad_monthly_week": "A semana do mes deve ser 1-4 ou -1.",
         "auto_plan_schedule_invalid_bad_custom_interval": "O intervalo deve estar entre 2 e 52 semanas.",
+        "auto_plan_schedule_invalid_not_a_list": "O horario deve ser uma lista de visitas.",
+        "auto_plan_schedule_invalid_too_many_entries": "Demasiadas visitas no horario.",
+        "auto_plan_schedule_invalid_entry_not_object": "Cada visita deve ser um objeto.",
+        "auto_plan_schedule_invalid_unknown_key": "Campo desconhecido numa visita.",
+        "auto_plan_schedule_invalid_preferred_workers_not_a_list": "Trabalhadores preferidos devem ser uma lista de nomes.",
+        "auto_plan_schedule_invalid_too_many_preferred_workers": "Demasiados trabalhadores preferidos numa visita.",
+        "auto_plan_schedule_invalid_preferred_worker_not_string": "O nome do trabalhador deve ser texto.",
+        "auto_plan_schedule_invalid_preferred_worker_empty": "O nome do trabalhador nao pode estar vazio.",
+        "auto_plan_schedule_invalid_preferred_worker_duplicate": "O mesmo trabalhador nao pode aparecer duas vezes numa visita.",
+        "auto_plan_schedule_invalid_monthly_week_not_allowed": "O campo 'semana do mes' so e permitido em visitas mensais.",
+        "auto_plan_schedule_invalid_custom_interval_not_allowed": "O campo 'intervalo' so e permitido em visitas personalizadas.",
+        "auto_plan_schedule_invalid_overlapping_entries": "Duas visitas do mesmo cliente no mesmo dia sobrepoem-se.",
+        "auto_plan_schedule_invalid_unknown_worker": "O trabalhador preferido ja nao existe no sistema.",
         "auto_plan_confidence_tooltip": "Ocorrências observadas em relação às esperadas na janela analisada.",
         "auto_plan_unknown_status_ignored": "Estados desconhecidos ignorados",
         "auto_plan_write_refused": "Auto-planeamento não está em modo de escrita: nenhum serviço, proposta ou bloqueio pode ser gravado.",
@@ -4934,7 +4999,7 @@ def _parse_iso_date(value):
         return None
 
 
-def parse_client_cleaning_frequency(raw):
+def parse_client_cleaning_frequency(raw, known_workers=None):
     """Return the canonical list of visit specs for a client.
 
     * Empty string / None / whitespace-only → ``[]`` (meaning "no
@@ -4946,6 +5011,17 @@ def parse_client_cleaning_frequency(raw):
       maps to a translated error message.
     * The function NEVER partially persists: either the whole list
       validates or nothing is accepted.
+
+    ``known_workers`` — optional iterable of worker names currently
+    present in the ``workers`` table. When provided, each entry's
+    ``preferred_workers`` is checked for membership and an unknown
+    name raises ``unknown_worker``. When ``None`` (the default), the
+    membership check is skipped: this is what callers that already
+    hold a validated list, and unit tests that exercise the schema
+    only, want. The GET /edit_client path NEVER re-validates on read,
+    so a worker deleted AFTER the schedule was saved does not silently
+    wipe the row — the stored JSON is round-tripped unchanged and only
+    a fresh save requires every preferred_worker to still exist.
     """
     if raw is None:
         return []
@@ -4992,6 +5068,9 @@ def parse_client_cleaning_frequency(raw):
             _schedule_fail("preferred_workers_not_a_list")
         if len(preferred) > AP_SCHEDULE_MAX_WORKERS_PER_ENTRY:
             _schedule_fail("too_many_preferred_workers")
+        known_workers_set = None
+        if known_workers is not None:
+            known_workers_set = {w for w in known_workers}
         preferred_clean = []
         for name in preferred:
             if not isinstance(name, str):
@@ -5001,6 +5080,9 @@ def parse_client_cleaning_frequency(raw):
                 _schedule_fail("preferred_worker_empty")
             if trimmed in preferred_clean:
                 _schedule_fail("preferred_worker_duplicate", trimmed)
+            if known_workers_set is not None \
+               and trimmed not in known_workers_set:
+                _schedule_fail("unknown_worker", trimmed)
             preferred_clean.append(trimmed)
 
         anchor_raw = entry.get("anchor_date", "")
@@ -5051,8 +5133,41 @@ def parse_client_cleaning_frequency(raw):
             canonical_entry["monthly_week"] = monthly_week
         if kind == "custom":
             canonical_entry["custom_interval_weeks"] = custom_interval
+        # Keep per-entry minutes alongside the canonical dict so the
+        # overlap pass below runs on parsed integers (no second trip
+        # through ``_parse_hhmm``).
+        canonical_entry["_start_m"] = start_m
+        canonical_entry["_end_m"] = end_m
         canonical.append(canonical_entry)
 
+    # Reject overlapping time ranges for the SAME weekday. Two visits
+    # on the same day are legitimate (morning + afternoon), but if
+    # their [start, end) windows intersect the admin almost certainly
+    # mistyped one of them, and the engine (Phase 3) would end up
+    # proposing two overlapping shifts for one client with no way to
+    # pick between them. Open-ended semantics: adjacent ranges (one
+    # ends exactly when the other starts) are allowed.
+    by_weekday = {}
+    for entry in canonical:
+        by_weekday.setdefault(entry["weekday"], []).append(entry)
+    for weekday, entries in by_weekday.items():
+        entries.sort(key=lambda e: e["_start_m"])
+        for i in range(1, len(entries)):
+            prev = entries[i - 1]
+            cur = entries[i]
+            if cur["_start_m"] < prev["_end_m"]:
+                _schedule_fail(
+                    "overlapping_entries",
+                    f"weekday={weekday} "
+                    f"{prev['start']}-{prev['end']} vs "
+                    f"{cur['start']}-{cur['end']}",
+                )
+
+    # Strip the helper keys before returning so the canonical shape
+    # matches the stored JSON (and the round-trip property holds).
+    for entry in canonical:
+        entry.pop("_start_m", None)
+        entry.pop("_end_m", None)
     return canonical
 
 
@@ -17647,9 +17762,21 @@ def edit_client(name):
         if schedule_raw is not _SCHED_MISSING \
            and isinstance(schedule_raw, str) \
            and schedule_raw.strip() != "":
+            # Pass the live workers list so a save that references a
+            # worker who has since been deleted fails cleanly (and
+            # loudly) instead of silently persisting a dangling name.
+            # Stored schedules referencing a now-deleted worker survive
+            # untouched until the admin edits them — the GET path never
+            # re-validates — so a worker delete is NOT a destructive
+            # action for already-persisted schedules.
             try:
+                known_names = {
+                    r[0] for r in c.execute(
+                        "SELECT name FROM workers"
+                    ).fetchall()
+                }
                 schedule_entries = parse_client_cleaning_frequency(
-                    schedule_raw,
+                    schedule_raw, known_workers=known_names,
                 )
             except ClientScheduleInvalid as exc:
                 conn.close()
@@ -18402,7 +18529,24 @@ def add_client():
         cleaning_frequency_val = ""
     else:
         try:
-            schedule_entries = parse_client_cleaning_frequency(schedule_raw)
+            # Live workers list guards against a schedule that names a
+            # worker who was deleted between the form render and the
+            # POST; mirrors the same check in /edit_client. The query
+            # is cheap (workers table is small) and runs on a fresh
+            # cursor so a bad schedule bails before any INSERT.
+            _check_conn = get_conn()
+            try:
+                _check_cur = _check_conn.cursor()
+                known_names_add = {
+                    r[0] for r in _check_cur.execute(
+                        "SELECT name FROM workers"
+                    ).fetchall()
+                }
+            finally:
+                _check_conn.close()
+            schedule_entries = parse_client_cleaning_frequency(
+                schedule_raw, known_workers=known_names_add,
+            )
         except ClientScheduleInvalid as exc:
             flash(tr.get(
                 "auto_plan_schedule_invalid_" + exc.code,

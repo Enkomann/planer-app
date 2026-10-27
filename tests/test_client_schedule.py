@@ -282,6 +282,97 @@ class ParseInvalidTests(unittest.TestCase):
         }]), "preferred_workers_not_a_list")
 
 
+class OverlapTests(unittest.TestCase):
+    """Server-side overlap check for the SAME weekday."""
+
+    def _entry(self, weekday, start, end):
+        return {
+            "kind": "weekly", "weekday": weekday,
+            "start": start, "end": end,
+            "preferred_workers": [],
+        }
+
+    def test_two_overlapping_same_weekday_rejected(self):
+        with self.assertRaises(app.ClientScheduleInvalid) as ctx:
+            app.parse_client_cleaning_frequency(json.dumps([
+                self._entry(1, "08:00", "11:00"),
+                self._entry(1, "10:00", "12:00"),
+            ]))
+        self.assertEqual(ctx.exception.code, "overlapping_entries")
+
+    def test_two_adjacent_same_weekday_allowed(self):
+        # end == next start → not an overlap.
+        parsed = app.parse_client_cleaning_frequency(json.dumps([
+            self._entry(2, "08:00", "10:00"),
+            self._entry(2, "10:00", "12:00"),
+        ]))
+        self.assertEqual(len(parsed), 2)
+
+    def test_two_disjoint_same_weekday_allowed(self):
+        parsed = app.parse_client_cleaning_frequency(json.dumps([
+            self._entry(3, "08:00", "10:00"),
+            self._entry(3, "14:00", "16:00"),
+        ]))
+        self.assertEqual(len(parsed), 2)
+
+    def test_overlap_only_within_same_weekday(self):
+        parsed = app.parse_client_cleaning_frequency(json.dumps([
+            self._entry(1, "08:00", "11:00"),
+            self._entry(2, "10:00", "12:00"),  # Tuesday — no conflict
+        ]))
+        self.assertEqual(len(parsed), 2)
+
+    def test_overlap_detected_regardless_of_input_order(self):
+        with self.assertRaises(app.ClientScheduleInvalid) as ctx:
+            app.parse_client_cleaning_frequency(json.dumps([
+                self._entry(0, "12:00", "14:00"),
+                self._entry(0, "11:00", "13:00"),
+            ]))
+        self.assertEqual(ctx.exception.code, "overlapping_entries")
+
+
+class KnownWorkersTests(unittest.TestCase):
+    """`known_workers` kwarg: unknown name on save is rejected; the
+    parser called WITHOUT the kwarg (the GET /edit_client re-read
+    path) must stay silent so stored schedules survive worker deletes.
+    """
+
+    def _entry(self, workers):
+        return [{
+            "kind": "weekly", "weekday": 0,
+            "start": "08:00", "end": "10:00",
+            "preferred_workers": workers,
+        }]
+
+    def test_unknown_worker_rejected_when_list_passed(self):
+        raw = json.dumps(self._entry(["Ghost"]))
+        with self.assertRaises(app.ClientScheduleInvalid) as ctx:
+            app.parse_client_cleaning_frequency(
+                raw, known_workers={"Aida", "Mila"},
+            )
+        self.assertEqual(ctx.exception.code, "unknown_worker")
+
+    def test_known_worker_accepted(self):
+        raw = json.dumps(self._entry(["Aida"]))
+        parsed = app.parse_client_cleaning_frequency(
+            raw, known_workers={"Aida", "Mila"},
+        )
+        self.assertEqual(parsed[0]["preferred_workers"], ["Aida"])
+
+    def test_no_known_workers_arg_skips_check(self):
+        # Caller omitted the kwarg → the parser must not enforce
+        # existence (used by any read-path that only wants to decode).
+        raw = json.dumps(self._entry(["No Longer Here"]))
+        parsed = app.parse_client_cleaning_frequency(raw)
+        self.assertEqual(parsed[0]["preferred_workers"], ["No Longer Here"])
+
+    def test_empty_known_workers_set_rejects_any_named_worker(self):
+        raw = json.dumps(self._entry(["Aida"]))
+        with self.assertRaises(app.ClientScheduleInvalid) as ctx:
+            app.parse_client_cleaning_frequency(raw, known_workers=set())
+        self.assertEqual(ctx.exception.code, "unknown_worker")
+
+
 class SchemaMigrationTests(unittest.TestCase):
     """``init_db`` adds ``cleaning_frequency`` once and is idempotent."""
 
@@ -336,6 +427,13 @@ class HttpFormTests(unittest.TestCase):
         self.assertEqual(self._row("QA Client"), "")
 
     def test_add_client_with_valid_schedule(self):
+        conn = app.get_conn()
+        conn.execute(
+            "INSERT INTO workers (name, contract_end_date) VALUES (?, '')",
+            ("Aida",),
+        )
+        conn.commit()
+        conn.close()
         payload = json.dumps([{
             "kind": "weekly", "weekday": 2,
             "start": "08:00", "end": "11:00",
@@ -489,6 +587,119 @@ class HttpFormTests(unittest.TestCase):
         self.assertEqual(parsed[0]["kind"], "biweekly")
         self.assertEqual(parsed[0]["anchor_date"], "2026-01-05")
 
+    def test_add_client_rejects_unknown_preferred_worker(self):
+        payload = json.dumps([{
+            "kind": "weekly", "weekday": 2,
+            "start": "08:00", "end": "11:00",
+            "preferred_workers": ["Ghost"],
+        }])
+        resp = self.client.post("/add_client", data={
+            "client_name": "No Ghosts",
+            "address": "Rue 20",
+            "client_type": "private",
+            "hourly_rate": "30",
+            "vat_rate": "8",
+            "cleaning_frequency_json": payload,
+        })
+        self.assertIn(resp.status_code, (302, 303))
+        self.assertIsNone(self._row("No Ghosts"))
+
+    def test_add_client_accepts_known_preferred_worker(self):
+        conn = app.get_conn()
+        conn.execute(
+            "INSERT INTO workers (name, contract_end_date) VALUES (?, '')",
+            ("Aida",),
+        )
+        conn.commit()
+        conn.close()
+        payload = json.dumps([{
+            "kind": "weekly", "weekday": 2,
+            "start": "08:00", "end": "11:00",
+            "preferred_workers": ["Aida"],
+        }])
+        resp = self.client.post("/add_client", data={
+            "client_name": "Likes Aida",
+            "address": "Rue 21",
+            "client_type": "private",
+            "hourly_rate": "30",
+            "vat_rate": "8",
+            "cleaning_frequency_json": payload,
+        })
+        self.assertIn(resp.status_code, (302, 303))
+        stored = self._row("Likes Aida")
+        parsed = app.parse_client_cleaning_frequency(stored)
+        self.assertEqual(parsed[0]["preferred_workers"], ["Aida"])
+
+    def test_add_client_rejects_overlapping_entries(self):
+        payload = json.dumps([
+            {"kind": "weekly", "weekday": 1, "start": "08:00",
+             "end": "11:00", "preferred_workers": []},
+            {"kind": "weekly", "weekday": 1, "start": "10:00",
+             "end": "12:00", "preferred_workers": []},
+        ])
+        resp = self.client.post("/add_client", data={
+            "client_name": "Overlap Client",
+            "address": "Rue 22",
+            "client_type": "private",
+            "hourly_rate": "30",
+            "vat_rate": "8",
+            "cleaning_frequency_json": payload,
+        })
+        self.assertIn(resp.status_code, (302, 303))
+        self.assertIsNone(self._row("Overlap Client"))
+
+    def test_stored_schedule_survives_worker_delete_until_edit(self):
+        """A worker delete must NOT silently wipe a stored schedule.
+        The row stays untouched; only a fresh /edit_client save
+        requires every preferred_worker to still exist.
+        """
+        conn = app.get_conn()
+        conn.execute(
+            "INSERT INTO workers (name, contract_end_date) VALUES (?, '')",
+            ("Aida",),
+        )
+        conn.commit()
+        payload = json.dumps([{
+            "kind": "weekly", "weekday": 2,
+            "start": "08:00", "end": "11:00",
+            "preferred_workers": ["Aida"],
+        }])
+        serialized = app.serialize_client_cleaning_frequency(
+            app.parse_client_cleaning_frequency(payload),
+        )
+        conn.execute(
+            "INSERT INTO clients (name, address, cleaning_frequency) "
+            "VALUES (?,?,?)", ("Stable Client", "Rue 30", serialized),
+        )
+        conn.commit()
+        # Now Aida leaves the company.
+        conn.execute("DELETE FROM workers WHERE name=?", ("Aida",))
+        conn.commit()
+        conn.close()
+        # 1. Row still has the full schedule (no auto-cleanup).
+        self.assertEqual(self._row("Stable Client"), serialized)
+        # 2. GET renders without touching the stored JSON.
+        resp = self.client.get(
+            "/edit_client/" + urllib.parse.quote("Stable Client"),
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(self._row("Stable Client"), serialized)
+        # 3. A fresh save that KEEPS the now-missing Aida is rejected
+        #    (admin must either re-add Aida or drop her from the pick).
+        resp = self.client.post(
+            "/edit_client/" + urllib.parse.quote("Stable Client"),
+            data={
+                "name": "Stable Client",
+                "address": "Rue 30",
+                "client_type": "private",
+                "hourly_rate": "25",
+                "vat_rate": "8",
+                "cleaning_frequency_json": payload,
+            },
+        )
+        self.assertIn(resp.status_code, (302, 303))
+        self.assertEqual(self._row("Stable Client"), serialized)
+
     def test_non_admin_cannot_add(self):
         worker = app.app.test_client()
         with worker.session_transaction() as sess:
@@ -533,6 +744,20 @@ class TranslationCoverageTests(unittest.TestCase):
         "auto_plan_schedule_invalid_anchor_weekday_mismatch",
         "auto_plan_schedule_invalid_bad_monthly_week",
         "auto_plan_schedule_invalid_bad_custom_interval",
+        # Added together with the new parser cases.
+        "auto_plan_schedule_invalid_not_a_list",
+        "auto_plan_schedule_invalid_too_many_entries",
+        "auto_plan_schedule_invalid_entry_not_object",
+        "auto_plan_schedule_invalid_unknown_key",
+        "auto_plan_schedule_invalid_preferred_workers_not_a_list",
+        "auto_plan_schedule_invalid_too_many_preferred_workers",
+        "auto_plan_schedule_invalid_preferred_worker_not_string",
+        "auto_plan_schedule_invalid_preferred_worker_empty",
+        "auto_plan_schedule_invalid_preferred_worker_duplicate",
+        "auto_plan_schedule_invalid_monthly_week_not_allowed",
+        "auto_plan_schedule_invalid_custom_interval_not_allowed",
+        "auto_plan_schedule_invalid_overlapping_entries",
+        "auto_plan_schedule_invalid_unknown_worker",
     ]
 
     def test_all_five_languages_have_every_key(self):
