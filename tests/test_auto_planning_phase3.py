@@ -284,20 +284,31 @@ class CombinedGeneratorPrecedenceTests(unittest.TestCase):
 
 
 class AvailabilityWarningTests(unittest.TestCase):
+    """``ap_run_checks`` must surface outside_working_hours whenever
+    a WORKER is already assigned to a proposal and the stored
+    availability rejects the slot. We construct proposals manually
+    so the smart-pick (which legitimately drops such workers) does
+    not pre-filter them out of the test subject."""
+
     def setUp(self):
         _reset_tables()
 
     def _check_with_av(self, av):
         _seed_worker("Aida", availability=av)
-        _seed_client("Omicron", json.dumps([{
-            "kind": "weekly", "weekday": 1,  # Tuesday
-            "start": "13:00", "end": "15:00",
-            "preferred_workers": ["Aida"],
-        }]))
+        _seed_client("Omicron")
+        proposal = {
+            "target_date": TUESDAY,
+            "time": "13:00-15:00",
+            "client": "Omicron", "worker": "Aida",
+            "source": "history",
+            "recurrence_period": 1, "confidence": 1.0,
+            "occurrences": 1, "duration_hours": 2.0,
+            "requires_manual_validation": False,
+            "issues": [],
+        }
         conn = app.get_conn()
         try:
-            props = app.ap_generate_combined_proposals(conn, MONDAY)
-            return app.ap_run_checks(conn, props, MONDAY)
+            return app.ap_run_checks(conn, [proposal], MONDAY)
         finally:
             conn.close()
 
@@ -384,23 +395,29 @@ class CorruptAvailabilityTests(unittest.TestCase):
         _reset_tables()
 
     def test_corrupt_availability_adds_blocking_issue(self):
+        """When a worker is already assigned to a proposal (manually
+        or from history) and their stored availability JSON is
+        corrupt, ap_run_checks must surface a BLOCKING issue."""
         _seed_worker("Aida", availability="not{json")
-        _seed_client("Sigma", json.dumps([{
-            "kind": "weekly", "weekday": 1,
-            "start": "08:00", "end": "11:00",
-            "preferred_workers": ["Aida"],
-        }]))
+        _seed_client("Sigma")
+        proposal = {
+            "target_date": TUESDAY,
+            "time": "08:00-11:00",
+            "client": "Sigma", "worker": "Aida",
+            "source": "history",
+            "recurrence_period": 1, "confidence": 1.0,
+            "occurrences": 1, "duration_hours": 3.0,
+            "requires_manual_validation": False,
+            "issues": [],
+        }
         conn = app.get_conn()
         try:
-            props = app.ap_generate_combined_proposals(conn, MONDAY)
-            checked = app.ap_run_checks(conn, props, MONDAY)
+            checked = app.ap_run_checks(conn, [proposal], MONDAY)
         finally:
             conn.close()
-        sigma = [p for p in checked if p["client"] == "Sigma"]
-        self.assertEqual(len(sigma), 1)
-        codes = [i["code"] for i in sigma[0]["issues"]]
+        codes = [i["code"] for i in checked[0]["issues"]]
         self.assertIn("worker_availability_invalid", codes)
-        self.assertTrue(sigma[0]["has_blocking_issues"])
+        self.assertTrue(checked[0]["has_blocking_issues"])
 
 
 class OutsideHoursConfirmationTests(unittest.TestCase):
@@ -411,24 +428,42 @@ class OutsideHoursConfirmationTests(unittest.TestCase):
         _reset_tables()
 
     def _build_outside_proposal(self):
+        # Note: the smart worker picker in ap_project_from_schedule
+        # intentionally skips Aida here because the configured
+        # availability (08–12) doesn't match a 13–15 shift. The
+        # outside_working_hours WARNING case is therefore the one
+        # where an admin manually assigns Aida AFTER review (or an
+        # old history proposal recovers her). To test the warning +
+        # confirm path we construct the proposal explicitly and run
+        # it through ap_run_checks, which is exactly what every
+        # apply pre-flight does.
         _seed_worker("Aida", availability=json.dumps({
             "tue": [{"start": "08:00", "end": "12:00"}],
         }))
-        _seed_client("Tau", json.dumps([{
-            "kind": "weekly", "weekday": 1,  # Tuesday
-            "start": "13:00", "end": "15:00",
-            "preferred_workers": ["Aida"],
-        }]))
+        _seed_client("Tau")
         return app.get_conn()
+
+    def _manual_proposal(self):
+        return {
+            "target_date": TUESDAY,
+            "time": "13:00-15:00",
+            "client": "Tau", "worker": "Aida",
+            "source": "history",
+            "recurrence_period": 1, "confidence": 1.0,
+            "occurrences": 1, "duration_hours": 2.0,
+            "requires_manual_validation": False,
+            "issues": [],
+        }
 
     def test_unconfirmed_outside_hours_blocks(self):
         conn = self._build_outside_proposal()
         try:
-            props = app.ap_generate_combined_proposals(conn, MONDAY)
-            checked = app.ap_run_checks(conn, props, MONDAY)
+            checked = app.ap_run_checks(
+                conn, [self._manual_proposal()], MONDAY,
+            )
         finally:
             conn.close()
-        tau = [p for p in checked if p["client"] == "Tau"][0]
+        tau = checked[0]
         codes = {i["code"] for i in tau["issues"]}
         self.assertIn("outside_working_hours", codes)
         self.assertIn("outside_working_hours_unconfirmed", codes)
@@ -436,15 +471,13 @@ class OutsideHoursConfirmationTests(unittest.TestCase):
 
     def test_confirmed_outside_hours_does_not_block(self):
         conn = self._build_outside_proposal()
+        prop = self._manual_proposal()
+        prop["outside_hours_confirmed"] = 1
         try:
-            props = app.ap_generate_combined_proposals(conn, MONDAY)
-            for p in props:
-                # Simulate the admin toggling the stored flag.
-                p["outside_hours_confirmed"] = 1
-            checked = app.ap_run_checks(conn, props, MONDAY)
+            checked = app.ap_run_checks(conn, [prop], MONDAY)
         finally:
             conn.close()
-        tau = [p for p in checked if p["client"] == "Tau"][0]
+        tau = checked[0]
         codes = {i["code"] for i in tau["issues"]}
         self.assertIn("outside_working_hours", codes)
         self.assertNotIn("outside_working_hours_unconfirmed", codes)
@@ -454,12 +487,9 @@ class OutsideHoursConfirmationTests(unittest.TestCase):
         """
         conn = self._build_outside_proposal()
         try:
-            # Generate + save a draft, then confirm the row, then
-            # edit the time: the confirmation must be gone.
-            props = app.ap_generate_combined_proposals(conn, MONDAY)
-            checked = app.ap_run_checks(conn, props, MONDAY)
             batch_id = app.ap_create_draft(
-                conn, "admin", "owner-token", MONDAY, 8, False, checked,
+                conn, "admin", "owner-token", MONDAY, 8, False,
+                [self._manual_proposal()],
             )
             conn.commit()
             cur = conn.cursor()
@@ -468,13 +498,11 @@ class OutsideHoursConfirmationTests(unittest.TestCase):
                 (batch_id,),
             ).fetchone()
             pid = int(row[0])
-            # Mark confirmed.
             cur.execute(
                 "UPDATE shift_proposals SET outside_hours_confirmed=1 "
                 "WHERE id=?", (pid,),
             )
             conn.commit()
-            # Edit the time field through the official helper.
             app.ap_update_proposal_fields(
                 conn, {"id": batch_id}, pid, {
                     "worker": "Aida", "client": "Tau",
@@ -490,6 +518,261 @@ class OutsideHoursConfirmationTests(unittest.TestCase):
             self.assertEqual(flag, 0)
         finally:
             conn.close()
+
+
+class SmartWorkerPickTests(unittest.TestCase):
+    """P1-A round 2: auto-pick must also respect working hours,
+    existing shifts, and intra-batch conflicts."""
+
+    def setUp(self):
+        _reset_tables()
+
+    def test_skips_candidate_whose_availability_rejects_shift(self):
+        _seed_worker("Aida", availability=json.dumps({
+            "tue": [{"start": "08:00", "end": "12:00"}],
+        }))  # Aida only works mornings
+        _seed_worker("Mila")  # no availability constraint
+        _seed_client("Phi", json.dumps([{
+            "kind": "weekly", "weekday": 1,  # Tuesday
+            "start": "14:00", "end": "16:00",  # afternoon
+            "preferred_workers": ["Aida", "Mila"],
+        }]))
+        conn = app.get_conn()
+        try:
+            props = app.ap_generate_combined_proposals(conn, MONDAY)
+        finally:
+            conn.close()
+        self.assertEqual(props[0]["worker"], "Mila")
+
+    def test_skips_candidate_with_existing_shift_overlap(self):
+        _seed_worker("Aida")
+        _seed_worker("Mila")
+        _seed_client("Chi", json.dumps([{
+            "kind": "weekly", "weekday": 1,
+            "start": "09:00", "end": "11:00",
+            "preferred_workers": ["Aida", "Mila"],
+        }]))
+        conn = app.get_conn()
+        conn.execute(
+            "INSERT INTO shifts (worker, client, date, time, status) "
+            "VALUES ('Aida', 'OtherClient', ?, '10:00-12:00', 'planned')",
+            (TUESDAY,),
+        )
+        conn.commit()
+        try:
+            props = app.ap_generate_combined_proposals(conn, MONDAY)
+        finally:
+            conn.close()
+        self.assertEqual(props[0]["worker"], "Mila")
+
+    def test_intra_batch_conflict_pushes_to_next_candidate(self):
+        """Two schedule entries, same preferred list, same target
+        date, overlapping times — the second must NOT reuse the
+        first's worker."""
+        _seed_worker("Aida")
+        _seed_worker("Mila")
+        _seed_client("Psi", json.dumps([
+            {"kind": "weekly", "weekday": 1, "start": "09:00",
+             "end": "11:00", "preferred_workers": ["Aida", "Mila"]},
+        ]))
+        _seed_client("Psi2", json.dumps([
+            {"kind": "weekly", "weekday": 1, "start": "10:00",
+             "end": "12:00", "preferred_workers": ["Aida", "Mila"]},
+        ]))
+        conn = app.get_conn()
+        try:
+            props = app.ap_generate_combined_proposals(conn, MONDAY)
+        finally:
+            conn.close()
+        workers_assigned = sorted(p["worker"] for p in props)
+        self.assertEqual(workers_assigned, ["Aida", "Mila"])
+
+    def test_all_candidates_unavailable_leaves_manual_pick(self):
+        _seed_worker("Aida", availability=json.dumps({"tue": []}))
+        _seed_worker("Mila", availability=json.dumps({"tue": []}))
+        _seed_client("Omega", json.dumps([{
+            "kind": "weekly", "weekday": 1,
+            "start": "08:00", "end": "11:00",
+            "preferred_workers": ["Aida", "Mila"],
+        }]))
+        conn = app.get_conn()
+        try:
+            props = app.ap_generate_combined_proposals(conn, MONDAY)
+        finally:
+            conn.close()
+        self.assertEqual(props[0]["worker"], "")
+
+
+class ConfirmHttpTests(unittest.TestCase):
+    """Confirm / revoke outside-hours exception via the dedicated
+    POST endpoint. Verifies the toggle, the field-edit reset, and
+    that the endpoint does NOT bypass other blocking issues."""
+
+    def setUp(self):
+        _reset_tables()
+        self.client = app.app.test_client()
+        with self.client.session_transaction() as sess:
+            sess["user"] = "admin"
+            sess["role"] = "admin"
+            sess["lang"] = "en"
+        # Seed workers.availability so outside_working_hours triggers.
+        _seed_worker("Aida", availability=json.dumps({
+            "tue": [{"start": "08:00", "end": "12:00"}],
+        }))
+        _seed_client("Theta2", json.dumps([{
+            "kind": "weekly", "weekday": 1,  # Tuesday
+            "start": "13:00", "end": "15:00",
+            "preferred_workers": ["Aida"],
+        }]))
+
+    def _csrf(self):
+        resp = self.client.get("/plan/generate")
+        assert resp.status_code == 200
+        with self.client.session_transaction() as sess:
+            return sess[app.AP_CSRF_SESSION_KEY]
+
+    def _create_batch(self):
+        self.client.post("/plan/generate", data={
+            "target_week_start": MONDAY,
+            "lookback_weeks": "8",
+            "csrf_token": self._csrf(),
+        })
+        conn = app.get_conn()
+        try:
+            row = conn.execute(
+                "SELECT id FROM shift_proposal_batches "
+                "ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+            batch_id = int(row[0])
+            prop_row = conn.execute(
+                "SELECT id FROM shift_proposals WHERE batch_id=?",
+                (batch_id,),
+            ).fetchone()
+            return batch_id, int(prop_row[0])
+        finally:
+            conn.close()
+
+    def _flag(self, pid):
+        conn = app.get_conn()
+        try:
+            return int(conn.execute(
+                "SELECT outside_hours_confirmed FROM shift_proposals "
+                "WHERE id=?", (pid,),
+            ).fetchone()[0])
+        finally:
+            conn.close()
+
+    def test_confirm_sets_flag(self):
+        batch_id, pid = self._create_batch()
+        resp = self.client.post(
+            f"/plan/review/{batch_id}/proposal/{pid}/confirm_outside_hours",
+            data={"confirm": "1", "csrf_token": self._csrf()},
+        )
+        self.assertIn(resp.status_code, (302, 303))
+        self.assertEqual(self._flag(pid), 1)
+
+    def test_revoke_resets_flag(self):
+        batch_id, pid = self._create_batch()
+        self.client.post(
+            f"/plan/review/{batch_id}/proposal/{pid}/confirm_outside_hours",
+            data={"confirm": "1", "csrf_token": self._csrf()},
+        )
+        self.client.post(
+            f"/plan/review/{batch_id}/proposal/{pid}/confirm_outside_hours",
+            data={"confirm": "0", "csrf_token": self._csrf()},
+        )
+        self.assertEqual(self._flag(pid), 0)
+
+    def test_field_edit_resets_confirmation_http(self):
+        batch_id, pid = self._create_batch()
+        self.client.post(
+            f"/plan/review/{batch_id}/proposal/{pid}/confirm_outside_hours",
+            data={"confirm": "1", "csrf_token": self._csrf()},
+        )
+        self.assertEqual(self._flag(pid), 1)
+        # Edit the time via the official update route.
+        self.client.post(
+            f"/plan/review/{batch_id}/proposal/{pid}/update",
+            data={
+                "action": "save",
+                "client": "Theta2",
+                "workers": "Aida",
+                "target_date": TUESDAY,
+                "start_time": "14:00",
+                "end_time": "16:00",
+                "csrf_token": self._csrf(),
+            },
+        )
+        self.assertEqual(self._flag(pid), 0)
+
+    def test_confirm_does_not_bypass_other_blocking(self):
+        """A proposal with ANOTHER blocking issue (an absence of the
+        currently-assigned worker) must stay blocked even after the
+        outside-hours confirmation.
+        """
+        batch_id, pid = self._create_batch()
+        # The auto-picker left worker='' because of Aida's 08-12
+        # availability. Admin manually assigns Aida (the exact
+        # override path) so the absence check has a target.
+        self.client.post(
+            f"/plan/review/{batch_id}/proposal/{pid}/update",
+            data={
+                "action": "save",
+                "client": "Theta2", "workers": "Aida",
+                "target_date": TUESDAY,
+                "start_time": "13:00", "end_time": "15:00",
+                "csrf_token": self._csrf(),
+            },
+        )
+        # Add an absence for Aida, then confirm outside-hours.
+        conn = app.get_conn()
+        conn.execute(
+            "INSERT INTO absences (worker, type, date_from, date_to, note) "
+            "VALUES ('Aida', 'sick', ?, ?, '')", (TUESDAY, TUESDAY),
+        )
+        conn.commit()
+        conn.close()
+        self.client.post(
+            f"/plan/review/{batch_id}/proposal/{pid}/confirm_outside_hours",
+            data={"confirm": "1", "csrf_token": self._csrf()},
+        )
+        conn = app.get_conn()
+        try:
+            props = app.ap_load_draft_proposals(conn, batch_id)
+            checked = app.ap_run_checks(conn, props, MONDAY)
+        finally:
+            conn.close()
+        codes = {i["code"] for p in checked for i in p["issues"]}
+        self.assertIn("absence", codes)
+        self.assertTrue(checked[0]["has_blocking_issues"])
+
+    def test_review_page_shows_source_and_toggle(self):
+        """Source badge AND the confirm/revoke form must render in
+        the review page HTML. We force an outside_working_hours
+        warning by assigning Aida manually (which is what admin
+        would do when the auto-picker left the proposal unassigned
+        because the configured availability rejects the slot).
+        """
+        batch_id, pid = self._create_batch()
+        # The /plan/generate created a schedule-sourced proposal
+        # with worker="" because Aida's availability (08-12) rejects
+        # the 13-15 slot. Manually assign her through the update
+        # route — that's exactly the "admin override" path.
+        self.client.post(
+            f"/plan/review/{batch_id}/proposal/{pid}/update",
+            data={
+                "action": "save",
+                "client": "Theta2", "workers": "Aida",
+                "target_date": TUESDAY,
+                "start_time": "13:00", "end_time": "15:00",
+                "csrf_token": self._csrf(),
+            },
+        )
+        resp = self.client.get(f"/plan/review?batch={batch_id}")
+        self.assertEqual(resp.status_code, 200)
+        body = resp.data.decode("utf-8", errors="replace")
+        self.assertIn('data-source="schedule"', body)
+        self.assertIn("confirm_outside_hours", body)
 
 
 class SchemaMigrationTests(unittest.TestCase):

@@ -21807,14 +21807,24 @@ def ap_project_from_schedule(conn, target_week_start, now_known_workers=None):
     """Return (proposals, scheduled_clients) tuple.
 
     Each proposal has ``source="schedule"`` and the same shape the
-    history projector emits (``target_date``, ``time``, ``client``,
-    ``worker``, ``recurrence_period``, ``confidence``, ``occurrences``,
-    ``issues``). Preferred workers are kept on the proposal so the
-    review page can show them, and the FIRST preferred worker that
-    still exists becomes the default ``worker``. If every preferred
-    worker is unknown, the proposal keeps ``worker=""`` so
-    ``ap_run_checks`` surfaces ``worker_missing`` (admin picks
-    manually in the review page).
+    history projector emits.
+
+    Auto-worker-pick (Phase 3 round 2) considers, in order:
+      * worker still exists in the ``workers`` table,
+      * no ``absences`` row covering the target date,
+      * no approved ``leave_requests`` row covering the target date,
+      * stored ``workers.availability`` either empty OR allowing the
+        shift's time range on the target weekday (``outside_working_hours``
+        candidates are skipped),
+      * no overlap with an EXISTING shift already written for that
+        worker on that date,
+      * no overlap with ANOTHER schedule proposal we have already
+        committed to the SAME batch (in-batch conflict guard).
+
+    Only when EVERY preferred candidate is unavailable does the
+    proposal keep ``worker=""`` so ``ap_run_checks`` surfaces
+    ``worker_missing`` (blocking) and admin picks manually. We NEVER
+    automatically assign an unavailable worker.
     """
     week_start = _ap_date(target_week_start)
     if week_start.weekday() != 0:
@@ -21839,6 +21849,44 @@ def ap_project_from_schedule(conn, target_week_start, now_known_workers=None):
         ).fetchall()
     except Exception:
         return [], set()
+
+    # Pre-fetch availability + existing shifts across the target
+    # week once so the per-entry pick stays cheap. Keys are
+    # (worker_name, iso_date). Values are lists of (start_m, end_m)
+    # pairs; a shift that fails to parse is simply skipped.
+    week_start_date = _ap_date(target_week_start)
+    week_end_date = week_start_date + timedelta(days=6)
+    availability_rows = {}
+    try:
+        for name, raw in cur.execute(
+            "SELECT name, COALESCE(availability,'') FROM workers"
+        ).fetchall():
+            availability_rows[name] = raw or ""
+    except Exception:
+        pass
+
+    existing_by_worker_date = {}
+    try:
+        for worker_txt, iso_d, time_txt in cur.execute(
+            "SELECT worker, date, time FROM shifts "
+            "WHERE date >= ? AND date <= ?",
+            (week_start_date.isoformat(), week_end_date.isoformat()),
+        ).fetchall():
+            tb = _ap_time_bounds(time_txt)
+            if tb is None:
+                continue
+            for one_worker in split_workers(worker_txt or ""):
+                existing_by_worker_date.setdefault(
+                    (one_worker, iso_d), []
+                ).append(tb)
+    except Exception:
+        pass
+
+    # Running set of (worker, iso_date) → [(start_m, end_m), ...] for
+    # proposals we have already committed to THIS batch — guards
+    # against two schedule entries picking the same worker at
+    # overlapping times (the Codex "intra-batch conflict" case).
+    in_batch_assignments = {}
 
     proposals = []
     scheduled_clients = set()
@@ -21926,21 +21974,58 @@ def ap_project_from_schedule(conn, target_week_start, now_known_workers=None):
                                  if p not in now_known_workers]
             existing_preferred = [p for p in preferred
                                    if p in now_known_workers]
-            # Phase 3 P1 fix: among the preferred workers that still
-            # exist, skip anyone whose target_date clashes with an
-            # absence or an approved leave. Only when EVERY preferred
-            # option is unavailable (or none exists) does the
-            # proposal fall back to worker="" so admin picks one
-            # manually in the review page.
             target_iso = target_date.isoformat()
-            conflict_free = []
+            start_m_curr = _parse_hhmm(entry["start"])
+            end_m_curr = _parse_hhmm(entry["end"])
+            def _overlaps_any(bounds_list):
+                if start_m_curr is None or end_m_curr is None:
+                    return False
+                for s, e in bounds_list:
+                    if start_m_curr < e and s < end_m_curr:
+                        return True
+                return False
+
+            worker_name = ""
             for cand in existing_preferred:
+                # 1. absence / approved leave
                 if ap_check_absence(conn, cand, target_iso):
                     continue
                 if ap_check_leave_approved(conn, cand, target_iso):
                     continue
-                conflict_free.append(cand)
-            worker_name = conflict_free[0] if conflict_free else ""
+                # 2. working hours: skip when stored availability
+                # DEFINES that weekday and the shift doesn't fit.
+                av_raw = availability_rows.get(cand, "")
+                if av_raw:
+                    try:
+                        parse_worker_availability(av_raw)
+                    except WorkerAvailabilityInvalid:
+                        # Corrupt availability: do NOT silently pick
+                        # this worker. ap_run_checks will separately
+                        # surface the blocking issue if assigned.
+                        continue
+                    if check_shift_within_working_hours(
+                        av_raw, target_iso,
+                        entry["start"], entry["end"],
+                    ) == "outside_working_hours":
+                        continue
+                # 3. existing shift overlap on that date
+                if _overlaps_any(
+                    existing_by_worker_date.get((cand, target_iso), [])
+                ):
+                    continue
+                # 4. intra-batch overlap guard
+                if _overlaps_any(
+                    in_batch_assignments.get((cand, target_iso), [])
+                ):
+                    continue
+                worker_name = cand
+                break
+
+            if worker_name and start_m_curr is not None \
+               and end_m_curr is not None:
+                in_batch_assignments.setdefault(
+                    (worker_name, target_iso), []
+                ).append((start_m_curr, end_m_curr))
 
             start_time = entry["start"]
             end_time = entry["end"]
@@ -23424,6 +23509,15 @@ AUTO_PLAN_REVIEW_TEMPLATE = """
             <div class="apr-field"><label>{{ tr.get('time','Time') }}</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><input aria-label="{{ tr.get('start_time','Start') }}" data-field="start_time" name="start_time" type="time" step="60" value="{{ p.start_time }}" {% if batch_state != 'open' %}disabled{% endif %} required><input aria-label="{{ tr.get('end_time','End') }}" data-field="end_time" name="end_time" type="time" step="60" value="{{ p.end_time }}" {% if batch_state != 'open' %}disabled{% endif %} required></div></div>
             <div class="apr-summary">
               <span class="apr-status {{ p.status }}">{{ tr.get('auto_plan_status_' ~ p.status, p.status) }}</span>
+              {# Phase 3: show the SOURCE of each proposal — explicit
+                 client schedule or history-based inference. Legacy
+                 drafts (pre-column) carry source="" so the chip is
+                 omitted rather than rendering a misleading default. #}
+              {% if p.source == 'schedule' %}
+                <span class="apr-chip" data-source="schedule" style="background:#0f766e;color:#fff;">{{ tr.get('auto_plan_source_schedule','Contract schedule') }}</span>
+              {% elif p.source == 'history' %}
+                <span class="apr-chip" data-source="history" style="background:#64748b;color:#fff;">{{ tr.get('auto_plan_source_history','History') }}</span>
+              {% endif %}
               {% if not p.requires_manual_validation %}<span class="apr-chip valid">{{ tr.get('auto_plan_valid_proposal','Valid proposal') }}</span>{% endif %}
               <span class="apr-chip">{{ recurrence_label(p, tr) }}</span>
               <span class="apr-chip">{{ tr.get('auto_plan_duration','Duration') }} {{ p.duration_text }}</span>
@@ -23446,6 +23540,30 @@ AUTO_PLAN_REVIEW_TEMPLATE = """
             </div>
             {% endif %}
           </form>
+          {# Phase 3: outside_working_hours exception — admin
+             confirmation lives on its own small form so it hits the
+             dedicated confirm_outside_hours endpoint and never
+             silently flips a flag on the main save/accept path.
+             Shown ONLY when at least one outside_working_hours
+             warning is present on this proposal. The toggle is
+             reset server-side on any worker/date/time edit (see
+             ap_update_proposal_fields), so the badge below reflects
+             the stored flag as returned by ap_load_draft_proposals.
+          #}
+          {% set has_outside_hours = (p.issues | selectattr('code','equalto','outside_working_hours') | list | length) > 0 %}
+          {% if has_outside_hours and batch_state == 'open' and p.status != 'applied' %}
+            <form class="apr-outside-hours-form" method="post" action="{{ url_for('auto_plan_confirm_outside_hours', batch_id=batch.id, proposal_id=p.id) }}" style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              {% if p.outside_hours_confirmed %}
+                <span class="apr-chip" style="background:#16a34a;color:#fff;" data-outside-state="confirmed">✓ {{ tr.get('auto_plan_outside_hours_confirmed_badge', tr.get('auto_plan_outside_hours_confirmed','Outside-hours exception confirmed.')) }}</span>
+                <input type="hidden" name="confirm" value="0">
+                <button type="submit" class="reject">{{ tr.get('auto_plan_outside_hours_revoke_button', tr.get('auto_plan_outside_hours_revoke','Revoke exception')) }}</button>
+              {% else %}
+                <input type="hidden" name="confirm" value="1">
+                <button type="submit" class="accept" data-outside-state="pending">{{ tr.get('auto_plan_outside_hours_confirm_button', tr.get('auto_plan_outside_hours_confirm','Confirm outside-hours exception')) }}</button>
+              {% endif %}
+            </form>
+          {% endif %}
         </article>
         {% endfor %}{% else %}<div class="apr-day-empty">{{ tr.get('auto_plan_no_day_proposals','No proposals for this day.') }}</div>{% endif %}
       </section>
