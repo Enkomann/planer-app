@@ -18935,6 +18935,11 @@ def edit_client(name):
                 }
                 kindSel.addEventListener("change", visibility);
                 visibility();
+
+                // The row was built off-DOM; without this attach it is
+                // discarded and the "+ Dodaj termin" button silently
+                // produces 0 .cs-schedule-row elements (staging bug).
+                list.appendChild(row);
               });
             }
             function readRow(row) {

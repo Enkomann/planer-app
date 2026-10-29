@@ -171,6 +171,21 @@ class EditClientScheduleUiTests(unittest.TestCase):
         self.assertNotIn("INITIAL = cur", add_handler_region)
         self.assertNotIn("INITIAL =", add_handler_region)
 
+    def test_render_appends_row_to_list(self):
+        """Real root cause of the staging dead-button bug: the inline
+        render() built each row off-DOM but never attached it to the
+        #cs-schedule-list container. Every row was discarded, so the
+        click handler ran correctly, pushed to INITIAL, called
+        render() — and still produced 0 .cs-schedule-row elements.
+        Pin the attach so a future refactor can't drop it again."""
+        body = self._html()
+        # Isolate the render function body so the assertion cannot be
+        # satisfied by an appendChild somewhere ELSE on the page.
+        start = body.index("function render(entries)")
+        end = body.index("function readRow(row)", start)
+        render_body = body[start:end]
+        self.assertIn("list.appendChild(row)", render_body)
+
     def test_add_handler_does_not_prewalk_rows(self):
         """Regression for the staging-bug class: the previous handler
         pre-collected the live DOM via `rows.map(readRow)` BEFORE
